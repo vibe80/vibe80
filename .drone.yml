@@ -1,0 +1,33 @@
+---
+kind: pipeline
+type: kubernetes
+name: build
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: build_image
+    image: plugins/docker:20.14
+    settings:
+      username:
+        from_secret: registry_username
+      password:
+        from_secret: registry_token
+      registry: git.lab.adho.app
+      repo: git.lab.adho.app/mont5piques/m5chat
+      dockerfile: Dockerfile
+      context: .
+      mtu: 1440
+      cache_from:
+        - git.lab.adho.app/mont5piques/m5chat:latest
+      tags:
+        - ${DRONE_COMMIT_SHA:0:8}
+        - latest
+
+
+trigger:
+  event:
+    - push
+    - pull_request
