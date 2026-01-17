@@ -14,10 +14,21 @@ export class CodexAppServerClient extends EventEmitter {
   }
 
   async start() {
-    this.proc = spawn("codex", ["--dangerously-bypass-approvals-and-sandbox", "app-server"], {
-      cwd: this.cwd,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    this.proc = spawn(
+      "codex",
+      [
+        "--dangerously-bypass-approvals-and-sandbox",
+        "app-server",
+        "-c",
+        "sandbox_permissions=[\"workspace-write\", \"disk-full-read-access\"]",
+        "-c",
+        "sandbox_workspace_write.network_access=true",
+      ],
+      {
+        cwd: this.cwd,
+        stdio: ["pipe", "pipe", "pipe"],
+      }
+    );
 
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk) => this.#handleStdout(chunk));
@@ -33,6 +44,7 @@ export class CodexAppServerClient extends EventEmitter {
     });
 
     await this.#initialize();
+    await this.#configureSandbox();
     await this.#startThread();
     this.ready = true;
     this.emit("ready", { threadId: this.threadId });
@@ -111,11 +123,33 @@ export class CodexAppServerClient extends EventEmitter {
     });
   }
 
+  async #configureSandbox() {
+    await this.#sendRequest("config/batchWrite", {
+      edits: [
+        {
+          keyPath: "sandbox_mode",
+          mergeStrategy: "replace",
+          value: "workspace-write",
+        },
+        {
+          keyPath: "sandbox_workspace_write.writable_roots",
+          mergeStrategy: "replace",
+          value: [this.cwd],
+        },
+        {
+          keyPath: "sandbox_workspace_write.network_access",
+          mergeStrategy: "replace",
+          value: true,
+        },
+      ],
+    });
+  }
+
   async #startThread() {
     const result = await this.#sendRequest("thread/start", {
       cwd: this.cwd,
       approvalPolicy: "never",
-      sandbox: "workspace-write",
+      sandbox: "danger-full-access",
     });
 
     this.threadId = result.thread.id;
