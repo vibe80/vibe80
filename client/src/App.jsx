@@ -11,6 +11,8 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState("Connexion...");
+  const [processing, setProcessing] = useState(false);
+  const [activity, setActivity] = useState("");
   const [connected, setConnected] = useState(false);
   const socketRef = useRef(null);
   const listRef = useRef(null);
@@ -93,10 +95,50 @@ function App() {
 
       if (payload.type === "turn_error") {
         setStatus(`Erreur: ${payload.message}`);
+        setProcessing(false);
+        setActivity("");
       }
 
       if (payload.type === "error") {
         setStatus(payload.message || "Erreur inattendue");
+        setProcessing(false);
+        setActivity("");
+      }
+
+      if (payload.type === "turn_started") {
+        setProcessing(true);
+        setActivity("Traitement en cours...");
+      }
+
+      if (payload.type === "turn_completed") {
+        setProcessing(false);
+        setActivity("");
+      }
+
+      if (payload.type === "item_started") {
+        const { item } = payload;
+        if (!item?.type) {
+          return;
+        }
+        if (item.type === "commandExecution") {
+          setActivity(`Commande: ${item.command}`);
+          return;
+        }
+        if (item.type === "fileChange") {
+          setActivity("Application de modifications...");
+          return;
+        }
+        if (item.type === "mcpToolCall") {
+          setActivity(`Outil: ${item.tool}`);
+          return;
+        }
+        if (item.type === "reasoning") {
+          setActivity("Raisonnement...");
+          return;
+        }
+        if (item.type === "agentMessage") {
+          setActivity("Generation de reponse...");
+        }
       }
     });
 
@@ -139,10 +181,26 @@ function App() {
           <p className="eyebrow">m5chat</p>
           <h1>Conversation locale avec Codex</h1>
         </div>
-        <div className={`status ${connected ? "ok" : "down"}`}>
-          {status}
+        <div className="status-wrap">
+          <div className={`status ${connected ? "ok" : "down"}`}>
+            {status}
+          </div>
+          {processing && (
+            <div className="loader" title={activity || "Traitement..."}>
+              <span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
+            </div>
+          )}
         </div>
       </header>
+
+      {processing && (
+        <div className="activity">
+          <span className="activity-label">Action:</span>
+          <span>{activity || "Traitement en cours..."}</span>
+        </div>
+      )}
 
       <main className="chat" ref={listRef}>
         {messages.length === 0 && (

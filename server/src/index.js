@@ -70,6 +70,26 @@ client.on("notification", (message) => {
       });
       break;
     }
+    case "turn/started": {
+      const { turn, threadId } = message.params;
+      broadcast({
+        type: "turn_started",
+        threadId,
+        turnId: turn.id,
+        status: turn.status,
+      });
+      break;
+    }
+    case "item/started": {
+      const { item, turnId, threadId } = message.params;
+      broadcast({
+        type: "item_started",
+        threadId,
+        turnId,
+        item,
+      });
+      break;
+    }
     case "error": {
       const { error, threadId, turnId, willRetry } = message.params;
       broadcast({
