@@ -277,10 +277,11 @@ function App() {
       selectedPaths.length > 0
         ? `;; attachments: ${JSON.stringify(selectedPaths)}`
         : "";
-    const text = `${input.trim()}${suffix}`;
+    const displayText = input.trim();
+    const text = `${displayText}${suffix}`;
     setMessages((current) => [
       ...current,
-      { id: `user-${Date.now()}`, role: "user", text },
+      { id: `user-${Date.now()}`, role: "user", text: displayText },
     ]);
     socketRef.current.send(
       JSON.stringify({ type: "user_message", text })
