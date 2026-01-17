@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import MDEditor from "@uiw/react-md-editor";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import "@uiw/react-md-editor/markdown-editor.css";
+import "@uiw/react-markdown-preview/markdown.css";
 
 const wsUrl = () => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -359,18 +362,6 @@ function App() {
             ))}
           </main>
 
-          <form className="composer" onSubmit={onSubmit}>
-            <input
-              type="text"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onPaste={onPasteAttachments}
-              placeholder="Ecris ton message..."
-            />
-            <button type="submit" disabled={!connected || !input.trim()}>
-              Envoyer
-            </button>
-          </form>
         </section>
 
         <aside className="attachments">
@@ -432,6 +423,25 @@ function App() {
           )}
         </aside>
       </div>
+
+      <form className="composer" onSubmit={onSubmit}>
+        <div className="composer-editor">
+          <MDEditor
+            value={input}
+            onChange={(value) => setInput(value || "")}
+            preview="edit"
+            height={160}
+            visibleDragbar={false}
+            textareaProps={{
+              placeholder: "Ecris ton message en markdown...",
+              onPaste: onPasteAttachments,
+            }}
+          />
+        </div>
+        <button type="submit" disabled={!connected || !input.trim()}>
+          Envoyer
+        </button>
+      </form>
     </div>
   );
 }

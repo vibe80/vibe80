@@ -33,11 +33,12 @@ body {
 
 .app {
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 24px;
-  max-width: 1160px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 32px 24px 40px;
+  padding: 24px 24px 28px;
+  min-height: 100vh;
 }
 
 .header {
@@ -149,7 +150,8 @@ body {
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
-  max-height: 60vh;
+  min-height: 0;
+  height: 100%;
 }
 
 .layout {
@@ -157,12 +159,15 @@ body {
   grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+  min-height: 0;
+  height: 100%;
 }
 
 .conversation {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   gap: 16px;
+  min-height: 0;
 }
 
 .attachments {
@@ -349,21 +354,20 @@ body {
 }
 
 .composer {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   padding: 12px;
-  border-radius: 999px;
+  border-radius: 20px;
   background: var(--surface);
   box-shadow: var(--shadow);
+  align-items: end;
+  position: sticky;
+  bottom: 12px;
 }
 
-.composer input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 16px;
-  background: transparent;
-  color: var(--ink);
+.composer-editor {
+  min-width: 0;
 }
 
 .composer button {
@@ -388,6 +392,33 @@ body {
   box-shadow: 0 8px 16px rgba(238, 93, 59, 0.3);
 }
 
+.w-md-editor {
+  border-radius: 16px;
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  box-shadow: none;
+}
+
+.w-md-editor-text-pre > code,
+.w-md-editor-text-input {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.w-md-editor-toolbar {
+  background: rgba(20, 19, 17, 0.04);
+  border-bottom: 1px solid rgba(20, 19, 17, 0.08);
+}
+
+.w-md-editor-toolbar svg {
+  color: var(--ink-muted);
+}
+
+.w-md-editor-preview {
+  background: var(--surface);
+  color: var(--ink);
+}
+
 @media (max-width: 720px) {
   .app {
     padding: 24px 16px 32px;
@@ -398,17 +429,13 @@ body {
     align-items: flex-start;
   }
 
-  .chat {
-    max-height: 65vh;
-  }
-
   .layout {
     grid-template-columns: 1fr;
   }
 
   .composer {
-    flex-direction: column;
-    border-radius: 20px;
+    grid-template-columns: 1fr;
+    position: static;
   }
 
   .composer button {
