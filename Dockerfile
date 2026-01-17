@@ -8,6 +8,7 @@ RUN apk add --no-cache \
     fzf \
     bat \
     eza \
+    git \
     git-delta \
     jq \
     yq \
