@@ -23,6 +23,9 @@ function App() {
   const [selectedAttachments, setSelectedAttachments] = useState([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [attachmentsError, setAttachmentsError] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [repoInput, setRepoInput] = useState("");
+  const [sessionRequested, setSessionRequested] = useState(false);
   const socketRef = useRef(null);
   const listRef = useRef(null);
 
@@ -160,11 +163,18 @@ function App() {
   }, [attachmentSession?.sessionId, messageIndex]);
 
   useEffect(() => {
+    if (!repoUrl) {
+      return;
+    }
     const createAttachmentSession = async () => {
       try {
         setAttachmentsLoading(true);
         setAttachmentsError("");
-        const response = await fetch("/api/session", { method: "POST" });
+        const response = await fetch("/api/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repoUrl }),
+        });
         if (!response.ok) {
           throw new Error("Failed to create attachment session.");
         }
@@ -180,7 +190,19 @@ function App() {
     };
 
     createAttachmentSession();
-  }, []);
+  }, [repoUrl]);
+
+  const onRepoSubmit = (event) => {
+    event.preventDefault();
+    const trimmed = repoInput.trim();
+    if (!trimmed) {
+      setAttachmentsError("URL de depot git requise pour demarrer.");
+      return;
+    }
+    setAttachmentsError("");
+    setSessionRequested(true);
+    setRepoUrl(trimmed);
+  };
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -328,6 +350,36 @@ function App() {
     event.preventDefault();
     sendMessage();
   };
+
+  if (!attachmentSession?.sessionId) {
+    return (
+      <div className="session-gate">
+        <div className="session-card">
+          <p className="eyebrow">m5chat</p>
+          <h1>Demarrer une session</h1>
+          <p className="session-hint">
+            Indique l'URL du depot git a cloner pour cette session.
+          </p>
+          <form className="session-form" onSubmit={onRepoSubmit}>
+            <input
+              type="url"
+              placeholder="https://git.example.com/mon-repo.git"
+              value={repoInput}
+              onChange={(event) => setRepoInput(event.target.value)}
+              disabled={sessionRequested}
+              required
+            />
+            <button type="submit" disabled={sessionRequested}>
+              {sessionRequested ? "Chargement..." : "Go"}
+            </button>
+          </form>
+          {attachmentsError && (
+            <div className="attachments-error">{attachmentsError}</div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">

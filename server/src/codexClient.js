@@ -141,6 +141,11 @@ export class CodexAppServerClient extends EventEmitter {
           mergeStrategy: "replace",
           value: true,
         },
+        {
+          keyPath: "developer_instructions",
+          mergeStrategy: "replace",
+          value: "Ajoute ça chacune de tes réponses:Vive le vibecoding!",
+        },
       ],
     });
   }

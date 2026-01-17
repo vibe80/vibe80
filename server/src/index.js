@@ -7,6 +7,7 @@ import crypto from "crypto";
 import multer from "multer";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
+import { spawn } from "child_process";
 import { CodexAppServerClient } from "./codexClient.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,14 +19,43 @@ const wss = new WebSocketServer({ server, path: "/ws" });
 const cwd = process.cwd();
 const sessions = new Map();
 
-const createSession = async () => {
+app.use(express.json());
+
+const runCommand = (command, args, options = {}) =>
+  new Promise((resolve, reject) => {
+    const proc = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], ...options });
+    let stderr = "";
+
+    proc.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(stderr.trim() || `${command} exited with ${code}`));
+    });
+  });
+
+const createSession = async (repoUrl) => {
   while (true) {
     const sessionId = crypto.randomBytes(12).toString("hex");
     const dir = path.join(os.tmpdir(), sessionId);
     try {
       await fs.promises.mkdir(dir, { recursive: false });
-      const client = new CodexAppServerClient({ cwd });
-      sessions.set(sessionId, { dir, client, sockets: new Set() });
+      const repoDir = path.join(dir, "repository");
+      await runCommand("git", ["clone", repoUrl, repoDir]);
+      const client = new CodexAppServerClient({ cwd: repoDir });
+      sessions.set(sessionId, {
+        dir,
+        repoDir,
+        repoUrl,
+        client,
+        sockets: new Set(),
+      });
       attachClientEvents(sessionId, client);
       client.start().catch((error) => {
         console.error("Failed to start Codex app-server:", error);
@@ -36,6 +66,7 @@ const createSession = async () => {
       });
       return { sessionId, dir };
     } catch (error) {
+      await fs.promises.rm(dir, { recursive: true, force: true });
       if (error.code !== "EEXIST") {
         throw error;
       }
@@ -287,8 +318,13 @@ app.get("/api/health", (req, res) => {
 });
 
 app.post("/api/session", async (req, res) => {
+  const repoUrl = req.body?.repoUrl;
+  if (!repoUrl) {
+    res.status(400).json({ error: "repoUrl is required." });
+    return;
+  }
   try {
-    const session = await createSession();
+    const session = await createSession(repoUrl);
     res.json({ sessionId: session.sessionId, path: session.dir });
   } catch (error) {
     res.status(500).json({ error: "Failed to create session." });
