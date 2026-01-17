@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const wsUrl = () => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -150,7 +152,9 @@ function App() {
         )}
         {messages.map((message) => (
           <div key={message.id} className={`bubble ${message.role}`}>
-            <span>{message.text}</span>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.text}
+            </ReactMarkdown>
           </div>
         ))}
       </main>
