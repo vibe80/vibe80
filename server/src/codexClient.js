@@ -14,7 +14,7 @@ export class CodexAppServerClient extends EventEmitter {
   }
 
   async start() {
-    this.proc = spawn("codex", ["app-server", "--dangerously-bypass-approvals-and-sandbox"], {
+    this.proc = spawn("codex", ["--dangerously-bypass-approvals-and-sandbox", "app-server"], {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
     });
