@@ -224,8 +224,7 @@ function App() {
     }
   }, [messages]);
 
-  const onUploadAttachments = async (event) => {
-    const files = Array.from(event.target.files || []);
+  const uploadFiles = async (files) => {
     if (!files.length || !attachmentSession?.sessionId) {
       return;
     }
@@ -254,8 +253,29 @@ function App() {
       );
     } finally {
       setAttachmentsLoading(false);
-      event.target.value = "";
     }
+  };
+
+  const onUploadAttachments = async (event) => {
+    const files = Array.from(event.target.files || []);
+    await uploadFiles(files);
+    event.target.value = "";
+  };
+
+  const onPasteAttachments = async (event) => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    const items = Array.from(event.clipboardData?.items || []);
+    const files = items
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+    if (!files.length) {
+      return;
+    }
+    event.preventDefault();
+    await uploadFiles(files);
   };
 
   const toggleAttachment = (path) => {
@@ -344,6 +364,7 @@ function App() {
               type="text"
               value={input}
               onChange={(event) => setInput(event.target.value)}
+              onPaste={onPasteAttachments}
               placeholder="Ecris ton message..."
             />
             <button type="submit" disabled={!connected || !input.trim()}>
