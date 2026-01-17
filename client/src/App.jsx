@@ -5,9 +5,10 @@ import remarkGfm from "remark-gfm";
 import "@uiw/react-md-editor/markdown-editor.css";
 import "@uiw/react-markdown-preview/markdown.css";
 
-const wsUrl = () => {
+const wsUrl = (sessionId) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${protocol}://${window.location.host}/ws`;
+  const query = sessionId ? `?session=${encodeURIComponent(sessionId)}` : "";
+  return `${protocol}://${window.location.host}/ws${query}`;
 };
 
 function App() {
@@ -28,7 +29,10 @@ function App() {
   const messageIndex = useMemo(() => new Map(), []);
 
   useEffect(() => {
-    const socket = new WebSocket(wsUrl());
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    const socket = new WebSocket(wsUrl(attachmentSession.sessionId));
     socketRef.current = socket;
 
     socket.addEventListener("open", () => {
@@ -153,16 +157,14 @@ function App() {
     return () => {
       socket.close();
     };
-  }, [messageIndex]);
+  }, [attachmentSession?.sessionId, messageIndex]);
 
   useEffect(() => {
     const createAttachmentSession = async () => {
       try {
         setAttachmentsLoading(true);
         setAttachmentsError("");
-        const response = await fetch("/api/attachments/session", {
-          method: "POST",
-        });
+        const response = await fetch("/api/session", { method: "POST" });
         if (!response.ok) {
           throw new Error("Failed to create attachment session.");
         }
@@ -179,6 +181,16 @@ function App() {
 
     createAttachmentSession();
   }, []);
+
+  useEffect(() => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    messageIndex.clear();
+    setMessages([]);
+    setStatus("Connexion...");
+    setConnected(false);
+  }, [attachmentSession?.sessionId, messageIndex]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
