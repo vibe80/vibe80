@@ -14,6 +14,11 @@ function App() {
   const [processing, setProcessing] = useState(false);
   const [activity, setActivity] = useState("");
   const [connected, setConnected] = useState(false);
+  const [attachmentSession, setAttachmentSession] = useState(null);
+  const [attachments, setAttachments] = useState([]);
+  const [selectedAttachments, setSelectedAttachments] = useState([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [attachmentsError, setAttachmentsError] = useState("");
   const socketRef = useRef(null);
   const listRef = useRef(null);
 
@@ -148,17 +153,131 @@ function App() {
   }, [messageIndex]);
 
   useEffect(() => {
+    const createAttachmentSession = async () => {
+      try {
+        setAttachmentsLoading(true);
+        setAttachmentsError("");
+        const response = await fetch("/api/attachments/session", {
+          method: "POST",
+        });
+        if (!response.ok) {
+          throw new Error("Failed to create attachment session.");
+        }
+        const data = await response.json();
+        setAttachmentSession(data);
+      } catch (error) {
+        setAttachmentsError(
+          error.message || "Impossible de creer la session de pieces jointes."
+        );
+      } finally {
+        setAttachmentsLoading(false);
+      }
+    };
+
+    createAttachmentSession();
+  }, []);
+
+  useEffect(() => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+
+    const loadAttachments = async () => {
+      try {
+        setAttachmentsLoading(true);
+        setAttachmentsError("");
+        const response = await fetch(
+          `/api/attachments?session=${encodeURIComponent(
+            attachmentSession.sessionId
+          )}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to list attachments.");
+        }
+        const data = await response.json();
+        setAttachments(data.files || []);
+      } catch (error) {
+        setAttachmentsError(
+          error.message || "Impossible de charger les pieces jointes."
+        );
+      } finally {
+        setAttachmentsLoading(false);
+      }
+    };
+
+    loadAttachments();
+  }, [attachmentSession]);
+
+  useEffect(() => {
+    if (!attachments.length) {
+      setSelectedAttachments([]);
+      return;
+    }
+    setSelectedAttachments((current) =>
+      current.filter((path) => attachments.some((file) => file.path === path))
+    );
+  }, [attachments]);
+
+  useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const onUploadAttachments = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length || !attachmentSession?.sessionId) {
+      return;
+    }
+    try {
+      setAttachmentsLoading(true);
+      setAttachmentsError("");
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+      const response = await fetch(
+        `/api/attachments/upload?session=${encodeURIComponent(
+          attachmentSession.sessionId
+        )}`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Upload failed.");
+      }
+      const data = await response.json();
+      setAttachments((current) => [...current, ...(data.files || [])]);
+    } catch (error) {
+      setAttachmentsError(
+        error.message || "Impossible d'uploader les pieces jointes."
+      );
+    } finally {
+      setAttachmentsLoading(false);
+      event.target.value = "";
+    }
+  };
+
+  const toggleAttachment = (path) => {
+    setSelectedAttachments((current) => {
+      if (current.includes(path)) {
+        return current.filter((item) => item !== path);
+      }
+      return [...current, path];
+    });
+  };
 
   const sendMessage = () => {
     if (!input.trim() || !socketRef.current || !connected) {
       return;
     }
 
-    const text = input.trim();
+    const selectedPaths = selectedAttachments;
+    const suffix =
+      selectedPaths.length > 0
+        ? `;; attachments: ${JSON.stringify(selectedPaths)}`
+        : "";
+    const text = `${input.trim()}${suffix}`;
     setMessages((current) => [
       ...current,
       { id: `user-${Date.now()}`, role: "user", text },
@@ -202,32 +321,95 @@ function App() {
         </div>
       )}
 
-      <main className="chat" ref={listRef}>
-        {messages.length === 0 && (
-          <div className="empty">
-            <p>Envoyez un message pour demarrer une session.</p>
-          </div>
-        )}
-        {messages.map((message) => (
-          <div key={message.id} className={`bubble ${message.role}`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.text}
-            </ReactMarkdown>
-          </div>
-        ))}
-      </main>
+      <div className="layout">
+        <section className="conversation">
+          <main className="chat" ref={listRef}>
+            {messages.length === 0 && (
+              <div className="empty">
+                <p>Envoyez un message pour demarrer une session.</p>
+              </div>
+            )}
+            {messages.map((message) => (
+              <div key={message.id} className={`bubble ${message.role}`}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {message.text}
+                </ReactMarkdown>
+              </div>
+            ))}
+          </main>
 
-      <form className="composer" onSubmit={onSubmit}>
-        <input
-          type="text"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder="Ecris ton message..."
-        />
-        <button type="submit" disabled={!connected || !input.trim()}>
-          Envoyer
-        </button>
-      </form>
+          <form className="composer" onSubmit={onSubmit}>
+            <input
+              type="text"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Ecris ton message..."
+            />
+            <button type="submit" disabled={!connected || !input.trim()}>
+              Envoyer
+            </button>
+          </form>
+        </section>
+
+        <aside className="attachments">
+          <div className="attachments-header">
+            <h2>Pieces jointes</h2>
+            <p className="attachments-subtitle">
+              {attachmentSession?.path || "Session en cours..."}
+            </p>
+          </div>
+
+          <label
+            className={`upload ${
+              !attachmentSession || attachmentsLoading ? "disabled" : ""
+            }`}
+          >
+            <input
+              type="file"
+              multiple
+              onChange={onUploadAttachments}
+              disabled={!attachmentSession || attachmentsLoading}
+            />
+            <span>Uploader des fichiers</span>
+          </label>
+
+          <div className="attachments-meta">
+            <span>
+              Selectionnees: {selectedAttachments.length}/{attachments.length}
+            </span>
+            {attachmentsLoading && <span>Chargement...</span>}
+          </div>
+
+          {attachmentsError && (
+            <div className="attachments-error">{attachmentsError}</div>
+          )}
+
+          {attachments.length === 0 ? (
+            <div className="attachments-empty">
+              Aucune piece jointe pour cette session.
+            </div>
+          ) : (
+            <ul className="attachments-list">
+              {attachments.map((file) => {
+                const isSelected = selectedAttachments.includes(file.path);
+                return (
+                  <li key={file.path}>
+                    <label className="attachments-item">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleAttachment(file.path)}
+                      />
+                      <span className="attachments-name">{file.name}</span>
+                      <span className="attachments-path">{file.path}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,9 @@ import express from "express";
 import http from "http";
 import path from "path";
 import fs from "fs";
+import os from "os";
+import crypto from "crypto";
+import multer from "multer";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { CodexAppServerClient } from "./codexClient.js";
@@ -15,6 +18,82 @@ const wss = new WebSocketServer({ server, path: "/ws" });
 const cwd = process.cwd();
 const client = new CodexAppServerClient({ cwd });
 const sockets = new Set();
+const attachmentSessions = new Map();
+
+const ensureUniqueSessionDir = async () => {
+  while (true) {
+    const sessionId = crypto.randomBytes(12).toString("hex");
+    const dir = path.join(os.tmpdir(), sessionId);
+    try {
+      await fs.promises.mkdir(dir, { recursive: false });
+      attachmentSessions.set(sessionId, dir);
+      return { sessionId, dir };
+    } catch (error) {
+      if (error.code !== "EEXIST") {
+        throw error;
+      }
+    }
+  }
+};
+
+const resolveSessionDir = (sessionId) => {
+  if (!sessionId) {
+    return null;
+  }
+  return attachmentSessions.get(sessionId) || null;
+};
+
+const sanitizeFilename = (originalName) =>
+  path.basename(originalName || "attachment");
+
+const ensureUniqueFilename = async (dir, filename) => {
+  const extension = path.extname(filename);
+  const base = path.basename(filename, extension);
+  let candidate = filename;
+  let counter = 1;
+  while (true) {
+    try {
+      await fs.promises.access(path.join(dir, candidate));
+      candidate = `${base}-${counter}${extension}`;
+      counter += 1;
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return candidate;
+      }
+      throw error;
+    }
+  }
+};
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const sessionId = req.query.session;
+      const dir = resolveSessionDir(sessionId);
+      if (!dir) {
+        cb(new Error("Invalid session."));
+        return;
+      }
+      cb(null, dir);
+    },
+    filename: async (req, file, cb) => {
+      const sessionId = req.query.session;
+      const dir = resolveSessionDir(sessionId);
+      if (!dir) {
+        cb(new Error("Invalid session."));
+        return;
+      }
+      try {
+        const safeName = sanitizeFilename(file.originalname);
+        const uniqueName = await ensureUniqueFilename(dir, safeName);
+        cb(null, uniqueName);
+      } catch (error) {
+        cb(error);
+      }
+    },
+  }),
+  limits: { files: 20, fileSize: 50 * 1024 * 1024 },
+});
 
 function broadcast(payload) {
   const message = JSON.stringify(payload);
@@ -172,6 +251,70 @@ if (fs.existsSync(distPath)) {
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, ready: client.ready, threadId: client.threadId });
+});
+
+app.post("/api/attachments/session", async (req, res) => {
+  try {
+    const session = await ensureUniqueSessionDir();
+    res.json({ sessionId: session.sessionId, path: session.dir });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create attachment session." });
+  }
+});
+
+app.get("/api/attachments", async (req, res) => {
+  const sessionId = req.query.session;
+  const dir = resolveSessionDir(sessionId);
+  if (!dir) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      if (!entry.isFile()) {
+        continue;
+      }
+      const filePath = path.join(dir, entry.name);
+      const stats = await fs.promises.stat(filePath);
+      files.push({
+        name: entry.name,
+        path: filePath,
+        size: stats.size,
+      });
+    }
+    res.json({ files });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to list attachments." });
+  }
+});
+
+app.post(
+  "/api/attachments/upload",
+  upload.array("files"),
+  async (req, res) => {
+    const sessionId = req.query.session;
+    const dir = resolveSessionDir(sessionId);
+    if (!dir) {
+      res.status(400).json({ error: "Invalid session." });
+      return;
+    }
+    const uploaded = (req.files || []).map((file) => ({
+      name: file.filename,
+      path: file.path,
+      size: file.size,
+    }));
+    res.json({ files: uploaded });
+  }
+);
+
+app.use((err, req, res, next) => {
+  if (req.path.startsWith("/api/attachments")) {
+    res.status(400).json({ error: err.message || "Attachment error." });
+    return;
+  }
+  next(err);
 });
 
 const port = process.env.PORT || 5179;
