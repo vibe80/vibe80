@@ -4,9 +4,9 @@ import remarkGfm from "remark-gfm";
 import "@uiw/react-markdown-preview/markdown.css";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
-import { Terminal } from "xterm";
-import { FitAddon } from "xterm-addon-fit";
-import "xterm/css/xterm.css";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import "@xterm/xterm/css/xterm.css";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
