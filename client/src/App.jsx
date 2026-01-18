@@ -80,13 +80,7 @@ function App() {
   const [repoUrl, setRepoUrl] = useState("");
   const [repoInput, setRepoInput] = useState("");
   const [sessionRequested, setSessionRequested] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    try {
-      return window.localStorage.getItem("m5chat_sound") === "1";
-    } catch (error) {
-      return false;
-    }
-  });
+  const [soundEnabled] = useState(true);
   const [choiceSelections, setChoiceSelections] = useState({});
   const [activePane, setActivePane] = useState("chat");
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
@@ -142,12 +136,9 @@ function App() {
   );
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem("m5chat_sound", soundEnabled ? "1" : "0");
-    } catch (error) {
-      // Ignore storage failures (private mode, disabled storage).
-    }
-  }, [soundEnabled]);
+    void ensureNotificationPermission();
+    primeAudioContext();
+  }, [ensureNotificationPermission, primeAudioContext]);
 
   const ensureNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
@@ -634,15 +625,6 @@ function App() {
     });
   };
 
-  const onToggleSound = (event) => {
-    const enabled = event.target.checked;
-    setSoundEnabled(enabled);
-    if (enabled) {
-      void ensureNotificationPermission();
-      primeAudioContext();
-    }
-  };
-
   const sendMessage = (textOverride) => {
     const rawText = (textOverride ?? input).trim();
     if (!rawText || !socketRef.current || !connected) {
@@ -831,14 +813,6 @@ function App() {
                 ref={inputRef}
               />
             </div>
-            <label className="composer-toggle">
-              <input
-                type="checkbox"
-                checked={soundEnabled}
-                onChange={onToggleSound}
-              />
-              <span>Son de notification</span>
-            </label>
             <button type="submit" disabled={!connected || !input.trim()}>
               Envoyer
             </button>

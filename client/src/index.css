@@ -715,20 +715,6 @@ body {
   min-width: 0;
 }
 
-.composer-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--ink-muted);
-}
-
-.composer-toggle input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
-}
-
 .composer-input {
   width: 100%;
   min-height: 140px;
