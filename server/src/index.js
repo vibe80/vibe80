@@ -40,6 +40,32 @@ const runCommand = (command, args, options = {}) =>
     });
   });
 
+const resolveRepoHost = (repoUrl) => {
+  if (repoUrl.startsWith("ssh://")) {
+    try {
+      return new URL(repoUrl).hostname;
+    } catch {
+      return null;
+    }
+  }
+  const scpStyle = repoUrl.match(/^[^@]+@([^:]+):/);
+  if (scpStyle) {
+    return scpStyle[1];
+  }
+  return null;
+};
+
+const ensureKnownHost = async (repoUrl) => {
+  const host = resolveRepoHost(repoUrl);
+  if (!host) {
+    return;
+  }
+  await runCommand("sh", [
+    "-c",
+    `mkdir -p /home/app/.ssh && ssh-keyscan -H ${host} >> /home/app/.ssh/known_hosts 2>/dev/null || true`,
+  ]);
+};
+
 const createSession = async (repoUrl) => {
   while (true) {
     const sessionId = crypto.randomBytes(12).toString("hex");
@@ -47,6 +73,7 @@ const createSession = async (repoUrl) => {
     try {
       await fs.promises.mkdir(dir, { recursive: false });
       const repoDir = path.join(dir, "repository");
+      await ensureKnownHost(repoUrl);
       await runCommand("git", ["clone", repoUrl, repoDir]);
       const client = new CodexAppServerClient({ cwd: repoDir });
       sessions.set(sessionId, {
