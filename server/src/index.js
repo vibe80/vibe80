@@ -482,6 +482,62 @@ wss.on("connection", (socket, req) => {
         );
       }
     }
+
+    if (payload.type === "model_list") {
+      if (!session.client.ready) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Codex app-server not ready yet.",
+          })
+        );
+        return;
+      }
+      try {
+        let cursor = null;
+        const models = [];
+        do {
+          const result = await session.client.listModels(cursor, 200);
+          if (Array.isArray(result?.data)) {
+            models.push(...result.data);
+          }
+          cursor = result?.nextCursor ?? null;
+        } while (cursor);
+        socket.send(JSON.stringify({ type: "model_list", models }));
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: error.message || "Failed to list models.",
+          })
+        );
+      }
+    }
+
+    if (payload.type === "model_set") {
+      if (!session.client.ready) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Codex app-server not ready yet.",
+          })
+        );
+        return;
+      }
+      try {
+        await session.client.setDefaultModel(payload.model || null);
+        socket.send(
+          JSON.stringify({ type: "model_set", model: payload.model || null })
+        );
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: error.message || "Failed to set model.",
+          })
+        );
+      }
+    }
   });
 
   socket.on("close", () => {

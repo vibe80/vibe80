@@ -96,6 +96,10 @@ function App() {
   const [backlog, setBacklog] = useState([]);
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [rpcLogs, setRpcLogs] = useState([]);
+  const [models, setModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState("");
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelError, setModelError] = useState("");
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -473,6 +477,8 @@ function App() {
           setStatus(payload.message || "Erreur inattendue");
           setProcessing(false);
           setActivity("");
+          setModelLoading(false);
+          setModelError(payload.message || "Erreur inattendue");
         }
 
         if (payload.type === "turn_started") {
@@ -492,6 +498,23 @@ function App() {
             status: payload.status || "",
             diff: payload.diff || "",
           });
+        }
+
+        if (payload.type === "model_list") {
+          const list = Array.isArray(payload.models) ? payload.models : [];
+          setModels(list);
+          const defaultModel = list.find((model) => model.isDefault);
+          if (defaultModel?.model) {
+            setSelectedModel(defaultModel.model);
+          }
+          setModelLoading(false);
+          setModelError("");
+        }
+
+        if (payload.type === "model_set") {
+          setSelectedModel(payload.model || "");
+          setModelLoading(false);
+          setModelError("");
         }
 
         if (payload.type === "rpc_log") {
@@ -717,6 +740,26 @@ function App() {
     setStatus("Connexion...");
     setConnected(false);
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
+
+  const requestModelList = () => {
+    if (!socketRef.current) {
+      return;
+    }
+    setModelLoading(true);
+    setModelError("");
+    socketRef.current.send(JSON.stringify({ type: "model_list" }));
+  };
+
+  const handleModelChange = (event) => {
+    const value = event.target.value;
+    setSelectedModel(value);
+    if (!socketRef.current) {
+      return;
+    }
+    setModelLoading(true);
+    setModelError("");
+    socketRef.current.send(JSON.stringify({ type: "model_set", model: value }));
+  };
 
   useEffect(() => {
     if (!backlogKey) {
@@ -994,11 +1037,35 @@ function App() {
           >
             Clear chat
           </button>
+          <div className="model-control">
+            <button
+              type="button"
+              className="model-button"
+              onClick={requestModelList}
+              disabled={!connected || modelLoading}
+            >
+              {modelLoading ? "Chargement..." : "Select model"}
+            </button>
+            <select
+              className="model-select"
+              value={selectedModel}
+              onChange={handleModelChange}
+              disabled={!connected || models.length === 0 || modelLoading}
+            >
+              <option value="">Modele par defaut</option>
+              {models.map((model) => (
+                <option key={model.id} value={model.model}>
+                  {model.displayName || model.model}
+                </option>
+              ))}
+            </select>
+          </div>
           {!connected && (
             <div className="status-wrap">
               <div className="status down">{status}</div>
             </div>
           )}
+          {modelError && <div className="status down">{modelError}</div>}
         </div>
       </header>
 

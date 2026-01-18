@@ -116,6 +116,44 @@ body {
   gap: 12px;
 }
 
+.model-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-button {
+  border-radius: 999px;
+  border: 1px solid rgba(20, 19, 17, 0.16);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.model-button:disabled {
+  cursor: not-allowed;
+  color: var(--ink-muted);
+}
+
+.model-select {
+  border-radius: 12px;
+  border: 1px solid rgba(20, 19, 17, 0.16);
+  padding: 6px 10px;
+  font-size: 13px;
+  background: white;
+  color: var(--ink);
+}
+
+.model-select:disabled {
+  color: var(--ink-muted);
+}
+
 .clear-chat {
   border-radius: 999px;
   border: 1px solid rgba(20, 19, 17, 0.2);
