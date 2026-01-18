@@ -560,16 +560,93 @@ function App() {
       <header className="header">
         <div>
           <p className="eyebrow">m5chat</p>
-          <h1>Conversation locale avec Codex</h1>
         </div>
-        <div className="status-wrap">
-          <div className={`status ${connected ? "ok" : "down"}`}>
-            {status}
+        {!connected && (
+          <div className="status-wrap">
+            <div className="status down">{status}</div>
           </div>
-        </div>
+        )}
       </header>
 
       <div className="layout">
+        <div className="side">
+          <aside className="attachments">
+            <div className="attachments-header">
+              <h2>Pieces jointes</h2>
+              <p className="attachments-subtitle">
+                {attachmentSession?.path || "Session en cours..."}
+              </p>
+            </div>
+
+            <label
+              className={`upload ${
+                !attachmentSession || attachmentsLoading ? "disabled" : ""
+              }`}
+            >
+              <input
+                type="file"
+                multiple
+                onChange={onUploadAttachments}
+                disabled={!attachmentSession || attachmentsLoading}
+              />
+              <span>Uploader des fichiers</span>
+            </label>
+
+            <div className="attachments-meta">
+              <span>
+                Selectionnees: {selectedAttachments.length}/{attachments.length}
+              </span>
+              {attachmentsLoading && <span>Chargement...</span>}
+            </div>
+
+            {attachmentsError && (
+              <div className="attachments-error">{attachmentsError}</div>
+            )}
+
+            {attachments.length === 0 ? (
+              <div className="attachments-empty">
+                Aucune piece jointe pour cette session.
+              </div>
+            ) : (
+              <ul className="attachments-list">
+                {attachments.map((file) => {
+                  const isSelected = selectedAttachments.includes(file.path);
+                  return (
+                    <li key={file.path}>
+                      <label className="attachments-item">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleAttachment(file.path)}
+                        />
+                        <span className="attachments-name">{file.name}</span>
+                        <span className="attachments-path">{file.path}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </aside>
+
+          <form className="composer" onSubmit={onSubmit}>
+            <div className="composer-editor">
+              <textarea
+                className="composer-input"
+                value={input}
+                onChange={handleInputChange}
+                onPaste={onPasteAttachments}
+                placeholder="Ecris ton message..."
+                rows={6}
+                ref={inputRef}
+              />
+            </div>
+            <button type="submit" disabled={!connected || !input.trim()}>
+              Envoyer
+            </button>
+          </form>
+        </div>
+
         <section className="conversation">
           <main className="chat" ref={listRef}>
             {messages.length === 0 && (
@@ -641,85 +718,8 @@ function App() {
               </div>
             )}
           </main>
-
         </section>
-
-        <aside className="attachments">
-          <div className="attachments-header">
-            <h2>Pieces jointes</h2>
-            <p className="attachments-subtitle">
-              {attachmentSession?.path || "Session en cours..."}
-            </p>
-          </div>
-
-          <label
-            className={`upload ${
-              !attachmentSession || attachmentsLoading ? "disabled" : ""
-            }`}
-          >
-            <input
-              type="file"
-              multiple
-              onChange={onUploadAttachments}
-              disabled={!attachmentSession || attachmentsLoading}
-            />
-            <span>Uploader des fichiers</span>
-          </label>
-
-          <div className="attachments-meta">
-            <span>
-              Selectionnees: {selectedAttachments.length}/{attachments.length}
-            </span>
-            {attachmentsLoading && <span>Chargement...</span>}
-          </div>
-
-          {attachmentsError && (
-            <div className="attachments-error">{attachmentsError}</div>
-          )}
-
-          {attachments.length === 0 ? (
-            <div className="attachments-empty">
-              Aucune piece jointe pour cette session.
-            </div>
-          ) : (
-            <ul className="attachments-list">
-              {attachments.map((file) => {
-                const isSelected = selectedAttachments.includes(file.path);
-                return (
-                  <li key={file.path}>
-                    <label className="attachments-item">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleAttachment(file.path)}
-                      />
-                      <span className="attachments-name">{file.name}</span>
-                      <span className="attachments-path">{file.path}</span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </aside>
       </div>
-
-      <form className="composer" onSubmit={onSubmit}>
-        <div className="composer-editor">
-          <textarea
-            className="composer-input"
-            value={input}
-            onChange={handleInputChange}
-            onPaste={onPasteAttachments}
-            placeholder="Ecris ton message..."
-            rows={6}
-            ref={inputRef}
-          />
-        </div>
-        <button type="submit" disabled={!connected || !input.trim()}>
-          Envoyer
-        </button>
-      </form>
     </div>
   );
 }
