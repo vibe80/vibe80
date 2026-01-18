@@ -206,10 +206,11 @@ body {
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow-y: auto;
   min-height: 0;
   height: 100%;
+  font-size: 14px;
 }
 
 .layout {
@@ -351,15 +352,15 @@ body {
 }
 
 .bubble {
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-radius: 18px;
-  line-height: 1.5;
-  font-size: 16px;
+  line-height: 1.45;
+  font-size: 14px;
   white-space: pre-wrap;
 }
 
 .bubble :where(p, ul, ol, pre, blockquote, h1, h2, h3, h4, h5, h6) {
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 
 .bubble :where(p:last-child, ul:last-child, ol:last-child, pre:last-child, blockquote:last-child) {
@@ -406,9 +407,59 @@ body {
 
 .bubble.assistant {
   align-self: flex-start;
-  background: var(--bg-strong);
+  background: transparent;
   color: var(--ink);
-  border-bottom-left-radius: 6px;
+  border-radius: 0;
+  padding: 0;
+}
+
+.bubble.assistant :where(p, ul, ol, pre, blockquote) {
+  margin: 0 0 6px;
+}
+
+.bubble.assistant :where(li) {
+  margin: 0 0 4px;
+}
+
+.bubble.assistant :where(li:last-child) {
+  margin-bottom: 0;
+}
+
+.bubble.assistant.typing {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(20, 19, 17, 0.05);
+}
+
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-style: italic;
+  animation: fade-in 0.25s ease-out;
+}
+
+.typing-indicator .loader {
+  padding: 0;
+  background: transparent;
+}
+
+.typing-indicator .dot {
+  width: 5px;
+  height: 5px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .composer {
@@ -426,6 +477,25 @@ body {
 
 .composer-editor {
   min-width: 0;
+}
+
+.composer-input {
+  width: 100%;
+  min-height: 140px;
+  border-radius: 16px;
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  padding: 12px 14px;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--surface);
+  resize: vertical;
+  outline: none;
+}
+
+.composer-input:focus {
+  border-color: rgba(238, 93, 59, 0.4);
+  box-shadow: 0 0 0 3px rgba(238, 93, 59, 0.12);
 }
 
 .composer button {
@@ -448,33 +518,6 @@ body {
 .composer button:not(:disabled):hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 16px rgba(238, 93, 59, 0.3);
-}
-
-.w-md-editor {
-  border-radius: 16px;
-  border: 1px solid rgba(20, 19, 17, 0.12);
-  box-shadow: none;
-}
-
-.w-md-editor-text-pre > code,
-.w-md-editor-text-input {
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 15px;
-  color: var(--ink);
-}
-
-.w-md-editor-toolbar {
-  background: rgba(20, 19, 17, 0.04);
-  border-bottom: 1px solid rgba(20, 19, 17, 0.08);
-}
-
-.w-md-editor-toolbar svg {
-  color: var(--ink-muted);
-}
-
-.w-md-editor-preview {
-  background: var(--surface);
-  color: var(--ink);
 }
 
 @media (max-width: 720px) {

@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import MDEditor from "@uiw/react-md-editor";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import "@uiw/react-md-editor/markdown-editor.css";
 import "@uiw/react-markdown-preview/markdown.css";
 
 const getSessionIdFromUrl = () =>
@@ -31,6 +29,7 @@ function App() {
   const [sessionRequested, setSessionRequested] = useState(false);
   const socketRef = useRef(null);
   const listRef = useRef(null);
+  const inputRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(0);
   const closingRef = useRef(false);
@@ -381,7 +380,7 @@ function App() {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, processing]);
 
   const uploadFiles = async (files) => {
     if (!files.length || !attachmentSession?.sessionId) {
@@ -473,6 +472,24 @@ function App() {
     sendMessage();
   };
 
+  const handleInputChange = (event) => {
+    const { value } = event.target;
+    setInput(value);
+    if (!inputRef.current) {
+      return;
+    }
+    inputRef.current.style.height = "auto";
+    inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+  };
+
+  useEffect(() => {
+    if (!inputRef.current) {
+      return;
+    }
+    inputRef.current.style.height = "auto";
+    inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+  }, [input]);
+
   if (!attachmentSession?.sessionId) {
     return (
       <div className="session-gate">
@@ -514,22 +531,8 @@ function App() {
           <div className={`status ${connected ? "ok" : "down"}`}>
             {status}
           </div>
-          {processing && (
-            <div className="loader" title={activity || "Traitement..."}>
-              <span className="dot" />
-              <span className="dot" />
-              <span className="dot" />
-            </div>
-          )}
         </div>
       </header>
-
-      {processing && (
-        <div className="activity">
-          <span className="activity-label">Action:</span>
-          <span>{activity || "Traitement en cours..."}</span>
-        </div>
-      )}
 
       <div className="layout">
         <section className="conversation">
@@ -546,6 +549,23 @@ function App() {
                 </ReactMarkdown>
               </div>
             ))}
+            {processing && (
+              <div className="bubble assistant typing">
+                <div className="typing-indicator">
+                  <div
+                    className="loader"
+                    title={activity || "Traitement en cours..."}
+                  >
+                    <span className="dot" />
+                    <span className="dot" />
+                    <span className="dot" />
+                  </div>
+                  <span className="typing-text">
+                    {activity || "Traitement en cours..."}
+                  </span>
+                </div>
+              </div>
+            )}
           </main>
 
         </section>
@@ -612,16 +632,14 @@ function App() {
 
       <form className="composer" onSubmit={onSubmit}>
         <div className="composer-editor">
-          <MDEditor
+          <textarea
+            className="composer-input"
             value={input}
-            onChange={(value) => setInput(value || "")}
-            preview="edit"
-            height={160}
-            visibleDragbar={false}
-            textareaProps={{
-              placeholder: "Ecris ton message en markdown...",
-              onPaste: onPasteAttachments,
-            }}
+            onChange={handleInputChange}
+            onPaste={onPasteAttachments}
+            placeholder="Ecris ton message..."
+            rows={6}
+            ref={inputRef}
           />
         </div>
         <button type="submit" disabled={!connected || !input.trim()}>
