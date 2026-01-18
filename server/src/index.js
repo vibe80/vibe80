@@ -427,6 +427,29 @@ wss.on("connection", (socket, req) => {
         );
       }
     }
+
+    if (payload.type === "turn_interrupt") {
+      if (!session.client.ready) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Codex app-server not ready yet.",
+          })
+        );
+        return;
+      }
+      try {
+        await session.client.interruptTurn(payload.turnId);
+        socket.send(JSON.stringify({ type: "turn_interrupt_sent" }));
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: error.message || "Failed to interrupt turn.",
+          })
+        );
+      }
+    }
   });
 
   socket.on("close", () => {

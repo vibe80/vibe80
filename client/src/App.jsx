@@ -94,6 +94,7 @@ function App() {
   const [activePane, setActivePane] = useState("chat");
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
   const [backlog, setBacklog] = useState([]);
+  const [currentTurnId, setCurrentTurnId] = useState(null);
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -444,6 +445,7 @@ function App() {
           setStatus(`Erreur: ${payload.message}`);
           setProcessing(false);
           setActivity("");
+          setCurrentTurnId(null);
         }
 
         if (payload.type === "error") {
@@ -455,11 +457,13 @@ function App() {
         if (payload.type === "turn_started") {
           setProcessing(true);
           setActivity("Traitement en cours...");
+          setCurrentTurnId(payload.turnId || null);
         }
 
         if (payload.type === "turn_completed") {
           setProcessing(false);
           setActivity("");
+          setCurrentTurnId(null);
         }
 
         if (payload.type === "repo_diff") {
@@ -873,6 +877,16 @@ function App() {
     sendMessage();
   };
 
+  const interruptTurn = () => {
+    if (!currentTurnId || !socketRef.current) {
+      return;
+    }
+    socketRef.current.send(
+      JSON.stringify({ type: "turn_interrupt", turnId: currentTurnId })
+    );
+    setActivity("Interruption...");
+  };
+
   const handleInputChange = (event) => {
     const { value } = event.target;
     setInput(value);
@@ -1035,6 +1049,14 @@ function App() {
             <div className="composer-actions">
               <button type="submit" disabled={!connected || !input.trim()}>
                 Envoyer
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={interruptTurn}
+                disabled={!processing || !currentTurnId}
+              >
+                Stop
               </button>
               <button
                 type="button"

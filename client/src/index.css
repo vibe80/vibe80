@@ -812,6 +812,18 @@ body {
   box-shadow: none;
 }
 
+.composer .ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid rgba(20, 19, 17, 0.2);
+  box-shadow: none;
+}
+
+.composer .ghost:not(:disabled):hover {
+  box-shadow: none;
+  background: rgba(20, 19, 17, 0.06);
+}
+
 .composer .secondary:not(:disabled):hover {
   box-shadow: none;
   background: rgba(238, 93, 59, 0.08);
@@ -821,6 +833,13 @@ body {
   background: #d6c6b8;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.composer .secondary:disabled,
+.composer .ghost:disabled {
+  background: transparent;
+  color: var(--ink-muted);
+  border-color: rgba(20, 19, 17, 0.12);
 }
 
 .composer button:not(:disabled):hover {

@@ -61,6 +61,20 @@ export class CodexAppServerClient extends EventEmitter {
     });
   }
 
+  async interruptTurn(turnId) {
+    if (!this.threadId) {
+      throw new Error("Thread not ready yet.");
+    }
+    if (!turnId) {
+      throw new Error("Turn id is required.");
+    }
+
+    return this.#sendRequest("turn/interrupt", {
+      threadId: this.threadId,
+      turnId,
+    });
+  }
+
   #handleStdout(chunk) {
     this.buffer += chunk;
     let newlineIndex;
