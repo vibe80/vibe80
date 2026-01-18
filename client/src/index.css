@@ -529,13 +529,13 @@ body {
 
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
   gap: 12px;
   padding: 12px;
   border-radius: 20px;
   background: var(--surface);
   box-shadow: var(--shadow);
-  align-items: end;
+  align-items: stretch;
   position: static;
 }
 
@@ -570,6 +570,7 @@ body {
   font-weight: 600;
   padding: 10px 20px;
   cursor: pointer;
+  justify-self: end;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
