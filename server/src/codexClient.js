@@ -144,7 +144,7 @@ export class CodexAppServerClient extends EventEmitter {
         {
           keyPath: "developer_instructions",
           mergeStrategy: "replace",
-          value: "output markdown format for inline generated text",
+          value: "output markdown format for inline generated text;Wrap choices needing approval in <!-- vibecoder: choices -->...<!-- /vibecoder -->",
         },
       ],
     });
