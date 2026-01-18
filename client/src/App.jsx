@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "@uiw/react-markdown-preview/markdown.css";
+import { Diff, Hunk, parseDiff } from "react-diff-view";
+import "react-diff-view/style/index.css";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
@@ -86,6 +88,8 @@ function App() {
     }
   });
   const [choiceSelections, setChoiceSelections] = useState({});
+  const [activePane, setActivePane] = useState("chat");
+  const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -99,6 +103,24 @@ function App() {
   const repoName = useMemo(
     () => extractRepoName(attachmentSession?.repoUrl),
     [attachmentSession?.repoUrl]
+  );
+  const diffFiles = useMemo(() => {
+    if (!repoDiff.diff) {
+      return [];
+    }
+    try {
+      return parseDiff(repoDiff.diff);
+    } catch (error) {
+      return [];
+    }
+  }, [repoDiff.diff]);
+  const diffStatusLines = useMemo(
+    () =>
+      (repoDiff.status || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean),
+    [repoDiff.status]
   );
 
   const applyMessages = useCallback(
@@ -364,6 +386,13 @@ function App() {
         if (payload.type === "turn_completed") {
           setProcessing(false);
           setActivity("");
+        }
+
+        if (payload.type === "repo_diff") {
+          setRepoDiff({
+            status: payload.status || "",
+            diff: payload.diff || "",
+          });
         }
 
         if (payload.type === "item_started") {
@@ -817,138 +846,210 @@ function App() {
         </div>
 
         <section className="conversation">
-          <main className="chat" ref={listRef}>
-            {messages.length === 0 && (
-              <div className="empty">
-                <p>Envoyez un message pour demarrer une session.</p>
-              </div>
-            )}
-            {messages.map((message) => {
-              const isLongUserMessage =
-                message.role === "user" &&
-                (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
-              if (isLongUserMessage) {
-                const truncatedText = getTruncatedText(
-                  message.text,
-                  MAX_USER_DISPLAY_LENGTH
-                );
+          <div className="conversation-tabs">
+            <button
+              type="button"
+              className={`tab-button ${
+                activePane === "chat" ? "is-active" : ""
+              }`}
+              onClick={() => setActivePane("chat")}
+            >
+              Messages
+            </button>
+            <button
+              type="button"
+              className={`tab-button ${
+                activePane === "diff" ? "is-active" : ""
+              }`}
+              onClick={() => setActivePane("diff")}
+            >
+              Diff
+            </button>
+          </div>
+          {activePane === "chat" ? (
+            <main className="chat" ref={listRef}>
+              {messages.length === 0 && (
+                <div className="empty">
+                  <p>Envoyez un message pour demarrer une session.</p>
+                </div>
+              )}
+              {messages.map((message) => {
+                const isLongUserMessage =
+                  message.role === "user" &&
+                  (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
+                if (isLongUserMessage) {
+                  const truncatedText = getTruncatedText(
+                    message.text,
+                    MAX_USER_DISPLAY_LENGTH
+                  );
+                  return (
+                    <div key={message.id} className={`bubble ${message.role}`}>
+                      <div className="plain-text">{truncatedText}</div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div key={message.id} className={`bubble ${message.role}`}>
-                    <div className="plain-text">{truncatedText}</div>
+                    {(() => {
+                      const { cleanedText, blocks } = extractChoices(
+                        message.text
+                      );
+                      return (
+                        <>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({ node, ...props }) => (
+                                <a
+                                  {...props}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                />
+                              ),
+                            }}
+                          >
+                            {cleanedText}
+                          </ReactMarkdown>
+                          {blocks.map((block, index) => {
+                            const blockKey = `${message.id}-${index}`;
+                            const selectedIndex = choiceSelections[blockKey];
+                            const choicesWithIndex = block.choices.map(
+                              (choice, choiceIndex) => ({ choice, choiceIndex })
+                            );
+                            const orderedChoices =
+                              selectedIndex === undefined
+                                ? choicesWithIndex
+                                : [
+                                    choicesWithIndex.find(
+                                      ({ choiceIndex }) =>
+                                        choiceIndex === selectedIndex
+                                    ),
+                                    ...choicesWithIndex.filter(
+                                      ({ choiceIndex }) =>
+                                        choiceIndex !== selectedIndex
+                                    ),
+                                  ].filter(Boolean);
+
+                            return (
+                              <div className="choices" key={blockKey}>
+                                {block.question && (
+                                  <div className="choices-question">
+                                    {block.question}
+                                  </div>
+                                )}
+                                <div
+                                  className={`choices-list ${
+                                    selectedIndex !== undefined
+                                      ? "is-selected"
+                                      : ""
+                                  }`}
+                                >
+                                  {orderedChoices.map(
+                                    ({ choice, choiceIndex }) => {
+                                      const isSelected =
+                                        selectedIndex === choiceIndex;
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={`${blockKey}-${choiceIndex}`}
+                                          onClick={() =>
+                                            handleChoiceClick(
+                                              choice,
+                                              blockKey,
+                                              choiceIndex
+                                            )
+                                          }
+                                          className={`choice-button ${
+                                            isSelected
+                                              ? "is-selected"
+                                              : selectedIndex !== undefined
+                                                ? "is-muted"
+                                                : ""
+                                          }`}
+                                        >
+                                          {choice}
+                                        </button>
+                                      );
+                                    }
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
                   </div>
                 );
-              }
-
-              return (
-                <div key={message.id} className={`bubble ${message.role}`}>
-                  {(() => {
-                    const { cleanedText, blocks } = extractChoices(message.text);
-                    return (
-                      <>
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            a: ({ node, ...props }) => (
-                              <a
-                                {...props}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              />
-                            ),
-                          }}
-                        >
-                          {cleanedText}
-                        </ReactMarkdown>
-                        {blocks.map((block, index) => {
-                          const blockKey = `${message.id}-${index}`;
-                          const selectedIndex = choiceSelections[blockKey];
-                          const choicesWithIndex = block.choices.map(
-                            (choice, choiceIndex) => ({ choice, choiceIndex })
-                          );
-                          const orderedChoices =
-                            selectedIndex === undefined
-                              ? choicesWithIndex
-                              : [
-                                  choicesWithIndex.find(
-                                    ({ choiceIndex }) =>
-                                      choiceIndex === selectedIndex
-                                  ),
-                                  ...choicesWithIndex.filter(
-                                    ({ choiceIndex }) =>
-                                      choiceIndex !== selectedIndex
-                                  ),
-                                ].filter(Boolean);
-
-                          return (
-                            <div className="choices" key={blockKey}>
-                              {block.question && (
-                                <div className="choices-question">
-                                  {block.question}
-                                </div>
-                              )}
-                              <div
-                                className={`choices-list ${
-                                  selectedIndex !== undefined
-                                    ? "is-selected"
-                                    : ""
-                                }`}
-                              >
-                                {orderedChoices.map(
-                                  ({ choice, choiceIndex }) => {
-                                    const isSelected =
-                                      selectedIndex === choiceIndex;
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={`${blockKey}-${choiceIndex}`}
-                                        onClick={() =>
-                                          handleChoiceClick(
-                                            choice,
-                                            blockKey,
-                                            choiceIndex
-                                          )
-                                        }
-                                        className={`choice-button ${
-                                          isSelected
-                                            ? "is-selected"
-                                            : selectedIndex !== undefined
-                                              ? "is-muted"
-                                              : ""
-                                        }`}
-                                      >
-                                        {choice}
-                                      </button>
-                                    );
-                                  }
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
-                </div>
-              );
-            })}
-            {processing && (
-              <div className="bubble assistant typing">
-                <div className="typing-indicator">
-                  <div
-                    className="loader"
-                    title={activity || "Traitement en cours..."}
-                  >
-                    <span className="dot" />
-                    <span className="dot" />
-                    <span className="dot" />
+              })}
+              {processing && (
+                <div className="bubble assistant typing">
+                  <div className="typing-indicator">
+                    <div
+                      className="loader"
+                      title={activity || "Traitement en cours..."}
+                    >
+                      <span className="dot" />
+                      <span className="dot" />
+                      <span className="dot" />
+                    </div>
+                    <span className="typing-text">
+                      {activity || "Traitement en cours..."}
+                    </span>
                   </div>
-                  <span className="typing-text">
-                    {activity || "Traitement en cours..."}
-                  </span>
                 </div>
+              )}
+            </main>
+          ) : (
+            <div className="diff-panel">
+              <div className="diff-header">
+                <div className="diff-title">Diff du repository</div>
+                {diffStatusLines.length > 0 && (
+                  <div className="diff-count">
+                    {diffStatusLines.length} fichiers modifies
+                  </div>
+                )}
               </div>
-            )}
-          </main>
+              {diffStatusLines.length > 0 && (
+                <div className="diff-status">
+                  {diffStatusLines.map((line, index) => (
+                    <div key={`${line}-${index}`}>{line}</div>
+                  ))}
+                </div>
+              )}
+              {diffFiles.length > 0 ? (
+                <div className="diff-body">
+                  {diffFiles.map((file) => {
+                    const fileLabel = file.newPath || file.oldPath || "Diff";
+                    return (
+                      <div
+                        key={`${file.oldPath}-${file.newPath}-${file.type}`}
+                        className="diff-file"
+                      >
+                        <div className="diff-file-header">{fileLabel}</div>
+                        <Diff
+                          viewType="split"
+                          diffType={file.type}
+                          hunks={file.hunks}
+                        >
+                          {(hunks) =>
+                            hunks.map((hunk) => (
+                              <Hunk key={hunk.content} hunk={hunk} />
+                            ))
+                          }
+                        </Diff>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : repoDiff.diff ? (
+                <pre className="diff-fallback">{repoDiff.diff}</pre>
+              ) : (
+                <div className="diff-empty">Aucun changement detecte.</div>
+              )}
+            </div>
+          )}
         </section>
       </div>
     </div>

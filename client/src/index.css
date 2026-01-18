@@ -274,10 +274,116 @@ body {
 .conversation {
   grid-area: conversation;
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 16px;
   min-height: 0;
   height: 100%;
+}
+
+.conversation-tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.tab-button {
+  border-radius: 999px;
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  background: transparent;
+  color: var(--ink-muted);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease,
+    border-color 0.2s ease, color 0.2s ease;
+}
+
+.tab-button.is-active {
+  background: var(--bg-strong);
+  color: var(--ink);
+  border-color: rgba(20, 19, 17, 0.24);
+}
+
+.tab-button:not(.is-active):hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 19, 17, 0.3);
+  color: var(--ink);
+  box-shadow: 0 8px 16px rgba(20, 19, 17, 0.08);
+}
+
+.diff-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.diff-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diff-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.diff-count {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.diff-status {
+  background: rgba(20, 19, 17, 0.04);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.diff-body {
+  display: grid;
+  gap: 18px;
+}
+
+.diff-file {
+  border: 1px solid rgba(20, 19, 17, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.diff-file-header {
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  background: rgba(20, 19, 17, 0.04);
+  border-bottom: 1px solid rgba(20, 19, 17, 0.08);
+}
+
+.diff-fallback {
+  padding: 12px;
+  background: rgba(20, 19, 17, 0.04);
+  border-radius: 12px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.diff-empty {
+  color: var(--ink-muted);
+  font-size: 13px;
 }
 
 .attachments {

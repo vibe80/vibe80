@@ -40,6 +40,30 @@ const runCommand = (command, args, options = {}) =>
     });
   });
 
+const runCommandOutput = (command, args, options = {}) =>
+  new Promise((resolve, reject) => {
+    const proc = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], ...options });
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    proc.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout);
+        return;
+      }
+      reject(new Error(stderr.trim() || `${command} exited with ${code}`));
+    });
+  });
+
 const createMessageId = () =>
   typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
@@ -124,6 +148,29 @@ const appendSessionMessage = (sessionId, message) => {
     return;
   }
   session.messages.push(message);
+};
+
+const broadcastRepoDiff = async (sessionId) => {
+  const session = getSession(sessionId);
+  if (!session) {
+    return;
+  }
+  try {
+    const [status, diff] = await Promise.all([
+      runCommandOutput("git", ["status", "--porcelain"], { cwd: session.repoDir }),
+      runCommandOutput("git", ["diff"], { cwd: session.repoDir }),
+    ]);
+    broadcastToSession(sessionId, {
+      type: "repo_diff",
+      status,
+      diff,
+    });
+  } catch (error) {
+    console.error("Failed to compute repo diff:", {
+      sessionId,
+      error: error?.message || error,
+    });
+  }
 };
 
 const ensureUniqueFilename = async (dir, filename) => {
@@ -228,6 +275,7 @@ function attachClientEvents(sessionId, client) {
             itemId: item.id,
             turnId,
           });
+          void broadcastRepoDiff(sessionId);
         }
         break;
       }
