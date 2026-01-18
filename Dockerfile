@@ -29,7 +29,9 @@ COPY . .
 
 RUN npm run build
 
-RUN adduser -D -h /home/app app && chown -R app:app /app
+RUN adduser -D -h /home/app app \
+    && mkdir -p /home/app/.codex \
+    && chown -R app:app /app /home/app/.codex
 RUN chmod +x /app/start.sh
 
 USER app
