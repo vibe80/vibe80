@@ -41,6 +41,16 @@ const extractChoices = (text) => {
   return { cleanedText: cleaned.trim(), blocks };
 };
 
+const extractRepoName = (url) => {
+  if (!url) {
+    return "";
+  }
+  const trimmed = url.trim().replace(/\/+$/, "");
+  const withoutQuery = trimmed.split(/[?#]/)[0];
+  const match = withoutQuery.match(/([^/:]+)$/);
+  return match ? match[1] : "";
+};
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -64,6 +74,10 @@ function App() {
   const closingRef = useRef(false);
 
   const messageIndex = useMemo(() => new Map(), []);
+  const repoName = useMemo(
+    () => extractRepoName(attachmentSession?.repoUrl),
+    [attachmentSession?.repoUrl]
+  );
 
   const applyMessages = useCallback(
     (items = []) => {
@@ -580,7 +594,7 @@ function App() {
             <div className="attachments-header">
               <h2>Pieces jointes</h2>
               <p className="attachments-subtitle">
-                {attachmentSession?.path || "Session en cours..."}
+                {repoName || "Session en cours..."}
               </p>
             </div>
 
@@ -626,7 +640,6 @@ function App() {
                           onChange={() => toggleAttachment(file.path)}
                         />
                         <span className="attachments-name">{file.name}</span>
-                        <span className="attachments-path">{file.path}</span>
                       </label>
                     </li>
                   );
