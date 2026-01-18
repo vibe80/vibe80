@@ -362,8 +362,8 @@ function App() {
           </p>
           <form className="session-form" onSubmit={onRepoSubmit}>
             <input
-              type="url"
-              placeholder="https://git.example.com/mon-repo.git"
+              type="text"
+              placeholder="git@gitea.devops:mon-org/mon-repo.git"
               value={repoInput}
               onChange={(event) => setRepoInput(event.target.value)}
               disabled={sessionRequested}
