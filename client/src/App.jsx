@@ -170,6 +170,9 @@ function App() {
         }
 
         if (payload.type === "assistant_delta") {
+          if (typeof payload.delta !== "string") {
+            return;
+          }
           setMessages((current) => {
             const next = [...current];
             const existingIndex = messageIndex.get(payload.itemId);
@@ -192,6 +195,9 @@ function App() {
         }
 
         if (payload.type === "assistant_message") {
+          if (typeof payload.text !== "string") {
+            return;
+          }
           setMessages((current) => {
             const next = [...current];
             const existingIndex = messageIndex.get(payload.itemId);
