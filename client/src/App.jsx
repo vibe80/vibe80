@@ -95,6 +95,7 @@ function App() {
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
   const [backlog, setBacklog] = useState([]);
   const [currentTurnId, setCurrentTurnId] = useState(null);
+  const [rpcLogs, setRpcLogs] = useState([]);
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -138,6 +139,16 @@ function App() {
         .map((line) => line.trim())
         .filter(Boolean),
     [repoDiff.status]
+  );
+  const formattedRpcLogs = useMemo(
+    () =>
+      (rpcLogs || []).map((entry) => ({
+        ...entry,
+        timeLabel: entry?.timestamp
+          ? new Date(entry.timestamp).toLocaleTimeString("fr-FR")
+          : "",
+      })),
+    [rpcLogs]
   );
 
   const applyMessages = useCallback(
@@ -473,6 +484,12 @@ function App() {
           });
         }
 
+        if (payload.type === "rpc_log") {
+          if (payload.entry) {
+            setRpcLogs((current) => [payload.entry, ...current].slice(0, 500));
+          }
+        }
+
         if (payload.type === "item_started") {
           const { item } = payload;
           if (!item?.type) {
@@ -686,6 +703,7 @@ function App() {
     }
     applyMessages(attachmentSession.messages || []);
     setRepoDiff(attachmentSession.repoDiff || { status: "", diff: "" });
+    setRpcLogs(attachmentSession.rpcLogs || []);
     setStatus("Connexion...");
     setConnected(false);
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
@@ -1148,6 +1166,15 @@ function App() {
             >
               Terminal
             </button>
+            <button
+              type="button"
+              className={`tab-button ${
+                activePane === "logs" ? "is-active" : ""
+              }`}
+              onClick={() => setActivePane("logs")}
+            >
+              Logs
+            </button>
           </div>
           <main
             className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}
@@ -1364,6 +1391,41 @@ function App() {
             {!attachmentSession?.sessionId && (
               <div className="terminal-empty">
                 Demarrez une session pour ouvrir le terminal.
+              </div>
+            )}
+          </div>
+          <div
+            className={`logs-panel ${activePane === "logs" ? "" : "is-hidden"}`}
+          >
+            <div className="logs-header">
+              <div className="logs-title">JSON-RPC</div>
+              <div className="logs-count">{rpcLogs.length} events</div>
+            </div>
+            {formattedRpcLogs.length === 0 ? (
+              <div className="logs-empty">Aucun log pour le moment.</div>
+            ) : (
+              <div className="logs-list">
+                {formattedRpcLogs.map((entry, index) => (
+                  <div
+                    key={`${entry.timestamp}-${index}`}
+                    className={`logs-item logs-${entry.direction}`}
+                  >
+                    <div className="logs-meta">
+                      <span className="logs-direction">
+                        {entry.direction === "stdin" ? "stdin" : "stdout"}
+                      </span>
+                      <span className="logs-time">{entry.timeLabel}</span>
+                      {entry.payload?.method && (
+                        <span className="logs-method">
+                          {entry.payload.method}
+                        </span>
+                      )}
+                    </div>
+                    <pre className="logs-payload">
+                      {JSON.stringify(entry.payload, null, 2)}
+                    </pre>
+                  </div>
+                ))}
               </div>
             )}
           </div>

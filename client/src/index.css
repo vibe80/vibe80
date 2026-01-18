@@ -378,6 +378,87 @@ body {
   font-size: 12px;
 }
 
+.logs-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  min-height: 0;
+  height: 100%;
+}
+
+.logs-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.logs-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.logs-count {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.logs-empty {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  min-height: 0;
+}
+
+.logs-item {
+  border-radius: 12px;
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  padding: 10px 12px;
+  background: rgba(20, 19, 17, 0.02);
+}
+
+.logs-stdin {
+  border-left: 4px solid rgba(238, 93, 59, 0.6);
+}
+
+.logs-stdout {
+  border-left: 4px solid rgba(31, 96, 117, 0.6);
+}
+
+.logs-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.logs-method {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.logs-payload {
+  margin: 8px 0 0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .diff-header {
   display: flex;
   align-items: baseline;

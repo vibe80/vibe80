@@ -101,6 +101,7 @@ export class CodexAppServerClient extends EventEmitter {
 
   #handleMessage(message) {
     if (Object.prototype.hasOwnProperty.call(message, "id")) {
+      this.emit("rpc_in", message);
       const pending = this.pending.get(message.id);
       if (pending) {
         this.pending.delete(message.id);
@@ -114,6 +115,7 @@ export class CodexAppServerClient extends EventEmitter {
     }
 
     if (message.method) {
+      this.emit("rpc_in", message);
       this.emit("notification", message);
     }
   }
@@ -124,6 +126,7 @@ export class CodexAppServerClient extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
+      this.emit("rpc_out", payload);
       this.proc.stdin.write(`${JSON.stringify(payload)}\n`);
     });
   }

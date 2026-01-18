@@ -114,6 +114,7 @@ const createSession = async (repoUrl) => {
         client,
         sockets: new Set(),
         messages: [],
+        rpcLogs: [],
       });
       attachClientEvents(sessionId, client);
       client.start().catch((error) => {
@@ -163,6 +164,17 @@ const appendSessionMessage = (sessionId, message) => {
     return;
   }
   session.messages.push(message);
+};
+
+const appendRpcLog = (sessionId, entry) => {
+  const session = getSession(sessionId);
+  if (!session) {
+    return;
+  }
+  session.rpcLogs.push(entry);
+  if (session.rpcLogs.length > 500) {
+    session.rpcLogs.splice(0, session.rpcLogs.length - 500);
+  }
 };
 
 const broadcastRepoDiff = async (sessionId) => {
@@ -358,6 +370,26 @@ function attachClientEvents(sessionId, client) {
       default:
         break;
     }
+  });
+
+  client.on("rpc_out", (payload) => {
+    const entry = {
+      direction: "stdin",
+      timestamp: Date.now(),
+      payload,
+    };
+    appendRpcLog(sessionId, entry);
+    broadcastToSession(sessionId, { type: "rpc_log", entry });
+  });
+
+  client.on("rpc_in", (payload) => {
+    const entry = {
+      direction: "stdout",
+      timestamp: Date.now(),
+      payload,
+    };
+    appendRpcLog(sessionId, entry);
+    broadcastToSession(sessionId, { type: "rpc_log", entry });
   });
 }
 
@@ -563,6 +595,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
     repoUrl: session.repoUrl,
     messages: session.messages,
     repoDiff,
+    rpcLogs: session.rpcLogs || [],
   });
 });
 
