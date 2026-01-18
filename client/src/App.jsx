@@ -93,6 +93,7 @@ function App() {
   const [choiceSelections, setChoiceSelections] = useState({});
   const [activePane, setActivePane] = useState("chat");
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
+  const [backlog, setBacklog] = useState([]);
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -111,6 +112,13 @@ function App() {
   const repoName = useMemo(
     () => extractRepoName(attachmentSession?.repoUrl),
     [attachmentSession?.repoUrl]
+  );
+  const backlogKey = useMemo(
+    () =>
+      attachmentSession?.sessionId
+        ? `backlog:${attachmentSession.sessionId}`
+        : null,
+    [attachmentSession?.sessionId]
   );
   const diffFiles = useMemo(() => {
     if (!repoDiff.diff) {
@@ -679,6 +687,25 @@ function App() {
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
 
   useEffect(() => {
+    if (!backlogKey) {
+      return;
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem(backlogKey) || "[]");
+      setBacklog(Array.isArray(stored) ? stored : []);
+    } catch {
+      setBacklog([]);
+    }
+  }, [backlogKey]);
+
+  useEffect(() => {
+    if (!backlogKey) {
+      return;
+    }
+    localStorage.setItem(backlogKey, JSON.stringify(backlog));
+  }, [backlog, backlogKey]);
+
+  useEffect(() => {
     if (!attachmentSession?.sessionId) {
       return;
     }
@@ -788,14 +815,14 @@ function App() {
     });
   };
 
-  const sendMessage = (textOverride) => {
+  const sendMessage = (textOverride, attachmentsOverride) => {
     const rawText = (textOverride ?? input).trim();
     if (!rawText || !socketRef.current || !connected) {
       return;
     }
 
     void ensureNotificationPermission();
-    const selectedPaths = selectedAttachments;
+    const selectedPaths = attachmentsOverride ?? selectedAttachments;
     const suffix =
       selectedPaths.length > 0
         ? `;; attachments: ${JSON.stringify(selectedPaths)}`
@@ -810,6 +837,35 @@ function App() {
       JSON.stringify({ type: "user_message", text, displayText })
     );
     setInput("");
+  };
+
+  const addToBacklog = () => {
+    const trimmed = input.trim();
+    if (!trimmed) {
+      return;
+    }
+    const entry = {
+      id: `backlog-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      text: trimmed,
+      createdAt: Date.now(),
+      attachments: selectedAttachments,
+    };
+    setBacklog((current) => [entry, ...current]);
+    setInput("");
+  };
+
+  const removeFromBacklog = (id) => {
+    setBacklog((current) => current.filter((item) => item.id !== id));
+  };
+
+  const editBacklogItem = (item) => {
+    setInput(item.text || "");
+    setSelectedAttachments(item.attachments || []);
+  };
+
+  const launchBacklogItem = (item) => {
+    sendMessage(item.text || "", item.attachments || []);
+    removeFromBacklog(item.id);
   };
 
   const onSubmit = (event) => {
@@ -976,10 +1032,69 @@ function App() {
                 ref={inputRef}
               />
             </div>
-            <button type="submit" disabled={!connected || !input.trim()}>
-              Envoyer
-            </button>
+            <div className="composer-actions">
+              <button type="submit" disabled={!connected || !input.trim()}>
+                Envoyer
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={addToBacklog}
+                disabled={!input.trim()}
+              >
+                Ajouter a la backlog
+              </button>
+            </div>
           </form>
+          <section className="backlog">
+            <div className="backlog-header">
+              <h2>Backlog</h2>
+              <span className="backlog-count">{backlog.length}</span>
+            </div>
+            {backlog.length === 0 ? (
+              <div className="backlog-empty">
+                Aucune tache en attente pour le moment.
+              </div>
+            ) : (
+              <ul className="backlog-list">
+                {backlog.map((item) => (
+                  <li key={item.id} className="backlog-item">
+                    <div className="backlog-text">
+                      {getTruncatedText(item.text, 180)}
+                    </div>
+                    <div className="backlog-actions">
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => editBacklogItem(item)}
+                      >
+                        Editer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => launchBacklogItem(item)}
+                        disabled={!connected}
+                      >
+                        Lancer
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => removeFromBacklog(item.id)}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                    {item.attachments?.length ? (
+                      <div className="backlog-meta">
+                        {item.attachments.length} piece(s) jointe(s)
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
 
         <section className="conversation">

@@ -266,7 +266,7 @@ body {
 .side {
   grid-area: side;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   gap: 16px;
   min-height: 0;
 }
@@ -798,6 +798,25 @@ body {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.composer .secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid rgba(238, 93, 59, 0.4);
+  box-shadow: none;
+}
+
+.composer .secondary:not(:disabled):hover {
+  box-shadow: none;
+  background: rgba(238, 93, 59, 0.08);
+}
+
 .composer button:disabled {
   background: #d6c6b8;
   cursor: not-allowed;
@@ -807,6 +826,99 @@ body {
 .composer button:not(:disabled):hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 16px rgba(238, 93, 59, 0.3);
+}
+
+.backlog {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.backlog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.backlog-header h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.backlog-count {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  background: rgba(20, 19, 17, 0.08);
+  color: var(--ink-muted);
+}
+
+.backlog-empty {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.backlog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.backlog-item {
+  border: 1px solid rgba(20, 19, 17, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(20, 19, 17, 0.02);
+}
+
+.backlog-text {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.backlog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.backlog-actions button {
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  border-radius: 999px;
+  background: var(--bg-strong);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.backlog-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.backlog-actions .ghost {
+  background: transparent;
+}
+
+.backlog-meta {
+  font-size: 11px;
+  color: var(--ink-muted);
 }
 
 @media (max-width: 720px) {
