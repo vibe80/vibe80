@@ -26,6 +26,8 @@ RUN npm install
 
 COPY . .
 
+RUN npm run build
+
 RUN adduser -D -h /home/app app && chown -R app:app /app
 RUN chmod +x /app/start.sh
 
