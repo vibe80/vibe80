@@ -15,8 +15,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: "/ws" });
-const terminalWss = new WebSocketServer({ server, path: "/terminal" });
+const wss = new WebSocketServer({ noServer: true });
+const terminalWss = new WebSocketServer({ noServer: true });
 
 const cwd = process.cwd();
 const sessions = new Map();
@@ -751,4 +751,20 @@ if (fs.existsSync(distPath)) {
 const port = process.env.PORT || 5179;
 server.listen(port, async () => {
   console.log(`Server listening on http://localhost:${port}`);
+});
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.pathname === "/ws") {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
+    return;
+  }
+  if (url.pathname === "/terminal") {
+    terminalWss.handleUpgrade(req, socket, head, (ws) => {
+      terminalWss.emit("connection", ws, req);
+    });
+    return;
+  }
+  socket.destroy();
 });
