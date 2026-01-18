@@ -107,6 +107,7 @@ function App() {
   const terminalContainerRef = useRef(null);
   const terminalRef = useRef(null);
   const terminalFitRef = useRef(null);
+  const terminalDisposableRef = useRef(null);
   const terminalSocketRef = useRef(null);
   const terminalSessionRef = useRef(null);
   const reconnectTimerRef = useRef(null);
@@ -572,6 +573,9 @@ function App() {
   }, [attachmentSession?.sessionId, messageIndex]);
 
   useEffect(() => {
+    if (activePane !== "terminal") {
+      return;
+    }
     if (!terminalContainerRef.current || terminalRef.current) {
       return;
     }
@@ -590,20 +594,27 @@ function App() {
     term.loadAddon(fitAddon);
     term.open(terminalContainerRef.current);
     fitAddon.fit();
+    term.focus();
     terminalRef.current = term;
     terminalFitRef.current = fitAddon;
-
-    const disposable = term.onData((data) => {
+    terminalDisposableRef.current = term.onData((data) => {
       const socket = terminalSocketRef.current;
       if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "input", data }));
       }
     });
+  }, [activePane]);
 
+  useEffect(() => {
     return () => {
-      disposable.dispose();
-      term.dispose();
-      terminalRef.current = null;
+      if (terminalDisposableRef.current) {
+        terminalDisposableRef.current.dispose();
+        terminalDisposableRef.current = null;
+      }
+      if (terminalRef.current) {
+        terminalRef.current.dispose();
+        terminalRef.current = null;
+      }
       terminalFitRef.current = null;
     };
   }, []);
@@ -620,6 +631,7 @@ function App() {
           return;
         }
         fitAddon.fit();
+        term.focus();
         const socket = terminalSocketRef.current;
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(
