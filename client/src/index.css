@@ -110,6 +110,40 @@ body {
   gap: 16px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clear-chat {
+  border-radius: 999px;
+  border: 1px solid rgba(20, 19, 17, 0.2);
+  background: transparent;
+  color: var(--ink-muted);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease,
+    border-color 0.2s ease, color 0.2s ease;
+}
+
+.clear-chat:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.clear-chat:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 19, 17, 0.35);
+  color: var(--ink);
+  box-shadow: 0 8px 16px rgba(20, 19, 17, 0.08);
+}
+
 .status-wrap {
   display: flex;
   align-items: center;
@@ -367,6 +401,10 @@ body {
   line-height: 1.45;
   font-size: 14px;
   white-space: normal;
+}
+
+.bubble .plain-text {
+  white-space: pre-wrap;
 }
 
 .bubble :where(p, ul, ol, pre, blockquote, h1, h2, h3, h4, h5, h6) {
@@ -635,6 +673,11 @@ body {
   .header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .layout {
