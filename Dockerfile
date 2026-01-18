@@ -9,7 +9,6 @@ RUN apk add --no-cache \
     bat \
     eza \
     git \
-    git-delta \
     jq \
     yq \
     httpie \
