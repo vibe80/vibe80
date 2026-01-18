@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "@uiw/react-md-editor/markdown-editor.css";
 import "@uiw/react-markdown-preview/markdown.css";
+
+const getSessionIdFromUrl = () =>
+  new URLSearchParams(window.location.search).get("session");
 
 const wsUrl = (sessionId) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
@@ -28,139 +31,250 @@ function App() {
   const [sessionRequested, setSessionRequested] = useState(false);
   const socketRef = useRef(null);
   const listRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
+  const closingRef = useRef(false);
 
   const messageIndex = useMemo(() => new Map(), []);
+
+  const applyMessages = useCallback(
+    (items = []) => {
+      const normalized = items.map((item, index) => ({
+        id: item.id || `history-${index}`,
+        role: item.role,
+        text: item.text,
+      }));
+      messageIndex.clear();
+      normalized.forEach((item, index) => {
+        if (item.role === "assistant") {
+          messageIndex.set(item.id, index);
+        }
+      });
+      setMessages(normalized);
+    },
+    [messageIndex]
+  );
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
       return;
     }
-    const socket = new WebSocket(wsUrl(attachmentSession.sessionId));
-    socketRef.current = socket;
+    let isMounted = true;
 
-    socket.addEventListener("open", () => {
-      setConnected(true);
-      setStatus("Connecte");
-    });
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
 
-    socket.addEventListener("close", () => {
-      setConnected(false);
-      setStatus("Deconnecte");
-    });
-
-    socket.addEventListener("message", (event) => {
-      let payload;
-      try {
-        payload = JSON.parse(event.data);
-      } catch (error) {
+    const scheduleReconnect = () => {
+      if (!isMounted) {
         return;
       }
+      const attempt = Math.min(reconnectAttemptRef.current + 1, 6);
+      reconnectAttemptRef.current = attempt;
+      const baseDelay = 500;
+      const maxDelay = 10000;
+      const delay = Math.min(baseDelay * 2 ** (attempt - 1), maxDelay);
+      const jitter = Math.floor(Math.random() * 250);
+      clearReconnectTimer();
+      reconnectTimerRef.current = setTimeout(() => {
+        connect();
+      }, delay + jitter);
+    };
 
-      if (payload.type === "status") {
-        setStatus(payload.message);
+    const connect = () => {
+      if (!isMounted) {
+        return;
       }
+      setStatus("Connexion...");
+      const socket = new WebSocket(wsUrl(attachmentSession.sessionId));
+      socketRef.current = socket;
 
-      if (payload.type === "ready") {
-        setStatus("Pret");
-      }
+      const isCurrent = () => socketRef.current === socket;
 
-      if (payload.type === "assistant_delta") {
-        setMessages((current) => {
-          const next = [...current];
-          const existingIndex = messageIndex.get(payload.itemId);
-          if (existingIndex === undefined) {
-            const entry = {
-              id: payload.itemId,
-              role: "assistant",
-              text: payload.delta,
-            };
-            messageIndex.set(payload.itemId, next.length);
-            next.push(entry);
+      socket.addEventListener("open", () => {
+        if (!isCurrent()) {
+          return;
+        }
+        reconnectAttemptRef.current = 0;
+        clearReconnectTimer();
+        setConnected(true);
+        setStatus("Connecte");
+      });
+
+      socket.addEventListener("close", () => {
+        if (!isCurrent()) {
+          return;
+        }
+        setConnected(false);
+        setStatus("Deconnecte");
+        if (!closingRef.current) {
+          scheduleReconnect();
+        }
+      });
+
+      socket.addEventListener("error", () => {
+        if (!isCurrent()) {
+          return;
+        }
+        socket.close();
+      });
+
+      socket.addEventListener("message", (event) => {
+        if (!isCurrent()) {
+          return;
+        }
+        let payload;
+        try {
+          payload = JSON.parse(event.data);
+        } catch (error) {
+          return;
+        }
+
+        if (payload.type === "status") {
+          setStatus(payload.message);
+        }
+
+        if (payload.type === "ready") {
+          setStatus("Pret");
+        }
+
+        if (payload.type === "assistant_delta") {
+          setMessages((current) => {
+            const next = [...current];
+            const existingIndex = messageIndex.get(payload.itemId);
+            if (existingIndex === undefined) {
+              const entry = {
+                id: payload.itemId,
+                role: "assistant",
+                text: payload.delta,
+              };
+              messageIndex.set(payload.itemId, next.length);
+              next.push(entry);
+              return next;
+            }
+
+            const updated = { ...next[existingIndex] };
+            updated.text += payload.delta;
+            next[existingIndex] = updated;
             return next;
-          }
+          });
+        }
 
-          const updated = { ...next[existingIndex] };
-          updated.text += payload.delta;
-          next[existingIndex] = updated;
-          return next;
-        });
-      }
+        if (payload.type === "assistant_message") {
+          setMessages((current) => {
+            const next = [...current];
+            const existingIndex = messageIndex.get(payload.itemId);
+            if (existingIndex === undefined) {
+              messageIndex.set(payload.itemId, next.length);
+              next.push({
+                id: payload.itemId,
+                role: "assistant",
+                text: payload.text,
+              });
+              return next;
+            }
 
-      if (payload.type === "assistant_message") {
-        setMessages((current) => {
-          const next = [...current];
-          const existingIndex = messageIndex.get(payload.itemId);
-          if (existingIndex === undefined) {
-            messageIndex.set(payload.itemId, next.length);
-            next.push({
-              id: payload.itemId,
-              role: "assistant",
+            next[existingIndex] = {
+              ...next[existingIndex],
               text: payload.text,
-            });
+            };
             return next;
+          });
+        }
+
+        if (payload.type === "turn_error") {
+          setStatus(`Erreur: ${payload.message}`);
+          setProcessing(false);
+          setActivity("");
+        }
+
+        if (payload.type === "error") {
+          setStatus(payload.message || "Erreur inattendue");
+          setProcessing(false);
+          setActivity("");
+        }
+
+        if (payload.type === "turn_started") {
+          setProcessing(true);
+          setActivity("Traitement en cours...");
+        }
+
+        if (payload.type === "turn_completed") {
+          setProcessing(false);
+          setActivity("");
+        }
+
+        if (payload.type === "item_started") {
+          const { item } = payload;
+          if (!item?.type) {
+            return;
           }
-
-          next[existingIndex] = {
-            ...next[existingIndex],
-            text: payload.text,
-          };
-          return next;
-        });
-      }
-
-      if (payload.type === "turn_error") {
-        setStatus(`Erreur: ${payload.message}`);
-        setProcessing(false);
-        setActivity("");
-      }
-
-      if (payload.type === "error") {
-        setStatus(payload.message || "Erreur inattendue");
-        setProcessing(false);
-        setActivity("");
-      }
-
-      if (payload.type === "turn_started") {
-        setProcessing(true);
-        setActivity("Traitement en cours...");
-      }
-
-      if (payload.type === "turn_completed") {
-        setProcessing(false);
-        setActivity("");
-      }
-
-      if (payload.type === "item_started") {
-        const { item } = payload;
-        if (!item?.type) {
-          return;
+          if (item.type === "commandExecution") {
+            setActivity(`Commande: ${item.command}`);
+            return;
+          }
+          if (item.type === "fileChange") {
+            setActivity("Application de modifications...");
+            return;
+          }
+          if (item.type === "mcpToolCall") {
+            setActivity(`Outil: ${item.tool}`);
+            return;
+          }
+          if (item.type === "reasoning") {
+            setActivity("Raisonnement...");
+            return;
+          }
+          if (item.type === "agentMessage") {
+            setActivity("Generation de reponse...");
+          }
         }
-        if (item.type === "commandExecution") {
-          setActivity(`Commande: ${item.command}`);
-          return;
-        }
-        if (item.type === "fileChange") {
-          setActivity("Application de modifications...");
-          return;
-        }
-        if (item.type === "mcpToolCall") {
-          setActivity(`Outil: ${item.tool}`);
-          return;
-        }
-        if (item.type === "reasoning") {
-          setActivity("Raisonnement...");
-          return;
-        }
-        if (item.type === "agentMessage") {
-          setActivity("Generation de reponse...");
-        }
-      }
-    });
+      });
+    };
+
+    connect();
 
     return () => {
-      socket.close();
+      isMounted = false;
+      closingRef.current = true;
+      clearReconnectTimer();
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+      closingRef.current = false;
     };
   }, [attachmentSession?.sessionId, messageIndex]);
+
+  useEffect(() => {
+    const sessionId = getSessionIdFromUrl();
+    if (!sessionId) {
+      return;
+    }
+    const resumeSession = async () => {
+      try {
+        setSessionRequested(true);
+        setAttachmentsError("");
+        const response = await fetch(
+          `/api/session/${encodeURIComponent(sessionId)}`
+        );
+        if (!response.ok) {
+          throw new Error("Session introuvable.");
+        }
+        const data = await response.json();
+        setAttachmentSession(data);
+      } catch (error) {
+        setAttachmentsError(
+          error.message || "Impossible de reprendre la session."
+        );
+        setSessionRequested(false);
+      }
+    };
+
+    resumeSession();
+  }, []);
 
   useEffect(() => {
     if (!repoUrl) {
@@ -192,6 +306,15 @@ function App() {
     createAttachmentSession();
   }, [repoUrl]);
 
+  useEffect(() => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("session", attachmentSession.sessionId);
+    window.history.replaceState({}, "", url);
+  }, [attachmentSession?.sessionId]);
+
   const onRepoSubmit = (event) => {
     event.preventDefault();
     const trimmed = repoInput.trim();
@@ -208,11 +331,10 @@ function App() {
     if (!attachmentSession?.sessionId) {
       return;
     }
-    messageIndex.clear();
-    setMessages([]);
+    applyMessages(attachmentSession.messages || []);
     setStatus("Connexion...");
     setConnected(false);
-  }, [attachmentSession?.sessionId, messageIndex]);
+  }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -341,7 +463,7 @@ function App() {
       { id: `user-${Date.now()}`, role: "user", text: displayText },
     ]);
     socketRef.current.send(
-      JSON.stringify({ type: "user_message", text })
+      JSON.stringify({ type: "user_message", text, displayText })
     );
     setInput("");
   };

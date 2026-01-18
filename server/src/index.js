@@ -40,6 +40,11 @@ const runCommand = (command, args, options = {}) =>
     });
   });
 
+const createMessageId = () =>
+  typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : crypto.randomBytes(16).toString("hex");
+
 const resolveRepoHost = (repoUrl) => {
   if (repoUrl.startsWith("ssh://")) {
     try {
@@ -82,6 +87,7 @@ const createSession = async (repoUrl) => {
         repoUrl,
         client,
         sockets: new Set(),
+        messages: [],
       });
       attachClientEvents(sessionId, client);
       client.start().catch((error) => {
@@ -111,6 +117,14 @@ const getSession = (sessionId) =>
 
 const sanitizeFilename = (originalName) =>
   path.basename(originalName || "attachment");
+
+const appendSessionMessage = (sessionId, message) => {
+  const session = getSession(sessionId);
+  if (!session) {
+    return;
+  }
+  session.messages.push(message);
+};
 
 const ensureUniqueFilename = async (dir, filename) => {
   const extension = path.extname(filename);
@@ -203,6 +217,11 @@ function attachClientEvents(sessionId, client) {
       case "item/completed": {
         const { item, turnId } = message.params;
         if (item?.type === "agentMessage") {
+          appendSessionMessage(sessionId, {
+            id: item.id,
+            role: "assistant",
+            text: item.text,
+          });
           broadcastToSession(sessionId, {
             type: "assistant_message",
             text: item.text,
@@ -305,6 +324,11 @@ wss.on("connection", (socket, req) => {
 
       try {
         const result = await session.client.sendTurn(payload.text);
+        appendSessionMessage(sessionId, {
+          id: createMessageId(),
+          role: "user",
+          text: payload.displayText || payload.text,
+        });
         socket.send(
           JSON.stringify({
             type: "turn_started",
@@ -328,14 +352,6 @@ wss.on("connection", (socket, req) => {
   });
 });
 
-const distPath = path.resolve(__dirname, "../../client/dist");
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
-  });
-}
-
 app.get("/api/health", (req, res) => {
   const session = getSession(req.query.session);
   if (!session) {
@@ -349,6 +365,20 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.get("/api/session/:sessionId", (req, res) => {
+  const session = getSession(req.params.sessionId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  res.json({
+    sessionId: req.params.sessionId,
+    path: session.dir,
+    repoUrl: session.repoUrl,
+    messages: session.messages,
+  });
+});
+
 app.post("/api/session", async (req, res) => {
   const repoUrl = req.body?.repoUrl;
   if (!repoUrl) {
@@ -357,7 +387,12 @@ app.post("/api/session", async (req, res) => {
   }
   try {
     const session = await createSession(repoUrl);
-    res.json({ sessionId: session.sessionId, path: session.dir });
+    res.json({
+      sessionId: session.sessionId,
+      path: session.dir,
+      repoUrl,
+      messages: [],
+    });
   } catch (error) {
     console.error("Failed to create session for repo:", {
       repoUrl,
@@ -421,6 +456,14 @@ app.use((err, req, res, next) => {
   }
   next(err);
 });
+
+const distPath = path.resolve(__dirname, "../../client/dist");
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+}
 
 const port = process.env.PORT || 5179;
 server.listen(port, async () => {
