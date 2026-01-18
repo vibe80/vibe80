@@ -73,6 +73,7 @@ function App() {
       return false;
     }
   });
+  const [choiceSelections, setChoiceSelections] = useState({});
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -648,7 +649,11 @@ function App() {
     inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
   }, [input]);
 
-  const handleChoiceClick = (choice) => {
+  const handleChoiceClick = (choice, blockKey, choiceIndex) => {
+    setChoiceSelections((prev) => ({
+      ...prev,
+      [blockKey]: choiceIndex,
+    }));
     setInput(choice);
     sendMessage(choice);
   };
@@ -809,27 +814,68 @@ function App() {
                       >
                         {cleanedText}
                       </ReactMarkdown>
-                      {blocks.map((block, index) => (
-                        <div className="choices" key={`${message.id}-${index}`}>
+                      {blocks.map((block, index) => {
+                        const blockKey = `${message.id}-${index}`;
+                        const selectedIndex = choiceSelections[blockKey];
+                        const choicesWithIndex = block.choices.map(
+                          (choice, choiceIndex) => ({ choice, choiceIndex })
+                        );
+                        const orderedChoices =
+                          selectedIndex === undefined
+                            ? choicesWithIndex
+                            : [
+                                choicesWithIndex.find(
+                                  ({ choiceIndex }) =>
+                                    choiceIndex === selectedIndex
+                                ),
+                                ...choicesWithIndex.filter(
+                                  ({ choiceIndex }) =>
+                                    choiceIndex !== selectedIndex
+                                ),
+                              ].filter(Boolean);
+
+                        return (
+                          <div className="choices" key={blockKey}>
                           {block.question && (
                             <div className="choices-question">
                               {block.question}
                             </div>
                           )}
-                          <div className="choices-list">
-                            {block.choices.map((choice, choiceIndex) => (
+                          <div
+                            className={`choices-list ${
+                              selectedIndex !== undefined ? "is-selected" : ""
+                            }`}
+                          >
+                            {orderedChoices.map(({ choice, choiceIndex }) => {
+                              const isSelected =
+                                selectedIndex === choiceIndex;
+                              return (
                               <button
                                 type="button"
-                                key={`${message.id}-${index}-${choiceIndex}`}
-                                onClick={() => handleChoiceClick(choice)}
-                                className="choice-button"
+                                key={`${blockKey}-${choiceIndex}`}
+                                onClick={() =>
+                                  handleChoiceClick(
+                                    choice,
+                                    blockKey,
+                                    choiceIndex
+                                  )
+                                }
+                                className={`choice-button ${
+                                  isSelected
+                                    ? "is-selected"
+                                    : selectedIndex !== undefined
+                                      ? "is-muted"
+                                      : ""
+                                }`}
                               >
                                 {choice}
                               </button>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </>
                   );
                 })()}
