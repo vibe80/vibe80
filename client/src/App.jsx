@@ -1003,7 +1003,7 @@ function App() {
                       >
                         <div className="diff-file-header">{fileLabel}</div>
                         <Diff
-                          viewType="split"
+                          viewType="unified"
                           diffType={file.type}
                           hunks={file.hunks}
                         >
