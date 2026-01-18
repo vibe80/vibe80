@@ -66,6 +66,11 @@ const createSession = async (repoUrl) => {
       });
       return { sessionId, dir };
     } catch (error) {
+      console.error("Session creation failed:", {
+        repoUrl,
+        sessionDir: dir,
+        error: error?.message || error,
+      });
       await fs.promises.rm(dir, { recursive: true, force: true });
       if (error.code !== "EEXIST") {
         throw error;
@@ -327,6 +332,10 @@ app.post("/api/session", async (req, res) => {
     const session = await createSession(repoUrl);
     res.json({ sessionId: session.sessionId, path: session.dir });
   } catch (error) {
+    console.error("Failed to create session for repo:", {
+      repoUrl,
+      error: error?.message || error,
+    });
     res.status(500).json({ error: "Failed to create session." });
   }
 });
