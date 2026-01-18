@@ -9,6 +9,7 @@ RUN apk add --no-cache \
     bat \
     eza \
     git \
+    openssh \
     jq \
     yq \
     httpie \
