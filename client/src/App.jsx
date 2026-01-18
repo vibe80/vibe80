@@ -135,11 +135,6 @@ function App() {
     [messageIndex]
   );
 
-  useEffect(() => {
-    void ensureNotificationPermission();
-    primeAudioContext();
-  }, [ensureNotificationPermission, primeAudioContext]);
-
   const ensureNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
       return "unsupported";
@@ -219,6 +214,11 @@ function App() {
     }
     playNotificationSound();
   }, [playNotificationSound]);
+
+  useEffect(() => {
+    void ensureNotificationPermission();
+    primeAudioContext();
+  }, [ensureNotificationPermission, primeAudioContext]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
