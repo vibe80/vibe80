@@ -27,9 +27,10 @@ RUN npm install
 COPY . .
 
 RUN adduser -D -h /home/app app && chown -R app:app /app
+RUN chmod +x /app/start.sh
 
 USER app
 
 EXPOSE 5179
 
-CMD ["npm", "run", "start"]
+CMD ["/app/start.sh"]
