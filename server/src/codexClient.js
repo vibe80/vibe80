@@ -79,8 +79,8 @@ export class CodexAppServerClient extends EventEmitter {
     return this.#sendRequest("model/list", { cursor, limit });
   }
 
-  async setDefaultModel(model) {
-    return this.#sendRequest("setDefaultModel", { model });
+  async setDefaultModel(model, reasoningEffort = null) {
+    return this.#sendRequest("setDefaultModel", { model, reasoningEffort });
   }
 
   #handleStdout(chunk) {

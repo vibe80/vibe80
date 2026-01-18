@@ -525,9 +525,16 @@ wss.on("connection", (socket, req) => {
         return;
       }
       try {
-        await session.client.setDefaultModel(payload.model || null);
+        await session.client.setDefaultModel(
+          payload.model || null,
+          payload.reasoningEffort ?? null
+        );
         socket.send(
-          JSON.stringify({ type: "model_set", model: payload.model || null })
+          JSON.stringify({
+            type: "model_set",
+            model: payload.model || null,
+            reasoningEffort: payload.reasoningEffort ?? null,
+          })
         );
       } catch (error) {
         socket.send(

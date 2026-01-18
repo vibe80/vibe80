@@ -98,6 +98,7 @@ function App() {
   const [rpcLogs, setRpcLogs] = useState([]);
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
+  const [selectedReasoningEffort, setSelectedReasoningEffort] = useState("");
   const [modelLoading, setModelLoading] = useState(false);
   const [modelError, setModelError] = useState("");
   const socketRef = useRef(null);
@@ -507,12 +508,18 @@ function App() {
           if (defaultModel?.model) {
             setSelectedModel(defaultModel.model);
           }
+          if (defaultModel?.defaultReasoningEffort) {
+            setSelectedReasoningEffort(defaultModel.defaultReasoningEffort);
+          }
           setModelLoading(false);
           setModelError("");
         }
 
         if (payload.type === "model_set") {
           setSelectedModel(payload.model || "");
+          if (payload.reasoningEffort !== undefined) {
+            setSelectedReasoningEffort(payload.reasoningEffort || "");
+          }
           setModelLoading(false);
           setModelError("");
         }
@@ -758,8 +765,36 @@ function App() {
     }
     setModelLoading(true);
     setModelError("");
-    socketRef.current.send(JSON.stringify({ type: "model_set", model: value }));
+    socketRef.current.send(
+      JSON.stringify({
+        type: "model_set",
+        model: value,
+        reasoningEffort: selectedReasoningEffort || null,
+      })
+    );
   };
+
+  const handleReasoningEffortChange = (event) => {
+    const value = event.target.value;
+    setSelectedReasoningEffort(value);
+    if (!socketRef.current) {
+      return;
+    }
+    setModelLoading(true);
+    setModelError("");
+    socketRef.current.send(
+      JSON.stringify({
+        type: "model_set",
+        model: selectedModel || null,
+        reasoningEffort: value || null,
+      })
+    );
+  };
+
+  const selectedModelDetails = useMemo(
+    () => models.find((model) => model.model === selectedModel) || null,
+    [models, selectedModel]
+  );
 
   useEffect(() => {
     if (!backlogKey) {
@@ -1058,6 +1093,29 @@ function App() {
                   {model.displayName || model.model}
                 </option>
               ))}
+            </select>
+            <select
+              className="model-select"
+              value={selectedReasoningEffort}
+              onChange={handleReasoningEffortChange}
+              disabled={
+                !connected ||
+                !selectedModelDetails ||
+                !selectedModelDetails.supportedReasoningEfforts?.length ||
+                modelLoading
+              }
+            >
+              <option value="">Reasoning par defaut</option>
+              {(selectedModelDetails?.supportedReasoningEfforts || []).map(
+                (effort) => (
+                  <option
+                    key={effort.reasoningEffort}
+                    value={effort.reasoningEffort}
+                  >
+                    {effort.reasoningEffort}
+                  </option>
+                )
+              )}
             </select>
           </div>
           {!connected && (
