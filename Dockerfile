@@ -1,21 +1,27 @@
-FROM node:20-alpine
+FROM node:25-trixie-slim
 
 WORKDIR /app
 
-RUN apk add --no-cache \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3 \
     ripgrep \
-    fd \
+    fd-find \
     fzf \
     bat \
     eza \
     git \
-    openssh \
+    openssh-client \
     jq \
     yq \
     httpie \
     pre-commit \
     direnv \
-    tree
+    tree \
+    && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+    && ln -sf /usr/bin/batcat /usr/local/bin/bat \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @openai/codex
 
@@ -29,7 +35,7 @@ COPY . .
 
 RUN npm run build
 
-RUN adduser -D -h /home/app app \
+RUN useradd -m -d /home/app -s /bin/bash app \
     && mkdir -p /home/app/.codex \
     && chown -R app:app /app /home/app/.codex
 RUN chmod +x /app/start.sh
