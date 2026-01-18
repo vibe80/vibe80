@@ -398,6 +398,14 @@ body {
   gap: 12px;
 }
 
+.logs-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .logs-title {
   font-weight: 700;
   font-size: 14px;
@@ -406,6 +414,44 @@ body {
 .logs-count {
   color: var(--ink-muted);
   font-size: 12px;
+}
+
+.logs-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.logs-filter {
+  border: 1px solid rgba(20, 19, 17, 0.16);
+  background: transparent;
+  color: var(--ink-muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.logs-filter.is-active {
+  background: var(--bg-strong);
+  color: var(--ink);
+  border-color: rgba(20, 19, 17, 0.28);
+}
+
+.logs-clear {
+  border: 1px solid rgba(20, 19, 17, 0.16);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.logs-clear:disabled {
+  color: var(--ink-muted);
+  cursor: not-allowed;
 }
 
 .logs-empty {

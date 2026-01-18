@@ -140,6 +140,7 @@ function App() {
         .filter(Boolean),
     [repoDiff.status]
   );
+  const [logFilter, setLogFilter] = useState("all");
   const formattedRpcLogs = useMemo(
     () =>
       (rpcLogs || []).map((entry) => ({
@@ -150,6 +151,15 @@ function App() {
       })),
     [rpcLogs]
   );
+  const filteredRpcLogs = useMemo(() => {
+    if (logFilter === "stdin") {
+      return formattedRpcLogs.filter((entry) => entry.direction === "stdin");
+    }
+    if (logFilter === "stdout") {
+      return formattedRpcLogs.filter((entry) => entry.direction === "stdout");
+    }
+    return formattedRpcLogs;
+  }, [formattedRpcLogs, logFilter]);
 
   const applyMessages = useCallback(
     (items = []) => {
@@ -1399,13 +1409,52 @@ function App() {
           >
             <div className="logs-header">
               <div className="logs-title">JSON-RPC</div>
-              <div className="logs-count">{rpcLogs.length} events</div>
+              <div className="logs-controls">
+                <div className="logs-count">{filteredRpcLogs.length} events</div>
+                <div className="logs-filters">
+                  <button
+                    type="button"
+                    className={`logs-filter ${
+                      logFilter === "all" ? "is-active" : ""
+                    }`}
+                    onClick={() => setLogFilter("all")}
+                  >
+                    Tout
+                  </button>
+                  <button
+                    type="button"
+                    className={`logs-filter ${
+                      logFilter === "stdin" ? "is-active" : ""
+                    }`}
+                    onClick={() => setLogFilter("stdin")}
+                  >
+                    Stdin
+                  </button>
+                  <button
+                    type="button"
+                    className={`logs-filter ${
+                      logFilter === "stdout" ? "is-active" : ""
+                    }`}
+                    onClick={() => setLogFilter("stdout")}
+                  >
+                    Stdout
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="logs-clear"
+                  onClick={() => setRpcLogs([])}
+                  disabled={rpcLogs.length === 0}
+                >
+                  Clear
+                </button>
+              </div>
             </div>
-            {formattedRpcLogs.length === 0 ? (
+            {filteredRpcLogs.length === 0 ? (
               <div className="logs-empty">Aucun log pour le moment.</div>
             ) : (
               <div className="logs-list">
-                {formattedRpcLogs.map((entry, index) => (
+                {filteredRpcLogs.map((entry, index) => (
                   <div
                     key={`${entry.timestamp}-${index}`}
                     className={`logs-item logs-${entry.direction}`}
