@@ -12,6 +12,35 @@ const wsUrl = (sessionId) => {
   return `${protocol}://${window.location.host}/ws${query}`;
 };
 
+const extractChoices = (text) => {
+  const pattern =
+    /<!--\s*vibecoder:choices\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:choices\s*-->/g;
+  const blocks = [];
+  let cleaned = "";
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    cleaned += text.slice(lastIndex, match.index);
+    lastIndex = match.index + match[0].length;
+    const question = match[1]?.trim();
+    const choices = match[2]
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (choices.length) {
+      blocks.push({ question, choices });
+    }
+  }
+
+  if (!blocks.length) {
+    return { cleanedText: text, blocks: [] };
+  }
+
+  cleaned += text.slice(lastIndex);
+  return { cleanedText: cleaned.trim(), blocks };
+};
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -445,8 +474,9 @@ function App() {
     });
   };
 
-  const sendMessage = () => {
-    if (!input.trim() || !socketRef.current || !connected) {
+  const sendMessage = (textOverride) => {
+    const rawText = (textOverride ?? input).trim();
+    if (!rawText || !socketRef.current || !connected) {
       return;
     }
 
@@ -455,7 +485,7 @@ function App() {
       selectedPaths.length > 0
         ? `;; attachments: ${JSON.stringify(selectedPaths)}`
         : "";
-    const displayText = input.trim();
+    const displayText = rawText;
     const text = `${displayText}${suffix}`;
     setMessages((current) => [
       ...current,
@@ -489,6 +519,11 @@ function App() {
     inputRef.current.style.height = "auto";
     inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
   }, [input]);
+
+  const handleChoiceClick = (choice) => {
+    setInput(choice);
+    sendMessage(choice);
+  };
 
   if (!attachmentSession?.sessionId) {
     return (
@@ -544,20 +579,48 @@ function App() {
             )}
             {messages.map((message) => (
               <div key={message.id} className={`bubble ${message.role}`}>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    a: ({ node, ...props }) => (
-                      <a
-                        {...props}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      />
-                    ),
-                  }}
-                >
-                  {message.text}
-                </ReactMarkdown>
+                {(() => {
+                  const { cleanedText, blocks } = extractChoices(message.text);
+                  return (
+                    <>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          a: ({ node, ...props }) => (
+                            <a
+                              {...props}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            />
+                          ),
+                        }}
+                      >
+                        {cleanedText}
+                      </ReactMarkdown>
+                      {blocks.map((block, index) => (
+                        <div className="choices" key={`${message.id}-${index}`}>
+                          {block.question && (
+                            <div className="choices-question">
+                              {block.question}
+                            </div>
+                          )}
+                          <div className="choices-list">
+                            {block.choices.map((choice, choiceIndex) => (
+                              <button
+                                type="button"
+                                key={`${message.id}-${index}-${choiceIndex}`}
+                                onClick={() => handleChoiceClick(choice)}
+                                className="choice-button"
+                              >
+                                {choice}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()}
               </div>
             ))}
             {processing && (

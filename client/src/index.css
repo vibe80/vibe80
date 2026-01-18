@@ -405,6 +405,52 @@ body {
   padding-left: 20px;
 }
 
+.choices {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.choices-question {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.choices-list {
+  display: grid;
+  gap: 8px;
+}
+
+.choice-button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.choice-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(20, 19, 17, 0.08);
+}
+
+.bubble.user .choice-button {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.bubble.user .choices-question {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .bubble.user {
   align-self: flex-end;
   background: var(--accent);
