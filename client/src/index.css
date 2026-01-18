@@ -353,13 +353,6 @@ body {
   font-size: 13px;
 }
 
-.attachments-path {
-  display: block;
-  font-size: 11px;
-  color: var(--ink-muted);
-  word-break: break-all;
-}
-
 .empty {
   padding: 32px;
   text-align: center;
