@@ -356,7 +356,7 @@ body {
   border-radius: 18px;
   line-height: 1.45;
   font-size: 14px;
-  white-space: pre-wrap;
+  white-space: normal;
 }
 
 .bubble :where(p, ul, ol, pre, blockquote, h1, h2, h3, h4, h5, h6) {
