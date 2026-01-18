@@ -66,12 +66,21 @@ function App() {
   const [repoUrl, setRepoUrl] = useState("");
   const [repoInput, setRepoInput] = useState("");
   const [sessionRequested, setSessionRequested] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem("m5chat_sound") === "1";
+    } catch (error) {
+      return false;
+    }
+  });
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(0);
   const closingRef = useRef(false);
+  const lastNotifiedIdRef = useRef(null);
+  const audioContextRef = useRef(null);
 
   const messageIndex = useMemo(() => new Map(), []);
   const repoName = useMemo(
@@ -96,6 +105,94 @@ function App() {
     },
     [messageIndex]
   );
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("m5chat_sound", soundEnabled ? "1" : "0");
+    } catch (error) {
+      // Ignore storage failures (private mode, disabled storage).
+    }
+  }, [soundEnabled]);
+
+  const ensureNotificationPermission = useCallback(async () => {
+    if (!("Notification" in window)) {
+      return "unsupported";
+    }
+    if (Notification.permission === "default") {
+      try {
+        return await Notification.requestPermission();
+      } catch (error) {
+        return Notification.permission;
+      }
+    }
+    return Notification.permission;
+  }, []);
+
+  const primeAudioContext = useCallback(() => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) {
+      return;
+    }
+    let ctx = audioContextRef.current;
+    if (!ctx) {
+      ctx = new AudioContext();
+      audioContextRef.current = ctx;
+    }
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+  }, []);
+
+  const playNotificationSound = useCallback(() => {
+    if (!soundEnabled) {
+      return;
+    }
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) {
+      return;
+    }
+    let ctx = audioContextRef.current;
+    if (!ctx) {
+      ctx = new AudioContext();
+      audioContextRef.current = ctx;
+    }
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 740;
+    gain.gain.value = 0.0001;
+    gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+    oscillator.connect(gain).connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.26);
+  }, [soundEnabled]);
+
+  const maybeNotify = useCallback((message) => {
+    if (!("Notification" in window)) {
+      return;
+    }
+    if (Notification.permission !== "granted") {
+      return;
+    }
+    if (!message?.id || lastNotifiedIdRef.current === message.id) {
+      return;
+    }
+    if (!document.hidden) {
+      return;
+    }
+    lastNotifiedIdRef.current = message.id;
+    const body = (message.text || "").slice(0, 180);
+    try {
+      new Notification("Nouveau message", { body });
+    } catch (error) {
+      // Ignore notification failures (permissions or browser quirks).
+    }
+    playNotificationSound();
+  }, [playNotificationSound]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -212,6 +309,7 @@ function App() {
           if (typeof payload.text !== "string") {
             return;
           }
+          maybeNotify({ id: payload.itemId, text: payload.text });
           setMessages((current) => {
             const next = [...current];
             const existingIndex = messageIndex.get(payload.itemId);
@@ -494,12 +592,22 @@ function App() {
     });
   };
 
+  const onToggleSound = (event) => {
+    const enabled = event.target.checked;
+    setSoundEnabled(enabled);
+    if (enabled) {
+      void ensureNotificationPermission();
+      primeAudioContext();
+    }
+  };
+
   const sendMessage = (textOverride) => {
     const rawText = (textOverride ?? input).trim();
     if (!rawText || !socketRef.current || !connected) {
       return;
     }
 
+    void ensureNotificationPermission();
     const selectedPaths = selectedAttachments;
     const suffix =
       selectedPaths.length > 0
@@ -660,6 +768,14 @@ function App() {
                 ref={inputRef}
               />
             </div>
+            <label className="composer-toggle">
+              <input
+                type="checkbox"
+                checked={soundEnabled}
+                onChange={onToggleSound}
+              />
+              <span>Son de notification</span>
+            </label>
             <button type="submit" disabled={!connected || !input.trim()}>
               Envoyer
             </button>
