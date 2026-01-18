@@ -101,9 +101,21 @@ function App() {
   const [selectedReasoningEffort, setSelectedReasoningEffort] = useState("");
   const [modelLoading, setModelLoading] = useState(false);
   const [modelError, setModelError] = useState("");
+  const [sideTab, setSideTab] = useState("attachments");
+  const [sideOpen, setSideOpen] = useState(
+    () => !window.matchMedia("(max-width: 720px)").matches
+  );
+  const [isMobileLayout, setIsMobileLayout] = useState(() =>
+    window.matchMedia("(max-width: 720px)").matches
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
+  const uploadInputRef = useRef(null);
+  const settingsRef = useRef(null);
+  const moreMenuRef = useRef(null);
   const terminalContainerRef = useRef(null);
   const terminalRef = useRef(null);
   const terminalFitRef = useRef(null);
@@ -128,6 +140,12 @@ function App() {
         : null,
     [attachmentSession?.sessionId]
   );
+  const selectedAttachmentNames = useMemo(() => {
+    const byPath = new Map((attachments || []).map((file) => [file.path, file]));
+    return (selectedAttachments || [])
+      .map((path) => byPath.get(path)?.name || path)
+      .filter(Boolean);
+  }, [attachments, selectedAttachments]);
   const diffFiles = useMemo(() => {
     if (!repoDiff.diff) {
       return [];
@@ -166,6 +184,37 @@ function App() {
     }
     return formattedRpcLogs;
   }, [formattedRpcLogs, logFilter]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 720px)");
+    const update = () => setIsMobileLayout(query.matches);
+    update();
+    if (query.addEventListener) {
+      query.addEventListener("change", update);
+      return () => query.removeEventListener("change", update);
+    }
+    query.addListener(update);
+    return () => query.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    if (!settingsOpen && !moreMenuOpen) {
+      return;
+    }
+    const handlePointerDown = (event) => {
+      const target = event.target;
+      if (settingsOpen && settingsRef.current?.contains(target)) {
+        return;
+      }
+      if (moreMenuOpen && moreMenuRef.current?.contains(target)) {
+        return;
+      }
+      setSettingsOpen(false);
+      setMoreMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [settingsOpen, moreMenuOpen]);
 
   const applyMessages = useCallback(
     (items = []) => {
@@ -983,6 +1032,7 @@ function App() {
   const editBacklogItem = (item) => {
     setInput(item.text || "");
     setSelectedAttachments(item.attachments || []);
+    inputRef.current?.focus();
   };
 
   const launchBacklogItem = (item) => {
@@ -1004,6 +1054,28 @@ function App() {
     );
     setActivity("Interruption...");
   };
+
+  const openSidePanel = useCallback((nextTab) => {
+    if (nextTab) {
+      setSideTab(nextTab);
+    }
+    setSideOpen(true);
+  }, []);
+
+  const triggerAttachmentPicker = useCallback(() => {
+    openSidePanel("attachments");
+    if (!attachmentSession || attachmentsLoading) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      uploadInputRef.current?.click();
+    });
+  }, [attachmentSession, attachmentsLoading, openSidePanel]);
+
+  const handleViewSelect = useCallback((nextPane) => {
+    setActivePane(nextPane);
+    setMoreMenuOpen(false);
+  }, []);
 
   const handleInputChange = (event) => {
     const { value } = event.target;
@@ -1072,261 +1144,333 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <div>
-          <p className="eyebrow">m5chat</p>
-        </div>
-        <div className="header-actions">
+        <div className="topbar-left">
           <button
             type="button"
-            className="clear-chat"
-            onClick={handleClearChat}
-            disabled={messages.length === 0}
+            className="icon-button"
+            aria-label={sideOpen ? "Fermer le panneau" : "Ouvrir le panneau"}
+            onClick={() => setSideOpen((current) => !current)}
           >
-            Clear chat
+            ☰
           </button>
-          <div className="model-control">
+          <div className="topbar-brand">
+            <p className="eyebrow">m5chat</p>
+            <div className="topbar-subtitle">
+              {repoName || attachmentSession?.sessionId || "Session"}
+            </div>
+          </div>
+          <div
+            className={`status-pill ${
+              processing ? "busy" : connected ? "ok" : "down"
+            }`}
+          >
+            {processing ? "Génération…" : connected ? "Connecté" : status}
+          </div>
+        </div>
+
+        <div className="topbar-right">
+          {modelError && <div className="status-pill down">{modelError}</div>}
+
+          <div className="dropdown" ref={settingsRef}>
             <button
               type="button"
-              className="model-button"
-              onClick={requestModelList}
-              disabled={!connected || modelLoading}
+              className="pill-button"
+              onClick={() => {
+                setSettingsOpen((current) => !current);
+                setMoreMenuOpen(false);
+              }}
+              disabled={!connected}
             >
-              {modelLoading ? "Chargement..." : "Select model"}
+              Modèle:{" "}
+              {selectedModelDetails?.displayName ||
+                selectedModelDetails?.model ||
+                "par défaut"}{" "}
+              ▾
             </button>
-            <select
-              className="model-select"
-              value={selectedModel}
-              onChange={handleModelChange}
-              disabled={!connected || models.length === 0 || modelLoading}
-            >
-              <option value="">Modele par defaut</option>
-              {models.map((model) => (
-                <option key={model.id} value={model.model}>
-                  {model.displayName || model.model}
-                </option>
-              ))}
-            </select>
-            <select
-              className="model-select"
-              value={selectedReasoningEffort}
-              onChange={handleReasoningEffortChange}
-              disabled={
-                !connected ||
-                !selectedModelDetails ||
-                !selectedModelDetails.supportedReasoningEfforts?.length ||
-                modelLoading
-              }
-            >
-              <option value="">Reasoning par defaut</option>
-              {(selectedModelDetails?.supportedReasoningEfforts || []).map(
-                (effort) => (
-                  <option
-                    key={effort.reasoningEffort}
-                    value={effort.reasoningEffort}
+            {settingsOpen && (
+              <div className="dropdown-menu">
+                <div className="dropdown-title">Paramètres</div>
+                <button
+                  type="button"
+                  className="menu-item"
+                  onClick={requestModelList}
+                  disabled={!connected || modelLoading}
+                >
+                  {modelLoading ? "Chargement…" : "Rafraîchir la liste"}
+                </button>
+                <label className="menu-label">
+                  Modèle
+                  <select
+                    className="model-select"
+                    value={selectedModel}
+                    onChange={handleModelChange}
+                    disabled={!connected || models.length === 0 || modelLoading}
                   >
-                    {effort.reasoningEffort}
-                  </option>
-                )
-              )}
-            </select>
+                    <option value="">Modele par defaut</option>
+                    {models.map((model) => (
+                      <option key={model.id} value={model.model}>
+                        {model.displayName || model.model}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="menu-label">
+                  Reasoning
+                  <select
+                    className="model-select"
+                    value={selectedReasoningEffort}
+                    onChange={handleReasoningEffortChange}
+                    disabled={
+                      !connected ||
+                      !selectedModelDetails ||
+                      !selectedModelDetails.supportedReasoningEfforts?.length ||
+                      modelLoading
+                    }
+                  >
+                    <option value="">Reasoning par defaut</option>
+                    {(selectedModelDetails?.supportedReasoningEfforts || []).map(
+                      (effort) => (
+                        <option
+                          key={effort.reasoningEffort}
+                          value={effort.reasoningEffort}
+                        >
+                          {effort.reasoningEffort}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
+              </div>
+            )}
           </div>
-          {!connected && (
-            <div className="status-wrap">
-              <div className="status down">{status}</div>
-            </div>
-          )}
-          {modelError && <div className="status down">{modelError}</div>}
+
+          <div className="dropdown" ref={moreMenuRef}>
+            <button
+              type="button"
+              className="pill-button"
+              onClick={() => {
+                setMoreMenuOpen((current) => !current);
+                setSettingsOpen(false);
+              }}
+            >
+              ⋯
+            </button>
+            {moreMenuOpen && (
+              <div className="dropdown-menu">
+                <div className="dropdown-title">Vue</div>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "chat" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("chat")}
+                >
+                  Messages
+                </button>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "diff" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("diff")}
+                >
+                  Diff
+                </button>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "terminal" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("terminal")}
+                >
+                  Terminal
+                </button>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "logs" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("logs")}
+                >
+                  Logs
+                </button>
+                <div className="dropdown-divider" />
+                <button
+                  type="button"
+                  className="menu-item danger"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    handleClearChat();
+                  }}
+                  disabled={messages.length === 0}
+                >
+                  Clear chat
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="layout">
-        <div className="side">
-          <aside className="attachments">
-            <div className="attachments-header">
-              <h2>Pieces jointes</h2>
-              <p className="attachments-subtitle">
-                {repoName || "Session en cours..."}
-              </p>
-            </div>
+      <div
+        className={`layout ${sideOpen ? "is-side-open" : "is-side-collapsed"} ${
+          isMobileLayout ? "is-mobile" : ""
+        }`}
+      >
+        {isMobileLayout && sideOpen ? (
+          <button
+            type="button"
+            className="side-backdrop"
+            aria-label="Fermer le panneau"
+            onClick={() => setSideOpen(false)}
+          />
+        ) : null}
 
-            <label
-              className={`upload ${
-                !attachmentSession || attachmentsLoading ? "disabled" : ""
-              }`}
-            >
-              <input
-                type="file"
-                multiple
-                onChange={onUploadAttachments}
-                disabled={!attachmentSession || attachmentsLoading}
-              />
-              <span>Uploader des fichiers</span>
-            </label>
-
-            <div className="attachments-meta">
-              <span>
-                Selectionnees: {selectedAttachments.length}/{attachments.length}
-              </span>
-              {attachmentsLoading && <span>Chargement...</span>}
-            </div>
-
-            {attachmentsError && (
-              <div className="attachments-error">{attachmentsError}</div>
-            )}
-
-            {attachments.length === 0 ? (
-              <div className="attachments-empty">
-                Aucune piece jointe pour cette session.
-              </div>
-            ) : (
-              <ul className="attachments-list">
-                {attachments.map((file) => {
-                  const isSelected = selectedAttachments.includes(file.path);
-                  return (
-                    <li key={file.path}>
-                      <label className="attachments-item">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleAttachment(file.path)}
-                        />
-                        <span className="attachments-name">{file.name}</span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </aside>
-
-          <form className="composer" onSubmit={onSubmit}>
-            <div className="composer-editor">
-              <textarea
-                className="composer-input"
-                value={input}
-                onChange={handleInputChange}
-                onPaste={onPasteAttachments}
-                placeholder="Ecris ton message..."
-                rows={6}
-                ref={inputRef}
-              />
-            </div>
-            <div className="composer-actions">
-              <button type="submit" disabled={!connected || !input.trim()}>
-                Envoyer
-              </button>
-              <button
-                type="button"
-                className="ghost"
-                onClick={interruptTurn}
-                disabled={!processing || !currentTurnId}
-              >
-                Stop
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={addToBacklog}
-                disabled={!input.trim()}
-              >
-                Ajouter a la backlog
-              </button>
-            </div>
-          </form>
-          <section className="backlog">
-            <div className="backlog-header">
-              <h2>Backlog</h2>
-              <span className="backlog-count">{backlog.length}</span>
-            </div>
-            {backlog.length === 0 ? (
-              <div className="backlog-empty">
-                Aucune tache en attente pour le moment.
-              </div>
-            ) : (
-              <ul className="backlog-list">
-                {backlog.map((item) => (
-                  <li key={item.id} className="backlog-item">
-                    <div className="backlog-text">
-                      {getTruncatedText(item.text, 180)}
-                    </div>
-                    <div className="backlog-actions">
-                      <button
-                        type="button"
-                        className="ghost"
-                        onClick={() => editBacklogItem(item)}
-                      >
-                        Editer
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => launchBacklogItem(item)}
-                        disabled={!connected}
-                      >
-                        Lancer
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost"
-                        onClick={() => removeFromBacklog(item.id)}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                    {item.attachments?.length ? (
-                      <div className="backlog-meta">
-                        {item.attachments.length} piece(s) jointe(s)
-                      </div>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-
-        <section className="conversation">
-          <div className="conversation-tabs">
+        <aside className="side">
+          <div className="side-tabs">
             <button
               type="button"
-              className={`tab-button ${
-                activePane === "chat" ? "is-active" : ""
+              className={`side-tab ${
+                sideTab === "attachments" ? "is-active" : ""
               }`}
-              onClick={() => setActivePane("chat")}
+              onClick={() => openSidePanel("attachments")}
             >
-              Messages
+              Pièces <span className="badge">{attachments.length}</span>
             </button>
             <button
               type="button"
-              className={`tab-button ${
-                activePane === "diff" ? "is-active" : ""
-              }`}
-              onClick={() => setActivePane("diff")}
+              className={`side-tab ${sideTab === "backlog" ? "is-active" : ""}`}
+              onClick={() => openSidePanel("backlog")}
             >
-              Diff
-            </button>
-            <button
-              type="button"
-              className={`tab-button ${
-                activePane === "terminal" ? "is-active" : ""
-              }`}
-              onClick={() => setActivePane("terminal")}
-            >
-              Terminal
-            </button>
-            <button
-              type="button"
-              className={`tab-button ${
-                activePane === "logs" ? "is-active" : ""
-              }`}
-              onClick={() => setActivePane("logs")}
-            >
-              Logs
+              Backlog <span className="badge">{backlog.length}</span>
             </button>
           </div>
-          <main
-            className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}
-            ref={listRef}
-          >
+
+          <div className="side-body">
+            {sideTab === "attachments" ? (
+              <div className="attachments">
+                <div className="panel-header">
+                  <div className="panel-title">Pièces jointes</div>
+                  <div className="panel-subtitle">
+                    {repoName || "Session en cours…"}
+                  </div>
+                </div>
+
+                <label
+                  className={`upload ${
+                    !attachmentSession || attachmentsLoading ? "disabled" : ""
+                  }`}
+                >
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    multiple
+                    onChange={onUploadAttachments}
+                    disabled={!attachmentSession || attachmentsLoading}
+                  />
+                  <span>Ajouter des fichiers</span>
+                </label>
+
+                <div className="attachments-meta">
+                  <span>
+                    Sélectionnées: {selectedAttachments.length}/
+                    {attachments.length}
+                  </span>
+                  {attachmentsLoading && <span>Chargement…</span>}
+                </div>
+
+                {attachmentsError && (
+                  <div className="attachments-error">{attachmentsError}</div>
+                )}
+
+                {attachments.length === 0 ? (
+                  <div className="attachments-empty">
+                    Aucune pièce jointe pour cette session.
+                  </div>
+                ) : (
+                  <ul className="attachments-list">
+                    {attachments.map((file) => {
+                      const isSelected = selectedAttachments.includes(file.path);
+                      return (
+                        <li key={file.path}>
+                          <label className="attachments-item">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleAttachment(file.path)}
+                            />
+                            <span className="attachments-name">{file.name}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <section className="backlog">
+                <div className="panel-header">
+                  <div className="panel-title">Backlog</div>
+                  <div className="panel-subtitle">
+                    {backlog.length === 0
+                      ? "Aucune tâche"
+                      : `${backlog.length} élément(s)`}
+                  </div>
+                </div>
+                {backlog.length === 0 ? (
+                  <div className="backlog-empty">
+                    Aucune tâche en attente pour le moment.
+                  </div>
+                ) : (
+                  <ul className="backlog-list">
+                    {backlog.map((item) => (
+                      <li key={item.id} className="backlog-item">
+                        <div className="backlog-text">
+                          {getTruncatedText(item.text, 180)}
+                        </div>
+                        <div className="backlog-actions">
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => editBacklogItem(item)}
+                          >
+                            Éditer
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => launchBacklogItem(item)}
+                            disabled={!connected}
+                          >
+                            Lancer
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => removeFromBacklog(item.id)}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                        {item.attachments?.length ? (
+                          <div className="backlog-meta">
+                            {item.attachments.length} pièce(s) jointe(s)
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+          </div>
+        </aside>
+
+        <section className="conversation">
+          <div className="pane-stack">
+            <main
+              className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}
+              ref={listRef}
+            >
               {messages.length === 0 && (
                 <div className="empty">
                   <p>Envoyez un message pour demarrer une session.</p>
@@ -1476,9 +1620,11 @@ function App() {
                 </div>
               )}
             </main>
-          <div
-            className={`diff-panel ${activePane === "diff" ? "" : "is-hidden"}`}
-          >
+            <div
+              className={`diff-panel ${
+                activePane === "diff" ? "" : "is-hidden"
+              }`}
+            >
               <div className="diff-header">
                 <div className="diff-title">Diff du repository</div>
                 {diffStatusLines.length > 0 && (
@@ -1525,11 +1671,11 @@ function App() {
                 <div className="diff-empty">Aucun changement detecte.</div>
               )}
             </div>
-          <div
-            className={`terminal-panel ${
-              activePane === "terminal" ? "" : "is-hidden"
-            }`}
-          >
+            <div
+              className={`terminal-panel ${
+                activePane === "terminal" ? "" : "is-hidden"
+              }`}
+            >
             <div className="terminal-header">
               <div className="terminal-title">Terminal</div>
               {repoName && <div className="terminal-meta">{repoName}</div>}
@@ -1541,9 +1687,11 @@ function App() {
               </div>
             )}
           </div>
-          <div
-            className={`logs-panel ${activePane === "logs" ? "" : "is-hidden"}`}
-          >
+            <div
+              className={`logs-panel ${
+                activePane === "logs" ? "" : "is-hidden"
+              }`}
+            >
             <div className="logs-header">
               <div className="logs-title">JSON-RPC</div>
               <div className="logs-controls">
@@ -1615,6 +1763,81 @@ function App() {
               </div>
             )}
           </div>
+          </div>
+
+          <form className="composer composer--sticky" onSubmit={onSubmit}>
+            <div className="composer-main">
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Ajouter une pièce jointe"
+                onClick={triggerAttachmentPicker}
+                disabled={!attachmentSession || attachmentsLoading}
+              >
+                ＋
+              </button>
+              <textarea
+                className="composer-input"
+                value={input}
+                onChange={handleInputChange}
+                onPaste={onPasteAttachments}
+                placeholder="Écris ton message…"
+                rows={3}
+                ref={inputRef}
+              />
+              <button
+                type="submit"
+                className="primary"
+                disabled={!connected || !input.trim()}
+              >
+                Envoyer
+              </button>
+            </div>
+
+            <div className="composer-meta">
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => openSidePanel("attachments")}
+              >
+                Pièces: {selectedAttachments.length}
+              </button>
+              <div className="composer-actions">
+                {processing && currentTurnId ? (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={interruptTurn}
+                  >
+                    Stop
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={addToBacklog}
+                  disabled={!input.trim()}
+                >
+                  Ajouter à la backlog
+                </button>
+              </div>
+            </div>
+
+            {selectedAttachmentNames.length ? (
+              <div className="composer-chips" aria-label="Pièces sélectionnées">
+                {selectedAttachmentNames.slice(0, 3).map((name) => (
+                  <span className="chip" key={name}>
+                    {name}
+                  </span>
+                ))}
+                {selectedAttachmentNames.length > 3 ? (
+                  <span className="chip chip-muted">
+                    +{selectedAttachmentNames.length - 3}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </form>
         </section>
       </div>
     </div>
