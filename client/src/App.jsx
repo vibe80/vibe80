@@ -4,6 +4,9 @@ import remarkGfm from "remark-gfm";
 import "@uiw/react-markdown-preview/markdown.css";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
+import { Terminal } from "xterm";
+import { FitAddon } from "xterm-addon-fit";
+import "xterm/css/xterm.css";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
@@ -12,6 +15,12 @@ const wsUrl = (sessionId) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const query = sessionId ? `?session=${encodeURIComponent(sessionId)}` : "";
   return `${protocol}://${window.location.host}/ws${query}`;
+};
+
+const terminalWsUrl = (sessionId) => {
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const query = sessionId ? `?session=${encodeURIComponent(sessionId)}` : "";
+  return `${protocol}://${window.location.host}/terminal${query}`;
 };
 
 const extractChoices = (text) => {
@@ -87,6 +96,11 @@ function App() {
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
+  const terminalContainerRef = useRef(null);
+  const terminalRef = useRef(null);
+  const terminalFitRef = useRef(null);
+  const terminalSocketRef = useRef(null);
+  const terminalSessionRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(0);
   const closingRef = useRef(false);
@@ -134,6 +148,67 @@ function App() {
     },
     [messageIndex]
   );
+
+  const connectTerminal = useCallback(() => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    if (
+      terminalSocketRef.current &&
+      terminalSocketRef.current.readyState <= WebSocket.OPEN &&
+      terminalSessionRef.current === sessionId
+    ) {
+      return;
+    }
+    if (terminalSocketRef.current) {
+      terminalSocketRef.current.close();
+    }
+    const socket = new WebSocket(terminalWsUrl(sessionId));
+    terminalSocketRef.current = socket;
+    terminalSessionRef.current = sessionId;
+
+    socket.addEventListener("open", () => {
+      const term = terminalRef.current;
+      const fitAddon = terminalFitRef.current;
+      if (term && fitAddon) {
+        fitAddon.fit();
+        socket.send(
+          JSON.stringify({ type: "init", cols: term.cols, rows: term.rows })
+        );
+      }
+    });
+
+    socket.addEventListener("message", (event) => {
+      let payload = null;
+      try {
+        payload = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (!payload?.type) {
+        return;
+      }
+      const term = terminalRef.current;
+      if (!term) {
+        return;
+      }
+      if (payload.type === "output" && typeof payload.data === "string") {
+        term.write(payload.data);
+        return;
+      }
+      if (payload.type === "exit") {
+        term.write(`\r\n[terminal exited ${payload.code}]\r\n`);
+      }
+    });
+
+    socket.addEventListener("close", () => {
+      const term = terminalRef.current;
+      if (term) {
+        term.write("\r\n[terminal disconnected]\r\n");
+      }
+    });
+  }, [attachmentSession?.sessionId]);
 
   const ensureNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
@@ -426,6 +501,93 @@ function App() {
       closingRef.current = false;
     };
   }, [attachmentSession?.sessionId, messageIndex]);
+
+  useEffect(() => {
+    if (!terminalContainerRef.current || terminalRef.current) {
+      return;
+    }
+    const term = new Terminal({
+      fontFamily:
+        '"SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace',
+      fontSize: 13,
+      cursorBlink: true,
+      theme: {
+        background: "#fbf6ee",
+        foreground: "#2a2418",
+        cursor: "#2a2418",
+      },
+    });
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(terminalContainerRef.current);
+    fitAddon.fit();
+    terminalRef.current = term;
+    terminalFitRef.current = fitAddon;
+
+    const disposable = term.onData((data) => {
+      const socket = terminalSocketRef.current;
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "input", data }));
+      }
+    });
+
+    return () => {
+      disposable.dispose();
+      term.dispose();
+      terminalRef.current = null;
+      terminalFitRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activePane !== "terminal") {
+      return;
+    }
+    if (terminalFitRef.current) {
+      requestAnimationFrame(() => {
+        const fitAddon = terminalFitRef.current;
+        const term = terminalRef.current;
+        if (!fitAddon || !term) {
+          return;
+        }
+        fitAddon.fit();
+        const socket = terminalSocketRef.current;
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(
+            JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })
+          );
+        }
+      });
+    }
+    connectTerminal();
+  }, [activePane, connectTerminal]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const term = terminalRef.current;
+      const fitAddon = terminalFitRef.current;
+      const socket = terminalSocketRef.current;
+      if (!term || !fitAddon) {
+        return;
+      }
+      fitAddon.fit();
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(
+          JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })
+        );
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!attachmentSession?.sessionId && terminalSocketRef.current) {
+      terminalSocketRef.current.close();
+      terminalSocketRef.current = null;
+      terminalSessionRef.current = null;
+    }
+  }, [attachmentSession?.sessionId]);
 
   useEffect(() => {
     const sessionId = getSessionIdFromUrl();
@@ -840,9 +1002,20 @@ function App() {
             >
               Diff
             </button>
+            <button
+              type="button"
+              className={`tab-button ${
+                activePane === "terminal" ? "is-active" : ""
+              }`}
+              onClick={() => setActivePane("terminal")}
+            >
+              Terminal
+            </button>
           </div>
-          {activePane === "chat" ? (
-            <main className="chat" ref={listRef}>
+          <main
+            className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}
+            ref={listRef}
+          >
               {messages.length === 0 && (
                 <div className="empty">
                   <p>Envoyez un message pour demarrer une session.</p>
@@ -992,8 +1165,9 @@ function App() {
                 </div>
               )}
             </main>
-          ) : (
-            <div className="diff-panel">
+          <div
+            className={`diff-panel ${activePane === "diff" ? "" : "is-hidden"}`}
+          >
               <div className="diff-header">
                 <div className="diff-title">Diff du repository</div>
                 {diffStatusLines.length > 0 && (
@@ -1040,7 +1214,22 @@ function App() {
                 <div className="diff-empty">Aucun changement detecte.</div>
               )}
             </div>
-          )}
+          <div
+            className={`terminal-panel ${
+              activePane === "terminal" ? "" : "is-hidden"
+            }`}
+          >
+            <div className="terminal-header">
+              <div className="terminal-title">Terminal</div>
+              {repoName && <div className="terminal-meta">{repoName}</div>}
+            </div>
+            <div className="terminal-body" ref={terminalContainerRef} />
+            {!attachmentSession?.sessionId && (
+              <div className="terminal-empty">
+                Demarrez une session pour ouvrir le terminal.
+              </div>
+            )}
+          </div>
         </section>
       </div>
     </div>

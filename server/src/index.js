@@ -8,6 +8,7 @@ import multer from "multer";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { spawn } from "child_process";
+import * as pty from "node-pty";
 import { CodexAppServerClient } from "./codexClient.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,6 +16,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
+const terminalWss = new WebSocketServer({ server, path: "/terminal" });
 
 const cwd = process.cwd();
 const sessions = new Map();
@@ -138,6 +140,19 @@ const createSession = async (repoUrl) => {
 
 const getSession = (sessionId) =>
   sessionId ? sessions.get(sessionId) || null : null;
+
+const getSessionFromRequest = (req) => {
+  if (!req?.url) {
+    return null;
+  }
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const sessionId = url.searchParams.get("session");
+    return getSession(sessionId);
+  } catch {
+    return null;
+  }
+};
 
 const sanitizeFilename = (originalName) =>
   path.basename(originalName || "attachment");
@@ -416,6 +431,86 @@ wss.on("connection", (socket, req) => {
 
   socket.on("close", () => {
     session.sockets.delete(socket);
+  });
+});
+
+terminalWss.on("connection", (socket, req) => {
+  const session = getSessionFromRequest(req);
+  if (!session) {
+    socket.close();
+    return;
+  }
+  const shell = process.env.SHELL || "bash";
+  let term = null;
+  let closed = false;
+
+  const startTerminal = (cols = 80, rows = 24) => {
+    if (term) {
+      return;
+    }
+    term = pty.spawn(shell, [], {
+      name: "xterm-256color",
+      cols,
+      rows,
+      cwd: session.repoDir,
+      env: { ...process.env, TERM: "xterm-256color" },
+    });
+
+    term.onData((data) => {
+      if (socket.readyState === socket.OPEN) {
+        socket.send(JSON.stringify({ type: "output", data }));
+      }
+    });
+
+    term.onExit(({ exitCode }) => {
+      if (closed) {
+        return;
+      }
+      if (socket.readyState === socket.OPEN) {
+        socket.send(JSON.stringify({ type: "exit", code: exitCode }));
+      }
+      socket.close();
+    });
+  };
+
+  socket.on("message", (raw) => {
+    let message = null;
+    try {
+      message = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+    if (!message?.type) {
+      return;
+    }
+    if (message.type === "init") {
+      startTerminal(message.cols, message.rows);
+      return;
+    }
+    if (!term) {
+      startTerminal();
+    }
+    if (message.type === "resize") {
+      if (
+        Number.isFinite(message.cols) &&
+        Number.isFinite(message.rows) &&
+        term
+      ) {
+        term.resize(message.cols, message.rows);
+      }
+      return;
+    }
+    if (message.type === "input" && typeof message.data === "string" && term) {
+      term.write(message.data);
+    }
+  });
+
+  socket.on("close", () => {
+    closed = true;
+    if (term) {
+      term.kill();
+      term = null;
+    }
   });
 });
 
