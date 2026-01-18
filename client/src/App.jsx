@@ -511,6 +511,7 @@ function App() {
       return;
     }
     applyMessages(attachmentSession.messages || []);
+    setRepoDiff(attachmentSession.repoDiff || { status: "", diff: "" });
     setStatus("Connexion...");
     setConnected(false);
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
@@ -942,7 +943,23 @@ function App() {
                                                 : ""
                                           }`}
                                         >
-                                          {choice}
+                                          <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            components={{
+                                              p: ({ node, ...props }) => (
+                                                <span {...props} />
+                                              ),
+                                              a: ({ node, ...props }) => (
+                                                <a
+                                                  {...props}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                />
+                                              ),
+                                            }}
+                                          >
+                                            {choice}
+                                          </ReactMarkdown>
                                         </button>
                                       );
                                     }

@@ -173,6 +173,25 @@ const broadcastRepoDiff = async (sessionId) => {
   }
 };
 
+const getRepoDiff = async (session) => {
+  if (!session?.repoDir) {
+    return { status: "", diff: "" };
+  }
+  try {
+    const [status, diff] = await Promise.all([
+      runCommandOutput("git", ["status", "--porcelain"], { cwd: session.repoDir }),
+      runCommandOutput("git", ["diff"], { cwd: session.repoDir }),
+    ]);
+    return { status, diff };
+  } catch (error) {
+    console.error("Failed to load repo diff:", {
+      sessionId: session?.sessionId,
+      error: error?.message || error,
+    });
+    return { status: "", diff: "" };
+  }
+};
+
 const ensureUniqueFilename = async (dir, filename) => {
   const extension = path.extname(filename);
   const base = path.basename(filename, extension);
@@ -413,17 +432,19 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/api/session/:sessionId", (req, res) => {
+app.get("/api/session/:sessionId", async (req, res) => {
   const session = getSession(req.params.sessionId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
+  const repoDiff = await getRepoDiff(session);
   res.json({
     sessionId: req.params.sessionId,
     path: session.dir,
     repoUrl: session.repoUrl,
     messages: session.messages,
+    repoDiff,
   });
 });
 
