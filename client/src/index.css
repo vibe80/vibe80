@@ -319,10 +319,6 @@ body {
   height: 100%;
 }
 
-.is-hidden {
-  display: none;
-}
-
 .conversation-tabs {
   display: flex;
   gap: 10px;
@@ -428,6 +424,10 @@ body {
   overflow: hidden;
   min-height: 0;
   height: 100%;
+}
+
+.is-hidden {
+  display: none;
 }
 
 .logs-header {
