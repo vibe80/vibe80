@@ -219,19 +219,30 @@ const getRepoDiff = async (session) => {
   }
 };
 
-const ensureUniqueFilename = async (dir, filename) => {
+const ensureUniqueFilename = async (dir, filename, reserved) => {
   const extension = path.extname(filename);
   const base = path.basename(filename, extension);
   let candidate = filename;
   let counter = 1;
   while (true) {
+    if (reserved?.has(candidate)) {
+      candidate = `${base}-${counter}${extension}`;
+      counter += 1;
+      continue;
+    }
     try {
+      if (reserved) {
+        reserved.add(candidate);
+      }
       await fs.promises.access(path.join(dir, candidate));
       candidate = `${base}-${counter}${extension}`;
       counter += 1;
     } catch (error) {
       if (error.code === "ENOENT") {
         return candidate;
+      }
+      if (reserved) {
+        reserved.delete(candidate);
       }
       throw error;
     }
@@ -258,7 +269,13 @@ const upload = multer({
       }
       try {
         const safeName = sanitizeFilename(file.originalname);
-        const uniqueName = await ensureUniqueFilename(session.dir, safeName);
+        const reserved =
+          req._reservedFilenames || (req._reservedFilenames = new Set());
+        const uniqueName = await ensureUniqueFilename(
+          session.dir,
+          safeName,
+          reserved
+        );
         cb(null, uniqueName);
       } catch (error) {
         cb(error);
