@@ -1146,8 +1146,13 @@ body {
 
 .bubble.assistant.typing {
   margin-top: 2px;
-  padding-top: 8px;
+  padding: 10px 0 12px;
   border-top: 1px dashed rgba(20, 19, 17, 0.05);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  align-self: stretch;
+  background: var(--surface);
 }
 
 .typing-indicator {
@@ -1158,11 +1163,21 @@ body {
   font-size: 13px;
   font-style: italic;
   animation: fade-in 0.25s ease-out;
+  max-width: 100%;
+  width: 100%;
 }
 
 .typing-indicator .loader {
   padding: 0;
   background: transparent;
+}
+
+.typing-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .typing-indicator .dot {
