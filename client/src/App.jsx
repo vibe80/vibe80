@@ -11,6 +11,19 @@ import "@xterm/xterm/css/xterm.css";
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
 
+const getRepositoryFromUrl = () =>
+  new URLSearchParams(window.location.search).get("repository");
+
+const getInitialRepoUrl = () => {
+  const sessionId = getSessionIdFromUrl();
+  if (sessionId) {
+    return "";
+  }
+  const repoFromQuery = getRepositoryFromUrl();
+  const trimmed = repoFromQuery ? repoFromQuery.trim() : "";
+  return trimmed || "";
+};
+
 const wsUrl = (sessionId) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const query = sessionId ? `?session=${encodeURIComponent(sessionId)}` : "";
@@ -86,9 +99,11 @@ function App() {
   const [selectedAttachments, setSelectedAttachments] = useState([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [attachmentsError, setAttachmentsError] = useState("");
-  const [repoUrl, setRepoUrl] = useState("");
-  const [repoInput, setRepoInput] = useState("");
-  const [sessionRequested, setSessionRequested] = useState(false);
+  const [repoUrl, setRepoUrl] = useState(getInitialRepoUrl);
+  const [repoInput, setRepoInput] = useState(getInitialRepoUrl);
+  const [sessionRequested, setSessionRequested] = useState(() =>
+    Boolean(getInitialRepoUrl())
+  );
   const [soundEnabled] = useState(true);
   const [choiceSelections, setChoiceSelections] = useState({});
   const [activePane, setActivePane] = useState("chat");
@@ -1118,27 +1133,40 @@ function App() {
   };
 
   if (!attachmentSession?.sessionId) {
+    const isRepoProvided = Boolean(repoUrl);
+    const repoDisplay = getTruncatedText(repoUrl, 72);
     return (
       <div className="session-gate">
         <div className="session-card">
           <p className="eyebrow">m5chat</p>
           <h1>Demarrer une session</h1>
-          <p className="session-hint">
-            Indique l'URL du depot git a cloner pour cette session.
-          </p>
-          <form className="session-form" onSubmit={onRepoSubmit}>
-            <input
-              type="text"
-              placeholder="git@gitea.devops:mon-org/mon-repo.git"
-              value={repoInput}
-              onChange={(event) => setRepoInput(event.target.value)}
-              disabled={sessionRequested}
-              required
-            />
-            <button type="submit" disabled={sessionRequested}>
-              {sessionRequested ? "Chargement..." : "Go"}
-            </button>
-          </form>
+          {isRepoProvided ? (
+            <div className="session-hint">
+              Clonage du depot...
+              {repoDisplay && (
+                <div className="session-meta">{repoDisplay}</div>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="session-hint">
+                Indique l'URL du depot git a cloner pour cette session.
+              </p>
+              <form className="session-form" onSubmit={onRepoSubmit}>
+                <input
+                  type="text"
+                  placeholder="git@gitea.devops:mon-org/mon-repo.git"
+                  value={repoInput}
+                  onChange={(event) => setRepoInput(event.target.value)}
+                  disabled={sessionRequested}
+                  required
+                />
+                <button type="submit" disabled={sessionRequested}>
+                  {sessionRequested ? "Chargement..." : "Go"}
+                </button>
+              </form>
+            </>
+          )}
           {attachmentsError && (
             <div className="attachments-error">{attachmentsError}</div>
           )}
