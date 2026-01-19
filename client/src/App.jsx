@@ -138,6 +138,7 @@ function App() {
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
+  const [commandPanelOpen, setCommandPanelOpen] = useState({});
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const socketRef = useRef(null);
@@ -159,6 +160,7 @@ function App() {
   const audioContextRef = useRef(null);
 
   const messageIndex = useMemo(() => new Map(), []);
+  const commandIndex = useMemo(() => new Map(), []);
   const repoName = useMemo(
     () => extractRepoName(attachmentSession?.repoUrl),
     [attachmentSession?.repoUrl]
@@ -260,14 +262,16 @@ function App() {
         text: item.text,
       }));
       messageIndex.clear();
+      commandIndex.clear();
       normalized.forEach((item, index) => {
         if (item.role === "assistant") {
           messageIndex.set(item.id, index);
         }
       });
       setMessages(normalized);
+      setCommandPanelOpen({});
     },
-    [messageIndex]
+    [messageIndex, commandIndex]
   );
 
   const connectTerminal = useCallback(() => {
@@ -555,6 +559,68 @@ function App() {
           });
         }
 
+        if (payload.type === "command_execution_delta") {
+          if (typeof payload.delta !== "string") {
+            return;
+          }
+          setMessages((current) => {
+            const next = [...current];
+            const existingIndex = commandIndex.get(payload.itemId);
+            if (existingIndex === undefined) {
+              const entry = {
+                id: payload.itemId,
+                role: "commandExecution",
+                command: "Commande",
+                output: payload.delta,
+                isExpandable: true,
+                status: "running",
+              };
+              commandIndex.set(payload.itemId, next.length);
+              next.push(entry);
+              return next;
+            }
+            const updated = { ...next[existingIndex] };
+            updated.output = `${updated.output || ""}${payload.delta}`;
+            updated.isExpandable = true;
+            next[existingIndex] = updated;
+            return next;
+          });
+        }
+
+        if (payload.type === "command_execution_completed") {
+          const item = payload.item;
+          const itemId = payload.itemId || item?.id;
+          if (!itemId) {
+            return;
+          }
+          setMessages((current) => {
+            const next = [...current];
+            const existingIndex = commandIndex.get(itemId);
+            const command =
+              item?.commandActions?.command || item?.command || "Commande";
+            if (existingIndex === undefined) {
+              const entry = {
+                id: itemId,
+                role: "commandExecution",
+                command,
+                output: item?.aggregatedOutput || "",
+                isExpandable: true,
+                status: "completed",
+              };
+              commandIndex.set(itemId, next.length);
+              next.push(entry);
+              return next;
+            }
+            const updated = { ...next[existingIndex] };
+            updated.command = command;
+            updated.output = item?.aggregatedOutput || updated.output || "";
+            updated.isExpandable = true;
+            updated.status = "completed";
+            next[existingIndex] = updated;
+            return next;
+          });
+        }
+
         if (payload.type === "turn_error") {
           setStatus(`Erreur: ${payload.message}`);
           setProcessing(false);
@@ -646,7 +712,34 @@ function App() {
             return;
           }
           if (item.type === "commandExecution") {
-            setActivity(`Commande: ${item.command}`);
+            const command =
+              item.commandActions?.command || item.command || "Commande";
+            setActivity(`Commande: ${command}`);
+            if (!item.id) {
+              return;
+            }
+            setMessages((current) => {
+              const next = [...current];
+              const existingIndex = commandIndex.get(item.id);
+              if (existingIndex !== undefined) {
+                const updated = { ...next[existingIndex] };
+                updated.command = command;
+                updated.status = "running";
+                next[existingIndex] = updated;
+                return next;
+              }
+              const entry = {
+                id: item.id,
+                role: "commandExecution",
+                command,
+                output: "",
+                isExpandable: false,
+                status: "running",
+              };
+              commandIndex.set(item.id, next.length);
+              next.push(entry);
+              return next;
+            });
             return;
           }
           if (item.type === "fileChange") {
@@ -679,7 +772,7 @@ function App() {
       }
       closingRef.current = false;
     };
-  }, [attachmentSession?.sessionId, messageIndex]);
+  }, [attachmentSession?.sessionId, messageIndex, commandIndex]);
 
   useEffect(() => {
     if (
@@ -1268,7 +1361,9 @@ function App() {
   const handleClearChat = () => {
     setMessages([]);
     messageIndex.clear();
+    commandIndex.clear();
     setChoiceSelections({});
+    setCommandPanelOpen({});
     lastNotifiedIdRef.current = null;
   };
 
@@ -1829,6 +1924,62 @@ function App() {
                   </div>
                 )}
                 {messages.map((message) => {
+                  if (message.role === "commandExecution") {
+                    const commandTitle = `Commande : ${
+                      message.command || "Commande"
+                    }`;
+                    const showLoader = message.status !== "completed";
+                    const isExpandable =
+                      message.isExpandable || Boolean(message.output);
+                    const summaryContent = (
+                      <>
+                        {showLoader && (
+                          <span
+                            className="loader command-execution-loader"
+                            title="Execution en cours"
+                          >
+                            <span className="dot" />
+                            <span className="dot" />
+                            <span className="dot" />
+                          </span>
+                        )}
+                        <span className="command-execution-title">
+                          {commandTitle}
+                        </span>
+                      </>
+                    );
+                    return (
+                      <div
+                        key={message.id}
+                        className="bubble command-execution"
+                      >
+                        {isExpandable ? (
+                          <details
+                            className="command-execution-panel"
+                            open={Boolean(commandPanelOpen[message.id])}
+                            onToggle={(event) => {
+                              const isOpen = event.currentTarget.open;
+                              setCommandPanelOpen((prev) => ({
+                                ...prev,
+                                [message.id]: isOpen,
+                              }));
+                            }}
+                          >
+                            <summary className="command-execution-summary">
+                              {summaryContent}
+                            </summary>
+                            <pre className="command-execution-output">
+                              {message.output || ""}
+                            </pre>
+                          </details>
+                        ) : (
+                          <div className="command-execution-summary is-static">
+                            {summaryContent}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
                   const isLongUserMessage =
                     message.role === "user" &&
                     (message.text || "").length > MAX_USER_DISPLAY_LENGTH;

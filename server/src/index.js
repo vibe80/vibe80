@@ -431,6 +431,17 @@ function attachClientEvents(sessionId, client) {
         broadcastToSession(sessionId, { type: "assistant_delta", delta, itemId, turnId });
         break;
       }
+      case "item/commandExecution/outputDelta": {
+        const { delta, itemId, turnId, threadId } = message.params;
+        broadcastToSession(sessionId, {
+          type: "command_execution_delta",
+          delta,
+          itemId,
+          turnId,
+          threadId,
+        });
+        break;
+      }
       case "item/completed": {
         const { item, turnId } = message.params;
         if (item?.type === "agentMessage") {
@@ -446,6 +457,14 @@ function attachClientEvents(sessionId, client) {
             turnId,
           });
           void broadcastRepoDiff(sessionId);
+        }
+        if (item?.type === "commandExecution") {
+          broadcastToSession(sessionId, {
+            type: "command_execution_completed",
+            item,
+            itemId: item.id,
+            turnId,
+          });
         }
         break;
       }

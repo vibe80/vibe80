@@ -1189,6 +1189,71 @@ main.chat {
   padding: 0;
 }
 
+.bubble.command-execution {
+  align-self: stretch;
+  background: var(--bg-strong);
+  border-radius: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(20, 19, 17, 0.08);
+}
+
+.command-execution-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.command-execution-panel > summary {
+  list-style: none;
+}
+
+.command-execution-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.command-execution-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.command-execution-summary.is-static {
+  cursor: default;
+}
+
+.command-execution-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.command-execution-loader {
+  padding: 0;
+  background: transparent;
+  gap: 4px;
+}
+
+.command-execution-loader .dot {
+  width: 5px;
+  height: 5px;
+}
+
+.command-execution-output {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(20, 19, 17, 0.08);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--ink);
+  overflow-x: auto;
+}
+
 .bubble.assistant :where(p, ul, ol, pre, blockquote) {
   margin: 0 0 4px;
 }
