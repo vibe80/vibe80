@@ -69,17 +69,29 @@ body {
 
 .session-form {
   display: grid;
+  gap: 14px;
+}
+
+.session-form-row {
+  display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
 }
 
-.session-form input {
+.session-form input,
+.session-form textarea {
   border: 1px solid rgba(20, 19, 17, 0.14);
   border-radius: 14px;
   padding: 12px 14px;
   font-size: 15px;
   outline: none;
   color: var(--ink);
+}
+
+.session-form textarea {
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.4;
 }
 
 .session-form button {
@@ -95,6 +107,44 @@ body {
 .session-form button:disabled {
   background: #d6c6b8;
   cursor: not-allowed;
+}
+
+.session-auth {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(20, 19, 17, 0.04);
+}
+
+.session-auth-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.session-auth-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.session-auth-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.session-auth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.session-auth-hint {
+  font-size: 13px;
+  color: var(--ink-muted);
 }
 
 .app {

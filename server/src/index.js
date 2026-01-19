@@ -20,6 +20,9 @@ const terminalWss = new WebSocketServer({ noServer: true });
 
 const cwd = process.cwd();
 const sessions = new Map();
+const homeDir = process.env.HOME_DIR || os.homedir();
+const sshDir = path.join(homeDir, ".ssh");
+const knownHostsPath = path.join(sshDir, "known_hosts");
 
 app.use(express.json());
 
@@ -93,19 +96,46 @@ const ensureKnownHost = async (repoUrl) => {
   }
   await runCommand("sh", [
     "-c",
-    `mkdir -p /home/app/.ssh && ssh-keyscan -H ${host} >> /home/app/.ssh/known_hosts 2>/dev/null || true`,
+    `mkdir -p "${sshDir}" && ssh-keyscan -H ${host} >> "${knownHostsPath}" 2>/dev/null || true`,
   ]);
 };
 
-const createSession = async (repoUrl) => {
+const createSession = async (repoUrl, auth) => {
   while (true) {
     const sessionId = crypto.randomBytes(12).toString("hex");
     const dir = path.join(os.tmpdir(), sessionId);
     try {
       await fs.promises.mkdir(dir, { recursive: false });
       const repoDir = path.join(dir, "repository");
-      await ensureKnownHost(repoUrl);
-      await runCommand("git", ["clone", repoUrl, repoDir]);
+      const env = { ...process.env };
+      if (auth?.type === "ssh" && auth.privateKey) {
+        await fs.promises.mkdir(sshDir, { recursive: true, mode: 0o700 });
+        await fs.promises.chmod(sshDir, 0o700).catch(() => {});
+        const keyPath = path.join(sshDir, `codex_session_${sessionId}`);
+        const normalizedKey = `${auth.privateKey.trimEnd()}\n`;
+        await fs.promises.writeFile(keyPath, normalizedKey, { mode: 0o600 });
+        await fs.promises.chmod(keyPath, 0o600).catch(() => {});
+        await ensureKnownHost(repoUrl);
+        env.GIT_SSH_COMMAND = `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o UserKnownHostsFile="${knownHostsPath}"`;
+      } else if (auth?.type === "http" && auth.username && auth.password) {
+        const askpassPath = path.join(dir, "git-askpass.sh");
+        const script = [
+          "#!/bin/sh",
+          'case "$1" in',
+          "*Username*) printf %s \"$GIT_ASKPASS_USERNAME\" ;;",
+          "*Password*) printf %s \"$GIT_ASKPASS_PASSWORD\" ;;",
+          "*) printf %s \"\" ;;",
+          "esac",
+          "",
+        ].join("\n");
+        await fs.promises.writeFile(askpassPath, script, { mode: 0o700 });
+        await fs.promises.chmod(askpassPath, 0o700).catch(() => {});
+        env.GIT_ASKPASS = askpassPath;
+        env.GIT_TERMINAL_PROMPT = "0";
+        env.GIT_ASKPASS_USERNAME = auth.username;
+        env.GIT_ASKPASS_PASSWORD = auth.password;
+      }
+      await runCommand("git", ["clone", repoUrl, repoDir], { env });
       const client = new CodexAppServerClient({ cwd: repoDir });
       sessions.set(sessionId, {
         dir,
@@ -686,7 +716,8 @@ app.post("/api/session", async (req, res) => {
     return;
   }
   try {
-    const session = await createSession(repoUrl);
+    const auth = req.body?.auth || null;
+    const session = await createSession(repoUrl, auth);
     res.json({
       sessionId: session.sessionId,
       path: session.dir,

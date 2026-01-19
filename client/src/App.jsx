@@ -101,6 +101,11 @@ function App() {
   const [attachmentsError, setAttachmentsError] = useState("");
   const [repoUrl, setRepoUrl] = useState(getInitialRepoUrl);
   const [repoInput, setRepoInput] = useState(getInitialRepoUrl);
+  const [repoAuth, setRepoAuth] = useState(null);
+  const [authMode, setAuthMode] = useState("none");
+  const [sshKeyInput, setSshKeyInput] = useState("");
+  const [httpUsername, setHttpUsername] = useState("");
+  const [httpPassword, setHttpPassword] = useState("");
   const [sessionRequested, setSessionRequested] = useState(() =>
     Boolean(getInitialRepoUrl())
   );
@@ -776,10 +781,14 @@ function App() {
       try {
         setAttachmentsLoading(true);
         setAttachmentsError("");
+        const payload = { repoUrl };
+        if (repoAuth) {
+          payload.auth = repoAuth;
+        }
         const response = await fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ repoUrl }),
+          body: JSON.stringify(payload),
         });
         if (!response.ok) {
           throw new Error("Failed to create attachment session.");
@@ -796,7 +805,7 @@ function App() {
     };
 
     createAttachmentSession();
-  }, [repoUrl]);
+  }, [repoUrl, repoAuth]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -814,8 +823,26 @@ function App() {
       setAttachmentsError("URL de depot git requise pour demarrer.");
       return;
     }
+    let auth = null;
+    if (authMode === "ssh") {
+      const trimmedKey = sshKeyInput.trim();
+      if (!trimmedKey) {
+        setAttachmentsError("Cle SSH privee requise pour demarrer.");
+        return;
+      }
+      auth = { type: "ssh", privateKey: trimmedKey };
+    }
+    if (authMode === "http") {
+      const user = httpUsername.trim();
+      if (!user || !httpPassword) {
+        setAttachmentsError("Identifiant et mot de passe requis.");
+        return;
+      }
+      auth = { type: "http", username: user, password: httpPassword };
+    }
     setAttachmentsError("");
     setSessionRequested(true);
+    setRepoAuth(auth);
     setRepoUrl(trimmed);
   };
 
@@ -1153,17 +1180,104 @@ function App() {
                 Indique l'URL du depot git a cloner pour cette session.
               </p>
               <form className="session-form" onSubmit={onRepoSubmit}>
-                <input
-                  type="text"
-                  placeholder="git@gitea.devops:mon-org/mon-repo.git"
-                  value={repoInput}
-                  onChange={(event) => setRepoInput(event.target.value)}
-                  disabled={sessionRequested}
-                  required
-                />
-                <button type="submit" disabled={sessionRequested}>
-                  {sessionRequested ? "Chargement..." : "Go"}
-                </button>
+                <div className="session-form-row">
+                  <input
+                    type="text"
+                    placeholder="git@gitea.devops:mon-org/mon-repo.git"
+                    value={repoInput}
+                    onChange={(event) => setRepoInput(event.target.value)}
+                    disabled={sessionRequested}
+                    required
+                  />
+                  <button type="submit" disabled={sessionRequested}>
+                    {sessionRequested ? "Chargement..." : "Go"}
+                  </button>
+                </div>
+                <div className="session-auth">
+                  <div className="session-auth-title">
+                    Authentification (optionnelle)
+                  </div>
+                  <div className="session-auth-options">
+                    <label className="session-auth-option">
+                      <input
+                        type="radio"
+                        name="authMode"
+                        value="none"
+                        checked={authMode === "none"}
+                        onChange={() => setAuthMode("none")}
+                        disabled={sessionRequested}
+                      />
+                      Aucune
+                    </label>
+                    <label className="session-auth-option">
+                      <input
+                        type="radio"
+                        name="authMode"
+                        value="ssh"
+                        checked={authMode === "ssh"}
+                        onChange={() => setAuthMode("ssh")}
+                        disabled={sessionRequested}
+                      />
+                      Cle SSH privee
+                    </label>
+                    <label className="session-auth-option">
+                      <input
+                        type="radio"
+                        name="authMode"
+                        value="http"
+                        checked={authMode === "http"}
+                        onChange={() => setAuthMode("http")}
+                        disabled={sessionRequested}
+                      />
+                      Identifiant + mot de passe
+                    </label>
+                  </div>
+                  {authMode === "ssh" && (
+                    <>
+                      <textarea
+                        className="session-auth-textarea"
+                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                        value={sshKeyInput}
+                        onChange={(event) => setSshKeyInput(event.target.value)}
+                        disabled={sessionRequested}
+                        rows={6}
+                        spellCheck={false}
+                      />
+                      <div className="session-auth-hint">
+                        La cle est stockee dans ~/.ssh pour le clonage.
+                      </div>
+                    </>
+                  )}
+                  {authMode === "http" && (
+                    <>
+                      <div className="session-auth-grid">
+                        <input
+                          type="text"
+                          placeholder="Utilisateur"
+                          value={httpUsername}
+                          onChange={(event) =>
+                            setHttpUsername(event.target.value)
+                          }
+                          disabled={sessionRequested}
+                          autoComplete="username"
+                        />
+                        <input
+                          type="password"
+                          placeholder="Mot de passe ou PAT"
+                          value={httpPassword}
+                          onChange={(event) =>
+                            setHttpPassword(event.target.value)
+                          }
+                          disabled={sessionRequested}
+                          autoComplete="current-password"
+                        />
+                      </div>
+                      <div className="session-auth-hint">
+                        Le mot de passe peut etre remplace par un PAT.
+                      </div>
+                    </>
+                  )}
+                </div>
               </form>
             </>
           )}
