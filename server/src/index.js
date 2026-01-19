@@ -89,6 +89,18 @@ const resolveRepoHost = (repoUrl) => {
   return null;
 };
 
+const resolveHttpAuthInfo = (repoUrl) => {
+  try {
+    const url = new URL(repoUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return { protocol: url.protocol.replace(":", ""), host: url.host };
+  } catch {
+    return null;
+  }
+};
+
 const ensureKnownHost = async (repoUrl) => {
   const host = resolveRepoHost(repoUrl);
   if (!host) {
@@ -118,24 +130,55 @@ const createSession = async (repoUrl, auth) => {
         await ensureKnownHost(repoUrl);
         env.GIT_SSH_COMMAND = `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o UserKnownHostsFile="${knownHostsPath}"`;
       } else if (auth?.type === "http" && auth.username && auth.password) {
-        const askpassPath = path.join(dir, "git-askpass.sh");
-        const script = [
-          "#!/bin/sh",
-          'case "$1" in',
-          "*Username*) printf %s \"$GIT_ASKPASS_USERNAME\" ;;",
-          "*Password*) printf %s \"$GIT_ASKPASS_PASSWORD\" ;;",
-          "*) printf %s \"\" ;;",
-          "esac",
+        const authInfo = resolveHttpAuthInfo(repoUrl);
+        if (!authInfo) {
+          throw new Error("Invalid HTTP repository URL for credential auth.");
+        }
+        const gitConfigPath = path.join(dir, "gitconfig");
+        const credFile = path.join(dir, "git-credentials");
+        const credInputPath = path.join(dir, "git-credential-input");
+        env.GIT_CONFIG_GLOBAL = gitConfigPath;
+        env.GIT_TERMINAL_PROMPT = "0";
+        await fs.promises.writeFile(credFile, "", { mode: 0o600 });
+        await fs.promises.chmod(credFile, 0o600).catch(() => {});
+        await runCommand(
+          "git",
+          ["config", "--global", "credential.helper", "cache --timeout=43200"],
+          { env }
+        );
+        await runCommand(
+          "git",
+          ["config", "--global", "--add", "credential.helper", `store --file ${credFile}`],
+          { env }
+        );
+        const credentialPayload = [
+          `protocol=${authInfo.protocol}`,
+          `host=${authInfo.host}`,
+          `username=${auth.username}`,
+          `password=${auth.password}`,
+          "",
           "",
         ].join("\n");
-        await fs.promises.writeFile(askpassPath, script, { mode: 0o700 });
-        await fs.promises.chmod(askpassPath, 0o700).catch(() => {});
-        env.GIT_ASKPASS = askpassPath;
-        env.GIT_TERMINAL_PROMPT = "0";
-        env.GIT_ASKPASS_USERNAME = auth.username;
-        env.GIT_ASKPASS_PASSWORD = auth.password;
+        await fs.promises.writeFile(credInputPath, credentialPayload, { mode: 0o600 });
+        await fs.promises.chmod(credInputPath, 0o600).catch(() => {});
+        await runCommand("sh", ["-c", `git credential approve < "${credInputPath}"`], {
+          env,
+        });
+        await fs.promises.rm(credInputPath, { force: true });
       }
       await runCommand("git", ["clone", repoUrl, repoDir], { env });
+      if (auth?.type === "http" && auth.username && auth.password) {
+        await runCommand(
+          "git",
+          ["-C", repoDir, "config", "--add", "credential.helper", "cache --timeout=43200"],
+          { env }
+        );
+        await runCommand(
+          "git",
+          ["-C", repoDir, "config", "--add", "credential.helper", "store --file ../git-credentials"],
+          { env }
+        );
+      }
       const client = new CodexAppServerClient({ cwd: repoDir });
       sessions.set(sessionId, {
         dir,
