@@ -501,7 +501,7 @@ body {
 }
 
 .layout:not(.is-mobile).is-side-collapsed {
-  grid-template-columns: 0 minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .layout:not(.is-mobile).is-side-collapsed .side {
