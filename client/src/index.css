@@ -513,6 +513,10 @@ body {
   font-size: 14px;
 }
 
+main.chat {
+  padding-bottom: 5px;
+}
+
 .chat-scroll {
   display: flex;
   flex-direction: column;
@@ -1204,7 +1208,7 @@ body {
 
 .bubble.assistant.typing {
   margin-top: 2px;
-  padding: 10px 0 12px;
+  padding: 10px 0 0;
   border-top: 1px dashed rgba(20, 19, 17, 0.05);
   align-self: stretch;
   background: var(--surface);
