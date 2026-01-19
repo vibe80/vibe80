@@ -1473,141 +1473,143 @@ function App() {
 
         <section className="conversation">
           <div className="pane-stack">
-            <main
-              className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}
-              ref={listRef}
-            >
-              {messages.length === 0 && (
-                <div className="empty">
-                  <p>Envoyez un message pour demarrer une session.</p>
-                </div>
-              )}
-              {messages.map((message) => {
-                const isLongUserMessage =
-                  message.role === "user" &&
-                  (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
-                if (isLongUserMessage) {
-                  const truncatedText = getTruncatedText(
-                    message.text,
-                    MAX_USER_DISPLAY_LENGTH
-                  );
+            <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
+              <div className="chat-scroll" ref={listRef}>
+                {messages.length === 0 && (
+                  <div className="empty">
+                    <p>Envoyez un message pour demarrer une session.</p>
+                  </div>
+                )}
+                {messages.map((message) => {
+                  const isLongUserMessage =
+                    message.role === "user" &&
+                    (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
+                  if (isLongUserMessage) {
+                    const truncatedText = getTruncatedText(
+                      message.text,
+                      MAX_USER_DISPLAY_LENGTH
+                    );
+                    return (
+                      <div key={message.id} className={`bubble ${message.role}`}>
+                        <div className="plain-text">{truncatedText}</div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div key={message.id} className={`bubble ${message.role}`}>
-                      <div className="plain-text">{truncatedText}</div>
+                      {(() => {
+                        const { cleanedText, blocks } = extractChoices(
+                          message.text
+                        );
+                        return (
+                          <>
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                a: ({ node, ...props }) => (
+                                  <a
+                                    {...props}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  />
+                                ),
+                              }}
+                            >
+                              {cleanedText}
+                            </ReactMarkdown>
+                            {blocks.map((block, index) => {
+                              const blockKey = `${message.id}-${index}`;
+                              const selectedIndex = choiceSelections[blockKey];
+                              const choicesWithIndex = block.choices.map(
+                                (choice, choiceIndex) => ({
+                                  choice,
+                                  choiceIndex,
+                                })
+                              );
+                              const orderedChoices =
+                                selectedIndex === undefined
+                                  ? choicesWithIndex
+                                  : [
+                                      choicesWithIndex.find(
+                                        ({ choiceIndex }) =>
+                                          choiceIndex === selectedIndex
+                                      ),
+                                      ...choicesWithIndex.filter(
+                                        ({ choiceIndex }) =>
+                                          choiceIndex !== selectedIndex
+                                      ),
+                                    ].filter(Boolean);
+
+                              return (
+                                <div className="choices" key={blockKey}>
+                                  {block.question && (
+                                    <div className="choices-question">
+                                      {block.question}
+                                    </div>
+                                  )}
+                                  <div
+                                    className={`choices-list ${
+                                      selectedIndex !== undefined
+                                        ? "is-selected"
+                                        : ""
+                                    }`}
+                                  >
+                                    {orderedChoices.map(
+                                      ({ choice, choiceIndex }) => {
+                                        const isSelected =
+                                          selectedIndex === choiceIndex;
+                                        return (
+                                          <button
+                                            type="button"
+                                            key={`${blockKey}-${choiceIndex}`}
+                                            onClick={() =>
+                                              handleChoiceClick(
+                                                choice,
+                                                blockKey,
+                                                choiceIndex
+                                              )
+                                            }
+                                            className={`choice-button ${
+                                              isSelected
+                                                ? "is-selected"
+                                                : selectedIndex !== undefined
+                                                  ? "is-muted"
+                                                  : ""
+                                            }`}
+                                          >
+                                            <ReactMarkdown
+                                              remarkPlugins={[remarkGfm]}
+                                              components={{
+                                                p: ({ node, ...props }) => (
+                                                  <span {...props} />
+                                                ),
+                                                a: ({ node, ...props }) => (
+                                                  <a
+                                                    {...props}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                  />
+                                                ),
+                                              }}
+                                            >
+                                              {choice}
+                                            </ReactMarkdown>
+                                          </button>
+                                        );
+                                      }
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
                     </div>
                   );
-                }
-
-                return (
-                  <div key={message.id} className={`bubble ${message.role}`}>
-                    {(() => {
-                      const { cleanedText, blocks } = extractChoices(
-                        message.text
-                      );
-                      return (
-                        <>
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              a: ({ node, ...props }) => (
-                                <a
-                                  {...props}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                />
-                              ),
-                            }}
-                          >
-                            {cleanedText}
-                          </ReactMarkdown>
-                          {blocks.map((block, index) => {
-                            const blockKey = `${message.id}-${index}`;
-                            const selectedIndex = choiceSelections[blockKey];
-                            const choicesWithIndex = block.choices.map(
-                              (choice, choiceIndex) => ({ choice, choiceIndex })
-                            );
-                            const orderedChoices =
-                              selectedIndex === undefined
-                                ? choicesWithIndex
-                                : [
-                                    choicesWithIndex.find(
-                                      ({ choiceIndex }) =>
-                                        choiceIndex === selectedIndex
-                                    ),
-                                    ...choicesWithIndex.filter(
-                                      ({ choiceIndex }) =>
-                                        choiceIndex !== selectedIndex
-                                    ),
-                                  ].filter(Boolean);
-
-                            return (
-                              <div className="choices" key={blockKey}>
-                                {block.question && (
-                                  <div className="choices-question">
-                                    {block.question}
-                                  </div>
-                                )}
-                                <div
-                                  className={`choices-list ${
-                                    selectedIndex !== undefined
-                                      ? "is-selected"
-                                      : ""
-                                  }`}
-                                >
-                                  {orderedChoices.map(
-                                    ({ choice, choiceIndex }) => {
-                                      const isSelected =
-                                        selectedIndex === choiceIndex;
-                                      return (
-                                        <button
-                                          type="button"
-                                          key={`${blockKey}-${choiceIndex}`}
-                                          onClick={() =>
-                                            handleChoiceClick(
-                                              choice,
-                                              blockKey,
-                                              choiceIndex
-                                            )
-                                          }
-                                          className={`choice-button ${
-                                            isSelected
-                                              ? "is-selected"
-                                              : selectedIndex !== undefined
-                                                ? "is-muted"
-                                                : ""
-                                          }`}
-                                        >
-                                          <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}
-                                            components={{
-                                              p: ({ node, ...props }) => (
-                                                <span {...props} />
-                                              ),
-                                              a: ({ node, ...props }) => (
-                                                <a
-                                                  {...props}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                />
-                                              ),
-                                            }}
-                                          >
-                                            {choice}
-                                          </ReactMarkdown>
-                                        </button>
-                                      );
-                                    }
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </>
-                      );
-                    })()}
-                  </div>
-                );
-              })}
+                })}
+              </div>
               {processing && (
                 <div className="bubble assistant typing">
                   <div className="typing-indicator">

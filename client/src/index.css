@@ -457,11 +457,19 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow-y: auto;
   min-height: 0;
   flex: 1;
   height: 100%;
   font-size: 14px;
+}
+
+.chat-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
 }
 
 .layout {
@@ -1148,9 +1156,6 @@ body {
   margin-top: 2px;
   padding: 10px 0 12px;
   border-top: 1px dashed rgba(20, 19, 17, 0.05);
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
   align-self: stretch;
   background: var(--surface);
 }
