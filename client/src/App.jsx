@@ -106,6 +106,15 @@ function App() {
   const [sshKeyInput, setSshKeyInput] = useState("");
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
+  const [openAiAuthMode, setOpenAiAuthMode] = useState("apiKey");
+  const [openAiApiKey, setOpenAiApiKey] = useState("");
+  const [openAiLoginError, setOpenAiLoginError] = useState("");
+  const [openAiLoginPending, setOpenAiLoginPending] = useState(false);
+  const [openAiLoginRequest, setOpenAiLoginRequest] = useState(null);
+  const [openAiReady, setOpenAiReady] = useState(() =>
+    Boolean(getSessionIdFromUrl())
+  );
+  const [appServerReady, setAppServerReady] = useState(false);
   const [sessionRequested, setSessionRequested] = useState(() =>
     Boolean(getInitialRepoUrl())
   );
@@ -461,6 +470,7 @@ function App() {
         }
         setConnected(false);
         setStatus("Deconnecte");
+        setAppServerReady(false);
         if (!closingRef.current) {
           scheduleReconnect();
         }
@@ -490,6 +500,7 @@ function App() {
 
         if (payload.type === "ready") {
           setStatus("Pret");
+          setAppServerReady(true);
         }
 
         if (payload.type === "assistant_delta") {
@@ -606,6 +617,43 @@ function App() {
           }
         }
 
+        if (payload.type === "account_login_started") {
+          const result = payload.result;
+          if (result?.type === "chatgpt" && result.authUrl) {
+            try {
+              const url = new URL(result.authUrl);
+              if (result.loginId) {
+                url.searchParams.set("loginId", result.loginId);
+              }
+              window.open(url.toString(), "_blank", "noopener,noreferrer");
+            } catch (error) {
+              window.open(result.authUrl, "_blank", "noopener,noreferrer");
+            }
+          }
+        }
+
+        if (payload.type === "account_login_completed") {
+          if (payload.success) {
+            setOpenAiReady(true);
+            setOpenAiLoginPending(false);
+            setOpenAiLoginError("");
+          } else {
+            setOpenAiReady(false);
+            setOpenAiLoginPending(false);
+            setOpenAiLoginError(
+              payload.error || "Echec de l'authentification OpenAI."
+            );
+          }
+        }
+
+        if (payload.type === "account_login_error") {
+          setOpenAiReady(false);
+          setOpenAiLoginPending(false);
+          setOpenAiLoginError(
+            payload.message || "Echec de l'authentification OpenAI."
+          );
+        }
+
         if (payload.type === "item_started") {
           const { item } = payload;
           if (!item?.type) {
@@ -646,6 +694,28 @@ function App() {
       closingRef.current = false;
     };
   }, [attachmentSession?.sessionId, messageIndex]);
+
+  useEffect(() => {
+    if (
+      !attachmentSession?.sessionId ||
+      !openAiLoginRequest ||
+      !appServerReady ||
+      !connected
+    ) {
+      return;
+    }
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    socket.send(
+      JSON.stringify({
+        type: "account_login_start",
+        params: openAiLoginRequest,
+      })
+    );
+    setOpenAiLoginRequest(null);
+  }, [attachmentSession?.sessionId, appServerReady, connected, openAiLoginRequest]);
 
   useEffect(() => {
     if (activePane !== "terminal") {
@@ -799,8 +869,11 @@ function App() {
         setAttachmentsError(
           error.message || "Impossible de creer la session de pieces jointes."
         );
+        setOpenAiLoginPending(false);
+        setOpenAiLoginRequest(null);
       } finally {
         setAttachmentsLoading(false);
+        setSessionRequested(false);
       }
     };
 
@@ -816,34 +889,58 @@ function App() {
     window.history.replaceState({}, "", url);
   }, [attachmentSession?.sessionId]);
 
+  useEffect(() => {
+    setAppServerReady(false);
+  }, [attachmentSession?.sessionId]);
+
   const onRepoSubmit = (event) => {
     event.preventDefault();
+    const hasSession = Boolean(attachmentSession?.sessionId);
     const trimmed = repoInput.trim();
-    if (!trimmed) {
+    if (!hasSession && !trimmed) {
       setAttachmentsError("URL de depot git requise pour demarrer.");
       return;
     }
     let auth = null;
-    if (authMode === "ssh") {
-      const trimmedKey = sshKeyInput.trim();
-      if (!trimmedKey) {
-        setAttachmentsError("Cle SSH privee requise pour demarrer.");
-        return;
+    if (!hasSession) {
+      if (authMode === "ssh") {
+        const trimmedKey = sshKeyInput.trim();
+        if (!trimmedKey) {
+          setAttachmentsError("Cle SSH privee requise pour demarrer.");
+          return;
+        }
+        auth = { type: "ssh", privateKey: trimmedKey };
       }
-      auth = { type: "ssh", privateKey: trimmedKey };
+      if (authMode === "http") {
+        const user = httpUsername.trim();
+        if (!user || !httpPassword) {
+          setAttachmentsError("Identifiant et mot de passe requis.");
+          return;
+        }
+        auth = { type: "http", username: user, password: httpPassword };
+      }
     }
-    if (authMode === "http") {
-      const user = httpUsername.trim();
-      if (!user || !httpPassword) {
-        setAttachmentsError("Identifiant et mot de passe requis.");
+    let openAiParams = null;
+    if (openAiAuthMode === "apiKey") {
+      const key = openAiApiKey.trim();
+      if (!key) {
+        setOpenAiLoginError("API Key OpenAI requise pour demarrer.");
         return;
       }
-      auth = { type: "http", username: user, password: httpPassword };
+      openAiParams = { type: "apiKey", apiKey: key };
+    } else {
+      openAiParams = { type: "chatgpt" };
     }
     setAttachmentsError("");
-    setSessionRequested(true);
-    setRepoAuth(auth);
-    setRepoUrl(trimmed);
+    setOpenAiLoginError("");
+    setOpenAiReady(false);
+    setOpenAiLoginPending(true);
+    setOpenAiLoginRequest(openAiParams);
+    if (!hasSession) {
+      setSessionRequested(true);
+      setRepoAuth(auth);
+      setRepoUrl(trimmed);
+    }
   };
 
   useEffect(() => {
@@ -1159,15 +1256,23 @@ function App() {
     lastNotifiedIdRef.current = null;
   };
 
-  if (!attachmentSession?.sessionId) {
+  if (!attachmentSession?.sessionId || !openAiReady) {
+    const hasSession = Boolean(attachmentSession?.sessionId);
     const isRepoProvided = Boolean(repoUrl);
-    const repoDisplay = getTruncatedText(repoUrl, 72);
+    const isCloning = !hasSession && isRepoProvided;
+    const repoDisplay = getTruncatedText(
+      attachmentSession?.repoUrl || repoUrl,
+      72
+    );
+    const formDisabled = sessionRequested || openAiLoginPending;
+    const buttonLabel =
+      openAiAuthMode === "chatgpt" ? "ChatGPT Login" : "Go";
     return (
       <div className="session-gate">
         <div className="session-card">
           <p className="eyebrow">m5chat</p>
           <h1>Demarrer une session</h1>
-          {isRepoProvided ? (
+          {isCloning ? (
             <div className="session-hint">
               Clonage du depot...
               {repoDisplay && (
@@ -1177,112 +1282,188 @@ function App() {
           ) : (
             <>
               <p className="session-hint">
-                Indique l'URL du depot git a cloner pour cette session.
+                {hasSession
+                  ? "Authentification OpenAI requise pour continuer."
+                  : "Indique l'URL du depot git a cloner pour cette session."}
               </p>
+              {hasSession && repoDisplay && (
+                <div className="session-meta">{repoDisplay}</div>
+              )}
               <form className="session-form" onSubmit={onRepoSubmit}>
-                <div className="session-form-row">
-                  <input
-                    type="text"
-                    placeholder="git@gitea.devops:mon-org/mon-repo.git"
-                    value={repoInput}
-                    onChange={(event) => setRepoInput(event.target.value)}
-                    disabled={sessionRequested}
-                    required
-                  />
-                  <button type="submit" disabled={sessionRequested}>
-                    {sessionRequested ? "Chargement..." : "Go"}
-                  </button>
-                </div>
+                {!hasSession && (
+                  <>
+                    <div className="session-form-row">
+                      <input
+                        type="text"
+                        placeholder="git@gitea.devops:mon-org/mon-repo.git"
+                        value={repoInput}
+                        onChange={(event) => setRepoInput(event.target.value)}
+                        disabled={formDisabled}
+                        required
+                      />
+                    </div>
+                    <div className="session-auth">
+                      <div className="session-auth-title">
+                        Authentification (optionnelle)
+                      </div>
+                      <div className="session-auth-options">
+                        <label className="session-auth-option">
+                          <input
+                            type="radio"
+                            name="authMode"
+                            value="none"
+                            checked={authMode === "none"}
+                            onChange={() => setAuthMode("none")}
+                            disabled={formDisabled}
+                          />
+                          Aucune
+                        </label>
+                        <label className="session-auth-option">
+                          <input
+                            type="radio"
+                            name="authMode"
+                            value="ssh"
+                            checked={authMode === "ssh"}
+                            onChange={() => setAuthMode("ssh")}
+                            disabled={formDisabled}
+                          />
+                          Cle SSH privee
+                        </label>
+                        <label className="session-auth-option">
+                          <input
+                            type="radio"
+                            name="authMode"
+                            value="http"
+                            checked={authMode === "http"}
+                            onChange={() => setAuthMode("http")}
+                            disabled={formDisabled}
+                          />
+                          Identifiant + mot de passe
+                        </label>
+                      </div>
+                      {authMode === "ssh" && (
+                        <>
+                          <textarea
+                            className="session-auth-textarea"
+                            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                            value={sshKeyInput}
+                            onChange={(event) =>
+                              setSshKeyInput(event.target.value)
+                            }
+                            disabled={formDisabled}
+                            rows={6}
+                            spellCheck={false}
+                          />
+                          <div className="session-auth-hint">
+                            La cle est stockee dans ~/.ssh pour le clonage.
+                          </div>
+                        </>
+                      )}
+                      {authMode === "http" && (
+                        <>
+                          <div className="session-auth-grid">
+                            <input
+                              type="text"
+                              placeholder="Utilisateur"
+                              value={httpUsername}
+                              onChange={(event) =>
+                                setHttpUsername(event.target.value)
+                              }
+                              disabled={formDisabled}
+                              autoComplete="username"
+                            />
+                            <input
+                              type="password"
+                              placeholder="Mot de passe ou PAT"
+                              value={httpPassword}
+                              onChange={(event) =>
+                                setHttpPassword(event.target.value)
+                              }
+                              disabled={formDisabled}
+                              autoComplete="current-password"
+                            />
+                          </div>
+                          <div className="session-auth-hint">
+                            Le mot de passe peut etre remplace par un PAT.
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
                 <div className="session-auth">
                   <div className="session-auth-title">
-                    Authentification (optionnelle)
+                    Authentification OpenAI
                   </div>
                   <div className="session-auth-options">
                     <label className="session-auth-option">
                       <input
                         type="radio"
-                        name="authMode"
-                        value="none"
-                        checked={authMode === "none"}
-                        onChange={() => setAuthMode("none")}
-                        disabled={sessionRequested}
+                        name="openAiAuthMode"
+                        value="apiKey"
+                        checked={openAiAuthMode === "apiKey"}
+                        onChange={() => setOpenAiAuthMode("apiKey")}
+                        disabled={formDisabled}
                       />
-                      Aucune
+                      API Key
                     </label>
                     <label className="session-auth-option">
                       <input
                         type="radio"
-                        name="authMode"
-                        value="ssh"
-                        checked={authMode === "ssh"}
-                        onChange={() => setAuthMode("ssh")}
-                        disabled={sessionRequested}
+                        name="openAiAuthMode"
+                        value="chatgpt"
+                        checked={openAiAuthMode === "chatgpt"}
+                        onChange={() => setOpenAiAuthMode("chatgpt")}
+                        disabled={formDisabled}
                       />
-                      Cle SSH privee
-                    </label>
-                    <label className="session-auth-option">
-                      <input
-                        type="radio"
-                        name="authMode"
-                        value="http"
-                        checked={authMode === "http"}
-                        onChange={() => setAuthMode("http")}
-                        disabled={sessionRequested}
-                      />
-                      Identifiant + mot de passe
+                      ChatGPT Login
                     </label>
                   </div>
-                  {authMode === "ssh" && (
+                  {openAiAuthMode === "apiKey" && (
                     <>
-                      <textarea
-                        className="session-auth-textarea"
-                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                        value={sshKeyInput}
-                        onChange={(event) => setSshKeyInput(event.target.value)}
-                        disabled={sessionRequested}
-                        rows={6}
+                      <input
+                        type="password"
+                        placeholder="sk-..."
+                        value={openAiApiKey}
+                        onChange={(event) => setOpenAiApiKey(event.target.value)}
+                        disabled={formDisabled}
+                        autoComplete="off"
                         spellCheck={false}
                       />
                       <div className="session-auth-hint">
-                        La cle est stockee dans ~/.ssh pour le clonage.
+                        La cle est utilisee pour connecter l'agent OpenAI.
                       </div>
                     </>
                   )}
-                  {authMode === "http" && (
-                    <>
-                      <div className="session-auth-grid">
-                        <input
-                          type="text"
-                          placeholder="Utilisateur"
-                          value={httpUsername}
-                          onChange={(event) =>
-                            setHttpUsername(event.target.value)
-                          }
-                          disabled={sessionRequested}
-                          autoComplete="username"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Mot de passe ou PAT"
-                          value={httpPassword}
-                          onChange={(event) =>
-                            setHttpPassword(event.target.value)
-                          }
-                          disabled={sessionRequested}
-                          autoComplete="current-password"
-                        />
-                      </div>
-                      <div className="session-auth-hint">
-                        Le mot de passe peut etre remplace par un PAT.
-                      </div>
-                    </>
+                  {openAiAuthMode === "chatgpt" && (
+                    <div className="session-auth-hint">
+                      Un nouvel onglet s'ouvrira pour finaliser la connexion.
+                    </div>
                   )}
+                </div>
+                <div className="session-form-row">
+                  <div />
+                  <button type="submit" disabled={formDisabled}>
+                    {openAiLoginPending
+                      ? "Connexion..."
+                      : sessionRequested
+                      ? "Chargement..."
+                      : buttonLabel}
+                  </button>
                 </div>
               </form>
             </>
           )}
+          {openAiLoginPending && hasSession && (
+            <div className="session-hint">
+              Authentification OpenAI en cours...
+            </div>
+          )}
           {attachmentsError && (
             <div className="attachments-error">{attachmentsError}</div>
+          )}
+          {openAiLoginError && (
+            <div className="attachments-error">{openAiLoginError}</div>
           )}
         </div>
       </div>

@@ -485,6 +485,16 @@ function attachClientEvents(sessionId, client) {
         });
         break;
       }
+      case "account/login/completed": {
+        const { success, error, loginId } = message.params;
+        broadcastToSession(sessionId, {
+          type: "account_login_completed",
+          success: Boolean(success),
+          error: error || null,
+          loginId: loginId || null,
+        });
+        break;
+      }
       default:
         break;
     }
@@ -659,6 +669,34 @@ wss.on("connection", (socket, req) => {
           JSON.stringify({
             type: "error",
             message: error.message || "Failed to set model.",
+          })
+        );
+      }
+    }
+
+    if (payload.type === "account_login_start") {
+      if (!session.client.ready) {
+        socket.send(
+          JSON.stringify({
+            type: "account_login_error",
+            message: "Codex app-server not ready yet.",
+          })
+        );
+        return;
+      }
+      try {
+        const result = await session.client.startAccountLogin(payload.params);
+        socket.send(
+          JSON.stringify({
+            type: "account_login_started",
+            result,
+          })
+        );
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "account_login_error",
+            message: error.message || "Failed to start account login.",
           })
         );
       }

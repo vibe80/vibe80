@@ -83,6 +83,10 @@ export class CodexAppServerClient extends EventEmitter {
     return this.#sendRequest("setDefaultModel", { model, reasoningEffort });
   }
 
+  async startAccountLogin(params) {
+    return this.#sendRequest("account/login/start", params);
+  }
+
   #handleStdout(chunk) {
     this.buffer += chunk;
     let newlineIndex;
