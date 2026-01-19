@@ -103,10 +103,10 @@ function App() {
   const [modelError, setModelError] = useState("");
   const [sideTab, setSideTab] = useState("attachments");
   const [sideOpen, setSideOpen] = useState(
-    () => !window.matchMedia("(max-width: 720px)").matches
+    () => !window.matchMedia("(max-width: 1024px)").matches
   );
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
-    window.matchMedia("(max-width: 720px)").matches
+    window.matchMedia("(max-width: 1024px)").matches
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -186,7 +186,7 @@ function App() {
   }, [formattedRpcLogs, logFilter]);
 
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 720px)");
+    const query = window.matchMedia("(max-width: 1024px)");
     const update = () => setIsMobileLayout(query.matches);
     update();
     if (query.addEventListener) {
@@ -215,6 +215,12 @@ function App() {
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [settingsOpen, moreMenuOpen]);
+
+  useEffect(() => {
+    if (isMobileLayout) {
+      setSideOpen(false);
+    }
+  }, [isMobileLayout]);
 
   const applyMessages = useCallback(
     (items = []) => {
