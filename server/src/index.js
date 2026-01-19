@@ -141,6 +141,8 @@ const createSession = async (repoUrl, auth) => {
     const dir = path.join(os.tmpdir(), sessionId);
     try {
       await fs.promises.mkdir(dir, { recursive: false });
+      const attachmentsDir = path.join(dir, "attachments");
+      await fs.promises.mkdir(attachmentsDir, { recursive: true });
       const repoDir = path.join(dir, "repository");
       const env = { ...process.env };
       if (auth?.type === "ssh" && auth.privateKey) {
@@ -207,6 +209,7 @@ const createSession = async (repoUrl, auth) => {
       const client = new CodexAppServerClient({ cwd: repoDir });
       sessions.set(sessionId, {
         dir,
+        attachmentsDir,
         repoDir,
         repoUrl,
         client,
@@ -356,7 +359,7 @@ const upload = multer({
         cb(new Error("Invalid session."));
         return;
       }
-      cb(null, session.dir);
+      cb(null, session.attachmentsDir);
     },
     filename: async (req, file, cb) => {
       const sessionId = req.query.session;
@@ -370,7 +373,7 @@ const upload = multer({
         const reserved =
           req._reservedFilenames || (req._reservedFilenames = new Set());
         const uniqueName = await ensureUniqueFilename(
-          session.dir,
+          session.attachmentsDir,
           safeName,
           reserved
         );
@@ -809,13 +812,15 @@ app.get("/api/attachments", async (req, res) => {
     return;
   }
   try {
-    const entries = await fs.promises.readdir(session.dir, { withFileTypes: true });
+    const entries = await fs.promises.readdir(session.attachmentsDir, {
+      withFileTypes: true,
+    });
     const files = [];
     for (const entry of entries) {
       if (!entry.isFile()) {
         continue;
       }
-      const filePath = path.join(session.dir, entry.name);
+      const filePath = path.join(session.attachmentsDir, entry.name);
       const stats = await fs.promises.stat(filePath);
       files.push({
         name: entry.name,
