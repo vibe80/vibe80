@@ -23,6 +23,7 @@ const sessions = new Map();
 const homeDir = process.env.HOME_DIR || os.homedir();
 const sshDir = path.join(homeDir, ".ssh");
 const knownHostsPath = path.join(sshDir, "known_hosts");
+const sshConfigPath = path.join(sshDir, "config");
 
 app.use(express.json());
 
@@ -112,6 +113,28 @@ const ensureKnownHost = async (repoUrl) => {
   ]);
 };
 
+const ensureSshConfigEntry = async (host, keyPath) => {
+  if (!host) {
+    return;
+  }
+  const keyPathConfig = `~/.ssh/${path.basename(keyPath)}`;
+  let existing = "";
+  try {
+    existing = await fs.promises.readFile(sshConfigPath, "utf8");
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
+  }
+  const entry = `Host ${host}\n  IdentityFile ${keyPathConfig}\n`;
+  if (existing.includes(entry)) {
+    return;
+  }
+  const nextContent = existing ? `${existing.trimEnd()}\n\n${entry}` : entry;
+  await fs.promises.writeFile(sshConfigPath, nextContent, { mode: 0o600 });
+  await fs.promises.chmod(sshConfigPath, 0o600).catch(() => {});
+};
+
 const createSession = async (repoUrl, auth) => {
   while (true) {
     const sessionId = crypto.randomBytes(12).toString("hex");
@@ -127,8 +150,10 @@ const createSession = async (repoUrl, auth) => {
         const normalizedKey = `${auth.privateKey.trimEnd()}\n`;
         await fs.promises.writeFile(keyPath, normalizedKey, { mode: 0o600 });
         await fs.promises.chmod(keyPath, 0o600).catch(() => {});
+        const sshHost = resolveRepoHost(repoUrl);
+        await ensureSshConfigEntry(sshHost, keyPath);
         await ensureKnownHost(repoUrl);
-        env.GIT_SSH_COMMAND = `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o UserKnownHostsFile="${knownHostsPath}"`;
+        env.GIT_SSH_COMMAND = `ssh -o IdentitiesOnly=yes -o UserKnownHostsFile="${knownHostsPath}"`;
       } else if (auth?.type === "http" && auth.username && auth.password) {
         const authInfo = resolveHttpAuthInfo(repoUrl);
         if (!authInfo) {
