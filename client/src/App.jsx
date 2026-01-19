@@ -107,6 +107,7 @@ function App() {
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
   const [openAiAuthMode, setOpenAiAuthMode] = useState("apiKey");
+  const [openAiAuthFile, setOpenAiAuthFile] = useState(null);
   const [openAiApiKey, setOpenAiApiKey] = useState("");
   const [openAiLoginError, setOpenAiLoginError] = useState("");
   const [openAiLoginPending, setOpenAiLoginPending] = useState(false);
@@ -617,21 +618,6 @@ function App() {
           }
         }
 
-        if (payload.type === "account_login_started") {
-          const result = payload.result;
-          if (result?.type === "chatgpt" && result.authUrl) {
-            try {
-              const url = new URL(result.authUrl);
-              if (result.loginId) {
-                url.searchParams.set("loginId", result.loginId);
-              }
-              window.open(url.toString(), "_blank", "noopener,noreferrer");
-            } catch (error) {
-              window.open(result.authUrl, "_blank", "noopener,noreferrer");
-            }
-          }
-        }
-
         if (payload.type === "account_login_completed") {
           if (payload.success) {
             setOpenAiReady(true);
@@ -893,7 +879,7 @@ function App() {
     setAppServerReady(false);
   }, [attachmentSession?.sessionId]);
 
-  const onRepoSubmit = (event) => {
+  const onRepoSubmit = async (event) => {
     event.preventDefault();
     const hasSession = Boolean(attachmentSession?.sessionId);
     const trimmed = repoInput.trim();
@@ -928,14 +914,44 @@ function App() {
         return;
       }
       openAiParams = { type: "apiKey", apiKey: key };
-    } else {
-      openAiParams = { type: "chatgpt" };
+    } else if (openAiAuthMode === "authFile") {
+      if (!openAiAuthFile) {
+        setOpenAiLoginError("Fichier auth.json requis pour demarrer.");
+        return;
+      }
     }
     setAttachmentsError("");
     setOpenAiLoginError("");
-    setOpenAiReady(false);
-    setOpenAiLoginPending(true);
-    setOpenAiLoginRequest(openAiParams);
+    if (openAiAuthMode === "apiKey") {
+      setOpenAiReady(false);
+      setOpenAiLoginPending(true);
+      setOpenAiLoginRequest(openAiParams);
+    } else if (openAiAuthMode === "authFile") {
+      setOpenAiLoginRequest(null);
+      setOpenAiLoginPending(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", openAiAuthFile, openAiAuthFile.name || "auth.json");
+        const response = await fetch("/api/auth-file", {
+          method: "POST",
+          body: formData,
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error || "Echec de l'envoi du fichier auth.json.");
+        }
+        setOpenAiReady(true);
+      } catch (error) {
+        setOpenAiReady(false);
+        setOpenAiLoginError(
+          error.message || "Echec de l'envoi du fichier auth.json."
+        );
+        setOpenAiLoginPending(false);
+        return;
+      } finally {
+        setOpenAiLoginPending(false);
+      }
+    }
     if (!hasSession) {
       setSessionRequested(true);
       setRepoAuth(auth);
@@ -1265,8 +1281,7 @@ function App() {
       72
     );
     const formDisabled = sessionRequested || openAiLoginPending;
-    const buttonLabel =
-      openAiAuthMode === "chatgpt" ? "ChatGPT Login" : "Go";
+    const buttonLabel = "Go";
     return (
       <div className="session-gate">
         <div className="session-card">
@@ -1411,12 +1426,12 @@ function App() {
                       <input
                         type="radio"
                         name="openAiAuthMode"
-                        value="chatgpt"
-                        checked={openAiAuthMode === "chatgpt"}
-                        onChange={() => setOpenAiAuthMode("chatgpt")}
+                        value="authFile"
+                        checked={openAiAuthMode === "authFile"}
+                        onChange={() => setOpenAiAuthMode("authFile")}
                         disabled={formDisabled}
                       />
-                      ChatGPT Login
+                      Fichier d'authentification (auth.json)
                     </label>
                   </div>
                   {openAiAuthMode === "apiKey" && (
@@ -1435,10 +1450,20 @@ function App() {
                       </div>
                     </>
                   )}
-                  {openAiAuthMode === "chatgpt" && (
-                    <div className="session-auth-hint">
-                      Un nouvel onglet s'ouvrira pour finaliser la connexion.
-                    </div>
+                  {openAiAuthMode === "authFile" && (
+                    <>
+                      <input
+                        type="file"
+                        accept="application/json,.json"
+                        onChange={(event) =>
+                          setOpenAiAuthFile(event.target.files?.[0] || null)
+                        }
+                        disabled={formDisabled}
+                      />
+                      <div className="session-auth-hint">
+                        Le fichier est copie dans ~/.codex/auth.json.
+                      </div>
+                    </>
                   )}
                 </div>
                 <div className="session-form-row">

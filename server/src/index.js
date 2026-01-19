@@ -24,6 +24,8 @@ const homeDir = process.env.HOME_DIR || os.homedir();
 const sshDir = path.join(homeDir, ".ssh");
 const knownHostsPath = path.join(sshDir, "known_hosts");
 const sshConfigPath = path.join(sshDir, "config");
+const codexConfigDir = path.join(homeDir, ".codex");
+const codexAuthPath = path.join(codexConfigDir, "auth.json");
 
 app.use(express.json());
 
@@ -384,6 +386,10 @@ const upload = multer({
     },
   }),
   limits: { files: 20, fileSize: 50 * 1024 * 1024 },
+});
+const authUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { files: 1, fileSize: 2 * 1024 * 1024 },
 });
 
 function broadcastToSession(sessionId, payload) {
@@ -890,6 +896,28 @@ app.post(
     res.json({ files: uploaded });
   }
 );
+
+app.post("/api/auth-file", authUpload.single("file"), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: "Auth file is required." });
+    return;
+  }
+  const raw = req.file.buffer.toString("utf8");
+  try {
+    JSON.parse(raw);
+  } catch (error) {
+    res.status(400).json({ error: "Invalid auth.json file." });
+    return;
+  }
+  try {
+    await fs.promises.mkdir(codexConfigDir, { recursive: true, mode: 0o700 });
+    await fs.promises.writeFile(codexAuthPath, raw, { mode: 0o600 });
+    await fs.promises.chmod(codexAuthPath, 0o600).catch(() => {});
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to write auth.json." });
+  }
+});
 
 app.use((err, req, res, next) => {
   if (req.path.startsWith("/api/attachments")) {
