@@ -116,6 +116,24 @@ const mergeRepoHistory = (history, url) => {
   return next;
 };
 
+const downloadTextFile = (filename, content, type) => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+const formatExportName = (base, extension) => {
+  const safeBase = base || "chat";
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${safeBase}-${stamp}.${extension}`;
+};
+
 const extractRepoName = (url) => {
   if (!url) {
     return "";
@@ -1511,6 +1529,76 @@ function App() {
     setMoreMenuOpen(false);
   }, []);
 
+  const handleExportChat = useCallback(
+    (format) => {
+      if (!messages.length) {
+        return;
+      }
+      setMoreMenuOpen(false);
+      const baseName = extractRepoName(
+        attachmentSession?.repoUrl || repoUrl || ""
+      );
+      if (format === "markdown") {
+        const lines = [
+          "# Historique du chat",
+          "",
+          `Export: ${new Date().toISOString()}`,
+          "",
+        ];
+        messages.forEach((message) => {
+          if (message.role === "commandExecution") {
+            lines.push("## Commande");
+            lines.push(`\`${message.command || "Commande"}\``);
+            if (message.output) {
+              lines.push("```");
+              lines.push(message.output);
+              lines.push("```");
+            }
+            lines.push("");
+            return;
+          }
+          const roleLabel = message.role === "user" ? "Utilisateur" : "Assistant";
+          lines.push(`## ${roleLabel}`);
+          lines.push(message.text || "");
+          lines.push("");
+        });
+        const content = lines.join("\n").trim() + "\n";
+        downloadTextFile(
+          formatExportName(baseName, "md"),
+          content,
+          "text/markdown"
+        );
+        return;
+      }
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        repoUrl: attachmentSession?.repoUrl || repoUrl || "",
+        messages: messages.map((message) => {
+          if (message.role === "commandExecution") {
+            return {
+              id: message.id,
+              role: message.role,
+              command: message.command || "",
+              output: message.output || "",
+              status: message.status || "",
+            };
+          }
+          return {
+            id: message.id,
+            role: message.role,
+            text: message.text || "",
+          };
+        }),
+      };
+      downloadTextFile(
+        formatExportName(baseName, "json"),
+        JSON.stringify(payload, null, 2),
+        "application/json"
+      );
+    },
+    [messages, attachmentSession?.repoUrl, repoUrl]
+  );
+
   const handleInputChange = (event) => {
     const { value } = event.target;
     setInput(value);
@@ -2005,6 +2093,22 @@ function App() {
                   onClick={() => handleViewSelect("logs")}
                 >
                   Logs
+                </button>
+                <button
+                  type="button"
+                  className="menu-item"
+                  onClick={() => handleExportChat("markdown")}
+                  disabled={messages.length === 0}
+                >
+                  Export markdown
+                </button>
+                <button
+                  type="button"
+                  className="menu-item"
+                  onClick={() => handleExportChat("json")}
+                  disabled={messages.length === 0}
+                >
+                  Export JSON
                 </button>
                 <div className="dropdown-divider" />
                 <button
