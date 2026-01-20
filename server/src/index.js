@@ -72,6 +72,41 @@ const runCommandOutput = (command, args, options = {}) =>
     });
   });
 
+const normalizeRemoteBranches = (output, remote) =>
+  output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((ref) => !ref.endsWith("/HEAD"))
+    .map((ref) =>
+      ref.startsWith(`${remote}/`) ? ref.slice(remote.length + 1) : ref
+    );
+
+const getCurrentBranch = async (repoDir) => {
+  const output = await runCommandOutput("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+    cwd: repoDir,
+  });
+  const trimmed = output.trim();
+  return trimmed === "HEAD" ? "" : trimmed;
+};
+
+const getBranchInfo = async (session, remote = "origin") => {
+  await runCommand("git", ["fetch", "--prune"], { cwd: session.repoDir });
+  const [current, branchesOutput] = await Promise.all([
+    getCurrentBranch(session.repoDir),
+    runCommandOutput(
+      "git",
+      ["for-each-ref", "--format=%(refname:short)", `refs/remotes/${remote}`],
+      { cwd: session.repoDir }
+    ),
+  ]);
+  return {
+    current,
+    remote,
+    branches: normalizeRemoteBranches(branchesOutput, remote).sort(),
+  };
+};
+
 const createMessageId = () =>
   typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
@@ -864,6 +899,99 @@ app.post("/api/session", async (req, res) => {
       error: error?.message || error,
     });
     res.status(500).json({ error: "Failed to create session." });
+  }
+});
+
+app.get("/api/branches", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  try {
+    const info = await getBranchInfo(session);
+    res.json(info);
+  } catch (error) {
+    console.error("Failed to list branches:", {
+      sessionId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to list branches." });
+  }
+});
+
+app.post("/api/branches/switch", async (req, res) => {
+  const sessionId = req.body?.session;
+  const target = req.body?.branch;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  if (!target || typeof target !== "string") {
+    res.status(400).json({ error: "Branch is required." });
+    return;
+  }
+  const branchName = target.replace(/^origin\//, "").trim();
+  try {
+    const dirty = await runCommandOutput("git", ["status", "--porcelain"], {
+      cwd: session.repoDir,
+    });
+    if (dirty.trim()) {
+      res.status(409).json({
+        error: "Modifications locales detectees. Stashez ou committez avant.",
+      });
+      return;
+    }
+
+    try {
+      await runCommand("git", ["check-ref-format", "--branch", branchName], {
+        cwd: session.repoDir,
+      });
+    } catch (error) {
+      res.status(400).json({ error: "Nom de branche invalide." });
+      return;
+    }
+    await runCommand("git", ["fetch", "--prune"], { cwd: session.repoDir });
+
+    let switched = false;
+    try {
+      await runCommand("git", ["show-ref", "--verify", `refs/heads/${branchName}`], {
+        cwd: session.repoDir,
+      });
+      await runCommand("git", ["switch", branchName], { cwd: session.repoDir });
+      switched = true;
+    } catch (error) {
+      // ignore and try remote
+    }
+
+    if (!switched) {
+      try {
+        await runCommand(
+          "git",
+          ["show-ref", "--verify", `refs/remotes/origin/${branchName}`],
+          { cwd: session.repoDir }
+        );
+      } catch (error) {
+        res.status(404).json({ error: "Branche introuvable." });
+        return;
+      }
+      await runCommand("git", ["switch", "--track", `origin/${branchName}`], {
+        cwd: session.repoDir,
+      });
+    }
+
+    await broadcastRepoDiff(sessionId);
+    const info = await getBranchInfo(session);
+    res.json(info);
+  } catch (error) {
+    console.error("Failed to switch branch:", {
+      sessionId,
+      branch: branchName,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to switch branch." });
   }
 });
 

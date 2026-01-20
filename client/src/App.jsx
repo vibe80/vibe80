@@ -131,6 +131,11 @@ function App() {
   const [selectedReasoningEffort, setSelectedReasoningEffort] = useState("");
   const [modelLoading, setModelLoading] = useState(false);
   const [modelError, setModelError] = useState("");
+  const [branches, setBranches] = useState([]);
+  const [currentBranch, setCurrentBranch] = useState("");
+  const [branchLoading, setBranchLoading] = useState(false);
+  const [branchError, setBranchError] = useState("");
+  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
   const [sideTab, setSideTab] = useState("attachments");
   const [sideOpen, setSideOpen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
@@ -145,6 +150,7 @@ function App() {
   const uploadInputRef = useRef(null);
   const settingsRef = useRef(null);
   const moreMenuRef = useRef(null);
+  const branchRef = useRef(null);
   const terminalContainerRef = useRef(null);
   const terminalRef = useRef(null);
   const terminalFitRef = useRef(null);
@@ -235,7 +241,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!settingsOpen && !moreMenuOpen) {
+    if (!settingsOpen && !moreMenuOpen && !branchMenuOpen) {
       return;
     }
     const handlePointerDown = (event) => {
@@ -246,12 +252,16 @@ function App() {
       if (moreMenuOpen && moreMenuRef.current?.contains(target)) {
         return;
       }
+      if (branchMenuOpen && branchRef.current?.contains(target)) {
+        return;
+      }
       setSettingsOpen(false);
       setMoreMenuOpen(false);
+      setBranchMenuOpen(false);
     };
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [settingsOpen, moreMenuOpen]);
+  }, [settingsOpen, moreMenuOpen, branchMenuOpen]);
 
   useEffect(() => {
     if (!choicesKey) {
@@ -276,6 +286,40 @@ function App() {
     }
     localStorage.setItem(choicesKey, JSON.stringify(choiceSelections));
   }, [choiceSelections, choicesKey]);
+
+  const loadBranches = useCallback(async () => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    setBranchLoading(true);
+    setBranchError("");
+    try {
+      const response = await fetch(
+        `/api/branches?session=${encodeURIComponent(attachmentSession.sessionId)}`
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Impossible de charger les branches.");
+      }
+      setBranches(Array.isArray(payload.branches) ? payload.branches : []);
+      setCurrentBranch(payload.current || "");
+    } catch (error) {
+      setBranchError(error.message || "Impossible de charger les branches.");
+    } finally {
+      setBranchLoading(false);
+    }
+  }, [attachmentSession?.sessionId]);
+
+  useEffect(() => {
+    if (!attachmentSession?.sessionId) {
+      setBranches([]);
+      setCurrentBranch("");
+      setBranchError("");
+      setBranchMenuOpen(false);
+      return;
+    }
+    loadBranches();
+  }, [attachmentSession?.sessionId, loadBranches]);
 
   useEffect(() => {
     if (isMobileLayout) {
@@ -1135,6 +1179,35 @@ function App() {
     );
   };
 
+  const handleBranchSelect = async (branch) => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    setBranchLoading(true);
+    setBranchError("");
+    try {
+      const response = await fetch("/api/branches/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session: attachmentSession.sessionId,
+          branch,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Impossible de changer de branche.");
+      }
+      setBranches(Array.isArray(payload.branches) ? payload.branches : []);
+      setCurrentBranch(payload.current || "");
+      setBranchMenuOpen(false);
+    } catch (error) {
+      setBranchError(error.message || "Impossible de changer de branche.");
+    } finally {
+      setBranchLoading(false);
+    }
+  };
+
   const selectedModelDetails = useMemo(
     () => models.find((model) => model.model === selectedModel) || null,
     [models, selectedModel]
@@ -1650,7 +1723,60 @@ function App() {
         </div>
 
         <div className="topbar-right">
+          {branchError && <div className="status-pill down">{branchError}</div>}
           {modelError && <div className="status-pill down">{modelError}</div>}
+
+          <div className="dropdown" ref={branchRef}>
+            <button
+              type="button"
+              className="pill-button"
+              onClick={() => {
+                setBranchMenuOpen((current) => {
+                  const next = !current;
+                  if (next && !branches.length && !branchLoading) {
+                    loadBranches();
+                  }
+                  return next;
+                });
+                setSettingsOpen(false);
+                setMoreMenuOpen(false);
+              }}
+              disabled={!attachmentSession?.sessionId || branchLoading}
+            >
+              Branche: {currentBranch || "detachee"} ▾
+            </button>
+            {branchMenuOpen && (
+              <div className="dropdown-menu">
+                <div className="dropdown-title">Branches</div>
+                <button
+                  type="button"
+                  className="menu-item"
+                  onClick={loadBranches}
+                  disabled={!attachmentSession?.sessionId || branchLoading}
+                >
+                  {branchLoading ? "Chargement…" : "Rafraîchir"}
+                </button>
+                <div className="dropdown-divider" />
+                {branches.length ? (
+                  branches.map((branch) => (
+                    <button
+                      key={branch}
+                      type="button"
+                      className={`menu-item ${
+                        branch === currentBranch ? "is-active" : ""
+                      }`}
+                      onClick={() => handleBranchSelect(branch)}
+                      disabled={branchLoading}
+                    >
+                      {branch}
+                    </button>
+                  ))
+                ) : (
+                  <div className="menu-label">Aucune branche distante</div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="dropdown" ref={settingsRef}>
             <button
