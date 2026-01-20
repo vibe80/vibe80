@@ -248,6 +248,26 @@ function App() {
         .filter(Boolean),
     [repoDiff.status]
   );
+  const groupedMessages = useMemo(() => {
+    const grouped = [];
+    (messages || []).forEach((message) => {
+      if (message?.role === "commandExecution") {
+        const last = grouped[grouped.length - 1];
+        if (last?.groupType === "commandExecution") {
+          last.items.push(message);
+        } else {
+          grouped.push({
+            groupType: "commandExecution",
+            id: `command-group-${message.id}`,
+            items: [message],
+          });
+        }
+        return;
+      }
+      grouped.push(message);
+    });
+    return grouped;
+  }, [messages]);
   const [logFilter, setLogFilter] = useState("all");
   const formattedRpcLogs = useMemo(
     () =>
@@ -2166,60 +2186,66 @@ function App() {
                     <p>Envoyez un message pour demarrer une session.</p>
                   </div>
                 )}
-                {messages.map((message) => {
-                  if (message.role === "commandExecution") {
-                    const commandTitle = `Commande : ${
-                      message.command || "Commande"
-                    }`;
-                    const showLoader = message.status !== "completed";
-                    const isExpandable =
-                      message.isExpandable || Boolean(message.output);
-                    const summaryContent = (
-                      <>
-                        {showLoader && (
-                          <span
-                            className="loader command-execution-loader"
-                            title="Execution en cours"
-                          >
-                            <span className="dot" />
-                            <span className="dot" />
-                            <span className="dot" />
-                          </span>
-                        )}
-                        <span className="command-execution-title">
-                          {commandTitle}
-                        </span>
-                      </>
-                    );
+                {groupedMessages.map((message) => {
+                  if (message?.groupType === "commandExecution") {
                     return (
                       <div
                         key={message.id}
                         className="bubble command-execution"
                       >
-                        {isExpandable ? (
-                          <details
-                            className="command-execution-panel"
-                            open={Boolean(commandPanelOpen[message.id])}
-                            onToggle={(event) => {
-                              const isOpen = event.currentTarget.open;
-                              setCommandPanelOpen((prev) => ({
-                                ...prev,
-                                [message.id]: isOpen,
-                              }));
-                            }}
-                          >
-                            <summary className="command-execution-summary">
-                              {summaryContent}
-                            </summary>
-                            <pre className="command-execution-output">
-                              {message.output || ""}
-                            </pre>
-                          </details>
-                        ) : (
-                          <div className="command-execution-summary is-static">
-                            {summaryContent}
-                          </div>
-                        )}
+                        {message.items.map((item) => {
+                          const commandTitle = `Commande : ${
+                            item.command || "Commande"
+                          }`;
+                          const showLoader = item.status !== "completed";
+                          const isExpandable =
+                            item.isExpandable || Boolean(item.output);
+                          const summaryContent = (
+                            <>
+                              {showLoader && (
+                                <span
+                                  className="loader command-execution-loader"
+                                  title="Execution en cours"
+                                >
+                                  <span className="dot" />
+                                  <span className="dot" />
+                                  <span className="dot" />
+                                </span>
+                              )}
+                              <span className="command-execution-title">
+                                {commandTitle}
+                              </span>
+                            </>
+                          );
+                          return (
+                            <div key={item.id}>
+                              {isExpandable ? (
+                                <details
+                                  className="command-execution-panel"
+                                  open={Boolean(commandPanelOpen[item.id])}
+                                  onToggle={(event) => {
+                                    const isOpen = event.currentTarget.open;
+                                    setCommandPanelOpen((prev) => ({
+                                      ...prev,
+                                      [item.id]: isOpen,
+                                    }));
+                                  }}
+                                >
+                                  <summary className="command-execution-summary">
+                                    {summaryContent}
+                                  </summary>
+                                  <pre className="command-execution-output">
+                                    {item.output || ""}
+                                  </pre>
+                                </details>
+                              ) : (
+                                <div className="command-execution-summary is-static">
+                                  {summaryContent}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   }
