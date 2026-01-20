@@ -1203,13 +1203,13 @@ main.chat {
   align-self: stretch;
   background: var(--bg-strong);
   border-radius: 16px;
-  padding: 12px 14px;
+  padding: 8px 12px;
   border: 1px solid rgba(20, 19, 17, 0.08);
 }
 
 .command-execution-panel {
   display: grid;
-  gap: 10px;
+  gap: 0;
 }
 
 .command-execution-panel > summary {
@@ -1237,7 +1237,7 @@ main.chat {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13.5px;
+  font-size: 11px;
 }
 
 .command-execution-loader {
@@ -1252,7 +1252,7 @@ main.chat {
 }
 
 .command-execution-output {
-  margin: 0;
+  margin: 8px 0 0;
   padding: 12px;
   border-radius: 12px;
   background: rgba(20, 19, 17, 0.08);
