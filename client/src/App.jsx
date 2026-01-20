@@ -163,6 +163,13 @@ function App() {
     () => extractRepoName(attachmentSession?.repoUrl),
     [attachmentSession?.repoUrl]
   );
+  const choicesKey = useMemo(
+    () =>
+      attachmentSession?.sessionId
+        ? `choices:${attachmentSession.sessionId}`
+        : null,
+    [attachmentSession?.sessionId]
+  );
   const backlogKey = useMemo(
     () =>
       attachmentSession?.sessionId
@@ -245,6 +252,30 @@ function App() {
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [settingsOpen, moreMenuOpen]);
+
+  useEffect(() => {
+    if (!choicesKey) {
+      setChoiceSelections({});
+      return;
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem(choicesKey) || "{}");
+      setChoiceSelections(
+        stored && typeof stored === "object" && !Array.isArray(stored)
+          ? stored
+          : {}
+      );
+    } catch (error) {
+      setChoiceSelections({});
+    }
+  }, [choicesKey]);
+
+  useEffect(() => {
+    if (!choicesKey) {
+      return;
+    }
+    localStorage.setItem(choicesKey, JSON.stringify(choiceSelections));
+  }, [choiceSelections, choicesKey]);
 
   useEffect(() => {
     if (isMobileLayout) {
@@ -1361,6 +1392,9 @@ function App() {
     messageIndex.clear();
     commandIndex.clear();
     setChoiceSelections({});
+    if (choicesKey) {
+      localStorage.removeItem(choicesKey);
+    }
     setCommandPanelOpen({});
     lastNotifiedIdRef.current = null;
   };
