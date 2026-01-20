@@ -228,7 +228,6 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
-  const [repoHistorySelection, setRepoHistorySelection] = useState("");
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -1715,28 +1714,6 @@ function App() {
               <form className="session-form" onSubmit={onRepoSubmit}>
                 {!hasSession && (
                   <>
-                    {repoHistory.length > 0 && (
-                      <div className="session-form-row single">
-                        <select
-                          value={repoHistorySelection}
-                          onChange={(event) => {
-                            const selected = event.target.value;
-                            setRepoHistorySelection(selected);
-                            if (selected) {
-                              setRepoInput(selected);
-                            }
-                          }}
-                          disabled={formDisabled}
-                        >
-                          <option value="">Historique des depots</option>
-                          {repoHistory.map((url) => (
-                            <option key={url} value={url}>
-                              {getTruncatedText(url, 72)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
                     <div className="session-form-row">
                       <input
                         type="text"
@@ -1744,13 +1721,20 @@ function App() {
                         value={repoInput}
                         onChange={(event) => {
                           setRepoInput(event.target.value);
-                          if (repoHistorySelection) {
-                            setRepoHistorySelection("");
-                          }
                         }}
                         disabled={formDisabled}
                         required
+                        list={repoHistory.length > 0 ? "repo-history" : undefined}
                       />
+                      {repoHistory.length > 0 && (
+                        <datalist id="repo-history">
+                          {repoHistory.map((url) => (
+                            <option key={url} value={url}>
+                              {getTruncatedText(url, 72)}
+                            </option>
+                          ))}
+                        </datalist>
+                      )}
                     </div>
                     <div className="session-auth">
                       <div className="session-auth-title">
