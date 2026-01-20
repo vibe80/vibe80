@@ -67,6 +67,8 @@ const extractChoices = (text) => {
 
 const MAX_USER_DISPLAY_LENGTH = 1024;
 const REPO_HISTORY_KEY = "repoHistory";
+const AUTH_MODE_KEY = "authMode";
+const OPENAI_AUTH_MODE_KEY = "openAiAuthMode";
 const MAX_REPO_HISTORY = 10;
 
 const getTruncatedText = (text, limit) => {
@@ -96,6 +98,30 @@ const readRepoHistory = () => {
   } catch (error) {
     return [];
   }
+};
+
+const readAuthMode = () => {
+  try {
+    const stored = localStorage.getItem(AUTH_MODE_KEY);
+    if (stored === "ssh" || stored === "http" || stored === "none") {
+      return stored;
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return "none";
+};
+
+const readOpenAiAuthMode = () => {
+  try {
+    const stored = localStorage.getItem(OPENAI_AUTH_MODE_KEY);
+    if (stored === "apiKey" || stored === "authFile") {
+      return stored;
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return "apiKey";
 };
 
 const mergeRepoHistory = (history, url) => {
@@ -159,11 +185,11 @@ function App() {
   const [repoUrl, setRepoUrl] = useState(getInitialRepoUrl);
   const [repoInput, setRepoInput] = useState(getInitialRepoUrl);
   const [repoAuth, setRepoAuth] = useState(null);
-  const [authMode, setAuthMode] = useState("none");
+  const [authMode, setAuthMode] = useState(readAuthMode);
   const [sshKeyInput, setSshKeyInput] = useState("");
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
-  const [openAiAuthMode, setOpenAiAuthMode] = useState("apiKey");
+  const [openAiAuthMode, setOpenAiAuthMode] = useState(readOpenAiAuthMode);
   const [openAiAuthFile, setOpenAiAuthFile] = useState(null);
   const [openAiApiKey, setOpenAiApiKey] = useState("");
   const [openAiLoginError, setOpenAiLoginError] = useState("");
@@ -365,6 +391,22 @@ function App() {
     }
     localStorage.setItem(choicesKey, JSON.stringify(choiceSelections));
   }, [choiceSelections, choicesKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(AUTH_MODE_KEY, authMode);
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [authMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(OPENAI_AUTH_MODE_KEY, openAiAuthMode);
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [openAiAuthMode]);
 
   const loadBranches = useCallback(async () => {
     if (!attachmentSession?.sessionId) {
