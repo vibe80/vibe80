@@ -66,6 +66,8 @@ const extractChoices = (text) => {
 };
 
 const MAX_USER_DISPLAY_LENGTH = 1024;
+const REPO_HISTORY_KEY = "repoHistory";
+const MAX_REPO_HISTORY = 10;
 
 const getTruncatedText = (text, limit) => {
   if (!text) {
@@ -75,6 +77,43 @@ const getTruncatedText = (text, limit) => {
     return text;
   }
   return `${text.slice(0, limit)}…`;
+};
+
+const readRepoHistory = () => {
+  try {
+    const raw = localStorage.getItem(REPO_HISTORY_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .filter((entry) => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  } catch (error) {
+    return [];
+  }
+};
+
+const mergeRepoHistory = (history, url) => {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return history;
+  }
+  const next = [trimmed, ...history.filter((entry) => entry !== trimmed)].slice(
+    0,
+    MAX_REPO_HISTORY
+  );
+  if (
+    next.length === history.length &&
+    next.every((entry, index) => entry === history[index])
+  ) {
+    return history;
+  }
+  return next;
 };
 
 const extractRepoName = (url) => {
@@ -144,6 +183,8 @@ function App() {
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
+  const [repoHistorySelection, setRepoHistorySelection] = useState("");
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -492,6 +533,14 @@ function App() {
     void ensureNotificationPermission();
     primeAudioContext();
   }, [ensureNotificationPermission, primeAudioContext]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(REPO_HISTORY_KEY, JSON.stringify(repoHistory));
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [repoHistory]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -1136,6 +1185,15 @@ function App() {
     setConnected(false);
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
 
+  useEffect(() => {
+    if (!attachmentSession?.repoUrl) {
+      return;
+    }
+    setRepoHistory((current) =>
+      mergeRepoHistory(current, attachmentSession.repoUrl)
+    );
+  }, [attachmentSession?.repoUrl]);
+
   const requestModelList = () => {
     if (!socketRef.current) {
       return;
@@ -1507,12 +1565,39 @@ function App() {
               <form className="session-form" onSubmit={onRepoSubmit}>
                 {!hasSession && (
                   <>
+                    {repoHistory.length > 0 && (
+                      <div className="session-form-row single">
+                        <select
+                          value={repoHistorySelection}
+                          onChange={(event) => {
+                            const selected = event.target.value;
+                            setRepoHistorySelection(selected);
+                            if (selected) {
+                              setRepoInput(selected);
+                            }
+                          }}
+                          disabled={formDisabled}
+                        >
+                          <option value="">Historique des depots</option>
+                          {repoHistory.map((url) => (
+                            <option key={url} value={url}>
+                              {getTruncatedText(url, 72)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div className="session-form-row">
                       <input
                         type="text"
                         placeholder="git@gitea.devops:mon-org/mon-repo.git"
                         value={repoInput}
-                        onChange={(event) => setRepoInput(event.target.value)}
+                        onChange={(event) => {
+                          setRepoInput(event.target.value);
+                          if (repoHistorySelection) {
+                            setRepoHistorySelection("");
+                          }
+                        }}
                         disabled={formDisabled}
                         required
                       />

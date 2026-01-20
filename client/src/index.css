@@ -79,7 +79,8 @@ body {
 }
 
 .session-form input,
-.session-form textarea {
+.session-form textarea,
+.session-form select {
   border: 1px solid rgba(20, 19, 17, 0.14);
   border-radius: 14px;
   padding: 12px 14px;
@@ -88,10 +89,19 @@ body {
   color: var(--ink);
 }
 
+.session-form select {
+  background: white;
+  cursor: pointer;
+}
+
 .session-form textarea {
   resize: vertical;
   min-height: 140px;
   line-height: 1.4;
+}
+
+.session-form-row.single {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .session-form button {
