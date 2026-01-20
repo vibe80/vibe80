@@ -132,9 +132,7 @@ function App() {
   const [modelLoading, setModelLoading] = useState(false);
   const [modelError, setModelError] = useState("");
   const [sideTab, setSideTab] = useState("attachments");
-  const [sideOpen, setSideOpen] = useState(
-    () => !window.matchMedia("(max-width: 1024px)").matches
-  );
+  const [sideOpen, setSideOpen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
