@@ -1825,9 +1825,9 @@ function App() {
     llmProvider === "claude" ? claudeLoginPending : openAiLoginPending;
   const llmAuthError =
     llmProvider === "claude" ? claudeLoginError : openAiLoginError;
+  const hasSession = Boolean(attachmentSession?.sessionId);
 
   if (!attachmentSession?.sessionId || !llmReady) {
-    const hasSession = Boolean(attachmentSession?.sessionId);
     const isRepoProvided = Boolean(repoUrl);
     const isCloning = !hasSession && isRepoProvided;
     const repoDisplay = getTruncatedText(
