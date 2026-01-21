@@ -41,9 +41,12 @@ body {
 .session-gate {
   min-height: 100vh;
   min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
+  overflow-y: auto;
 }
 
 .session-card {
