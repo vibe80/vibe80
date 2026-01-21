@@ -25,7 +25,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @openai/codex
-RUN curl -fsSL https://claude.ai/install.sh | bash
 
 COPY package*.json ./
 COPY client/package*.json ./client/
@@ -43,6 +42,8 @@ RUN useradd -m -d /home/app -s /bin/bash app \
 RUN chmod +x /app/start.sh
 
 USER app
+ENV PATH="/home/app/.local/bin:${PATH}"
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
 EXPOSE 5179
 
