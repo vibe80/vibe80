@@ -535,6 +535,7 @@ main.chat {
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
   flex: 1;
 }
@@ -1094,7 +1095,9 @@ main.chat {
   padding: 12px 14px;
   background: rgba(20, 19, 17, 0.08);
   border-radius: 12px;
-  overflow-x: auto;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .bubble pre code {
@@ -1264,7 +1267,8 @@ main.chat {
   line-height: 1.45;
   white-space: pre-wrap;
   color: var(--ink);
-  overflow-x: auto;
+  overflow-x: hidden;
+  word-break: break-word;
 }
 
 .bubble.assistant :where(p, ul, ol, pre, blockquote) {
