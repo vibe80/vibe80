@@ -138,6 +138,7 @@ export class ClaudeCliClient extends EventEmitter {
         this.emit("log", `Failed to parse Claude JSON: ${raw}`);
         continue;
       }
+      this.emit("stdout_json", { turnId, message });
       this.#handleMessage(turnId, message);
     }
   }

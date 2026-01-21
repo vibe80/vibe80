@@ -607,6 +607,16 @@ function attachClaudeEvents(sessionId, client) {
     }
   });
 
+  client.on("stdout_json", ({ message }) => {
+    const entry = {
+      direction: "stdout",
+      timestamp: Date.now(),
+      payload: message,
+    };
+    appendRpcLog(sessionId, entry);
+    broadcastToSession(sessionId, { type: "rpc_log", entry });
+  });
+
   client.on("assistant_message", ({ id, text, turnId }) => {
     appendSessionMessage(sessionId, { id, role: "assistant", text });
     broadcastToSession(sessionId, {
