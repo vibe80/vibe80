@@ -1349,6 +1349,30 @@ main.chat {
   position: relative;
 }
 
+.composer-attach-button {
+  position: relative;
+}
+
+.attachment-badge {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  z-index: 1;
+}
+
 .composer--sticky {
   position: sticky;
   bottom: 0;
@@ -1394,6 +1418,12 @@ main.chat {
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.send-icon {
+  display: none;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .link-button {
@@ -1581,12 +1611,28 @@ main.chat {
 
 @media (max-width: 1024px) {
   .app {
-    padding: 24px 16px calc(32px + env(safe-area-inset-bottom));
+    padding: 12px 12px calc(16px + env(safe-area-inset-bottom));
+    gap: 10px;
   }
 
   .header {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
+  }
+
+  .topbar-left {
+    gap: 10px;
+  }
+
+  .topbar-brand {
+    gap: 2px;
+  }
+
+  .header .icon-button {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
   }
 
   .topbar-right {
@@ -1597,6 +1643,20 @@ main.chat {
   .layout {
     display: block;
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .layout.is-mobile .conversation {
+    gap: 8px;
+  }
+
+  .layout.is-mobile .chat {
+    padding: 12px;
+  }
+
+  .layout.is-mobile .composer {
+    padding: 8px;
+    gap: 6px;
   }
 
   .layout.is-mobile .side {
@@ -1615,13 +1675,45 @@ main.chat {
     transform: translateX(0);
   }
 
-  .composer-main {
-    grid-template-columns: auto 1fr;
+  .layout.is-mobile .composer-main {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
   }
 
-  .composer button.primary {
-    grid-column: 1 / -1;
-    width: 100%;
+  .layout.is-mobile .composer-attach-button,
+  .layout.is-mobile .composer button.primary {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 12px;
+  }
+
+  .layout.is-mobile .composer-input {
+    min-height: 42px;
+    height: 42px;
+    max-height: 42px;
+    padding: 10px 12px;
+    overflow: hidden;
+  }
+
+  .layout.is-mobile .composer-meta {
+    justify-content: flex-end;
+  }
+
+  .layout.is-mobile .composer-meta .link-button,
+  .layout.is-mobile .composer-chips {
+    display: none;
+  }
+
+  .layout.is-mobile .send-text {
+    display: none;
+  }
+
+  .layout.is-mobile .send-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .session-form {

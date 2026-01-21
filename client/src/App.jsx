@@ -1808,6 +1808,10 @@ function App() {
     if (!inputRef.current) {
       return;
     }
+    if (isMobileLayout) {
+      inputRef.current.style.height = "42px";
+      return;
+    }
     inputRef.current.style.height = "auto";
     inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
   };
@@ -1816,9 +1820,13 @@ function App() {
     if (!inputRef.current) {
       return;
     }
+    if (isMobileLayout) {
+      inputRef.current.style.height = "42px";
+      return;
+    }
     inputRef.current.style.height = "auto";
     inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
-  }, [input]);
+  }, [input, isMobileLayout]);
 
   const handleChoiceClick = (choice, blockKey, choiceIndex) => {
     setChoiceSelections((prev) => ({
@@ -2179,7 +2187,7 @@ function App() {
         <div className="topbar-right">
           {branchError && <div className="status-pill down">{branchError}</div>}
           {modelError && <div className="status-pill down">{modelError}</div>}
-          {hasSession && (
+          {!isMobileLayout && hasSession && (
             <button
               type="button"
               className={`status-pill ${providerSwitching ? "busy" : ""}`}
@@ -2198,59 +2206,67 @@ function App() {
             </button>
           )}
 
-          <div className="dropdown" ref={branchRef}>
-            <button
-              type="button"
-              className="pill-button"
-              onClick={() => {
-                setBranchMenuOpen((current) => {
-                  const next = !current;
-                  if (next && !branches.length && !branchLoading) {
-                    loadBranches();
-                  }
-                  return next;
-                });
-                setSettingsOpen(false);
-                setMoreMenuOpen(false);
-              }}
-              disabled={!attachmentSession?.sessionId || branchLoading || processing}
-            >
-              Branche: {currentBranch || "detachee"} ▾
-            </button>
-            {branchMenuOpen && (
-              <div className="dropdown-menu">
-                <div className="dropdown-title">Branches</div>
-                <button
-                  type="button"
-                  className="menu-item"
-                  onClick={loadBranches}
-                  disabled={!attachmentSession?.sessionId || branchLoading || processing}
-                >
-                  {branchLoading ? "Chargement…" : "Rafraîchir"}
-                </button>
-                <div className="dropdown-divider" />
-                {branches.length ? (
-                  branches.map((branch) => (
-                    <button
-                      key={branch}
-                      type="button"
-                      className={`menu-item ${
-                        branch === currentBranch ? "is-active" : ""
-                      }`}
-                      onClick={() => handleBranchSelect(branch)}
-                      disabled={branchLoading || processing}
-                    >
-                      {branch}
-                    </button>
-                  ))
-                ) : (
-                  <div className="menu-label">Aucune branche distante</div>
-                )}
-              </div>
-            )}
-          </div>
+          {!isMobileLayout && (
+            <div className="dropdown" ref={branchRef}>
+              <button
+                type="button"
+                className="pill-button"
+                onClick={() => {
+                  setBranchMenuOpen((current) => {
+                    const next = !current;
+                    if (next && !branches.length && !branchLoading) {
+                      loadBranches();
+                    }
+                    return next;
+                  });
+                  setSettingsOpen(false);
+                  setMoreMenuOpen(false);
+                }}
+                disabled={
+                  !attachmentSession?.sessionId || branchLoading || processing
+                }
+              >
+                Branche: {currentBranch || "detachee"} ▾
+              </button>
+              {branchMenuOpen && (
+                <div className="dropdown-menu">
+                  <div className="dropdown-title">Branches</div>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={loadBranches}
+                    disabled={
+                      !attachmentSession?.sessionId ||
+                      branchLoading ||
+                      processing
+                    }
+                  >
+                    {branchLoading ? "Chargement…" : "Rafraîchir"}
+                  </button>
+                  <div className="dropdown-divider" />
+                  {branches.length ? (
+                    branches.map((branch) => (
+                      <button
+                        key={branch}
+                        type="button"
+                        className={`menu-item ${
+                          branch === currentBranch ? "is-active" : ""
+                        }`}
+                        onClick={() => handleBranchSelect(branch)}
+                        disabled={branchLoading || processing}
+                      >
+                        {branch}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="menu-label">Aucune branche distante</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
-          {supportsModels && (
+          {!isMobileLayout && supportsModels && (
             <div className="dropdown" ref={settingsRef}>
               <button
                 type="button"
@@ -2332,14 +2348,142 @@ function App() {
               type="button"
               className="pill-button"
               onClick={() => {
-                setMoreMenuOpen((current) => !current);
+                setMoreMenuOpen((current) => {
+                  const next = !current;
+                  if (next && isMobileLayout && !branches.length && !branchLoading) {
+                    loadBranches();
+                  }
+                  return next;
+                });
                 setSettingsOpen(false);
+                setBranchMenuOpen(false);
               }}
             >
               ⋯
             </button>
             {moreMenuOpen && (
               <div className="dropdown-menu">
+                {isMobileLayout && (
+                  <>
+                    <div className="dropdown-title">Session</div>
+                    {hasSession && (
+                      <button
+                        type="button"
+                        className={`menu-item ${
+                          providerSwitching ? "is-active" : ""
+                        }`}
+                        onClick={() =>
+                          handleProviderSwitch(
+                            llmProvider === "codex" ? "claude" : "codex"
+                          )
+                        }
+                        disabled={providerSwitching || processing}
+                      >
+                        {providerSwitching
+                          ? "Basculement..."
+                          : `LLM: ${llmProvider}`}
+                      </button>
+                    )}
+                    <div className="menu-label">
+                      Branche
+                      <span>
+                        {currentBranch ? currentBranch : "detachee"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="menu-item"
+                      onClick={loadBranches}
+                      disabled={
+                        !attachmentSession?.sessionId ||
+                        branchLoading ||
+                        processing
+                      }
+                    >
+                      {branchLoading ? "Chargement…" : "Rafraîchir les branches"}
+                    </button>
+                    {branches.length ? (
+                      branches.map((branch) => (
+                        <button
+                          key={`mobile-branch-${branch}`}
+                          type="button"
+                          className={`menu-item ${
+                            branch === currentBranch ? "is-active" : ""
+                          }`}
+                          onClick={() => handleBranchSelect(branch)}
+                          disabled={branchLoading || processing}
+                        >
+                          {branch}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="menu-label">Aucune branche distante</div>
+                    )}
+                    {supportsModels && (
+                      <>
+                        <div className="dropdown-divider" />
+                        <div className="dropdown-title">Modèle</div>
+                        <button
+                          type="button"
+                          className="menu-item"
+                          onClick={requestModelList}
+                          disabled={!connected || modelLoading}
+                        >
+                          {modelLoading
+                            ? "Chargement…"
+                            : "Rafraîchir la liste"}
+                        </button>
+                        <label className="menu-label">
+                          Modèle
+                          <select
+                            className="model-select"
+                            value={selectedModel}
+                            onChange={handleModelChange}
+                            disabled={
+                              !connected || models.length === 0 || modelLoading
+                            }
+                          >
+                            <option value="">Modele par defaut</option>
+                            {models.map((model) => (
+                              <option key={model.id} value={model.model}>
+                                {model.displayName || model.model}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="menu-label">
+                          Reasoning
+                          <select
+                            className="model-select"
+                            value={selectedReasoningEffort}
+                            onChange={handleReasoningEffortChange}
+                            disabled={
+                              !connected ||
+                              !selectedModelDetails ||
+                              !selectedModelDetails.supportedReasoningEfforts
+                                ?.length ||
+                              modelLoading
+                            }
+                          >
+                            <option value="">Reasoning par defaut</option>
+                            {(
+                              selectedModelDetails?.supportedReasoningEfforts ||
+                              []
+                            ).map((effort) => (
+                              <option
+                                key={effort.reasoningEffort}
+                                value={effort.reasoningEffort}
+                              >
+                                {effort.reasoningEffort}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </>
+                    )}
+                    <div className="dropdown-divider" />
+                  </>
+                )}
                 <div className="dropdown-title">Vue</div>
                 <button
                   type="button"
@@ -2932,12 +3076,17 @@ function App() {
             <div className="composer-main">
               <button
                 type="button"
-                className="icon-button"
+                className="icon-button composer-attach-button"
                 aria-label="Ajouter une pièce jointe"
                 onClick={triggerAttachmentPicker}
                 disabled={!attachmentSession || attachmentsLoading}
               >
                 ＋
+                {isMobileLayout ? (
+                  <span className="attachment-badge">
+                    {selectedAttachments.length}
+                  </span>
+                ) : null}
               </button>
               <textarea
                 className="composer-input"
@@ -2945,7 +3094,7 @@ function App() {
                 onChange={handleInputChange}
                 onPaste={onPasteAttachments}
                 placeholder="Écris ton message…"
-                rows={3}
+                rows={isMobileLayout ? 1 : 3}
                 ref={inputRef}
               />
               <button
@@ -2953,38 +3102,43 @@ function App() {
                 className="primary"
                 disabled={!connected || !input.trim()}
               >
-                Envoyer
+                <span className="send-text">Envoyer</span>
+                <span className="send-icon">➤</span>
               </button>
             </div>
 
-            <div className="composer-meta">
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => openSidePanel("attachments")}
-              >
-                Pièces: {selectedAttachments.length}
-              </button>
-              <div className="composer-actions">
-                {processing && currentTurnId ? (
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={interruptTurn}
-                  >
-                    Stop
-                  </button>
-                ) : null}
+            {(!isMobileLayout || (processing && currentTurnId)) && (
+              <div className="composer-meta">
                 <button
                   type="button"
-                  className="secondary"
-                  onClick={addToBacklog}
-                  disabled={!input.trim()}
+                  className="link-button"
+                  onClick={() => openSidePanel("attachments")}
                 >
-                  Ajouter à la backlog
+                  Pièces: {selectedAttachments.length}
                 </button>
+                <div className="composer-actions">
+                  {processing && currentTurnId ? (
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={interruptTurn}
+                    >
+                      Stop
+                    </button>
+                  ) : null}
+                  {!isMobileLayout && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={addToBacklog}
+                      disabled={!input.trim()}
+                    >
+                      Ajouter à la backlog
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {selectedAttachmentNames.length ? (
               <div className="composer-chips" aria-label="Pièces sélectionnées">
