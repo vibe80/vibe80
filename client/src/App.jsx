@@ -1200,7 +1200,29 @@ function App() {
           body: JSON.stringify(payload),
         });
         if (!response.ok) {
-          throw new Error("Failed to create attachment session.");
+          let details = "";
+          try {
+            const errorPayload = await response.json();
+            if (typeof errorPayload?.error === "string") {
+              details = errorPayload.error;
+            } else if (typeof errorPayload?.message === "string") {
+              details = errorPayload.message;
+            } else if (typeof errorPayload === "string") {
+              details = errorPayload;
+            }
+          } catch (parseError) {
+            try {
+              details = await response.text();
+            } catch (readError) {
+              details = "";
+            }
+          }
+          const suffix = details ? `: ${details}` : "";
+          throw new Error(
+            `Impossible de creer la session de pieces jointes (HTTP ${response.status}${
+              response.statusText ? ` ${response.statusText}` : ""
+            })${suffix}.`
+          );
         }
         const data = await response.json();
         setAttachmentSession(data);
