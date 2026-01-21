@@ -10,6 +10,7 @@ import { WebSocketServer } from "ws";
 import { spawn } from "child_process";
 import * as pty from "node-pty";
 import { CodexAppServerClient } from "./codexClient.js";
+import { ClaudeCliClient } from "./claudeClient.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +27,8 @@ const knownHostsPath = path.join(sshDir, "known_hosts");
 const sshConfigPath = path.join(sshDir, "config");
 const codexConfigDir = path.join(homeDir, ".codex");
 const codexAuthPath = path.join(codexConfigDir, "auth.json");
+const claudeConfigDir = path.join(homeDir, ".claude");
+const claudeCredPath = path.join(claudeConfigDir, ".credentials.json");
 
 app.use(express.json());
 
@@ -172,7 +175,7 @@ const ensureSshConfigEntry = async (host, keyPath) => {
   await fs.promises.chmod(sshConfigPath, 0o600).catch(() => {});
 };
 
-const createSession = async (repoUrl, auth) => {
+const createSession = async (repoUrl, auth, provider = "codex") => {
   while (true) {
     const sessionId = crypto.randomBytes(12).toString("hex");
     const dir = path.join(os.tmpdir(), sessionId);
@@ -243,23 +246,32 @@ const createSession = async (repoUrl, auth) => {
           { env }
         );
       }
-      const client = new CodexAppServerClient({ cwd: repoDir });
+      const client =
+        provider === "claude"
+          ? new ClaudeCliClient({ cwd: repoDir, attachmentsDir })
+          : new CodexAppServerClient({ cwd: repoDir });
       sessions.set(sessionId, {
         dir,
         attachmentsDir,
         repoDir,
         repoUrl,
+        provider,
         client,
         sockets: new Set(),
         messages: [],
         rpcLogs: [],
       });
-      attachClientEvents(sessionId, client);
+      if (provider === "claude") {
+        attachClaudeEvents(sessionId, client);
+      } else {
+        attachClientEvents(sessionId, client);
+      }
       client.start().catch((error) => {
-        console.error("Failed to start Codex app-server:", error);
+        const label = provider === "claude" ? "Claude CLI" : "Codex app-server";
+        console.error(`Failed to start ${label}:`, error);
         broadcastToSession(sessionId, {
           type: "error",
-          message: "Codex app-server failed to start.",
+          message: `${label} failed to start.`,
         });
       });
       return { sessionId, dir };
@@ -427,6 +439,9 @@ const authUpload = multer({
   limits: { files: 1, fileSize: 2 * 1024 * 1024 },
 });
 
+const getProviderLabel = (session) =>
+  session?.provider === "claude" ? "Claude CLI" : "Codex app-server";
+
 function broadcastToSession(sessionId, payload) {
   const session = getSession(sessionId);
   if (!session) {
@@ -581,6 +596,55 @@ function attachClientEvents(sessionId, client) {
   });
 }
 
+function attachClaudeEvents(sessionId, client) {
+  client.on("ready", ({ threadId }) => {
+    broadcastToSession(sessionId, { type: "ready", threadId });
+  });
+
+  client.on("log", (message) => {
+    if (message) {
+      console.log(`[claude:${sessionId}] ${message}`);
+    }
+  });
+
+  client.on("assistant_message", ({ id, text, turnId }) => {
+    appendSessionMessage(sessionId, { id, role: "assistant", text });
+    broadcastToSession(sessionId, {
+      type: "assistant_message",
+      text,
+      itemId: id,
+      turnId,
+    });
+    void broadcastRepoDiff(sessionId);
+  });
+
+  client.on("command_execution_completed", (payload) => {
+    broadcastToSession(sessionId, {
+      type: "command_execution_completed",
+      item: payload.item,
+      itemId: payload.itemId,
+      turnId: payload.turnId,
+    });
+  });
+
+  client.on("turn_completed", ({ turnId, status }) => {
+    broadcastToSession(sessionId, {
+      type: "turn_completed",
+      turnId,
+      status: status || "success",
+      error: null,
+    });
+  });
+
+  client.on("turn_error", ({ turnId, message }) => {
+    broadcastToSession(sessionId, {
+      type: "turn_error",
+      turnId,
+      message: message || "Claude CLI error.",
+    });
+  });
+}
+
 wss.on("connection", (socket, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const sessionId = url.searchParams.get("session");
@@ -599,7 +663,12 @@ wss.on("connection", (socket, req) => {
       JSON.stringify({ type: "ready", threadId: session.client.threadId })
     );
   } else {
-    socket.send(JSON.stringify({ type: "status", message: "Starting Codex..." }));
+    socket.send(
+      JSON.stringify({
+        type: "status",
+        message: `Starting ${getProviderLabel(session)}...`,
+      })
+    );
   }
 
   socket.on("message", async (data) => {
@@ -618,7 +687,7 @@ wss.on("connection", (socket, req) => {
         socket.send(
           JSON.stringify({
             type: "error",
-            message: "Codex app-server not ready yet.",
+            message: `${getProviderLabel(session)} not ready yet.`,
           })
         );
         return;
@@ -653,7 +722,7 @@ wss.on("connection", (socket, req) => {
         socket.send(
           JSON.stringify({
             type: "error",
-            message: "Codex app-server not ready yet.",
+            message: `${getProviderLabel(session)} not ready yet.`,
           })
         );
         return;
@@ -676,7 +745,7 @@ wss.on("connection", (socket, req) => {
         socket.send(
           JSON.stringify({
             type: "error",
-            message: "Codex app-server not ready yet.",
+            message: `${getProviderLabel(session)} not ready yet.`,
           })
         );
         return;
@@ -707,7 +776,7 @@ wss.on("connection", (socket, req) => {
         socket.send(
           JSON.stringify({
             type: "error",
-            message: "Codex app-server not ready yet.",
+            message: `${getProviderLabel(session)} not ready yet.`,
           })
         );
         return;
@@ -739,7 +808,7 @@ wss.on("connection", (socket, req) => {
         socket.send(
           JSON.stringify({
             type: "account_login_error",
-            message: "Codex app-server not ready yet.",
+            message: `${getProviderLabel(session)} not ready yet.`,
           })
         );
         return;
@@ -858,6 +927,7 @@ app.get("/api/health", (req, res) => {
     ok: true,
     ready: session.client.ready,
     threadId: session.client.threadId,
+    provider: session.provider || "codex",
   });
 });
 
@@ -872,6 +942,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
     sessionId: req.params.sessionId,
     path: session.dir,
     repoUrl: session.repoUrl,
+    provider: session.provider || "codex",
     messages: session.messages,
     repoDiff,
     rpcLogs: session.rpcLogs || [],
@@ -886,11 +957,17 @@ app.post("/api/session", async (req, res) => {
   }
   try {
     const auth = req.body?.auth || null;
-    const session = await createSession(repoUrl, auth);
+    const provider = req.body?.provider || "codex";
+    if (provider !== "codex" && provider !== "claude") {
+      res.status(400).json({ error: "Invalid provider." });
+      return;
+    }
+    const session = await createSession(repoUrl, auth, provider);
     res.json({
       sessionId: session.sessionId,
       path: session.dir,
       repoUrl,
+      provider,
       messages: [],
     });
   } catch (error) {
@@ -1065,6 +1142,32 @@ app.post("/api/auth-file", authUpload.single("file"), async (req, res) => {
     res.status(500).json({ error: "Failed to write auth.json." });
   }
 });
+
+app.post(
+  "/api/claude-auth-file",
+  authUpload.single("file"),
+  async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: "Auth file is required." });
+      return;
+    }
+    const raw = req.file.buffer.toString("utf8");
+    try {
+      JSON.parse(raw);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid credentials.json file." });
+      return;
+    }
+    try {
+      await fs.promises.mkdir(claudeConfigDir, { recursive: true, mode: 0o700 });
+      await fs.promises.writeFile(claudeCredPath, raw, { mode: 0o600 });
+      await fs.promises.chmod(claudeCredPath, 0o600).catch(() => {});
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to write credentials.json." });
+    }
+  }
+);
 
 app.use((err, req, res, next) => {
   if (req.path.startsWith("/api/attachments")) {

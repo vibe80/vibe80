@@ -69,6 +69,7 @@ const MAX_USER_DISPLAY_LENGTH = 1024;
 const REPO_HISTORY_KEY = "repoHistory";
 const AUTH_MODE_KEY = "authMode";
 const OPENAI_AUTH_MODE_KEY = "openAiAuthMode";
+const LLM_PROVIDER_KEY = "llmProvider";
 const MAX_REPO_HISTORY = 10;
 
 const getTruncatedText = (text, limit) => {
@@ -122,6 +123,18 @@ const readOpenAiAuthMode = () => {
     // Ignore storage errors (private mode, quota).
   }
   return "apiKey";
+};
+
+const readLlmProvider = () => {
+  try {
+    const stored = localStorage.getItem(LLM_PROVIDER_KEY);
+    if (stored === "codex" || stored === "claude") {
+      return stored;
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return "codex";
 };
 
 const mergeRepoHistory = (history, url) => {
@@ -189,6 +202,7 @@ function App() {
   const [sshKeyInput, setSshKeyInput] = useState("");
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
+  const [llmProvider, setLlmProvider] = useState(readLlmProvider);
   const [openAiAuthMode, setOpenAiAuthMode] = useState(readOpenAiAuthMode);
   const [openAiAuthFile, setOpenAiAuthFile] = useState(null);
   const [openAiApiKey, setOpenAiApiKey] = useState("");
@@ -196,6 +210,12 @@ function App() {
   const [openAiLoginPending, setOpenAiLoginPending] = useState(false);
   const [openAiLoginRequest, setOpenAiLoginRequest] = useState(null);
   const [openAiReady, setOpenAiReady] = useState(() =>
+    Boolean(getSessionIdFromUrl())
+  );
+  const [claudeAuthFile, setClaudeAuthFile] = useState(null);
+  const [claudeLoginError, setClaudeLoginError] = useState("");
+  const [claudeLoginPending, setClaudeLoginPending] = useState(false);
+  const [claudeReady, setClaudeReady] = useState(() =>
     Boolean(getSessionIdFromUrl())
   );
   const [appServerReady, setAppServerReady] = useState(false);
@@ -398,6 +418,21 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [authMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LLM_PROVIDER_KEY, llmProvider);
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [llmProvider]);
+
+  useEffect(() => {
+    setOpenAiLoginError("");
+    setClaudeLoginError("");
+    setOpenAiLoginPending(false);
+    setClaudeLoginPending(false);
+  }, [llmProvider]);
 
   useEffect(() => {
     try {
@@ -980,7 +1015,8 @@ function App() {
       !attachmentSession?.sessionId ||
       !openAiLoginRequest ||
       !appServerReady ||
-      !connected
+      !connected ||
+      llmProvider !== "codex"
     ) {
       return;
     }
@@ -995,7 +1031,13 @@ function App() {
       })
     );
     setOpenAiLoginRequest(null);
-  }, [attachmentSession?.sessionId, appServerReady, connected, openAiLoginRequest]);
+  }, [
+    attachmentSession?.sessionId,
+    appServerReady,
+    connected,
+    openAiLoginRequest,
+    llmProvider,
+  ]);
 
   useEffect(() => {
     if (activePane !== "terminal") {
@@ -1131,7 +1173,7 @@ function App() {
       try {
         setAttachmentsLoading(true);
         setAttachmentsError("");
-        const payload = { repoUrl };
+        const payload = { repoUrl, provider: llmProvider };
         if (repoAuth) {
           payload.auth = repoAuth;
         }
@@ -1158,7 +1200,7 @@ function App() {
     };
 
     createAttachmentSession();
-  }, [repoUrl, repoAuth]);
+  }, [repoUrl, repoAuth, llmProvider]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -1201,49 +1243,100 @@ function App() {
       }
     }
     let openAiParams = null;
-    if (openAiAuthMode === "apiKey") {
-      const key = openAiApiKey.trim();
-      if (!key) {
-        setOpenAiLoginError("API Key OpenAI requise pour demarrer.");
-        return;
+    if (llmProvider === "codex") {
+      if (openAiAuthMode === "apiKey") {
+        const key = openAiApiKey.trim();
+        if (!key) {
+          setOpenAiLoginError("API Key OpenAI requise pour demarrer.");
+          return;
+        }
+        openAiParams = { type: "apiKey", apiKey: key };
+      } else if (openAiAuthMode === "authFile") {
+        if (!openAiAuthFile) {
+          setOpenAiLoginError("Fichier auth.json requis pour demarrer.");
+          return;
+        }
       }
-      openAiParams = { type: "apiKey", apiKey: key };
-    } else if (openAiAuthMode === "authFile") {
-      if (!openAiAuthFile) {
-        setOpenAiLoginError("Fichier auth.json requis pour demarrer.");
+    } else {
+      if (!claudeAuthFile) {
+        setClaudeLoginError("Fichier credentials.json requis pour demarrer.");
         return;
       }
     }
     setAttachmentsError("");
     setOpenAiLoginError("");
-    if (openAiAuthMode === "apiKey") {
-      setOpenAiReady(false);
-      setOpenAiLoginPending(true);
-      setOpenAiLoginRequest(openAiParams);
-    } else if (openAiAuthMode === "authFile") {
+    setClaudeLoginError("");
+    if (llmProvider === "codex") {
+      setClaudeLoginPending(false);
+      if (openAiAuthMode === "apiKey") {
+        setOpenAiReady(false);
+        setOpenAiLoginPending(true);
+        setOpenAiLoginRequest(openAiParams);
+      } else if (openAiAuthMode === "authFile") {
+        setOpenAiLoginRequest(null);
+        setOpenAiLoginPending(true);
+        try {
+          const formData = new FormData();
+          formData.append(
+            "file",
+            openAiAuthFile,
+            openAiAuthFile.name || "auth.json"
+          );
+          const response = await fetch("/api/auth-file", {
+            method: "POST",
+            body: formData,
+          });
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null);
+            throw new Error(
+              payload?.error || "Echec de l'envoi du fichier auth.json."
+            );
+          }
+          setOpenAiReady(true);
+        } catch (error) {
+          setOpenAiReady(false);
+          setOpenAiLoginError(
+            error.message || "Echec de l'envoi du fichier auth.json."
+          );
+          setOpenAiLoginPending(false);
+          return;
+        } finally {
+          setOpenAiLoginPending(false);
+        }
+      }
+    } else {
       setOpenAiLoginRequest(null);
-      setOpenAiLoginPending(true);
+      setOpenAiLoginPending(false);
+      setClaudeReady(false);
+      setClaudeLoginPending(true);
       try {
         const formData = new FormData();
-        formData.append("file", openAiAuthFile, openAiAuthFile.name || "auth.json");
-        const response = await fetch("/api/auth-file", {
+        formData.append(
+          "file",
+          claudeAuthFile,
+          claudeAuthFile.name || "credentials.json"
+        );
+        const response = await fetch("/api/claude-auth-file", {
           method: "POST",
           body: formData,
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
-          throw new Error(payload?.error || "Echec de l'envoi du fichier auth.json.");
+          throw new Error(
+            payload?.error ||
+              "Echec de l'envoi du fichier credentials.json."
+          );
         }
-        setOpenAiReady(true);
+        setClaudeReady(true);
       } catch (error) {
-        setOpenAiReady(false);
-        setOpenAiLoginError(
-          error.message || "Echec de l'envoi du fichier auth.json."
+        setClaudeReady(false);
+        setClaudeLoginError(
+          error.message || "Echec de l'envoi du fichier credentials.json."
         );
-        setOpenAiLoginPending(false);
+        setClaudeLoginPending(false);
         return;
       } finally {
-        setOpenAiLoginPending(false);
+        setClaudeLoginPending(false);
       }
     }
     if (!hasSession) {
@@ -1265,6 +1358,15 @@ function App() {
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
 
   useEffect(() => {
+    if (!attachmentSession?.provider) {
+      return;
+    }
+    if (attachmentSession.provider !== llmProvider) {
+      setLlmProvider(attachmentSession.provider);
+    }
+  }, [attachmentSession?.provider, llmProvider]);
+
+  useEffect(() => {
     if (!attachmentSession?.repoUrl) {
       return;
     }
@@ -1274,7 +1376,7 @@ function App() {
   }, [attachmentSession?.repoUrl]);
 
   const requestModelList = () => {
-    if (!socketRef.current) {
+    if (!socketRef.current || llmProvider !== "codex") {
       return;
     }
     setModelLoading(true);
@@ -1679,7 +1781,14 @@ function App() {
     lastNotifiedIdRef.current = null;
   };
 
-  if (!attachmentSession?.sessionId || !openAiReady) {
+  const llmReady = llmProvider === "claude" ? claudeReady : openAiReady;
+  const supportsModels = llmProvider === "codex";
+  const llmAuthPending =
+    llmProvider === "claude" ? claudeLoginPending : openAiLoginPending;
+  const llmAuthError =
+    llmProvider === "claude" ? claudeLoginError : openAiLoginError;
+
+  if (!attachmentSession?.sessionId || !llmReady) {
     const hasSession = Boolean(attachmentSession?.sessionId);
     const isRepoProvided = Boolean(repoUrl);
     const isCloning = !hasSession && isRepoProvided;
@@ -1687,7 +1796,7 @@ function App() {
       attachmentSession?.repoUrl || repoUrl,
       72
     );
-    const formDisabled = sessionRequested || openAiLoginPending;
+    const formDisabled = sessionRequested || openAiLoginPending || claudeLoginPending;
     const buttonLabel = "Go";
     return (
       <div className="session-gate">
@@ -1705,7 +1814,9 @@ function App() {
             <>
               <p className="session-hint">
                 {hasSession
-                  ? "Authentification OpenAI requise pour continuer."
+                  ? llmProvider === "claude"
+                    ? "Authentification Claude requise pour continuer."
+                    : "Authentification OpenAI requise pour continuer."
                   : "Indique l'URL du depot git a cloner pour cette session."}
               </p>
               {hasSession && repoDisplay && (
@@ -1826,61 +1937,113 @@ function App() {
                   </>
                 )}
                 <div className="session-auth">
-                  <div className="session-auth-title">
-                    Authentification OpenAI
-                  </div>
+                  <div className="session-auth-title">Agent LLM</div>
                   <div className="session-auth-options">
                     <label className="session-auth-option">
                       <input
                         type="radio"
-                        name="openAiAuthMode"
-                        value="apiKey"
-                        checked={openAiAuthMode === "apiKey"}
-                        onChange={() => setOpenAiAuthMode("apiKey")}
-                        disabled={formDisabled}
+                        name="llmProvider"
+                        value="codex"
+                        checked={llmProvider === "codex"}
+                        onChange={() => setLlmProvider("codex")}
+                        disabled={formDisabled || hasSession}
                       />
-                      API Key
+                      Codex
                     </label>
                     <label className="session-auth-option">
                       <input
                         type="radio"
-                        name="openAiAuthMode"
-                        value="authFile"
-                        checked={openAiAuthMode === "authFile"}
-                        onChange={() => setOpenAiAuthMode("authFile")}
-                        disabled={formDisabled}
+                        name="llmProvider"
+                        value="claude"
+                        checked={llmProvider === "claude"}
+                        onChange={() => setLlmProvider("claude")}
+                        disabled={formDisabled || hasSession}
                       />
-                      Fichier d'authentification (auth.json)
+                      Claude
                     </label>
                   </div>
-                  {openAiAuthMode === "apiKey" && (
+                  <div className="session-auth-hint">
+                    Le choix est fixe apres la creation de la session.
+                  </div>
+                </div>
+                <div className="session-auth">
+                  <div className="session-auth-title">
+                    {llmProvider === "claude"
+                      ? "Authentification Claude"
+                      : "Authentification OpenAI"}
+                  </div>
+                  {llmProvider === "codex" ? (
                     <>
-                      <input
-                        type="password"
-                        placeholder="sk-..."
-                        value={openAiApiKey}
-                        onChange={(event) => setOpenAiApiKey(event.target.value)}
-                        disabled={formDisabled}
-                        autoComplete="off"
-                        spellCheck={false}
-                      />
-                      <div className="session-auth-hint">
-                        La cle est utilisee pour connecter l'agent OpenAI.
+                      <div className="session-auth-options">
+                        <label className="session-auth-option">
+                          <input
+                            type="radio"
+                            name="openAiAuthMode"
+                            value="apiKey"
+                            checked={openAiAuthMode === "apiKey"}
+                            onChange={() => setOpenAiAuthMode("apiKey")}
+                            disabled={formDisabled}
+                          />
+                          API Key
+                        </label>
+                        <label className="session-auth-option">
+                          <input
+                            type="radio"
+                            name="openAiAuthMode"
+                            value="authFile"
+                            checked={openAiAuthMode === "authFile"}
+                            onChange={() => setOpenAiAuthMode("authFile")}
+                            disabled={formDisabled}
+                          />
+                          Fichier d'authentification (auth.json)
+                        </label>
                       </div>
+                      {openAiAuthMode === "apiKey" && (
+                        <>
+                          <input
+                            type="password"
+                            placeholder="sk-..."
+                            value={openAiApiKey}
+                            onChange={(event) =>
+                              setOpenAiApiKey(event.target.value)
+                            }
+                            disabled={formDisabled}
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                          <div className="session-auth-hint">
+                            La cle est utilisee pour connecter l'agent OpenAI.
+                          </div>
+                        </>
+                      )}
+                      {openAiAuthMode === "authFile" && (
+                        <>
+                          <input
+                            type="file"
+                            accept="application/json,.json"
+                            onChange={(event) =>
+                              setOpenAiAuthFile(event.target.files?.[0] || null)
+                            }
+                            disabled={formDisabled}
+                          />
+                          <div className="session-auth-hint">
+                            Le fichier est copie dans ~/.codex/auth.json.
+                          </div>
+                        </>
+                      )}
                     </>
-                  )}
-                  {openAiAuthMode === "authFile" && (
+                  ) : (
                     <>
                       <input
                         type="file"
                         accept="application/json,.json"
                         onChange={(event) =>
-                          setOpenAiAuthFile(event.target.files?.[0] || null)
+                          setClaudeAuthFile(event.target.files?.[0] || null)
                         }
                         disabled={formDisabled}
                       />
                       <div className="session-auth-hint">
-                        Le fichier est copie dans ~/.codex/auth.json.
+                        Le fichier est copie dans ~/.claude/.credentials.json.
                       </div>
                     </>
                   )}
@@ -1888,7 +2051,7 @@ function App() {
                 <div className="session-form-row">
                   <div />
                   <button type="submit" disabled={formDisabled}>
-                    {openAiLoginPending
+                    {llmAuthPending
                       ? "Connexion..."
                       : sessionRequested
                       ? "Chargement..."
@@ -1898,16 +2061,18 @@ function App() {
               </form>
             </>
           )}
-          {openAiLoginPending && hasSession && (
+          {llmAuthPending && hasSession && (
             <div className="session-hint">
-              Authentification OpenAI en cours...
+              {llmProvider === "claude"
+                ? "Authentification Claude en cours..."
+                : "Authentification OpenAI en cours..."}
             </div>
           )}
           {attachmentsError && (
             <div className="attachments-error">{attachmentsError}</div>
           )}
-          {openAiLoginError && (
-            <div className="attachments-error">{openAiLoginError}</div>
+          {llmAuthError && (
+            <div className="attachments-error">{llmAuthError}</div>
           )}
         </div>
       </div>
@@ -1944,6 +2109,9 @@ function App() {
         <div className="topbar-right">
           {branchError && <div className="status-pill down">{branchError}</div>}
           {modelError && <div className="status-pill down">{modelError}</div>}
+          {!supportsModels && (
+            <div className="status-pill">LLM: {llmProvider}</div>
+          )}
 
           <div className="dropdown" ref={branchRef}>
             <button
@@ -1997,78 +2165,82 @@ function App() {
             )}
           </div>
 
-          <div className="dropdown" ref={settingsRef}>
-            <button
-              type="button"
-              className="pill-button"
-              onClick={() => {
-                setSettingsOpen((current) => !current);
-                setMoreMenuOpen(false);
-              }}
-              disabled={!connected}
-            >
-              Modèle:{" "}
-              {selectedModelDetails?.displayName ||
-                selectedModelDetails?.model ||
-                "par défaut"}{" "}
-              ▾
-            </button>
-            {settingsOpen && (
-              <div className="dropdown-menu">
-                <div className="dropdown-title">Paramètres</div>
-                <button
-                  type="button"
-                  className="menu-item"
-                  onClick={requestModelList}
-                  disabled={!connected || modelLoading}
-                >
-                  {modelLoading ? "Chargement…" : "Rafraîchir la liste"}
-                </button>
-                <label className="menu-label">
-                  Modèle
-                  <select
-                    className="model-select"
-                    value={selectedModel}
-                    onChange={handleModelChange}
-                    disabled={!connected || models.length === 0 || modelLoading}
+          {supportsModels && (
+            <div className="dropdown" ref={settingsRef}>
+              <button
+                type="button"
+                className="pill-button"
+                onClick={() => {
+                  setSettingsOpen((current) => !current);
+                  setMoreMenuOpen(false);
+                }}
+                disabled={!connected}
+              >
+                Modèle:{" "}
+                {selectedModelDetails?.displayName ||
+                  selectedModelDetails?.model ||
+                  "par défaut"}{" "}
+                ▾
+              </button>
+              {settingsOpen && (
+                <div className="dropdown-menu">
+                  <div className="dropdown-title">Paramètres</div>
+                  <button
+                    type="button"
+                    className="menu-item"
+                    onClick={requestModelList}
+                    disabled={!connected || modelLoading}
                   >
-                    <option value="">Modele par defaut</option>
-                    {models.map((model) => (
-                      <option key={model.id} value={model.model}>
-                        {model.displayName || model.model}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="menu-label">
-                  Reasoning
-                  <select
-                    className="model-select"
-                    value={selectedReasoningEffort}
-                    onChange={handleReasoningEffortChange}
-                    disabled={
-                      !connected ||
-                      !selectedModelDetails ||
-                      !selectedModelDetails.supportedReasoningEfforts?.length ||
-                      modelLoading
-                    }
-                  >
-                    <option value="">Reasoning par defaut</option>
-                    {(selectedModelDetails?.supportedReasoningEfforts || []).map(
-                      (effort) => (
-                        <option
-                          key={effort.reasoningEffort}
-                          value={effort.reasoningEffort}
-                        >
-                          {effort.reasoningEffort}
+                    {modelLoading ? "Chargement…" : "Rafraîchir la liste"}
+                  </button>
+                  <label className="menu-label">
+                    Modèle
+                    <select
+                      className="model-select"
+                      value={selectedModel}
+                      onChange={handleModelChange}
+                      disabled={
+                        !connected || models.length === 0 || modelLoading
+                      }
+                    >
+                      <option value="">Modele par defaut</option>
+                      {models.map((model) => (
+                        <option key={model.id} value={model.model}>
+                          {model.displayName || model.model}
                         </option>
-                      )
-                    )}
-                  </select>
-                </label>
-              </div>
-            )}
-          </div>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="menu-label">
+                    Reasoning
+                    <select
+                      className="model-select"
+                      value={selectedReasoningEffort}
+                      onChange={handleReasoningEffortChange}
+                      disabled={
+                        !connected ||
+                        !selectedModelDetails ||
+                        !selectedModelDetails.supportedReasoningEfforts?.length ||
+                        modelLoading
+                      }
+                    >
+                      <option value="">Reasoning par defaut</option>
+                      {(selectedModelDetails?.supportedReasoningEfforts || []).map(
+                        (effort) => (
+                          <option
+                            key={effort.reasoningEffort}
+                            value={effort.reasoningEffort}
+                          >
+                            {effort.reasoningEffort}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="dropdown" ref={moreMenuRef}>
             <button
