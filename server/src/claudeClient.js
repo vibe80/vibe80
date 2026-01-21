@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import crypto from "crypto";
+import { SYSTEM_PROMPT } from "./config.js";
 
 const createTurnId = () =>
   typeof crypto.randomUUID === "function"
@@ -17,8 +18,7 @@ export class ClaudeCliClient extends EventEmitter {
     this.modelInfo = null;
     this.toolUses = new Map();
     this.buffer = "";
-    this.systemPrompt =
-      "output markdown format for inline generated text;When proposing possible next steps, use: <!-- vibecoder:choices <question?> --> then options (one per line), end with <!-- /vibecoder:choices -->";
+    this.systemPrompt = SYSTEM_PROMPT;
   }
 
   async start() {

@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
+import { SYSTEM_PROMPT } from "./config.js";
 
 export class CodexAppServerClient extends EventEmitter {
   constructor({ cwd }) {
@@ -173,7 +174,7 @@ export class CodexAppServerClient extends EventEmitter {
         {
           keyPath: "developer_instructions",
           mergeStrategy: "replace",
-          value: "output markdown format for inline generated text;When proposing possible next steps, use: <!-- vibecoder:choices <question?> --> then options (one per line), end with <!-- /vibecoder:choices -->",
+          value: SYSTEM_PROMPT,
         },
       ],
     });
