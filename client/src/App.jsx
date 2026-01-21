@@ -1419,7 +1419,7 @@ function App() {
   };
 
   const handleBranchSelect = async (branch) => {
-    if (!attachmentSession?.sessionId) {
+    if (!attachmentSession?.sessionId || processing) {
       return;
     }
     setBranchLoading(true);
@@ -2128,7 +2128,7 @@ function App() {
                 setSettingsOpen(false);
                 setMoreMenuOpen(false);
               }}
-              disabled={!attachmentSession?.sessionId || branchLoading}
+              disabled={!attachmentSession?.sessionId || branchLoading || processing}
             >
               Branche: {currentBranch || "detachee"} ▾
             </button>
@@ -2139,7 +2139,7 @@ function App() {
                   type="button"
                   className="menu-item"
                   onClick={loadBranches}
-                  disabled={!attachmentSession?.sessionId || branchLoading}
+                  disabled={!attachmentSession?.sessionId || branchLoading || processing}
                 >
                   {branchLoading ? "Chargement…" : "Rafraîchir"}
                 </button>
@@ -2153,7 +2153,7 @@ function App() {
                         branch === currentBranch ? "is-active" : ""
                       }`}
                       onClick={() => handleBranchSelect(branch)}
-                      disabled={branchLoading}
+                      disabled={branchLoading || processing}
                     >
                       {branch}
                     </button>
