@@ -11,6 +11,11 @@ import { spawn } from "child_process";
 import * as pty from "node-pty";
 import { CodexAppServerClient } from "./codexClient.js";
 import { ClaudeCliClient } from "./claudeClient.js";
+import {
+  getOrCreateClient,
+  getActiveClient,
+  isValidProvider,
+} from "./clientFactory.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -246,25 +251,29 @@ const createSession = async (repoUrl, auth, provider = "codex") => {
           { env }
         );
       }
-      const client =
-        provider === "claude"
-          ? new ClaudeCliClient({ cwd: repoDir, attachmentsDir })
-          : new CodexAppServerClient({ cwd: repoDir });
-      sessions.set(sessionId, {
+      // Initialize session with multi-client structure
+      const session = {
         dir,
         attachmentsDir,
         repoDir,
         repoUrl,
-        provider,
-        client,
+        activeProvider: provider,
+        clients: {
+          codex: null,
+          claude: null,
+        },
         sockets: new Set(),
         messages: [],
         rpcLogs: [],
-      });
+      };
+      sessions.set(sessionId, session);
+
+      // Create and start the initial provider client
+      const client = await getOrCreateClient(session, provider);
       if (provider === "claude") {
-        attachClaudeEvents(sessionId, client);
+        attachClaudeEvents(sessionId, client, provider);
       } else {
-        attachClientEvents(sessionId, client);
+        attachClientEvents(sessionId, client, provider);
       }
       client.start().catch((error) => {
         const label = provider === "claude" ? "Claude CLI" : "Codex app-server";
@@ -440,7 +449,7 @@ const authUpload = multer({
 });
 
 const getProviderLabel = (session) =>
-  session?.provider === "claude" ? "Claude CLI" : "Codex app-server";
+  session?.activeProvider === "claude" ? "Claude CLI" : "Codex app-server";
 
 function broadcastToSession(sessionId, payload) {
   const session = getSession(sessionId);
@@ -455,9 +464,14 @@ function broadcastToSession(sessionId, payload) {
   }
 }
 
-function attachClientEvents(sessionId, client) {
+function attachClientEvents(sessionId, client, provider) {
+  const session = getSession(sessionId);
+
   client.on("ready", ({ threadId }) => {
-    broadcastToSession(sessionId, { type: "ready", threadId });
+    // Only broadcast if this is the active provider
+    if (session?.activeProvider === provider) {
+      broadcastToSession(sessionId, { type: "ready", threadId, provider });
+    }
   });
 
   client.on("log", (message) => {
@@ -467,18 +481,31 @@ function attachClientEvents(sessionId, client) {
   });
 
   client.on("exit", ({ code, signal }) => {
-    broadcastToSession(sessionId, {
-      type: "error",
-      message: "Codex app-server stopped.",
-    });
+    if (session?.activeProvider === provider) {
+      broadcastToSession(sessionId, {
+        type: "error",
+        message: "Codex app-server stopped.",
+      });
+    }
     console.error("Codex app-server stopped.", { code, signal, sessionId });
   });
 
   client.on("notification", (message) => {
+    // Ignore notifications from inactive provider
+    if (session?.activeProvider !== provider) {
+      return;
+    }
+
     switch (message.method) {
       case "item/agentMessage/delta": {
         const { delta, itemId, turnId } = message.params;
-        broadcastToSession(sessionId, { type: "assistant_delta", delta, itemId, turnId });
+        broadcastToSession(sessionId, {
+          type: "assistant_delta",
+          delta,
+          itemId,
+          turnId,
+          provider,
+        });
         break;
       }
       case "item/commandExecution/outputDelta": {
@@ -489,6 +516,7 @@ function attachClientEvents(sessionId, client) {
           itemId,
           turnId,
           threadId,
+          provider,
         });
         break;
       }
@@ -499,21 +527,36 @@ function attachClientEvents(sessionId, client) {
             id: item.id,
             role: "assistant",
             text: item.text,
+            provider,
           });
           broadcastToSession(sessionId, {
             type: "assistant_message",
             text: item.text,
             itemId: item.id,
             turnId,
+            provider,
           });
           void broadcastRepoDiff(sessionId);
         }
         if (item?.type === "commandExecution") {
+          appendSessionMessage(sessionId, {
+            id: item.id,
+            role: "tool_result",
+            text: item.aggregatedOutput || "",
+            provider,
+            toolResult: {
+              callId: item.id,
+              name: item.command || "command",
+              output: item.aggregatedOutput || "",
+              success: item.status === "completed",
+            },
+          });
           broadcastToSession(sessionId, {
             type: "command_execution_completed",
             item,
             itemId: item.id,
             turnId,
+            provider,
           });
         }
         break;
@@ -526,6 +569,7 @@ function attachClientEvents(sessionId, client) {
           turnId: turn.id,
           status: turn.status,
           error: turn.error?.message || null,
+          provider,
         });
         break;
       }
@@ -536,6 +580,7 @@ function attachClientEvents(sessionId, client) {
           threadId,
           turnId: turn.id,
           status: turn.status,
+          provider,
         });
         break;
       }
@@ -546,6 +591,7 @@ function attachClientEvents(sessionId, client) {
           threadId,
           turnId,
           item,
+          provider,
         });
         break;
       }
@@ -557,6 +603,7 @@ function attachClientEvents(sessionId, client) {
           turnId,
           willRetry,
           message: error?.message || "Unknown error",
+          provider,
         });
         break;
       }
@@ -567,6 +614,7 @@ function attachClientEvents(sessionId, client) {
           success: Boolean(success),
           error: error || null,
           loginId: loginId || null,
+          provider,
         });
         break;
       }
@@ -580,6 +628,7 @@ function attachClientEvents(sessionId, client) {
       direction: "stdin",
       timestamp: Date.now(),
       payload,
+      provider,
     };
     appendRpcLog(sessionId, entry);
     broadcastToSession(sessionId, { type: "rpc_log", entry });
@@ -590,15 +639,20 @@ function attachClientEvents(sessionId, client) {
       direction: "stdout",
       timestamp: Date.now(),
       payload,
+      provider,
     };
     appendRpcLog(sessionId, entry);
     broadcastToSession(sessionId, { type: "rpc_log", entry });
   });
 }
 
-function attachClaudeEvents(sessionId, client) {
+function attachClaudeEvents(sessionId, client, provider) {
+  const session = getSession(sessionId);
+
   client.on("ready", ({ threadId }) => {
-    broadcastToSession(sessionId, { type: "ready", threadId });
+    if (session?.activeProvider === provider) {
+      broadcastToSession(sessionId, { type: "ready", threadId, provider });
+    }
   });
 
   client.on("log", (message) => {
@@ -612,45 +666,70 @@ function attachClaudeEvents(sessionId, client) {
       direction: "stdout",
       timestamp: Date.now(),
       payload: message,
+      provider,
     };
     appendRpcLog(sessionId, entry);
     broadcastToSession(sessionId, { type: "rpc_log", entry });
   });
 
   client.on("assistant_message", ({ id, text, turnId }) => {
-    appendSessionMessage(sessionId, { id, role: "assistant", text });
+    if (session?.activeProvider !== provider) return;
+
+    appendSessionMessage(sessionId, { id, role: "assistant", text, provider });
     broadcastToSession(sessionId, {
       type: "assistant_message",
       text,
       itemId: id,
       turnId,
+      provider,
     });
     void broadcastRepoDiff(sessionId);
   });
 
   client.on("command_execution_completed", (payload) => {
+    if (session?.activeProvider !== provider) return;
+
+    appendSessionMessage(sessionId, {
+      id: payload.itemId,
+      role: "tool_result",
+      text: payload.item?.aggregatedOutput || "",
+      provider,
+      toolResult: {
+        callId: payload.itemId,
+        name: payload.item?.command || "tool",
+        output: payload.item?.aggregatedOutput || "",
+        success: payload.item?.status === "completed",
+      },
+    });
     broadcastToSession(sessionId, {
       type: "command_execution_completed",
       item: payload.item,
       itemId: payload.itemId,
       turnId: payload.turnId,
+      provider,
     });
   });
 
   client.on("turn_completed", ({ turnId, status }) => {
+    if (session?.activeProvider !== provider) return;
+
     broadcastToSession(sessionId, {
       type: "turn_completed",
       turnId,
       status: status || "success",
       error: null,
+      provider,
     });
   });
 
   client.on("turn_error", ({ turnId, message }) => {
+    if (session?.activeProvider !== provider) return;
+
     broadcastToSession(sessionId, {
       type: "turn_error",
       turnId,
       message: message || "Claude CLI error.",
+      provider,
     });
   });
 }
@@ -668,15 +747,21 @@ wss.on("connection", (socket, req) => {
   }
   session.sockets.add(socket);
 
-  if (session.client.ready && session.client.threadId) {
+  const activeClient = getActiveClient(session);
+  if (activeClient?.ready && activeClient?.threadId) {
     socket.send(
-      JSON.stringify({ type: "ready", threadId: session.client.threadId })
+      JSON.stringify({
+        type: "ready",
+        threadId: activeClient.threadId,
+        provider: session.activeProvider,
+      })
     );
   } else {
     socket.send(
       JSON.stringify({
         type: "status",
         message: `Starting ${getProviderLabel(session)}...`,
+        provider: session.activeProvider,
       })
     );
   }
@@ -693,7 +778,8 @@ wss.on("connection", (socket, req) => {
     }
 
     if (payload.type === "user_message") {
-      if (!session.client.ready) {
+      const client = getActiveClient(session);
+      if (!client?.ready) {
         socket.send(
           JSON.stringify({
             type: "error",
@@ -704,17 +790,20 @@ wss.on("connection", (socket, req) => {
       }
 
       try {
-        const result = await session.client.sendTurn(payload.text);
+        const provider = session.activeProvider;
+        const result = await client.sendTurn(payload.text);
         appendSessionMessage(sessionId, {
           id: createMessageId(),
           role: "user",
           text: payload.displayText || payload.text,
+          provider,
         });
         socket.send(
           JSON.stringify({
             type: "turn_started",
             turnId: result.turn.id,
-            threadId: session.client.threadId,
+            threadId: client.threadId,
+            provider,
           })
         );
       } catch (error) {
@@ -728,7 +817,8 @@ wss.on("connection", (socket, req) => {
     }
 
     if (payload.type === "turn_interrupt") {
-      if (!session.client.ready) {
+      const client = getActiveClient(session);
+      if (!client?.ready) {
         socket.send(
           JSON.stringify({
             type: "error",
@@ -738,7 +828,7 @@ wss.on("connection", (socket, req) => {
         return;
       }
       try {
-        await session.client.interruptTurn(payload.turnId);
+        await client.interruptTurn(payload.turnId);
         socket.send(JSON.stringify({ type: "turn_interrupt_sent" }));
       } catch (error) {
         socket.send(
@@ -751,7 +841,8 @@ wss.on("connection", (socket, req) => {
     }
 
     if (payload.type === "model_list") {
-      if (!session.client.ready) {
+      const client = getActiveClient(session);
+      if (!client?.ready) {
         socket.send(
           JSON.stringify({
             type: "error",
@@ -764,13 +855,19 @@ wss.on("connection", (socket, req) => {
         let cursor = null;
         const models = [];
         do {
-          const result = await session.client.listModels(cursor, 200);
+          const result = await client.listModels(cursor, 200);
           if (Array.isArray(result?.data)) {
             models.push(...result.data);
           }
           cursor = result?.nextCursor ?? null;
         } while (cursor);
-        socket.send(JSON.stringify({ type: "model_list", models }));
+        socket.send(
+          JSON.stringify({
+            type: "model_list",
+            models,
+            provider: session.activeProvider,
+          })
+        );
       } catch (error) {
         socket.send(
           JSON.stringify({
@@ -782,7 +879,8 @@ wss.on("connection", (socket, req) => {
     }
 
     if (payload.type === "model_set") {
-      if (!session.client.ready) {
+      const client = getActiveClient(session);
+      if (!client?.ready) {
         socket.send(
           JSON.stringify({
             type: "error",
@@ -792,7 +890,7 @@ wss.on("connection", (socket, req) => {
         return;
       }
       try {
-        await session.client.setDefaultModel(
+        await client.setDefaultModel(
           payload.model || null,
           payload.reasoningEffort ?? null
         );
@@ -801,6 +899,7 @@ wss.on("connection", (socket, req) => {
             type: "model_set",
             model: payload.model || null,
             reasoningEffort: payload.reasoningEffort ?? null,
+            provider: session.activeProvider,
           })
         );
       } catch (error) {
@@ -814,7 +913,8 @@ wss.on("connection", (socket, req) => {
     }
 
     if (payload.type === "account_login_start") {
-      if (!session.client.ready) {
+      const client = getActiveClient(session);
+      if (!client?.ready) {
         socket.send(
           JSON.stringify({
             type: "account_login_error",
@@ -824,11 +924,12 @@ wss.on("connection", (socket, req) => {
         return;
       }
       try {
-        const result = await session.client.startAccountLogin(payload.params);
+        const result = await client.startAccountLogin(payload.params);
         socket.send(
           JSON.stringify({
             type: "account_login_started",
             result,
+            provider: session.activeProvider,
           })
         );
       } catch (error) {
@@ -836,6 +937,82 @@ wss.on("connection", (socket, req) => {
           JSON.stringify({
             type: "account_login_error",
             message: error.message || "Failed to start account login.",
+          })
+        );
+      }
+    }
+
+    if (payload.type === "switch_provider") {
+      const newProvider = payload.provider;
+      if (!isValidProvider(newProvider)) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Invalid provider. Must be 'codex' or 'claude'.",
+          })
+        );
+        return;
+      }
+
+      if (session.activeProvider === newProvider) {
+        // Already on this provider, just confirm
+        socket.send(
+          JSON.stringify({
+            type: "provider_switched",
+            provider: newProvider,
+          })
+        );
+        return;
+      }
+
+      try {
+        // Get or create the new provider's client
+        const newClient = await getOrCreateClient(session, newProvider);
+
+        // Attach event handlers if this is a new client
+        if (!newClient.listenerCount("ready")) {
+          if (newProvider === "claude") {
+            attachClaudeEvents(sessionId, newClient, newProvider);
+          } else {
+            attachClientEvents(sessionId, newClient, newProvider);
+          }
+        }
+
+        // Start the client if not already started
+        if (!newClient.ready) {
+          await newClient.start();
+        }
+
+        // Switch active provider
+        session.activeProvider = newProvider;
+
+        // Fetch models for the new provider
+        let models = [];
+        try {
+          let cursor = null;
+          do {
+            const result = await newClient.listModels(cursor, 200);
+            if (Array.isArray(result?.data)) {
+              models.push(...result.data);
+            }
+            cursor = result?.nextCursor ?? null;
+          } while (cursor);
+        } catch {
+          // Models fetch failed, continue without models
+        }
+
+        // Broadcast to all connected sockets
+        broadcastToSession(sessionId, {
+          type: "provider_switched",
+          provider: newProvider,
+          models,
+          threadId: newClient.threadId || null,
+        });
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: error.message || "Failed to switch provider.",
           })
         );
       }
@@ -933,11 +1110,12 @@ app.get("/api/health", (req, res) => {
     res.json({ ok: true, ready: false, threadId: null });
     return;
   }
+  const activeClient = getActiveClient(session);
   res.json({
     ok: true,
-    ready: session.client.ready,
-    threadId: session.client.threadId,
-    provider: session.provider || "codex",
+    ready: activeClient?.ready || false,
+    threadId: activeClient?.threadId || null,
+    provider: session.activeProvider || "codex",
   });
 });
 
@@ -952,7 +1130,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
     sessionId: req.params.sessionId,
     path: session.dir,
     repoUrl: session.repoUrl,
-    provider: session.provider || "codex",
+    provider: session.activeProvider || "codex",
     messages: session.messages,
     repoDiff,
     rpcLogs: session.rpcLogs || [],

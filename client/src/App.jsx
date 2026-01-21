@@ -203,6 +203,7 @@ function App() {
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
   const [llmProvider, setLlmProvider] = useState(readLlmProvider);
+  const [providerSwitching, setProviderSwitching] = useState(false);
   const [openAiAuthMode, setOpenAiAuthMode] = useState(readOpenAiAuthMode);
   const [openAiAuthFile, setOpenAiAuthFile] = useState(null);
   const [openAiApiKey, setOpenAiApiKey] = useState("");
@@ -994,6 +995,22 @@ function App() {
             setActivity("Generation de reponse...");
           }
         }
+
+        if (payload.type === "provider_switched") {
+          setLlmProvider(payload.provider);
+          setStatus("Pret");
+          setProviderSwitching(false);
+          if (Array.isArray(payload.models)) {
+            setModels(payload.models);
+            const defaultModel = payload.models.find((m) => m.isDefault);
+            if (defaultModel?.model) {
+              setSelectedModel(defaultModel.model);
+            }
+            if (defaultModel?.defaultReasoningEffort) {
+              setSelectedReasoningEffort(defaultModel.defaultReasoningEffort);
+            }
+          }
+        }
       });
     };
 
@@ -1361,10 +1378,11 @@ function App() {
     if (!attachmentSession?.provider) {
       return;
     }
+    // Sync local state with session provider on initial load
     if (attachmentSession.provider !== llmProvider) {
       setLlmProvider(attachmentSession.provider);
     }
-  }, [attachmentSession?.provider, llmProvider]);
+  }, [attachmentSession?.provider]);
 
   useEffect(() => {
     if (!attachmentSession?.repoUrl) {
@@ -1374,6 +1392,26 @@ function App() {
       mergeRepoHistory(current, attachmentSession.repoUrl)
     );
   }, [attachmentSession?.repoUrl]);
+
+  const handleProviderSwitch = useCallback(
+    (newProvider) => {
+      if (
+        !socketRef.current ||
+        socketRef.current.readyState !== WebSocket.OPEN
+      ) {
+        return;
+      }
+      if (newProvider === llmProvider || providerSwitching || processing) {
+        return;
+      }
+      setProviderSwitching(true);
+      setStatus(`Basculement vers ${newProvider}...`);
+      socketRef.current.send(
+        JSON.stringify({ type: "switch_provider", provider: newProvider })
+      );
+    },
+    [llmProvider, providerSwitching, processing]
+  );
 
   const requestModelList = () => {
     if (!socketRef.current || llmProvider !== "codex") {
@@ -1945,8 +1983,12 @@ function App() {
                         name="llmProvider"
                         value="codex"
                         checked={llmProvider === "codex"}
-                        onChange={() => setLlmProvider("codex")}
-                        disabled={formDisabled || hasSession}
+                        onChange={() =>
+                          hasSession
+                            ? handleProviderSwitch("codex")
+                            : setLlmProvider("codex")
+                        }
+                        disabled={formDisabled || providerSwitching || processing}
                       />
                       Codex
                     </label>
@@ -1956,14 +1998,20 @@ function App() {
                         name="llmProvider"
                         value="claude"
                         checked={llmProvider === "claude"}
-                        onChange={() => setLlmProvider("claude")}
-                        disabled={formDisabled || hasSession}
+                        onChange={() =>
+                          hasSession
+                            ? handleProviderSwitch("claude")
+                            : setLlmProvider("claude")
+                        }
+                        disabled={formDisabled || providerSwitching || processing}
                       />
                       Claude
                     </label>
                   </div>
                   <div className="session-auth-hint">
-                    Le choix est fixe apres la creation de la session.
+                    {hasSession
+                      ? "Vous pouvez changer de provider en cours de session."
+                      : "Le provider peut etre change apres la creation de la session."}
                   </div>
                 </div>
                 <div className="session-auth">
@@ -2109,8 +2157,23 @@ function App() {
         <div className="topbar-right">
           {branchError && <div className="status-pill down">{branchError}</div>}
           {modelError && <div className="status-pill down">{modelError}</div>}
-          {!supportsModels && (
-            <div className="status-pill">LLM: {llmProvider}</div>
+          {hasSession && (
+            <button
+              type="button"
+              className={`status-pill ${providerSwitching ? "busy" : ""}`}
+              style={{ cursor: "pointer" }}
+              onClick={() =>
+                handleProviderSwitch(
+                  llmProvider === "codex" ? "claude" : "codex"
+                )
+              }
+              disabled={providerSwitching || processing}
+              title="Cliquez pour changer de provider"
+            >
+              {providerSwitching
+                ? "Basculement..."
+                : `LLM: ${llmProvider}`}
+            </button>
           )}
 
           <div className="dropdown" ref={branchRef}>
