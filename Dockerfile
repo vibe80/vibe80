@@ -19,11 +19,13 @@ RUN apt-get update \
     pre-commit \
     direnv \
     tree \
+    curl \
     && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
     && ln -sf /usr/bin/batcat /usr/local/bin/bat \
     && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @openai/codex
+RUN curl -fsSL https://claude.ai/install.sh | bash
 
 COPY package*.json ./
 COPY client/package*.json ./client/
