@@ -263,9 +263,14 @@ const createSession = async (repoUrl, auth, provider = "codex") => {
           claude: null,
         },
         sockets: new Set(),
+        messagesByProvider: {
+          codex: [],
+          claude: [],
+        },
         messages: [],
         rpcLogs: [],
       };
+      session.messages = session.messagesByProvider[provider];
       sessions.set(sessionId, session);
 
       // Create and start the initial provider client
@@ -322,7 +327,21 @@ const appendSessionMessage = (sessionId, message) => {
   if (!session) {
     return;
   }
-  session.messages.push(message);
+  const provider = message?.provider || session.activeProvider || "codex";
+  if (!session.messagesByProvider) {
+    session.messagesByProvider = {};
+    if (Array.isArray(session.messages) && session.messages.length > 0) {
+      session.messagesByProvider[session.activeProvider || "codex"] =
+        session.messages;
+    }
+  }
+  if (!Array.isArray(session.messagesByProvider[provider])) {
+    session.messagesByProvider[provider] = [];
+  }
+  session.messagesByProvider[provider].push(message);
+  if (session.activeProvider === provider) {
+    session.messages = session.messagesByProvider[provider];
+  }
 };
 
 const appendRpcLog = (sessionId, entry) => {
@@ -956,10 +975,13 @@ wss.on("connection", (socket, req) => {
 
       if (session.activeProvider === newProvider) {
         // Already on this provider, just confirm
+        const messages =
+          session.messagesByProvider?.[newProvider] || session.messages || [];
         socket.send(
           JSON.stringify({
             type: "provider_switched",
             provider: newProvider,
+            messages,
           })
         );
         return;
@@ -984,7 +1006,18 @@ wss.on("connection", (socket, req) => {
         }
 
         // Switch active provider
+        const previousProvider = session.activeProvider || "codex";
         session.activeProvider = newProvider;
+        if (!session.messagesByProvider) {
+          session.messagesByProvider = {};
+          if (Array.isArray(session.messages) && session.messages.length > 0) {
+            session.messagesByProvider[previousProvider] = session.messages;
+          }
+        }
+        if (!Array.isArray(session.messagesByProvider[newProvider])) {
+          session.messagesByProvider[newProvider] = [];
+        }
+        session.messages = session.messagesByProvider[newProvider];
 
         // Fetch models for the new provider
         let models = [];
@@ -1006,6 +1039,7 @@ wss.on("connection", (socket, req) => {
           type: "provider_switched",
           provider: newProvider,
           models,
+          messages: session.messagesByProvider[newProvider],
           threadId: newClient.threadId || null,
         });
       } catch (error) {
@@ -1126,12 +1160,15 @@ app.get("/api/session/:sessionId", async (req, res) => {
     return;
   }
   const repoDiff = await getRepoDiff(session);
+  const activeProvider = session.activeProvider || "codex";
+  const messages =
+    session.messagesByProvider?.[activeProvider] || session.messages || [];
   res.json({
     sessionId: req.params.sessionId,
     path: session.dir,
     repoUrl: session.repoUrl,
-    provider: session.activeProvider || "codex",
-    messages: session.messages,
+    provider: activeProvider,
+    messages,
     repoDiff,
     rpcLogs: session.rpcLogs || [],
   });

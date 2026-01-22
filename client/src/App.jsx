@@ -999,6 +999,11 @@ function App() {
         if (payload.type === "provider_switched") {
           setLlmProvider(payload.provider);
           setStatus("Pret");
+          if (Array.isArray(payload.messages)) {
+            applyMessages(payload.messages);
+          } else {
+            applyMessages([]);
+          }
           setProviderSwitching(false);
           if (Array.isArray(payload.models)) {
             setModels(payload.models);
