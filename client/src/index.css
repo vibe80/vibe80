@@ -895,6 +895,42 @@ main.chat {
   gap: 12px;
 }
 
+.diff-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-action-button {
+  border-radius: 999px;
+  border: 1px solid rgba(20, 19, 17, 0.16);
+  background: white;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.diff-action-button.primary {
+  background: #2f5b4c;
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 6px 14px rgba(47, 91, 76, 0.2);
+}
+
+.diff-action-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.diff-action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .diff-title {
   font-weight: 700;
   font-size: 14px;
