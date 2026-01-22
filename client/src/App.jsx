@@ -655,6 +655,27 @@ function App() {
     );
   }, [llmProvider]);
 
+  const requestWorktreesList = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    socket.send(JSON.stringify({ type: "list_worktrees" }));
+  }, []);
+
+  const requestWorktreeMessages = useCallback((worktreeId) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (!worktreeId) {
+      return;
+    }
+    socket.send(
+      JSON.stringify({ type: "sync_worktree_messages", worktreeId })
+    );
+  }, []);
+
   const connectTerminal = useCallback(() => {
     const sessionId = attachmentSession?.sessionId;
     if (!sessionId) {
@@ -889,6 +910,7 @@ function App() {
         startPingInterval();
         void resyncSession();
         requestMessageSync();
+        requestWorktreesList();
       });
 
       socket.addEventListener("close", () => {
@@ -1289,6 +1311,15 @@ function App() {
               newMap.set(wt.id, { ...wt, messages: [] });
             });
             setWorktrees(newMap);
+            payload.worktrees.forEach((wt) => {
+              requestWorktreeMessages(wt.id);
+            });
+            if (
+              activeWorktreeId !== "main" &&
+              !payload.worktrees.some((wt) => wt.id === activeWorktreeId)
+            ) {
+              setActiveWorktreeId("main");
+            }
             // Keep activeWorktreeId as is, don't auto-switch
           }
         }
@@ -1475,6 +1506,8 @@ function App() {
     commandIndex,
     mergeAndApplyMessages,
     requestMessageSync,
+    requestWorktreesList,
+    requestWorktreeMessages,
     resyncSession,
   ]);
 
