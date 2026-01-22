@@ -357,6 +357,10 @@ function App() {
         .filter(Boolean),
     [repoDiff.status]
   );
+  const hasRepoChanges = useMemo(
+    () => diffStatusLines.length > 0 || Boolean((repoDiff.diff || "").trim()),
+    [diffStatusLines.length, repoDiff.diff]
+  );
   const groupedMessages = useMemo(() => {
     const grouped = [];
     (messages || []).forEach((message) => {
@@ -3583,7 +3587,7 @@ function App() {
                     type="button"
                     className="diff-action-button"
                     onClick={() => sendCommitMessage("Commit")}
-                    disabled={!connected || processing}
+                    disabled={!connected || processing || !hasRepoChanges}
                     title="Envoyer 'Commit' dans le chat"
                   >
                     Commit
@@ -3592,7 +3596,7 @@ function App() {
                     type="button"
                     className="diff-action-button primary"
                     onClick={() => sendCommitMessage("Commit & Push")}
-                    disabled={!connected || processing}
+                    disabled={!connected || processing || !hasRepoChanges}
                     title="Envoyer 'Commit & Push' dans le chat"
                   >
                     Commit &amp; Push
