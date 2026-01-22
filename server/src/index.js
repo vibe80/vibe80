@@ -198,6 +198,8 @@ const createSession = async (repoUrl, auth, provider = "codex") => {
   while (true) {
     const sessionId = crypto.randomBytes(12).toString("hex");
     const dir = path.join(os.tmpdir(), sessionId);
+    let sessionRecord = null;
+    let sessionSshKeyPath = null;
     try {
       await fs.promises.mkdir(dir, { recursive: false });
       const attachmentsDir = path.join(dir, "attachments");
@@ -211,6 +213,7 @@ const createSession = async (repoUrl, auth, provider = "codex") => {
         const normalizedKey = `${auth.privateKey.trimEnd()}\n`;
         await fs.promises.writeFile(keyPath, normalizedKey, { mode: 0o600 });
         await fs.promises.chmod(keyPath, 0o600).catch(() => {});
+        sessionSshKeyPath = keyPath;
         const sshHost = resolveRepoHost(repoUrl);
         await ensureSshConfigEntry(sshHost, keyPath);
         await ensureKnownHost(repoUrl);
@@ -286,6 +289,7 @@ const createSession = async (repoUrl, auth, provider = "codex") => {
       };
       session.messages = session.messagesByProvider[provider];
       sessions.set(sessionId, session);
+      sessionRecord = session;
 
       // Create and start the initial provider client
       const client = await getOrCreateClient(session, provider);
@@ -309,6 +313,12 @@ const createSession = async (repoUrl, auth, provider = "codex") => {
         sessionDir: dir,
         error: error?.message || error,
       });
+      if (sessionRecord) {
+        sessions.delete(sessionId);
+      }
+      if (sessionSshKeyPath) {
+        await fs.promises.rm(sessionSshKeyPath, { force: true });
+      }
       await fs.promises.rm(dir, { recursive: true, force: true });
       if (error.code !== "EEXIST") {
         throw error;
