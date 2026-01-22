@@ -16,6 +16,20 @@ import {
   getActiveClient,
   isValidProvider,
 } from "./clientFactory.js";
+import {
+  createWorktree,
+  removeWorktree,
+  getWorktreeDiff,
+  getWorktreeCommits,
+  mergeWorktree,
+  abortMerge,
+  cherryPickCommit,
+  listWorktrees,
+  getWorktree,
+  updateWorktreeStatus,
+  appendWorktreeMessage,
+  renameWorktree,
+} from "./worktreeManager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -678,6 +692,307 @@ function attachClientEvents(sessionId, client, provider) {
   });
 }
 
+// Broadcast diff for a specific worktree
+const broadcastWorktreeDiff = async (sessionId, worktreeId) => {
+  const session = getSession(sessionId);
+  if (!session) return;
+
+  try {
+    const diff = await getWorktreeDiff(session, worktreeId);
+    broadcastToSession(sessionId, {
+      type: "worktree_diff",
+      worktreeId,
+      ...diff,
+    });
+  } catch (error) {
+    console.error("Failed to compute worktree diff:", {
+      sessionId,
+      worktreeId,
+      error: error?.message || error,
+    });
+  }
+};
+
+// Attach events to a Codex client for a worktree
+function attachClientEventsForWorktree(sessionId, worktree) {
+  const session = getSession(sessionId);
+  const client = worktree.client;
+  const worktreeId = worktree.id;
+  const provider = worktree.provider;
+
+  client.on("ready", ({ threadId }) => {
+    updateWorktreeStatus(session, worktreeId, "ready");
+    broadcastToSession(sessionId, {
+      type: "worktree_ready",
+      worktreeId,
+      threadId,
+      provider,
+    });
+  });
+
+  client.on("log", (message) => {
+    if (message) {
+      console.log(`[codex:${sessionId}:wt-${worktreeId}] ${message}`);
+    }
+  });
+
+  client.on("exit", ({ code, signal }) => {
+    updateWorktreeStatus(session, worktreeId, "error");
+    broadcastToSession(sessionId, {
+      type: "worktree_status",
+      worktreeId,
+      status: "error",
+      error: "Codex app-server stopped.",
+    });
+    console.error("Worktree Codex app-server stopped.", { code, signal, sessionId, worktreeId });
+  });
+
+  client.on("notification", (message) => {
+    switch (message.method) {
+      case "item/agentMessage/delta": {
+        const { delta, itemId, turnId } = message.params;
+        broadcastToSession(sessionId, {
+          type: "assistant_delta",
+          worktreeId,
+          delta,
+          itemId,
+          turnId,
+          provider,
+        });
+        break;
+      }
+      case "item/commandExecution/outputDelta": {
+        const { delta, itemId, turnId, threadId } = message.params;
+        broadcastToSession(sessionId, {
+          type: "command_execution_delta",
+          worktreeId,
+          delta,
+          itemId,
+          turnId,
+          threadId,
+          provider,
+        });
+        break;
+      }
+      case "item/completed": {
+        const { item, turnId } = message.params;
+        if (item?.type === "agentMessage") {
+          appendWorktreeMessage(session, worktreeId, {
+            id: item.id,
+            role: "assistant",
+            text: item.text,
+            provider,
+          });
+          broadcastToSession(sessionId, {
+            type: "assistant_message",
+            worktreeId,
+            text: item.text,
+            itemId: item.id,
+            turnId,
+            provider,
+          });
+          void broadcastWorktreeDiff(sessionId, worktreeId);
+        }
+        if (item?.type === "commandExecution") {
+          appendWorktreeMessage(session, worktreeId, {
+            id: item.id,
+            role: "tool_result",
+            text: item.aggregatedOutput || "",
+            provider,
+            toolResult: {
+              callId: item.id,
+              name: item.command || "command",
+              output: item.aggregatedOutput || "",
+              success: item.status === "completed",
+            },
+          });
+          broadcastToSession(sessionId, {
+            type: "command_execution_completed",
+            worktreeId,
+            item,
+            itemId: item.id,
+            turnId,
+            provider,
+          });
+        }
+        break;
+      }
+      case "turn/completed": {
+        const { turn, threadId } = message.params;
+        updateWorktreeStatus(session, worktreeId, "ready");
+        broadcastToSession(sessionId, {
+          type: "turn_completed",
+          worktreeId,
+          threadId,
+          turnId: turn.id,
+          status: turn.status,
+          error: turn.error?.message || null,
+          provider,
+        });
+        break;
+      }
+      case "turn/started": {
+        const { turn, threadId } = message.params;
+        updateWorktreeStatus(session, worktreeId, "processing");
+        broadcastToSession(sessionId, {
+          type: "turn_started",
+          worktreeId,
+          threadId,
+          turnId: turn.id,
+          status: turn.status,
+          provider,
+        });
+        break;
+      }
+      case "item/started": {
+        const { item, turnId, threadId } = message.params;
+        broadcastToSession(sessionId, {
+          type: "item_started",
+          worktreeId,
+          threadId,
+          turnId,
+          item,
+          provider,
+        });
+        break;
+      }
+      case "error": {
+        const { error, threadId, turnId, willRetry } = message.params;
+        broadcastToSession(sessionId, {
+          type: "turn_error",
+          worktreeId,
+          threadId,
+          turnId,
+          willRetry,
+          message: error?.message || "Unknown error",
+          provider,
+        });
+        break;
+      }
+      default:
+        break;
+    }
+  });
+
+  client.on("rpc_out", (payload) => {
+    const entry = {
+      direction: "stdin",
+      timestamp: Date.now(),
+      payload,
+      provider,
+      worktreeId,
+    };
+    appendRpcLog(sessionId, entry);
+    broadcastToSession(sessionId, { type: "rpc_log", entry });
+  });
+
+  client.on("rpc_in", (payload) => {
+    const entry = {
+      direction: "stdout",
+      timestamp: Date.now(),
+      payload,
+      provider,
+      worktreeId,
+    };
+    appendRpcLog(sessionId, entry);
+    broadcastToSession(sessionId, { type: "rpc_log", entry });
+  });
+}
+
+// Attach events to a Claude client for a worktree
+function attachClaudeEventsForWorktree(sessionId, worktree) {
+  const session = getSession(sessionId);
+  const client = worktree.client;
+  const worktreeId = worktree.id;
+  const provider = worktree.provider;
+
+  client.on("ready", ({ threadId }) => {
+    updateWorktreeStatus(session, worktreeId, "ready");
+    broadcastToSession(sessionId, {
+      type: "worktree_ready",
+      worktreeId,
+      threadId,
+      provider,
+    });
+  });
+
+  client.on("log", (message) => {
+    if (message) {
+      console.log(`[claude:${sessionId}:wt-${worktreeId}] ${message}`);
+    }
+  });
+
+  client.on("stdout_json", ({ message }) => {
+    const entry = {
+      direction: "stdout",
+      timestamp: Date.now(),
+      payload: message,
+      provider,
+      worktreeId,
+    };
+    appendRpcLog(sessionId, entry);
+    broadcastToSession(sessionId, { type: "rpc_log", entry });
+  });
+
+  client.on("assistant_message", ({ id, text, turnId }) => {
+    appendWorktreeMessage(session, worktreeId, { id, role: "assistant", text, provider });
+    broadcastToSession(sessionId, {
+      type: "assistant_message",
+      worktreeId,
+      text,
+      itemId: id,
+      turnId,
+      provider,
+    });
+    void broadcastWorktreeDiff(sessionId, worktreeId);
+  });
+
+  client.on("command_execution_completed", (payload) => {
+    appendWorktreeMessage(session, worktreeId, {
+      id: payload.itemId,
+      role: "tool_result",
+      text: payload.item?.aggregatedOutput || "",
+      provider,
+      toolResult: {
+        callId: payload.itemId,
+        name: payload.item?.command || "tool",
+        output: payload.item?.aggregatedOutput || "",
+        success: payload.item?.status === "completed",
+      },
+    });
+    broadcastToSession(sessionId, {
+      type: "command_execution_completed",
+      worktreeId,
+      item: payload.item,
+      itemId: payload.itemId,
+      turnId: payload.turnId,
+      provider,
+    });
+  });
+
+  client.on("turn_completed", ({ turnId, status }) => {
+    updateWorktreeStatus(session, worktreeId, "ready");
+    broadcastToSession(sessionId, {
+      type: "turn_completed",
+      worktreeId,
+      turnId,
+      status: status || "success",
+      error: null,
+      provider,
+    });
+  });
+
+  client.on("turn_error", ({ turnId, message }) => {
+    broadcastToSession(sessionId, {
+      type: "turn_error",
+      worktreeId,
+      turnId,
+      message: message || "Claude CLI error.",
+      provider,
+    });
+  });
+}
+
 function attachClaudeEvents(sessionId, client, provider) {
   const session = getSession(sessionId);
 
@@ -832,6 +1147,235 @@ wss.on("connection", (socket, req) => {
       );
       return;
     }
+
+    // ============== Worktree WebSocket Handlers ==============
+
+    // Send message to a specific worktree
+    if (payload.type === "worktree_message") {
+      const worktreeId = payload.worktreeId;
+      const worktree = getWorktree(session, worktreeId);
+
+      if (!worktree) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Worktree not found.",
+            worktreeId,
+          })
+        );
+        return;
+      }
+
+      if (!worktree.client?.ready) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Worktree client not ready yet.",
+            worktreeId,
+          })
+        );
+        return;
+      }
+
+      try {
+        const result = await worktree.client.sendTurn(payload.text);
+        appendWorktreeMessage(session, worktreeId, {
+          id: createMessageId(),
+          role: "user",
+          text: payload.displayText || payload.text,
+          provider: worktree.provider,
+        });
+        updateWorktreeStatus(session, worktreeId, "processing");
+        broadcastToSession(sessionId, {
+          type: "turn_started",
+          worktreeId,
+          turnId: result.turn.id,
+          threadId: worktree.client.threadId,
+          provider: worktree.provider,
+        });
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: error.message || "Failed to send message to worktree.",
+            worktreeId,
+          })
+        );
+      }
+      return;
+    }
+
+    // Create a new worktree with an initial message (parallel request)
+    if (payload.type === "create_parallel_request") {
+      const provider = payload.provider;
+      if (!isValidProvider(provider)) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Invalid provider. Must be 'codex' or 'claude'.",
+          })
+        );
+        return;
+      }
+
+      try {
+        const worktree = await createWorktree(session, {
+          provider,
+          name: payload.name || null,
+          parentWorktreeId: payload.parentWorktreeId || null,
+        });
+
+        // Attach events to the client
+        if (worktree.client) {
+          if (provider === "claude") {
+            attachClaudeEventsForWorktree(sessionId, worktree);
+          } else {
+            attachClientEventsForWorktree(sessionId, worktree);
+          }
+
+          // Wait for client to be ready before sending initial message
+          const startClient = async () => {
+            await worktree.client.start();
+
+            // Send initial message if provided
+            if (payload.text) {
+              const result = await worktree.client.sendTurn(payload.text);
+              appendWorktreeMessage(session, worktree.id, {
+                id: createMessageId(),
+                role: "user",
+                text: payload.displayText || payload.text,
+                provider,
+              });
+              updateWorktreeStatus(session, worktree.id, "processing");
+              broadcastToSession(sessionId, {
+                type: "turn_started",
+                worktreeId: worktree.id,
+                turnId: result.turn.id,
+                threadId: worktree.client.threadId,
+                provider,
+              });
+            }
+          };
+
+          startClient().catch((error) => {
+            console.error("Failed to start worktree client:", error);
+            updateWorktreeStatus(session, worktree.id, "error");
+            broadcastToSession(sessionId, {
+              type: "worktree_status",
+              worktreeId: worktree.id,
+              status: "error",
+              error: error.message,
+            });
+          });
+        }
+
+        broadcastToSession(sessionId, {
+          type: "worktree_created",
+          worktreeId: worktree.id,
+          name: worktree.name,
+          branchName: worktree.branchName,
+          provider: worktree.provider,
+          status: worktree.status,
+          color: worktree.color,
+        });
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: error.message || "Failed to create parallel request.",
+          })
+        );
+      }
+      return;
+    }
+
+    // Interrupt a turn in a specific worktree
+    if (payload.type === "worktree_turn_interrupt") {
+      const worktreeId = payload.worktreeId;
+      const worktree = getWorktree(session, worktreeId);
+
+      if (!worktree) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Worktree not found.",
+            worktreeId,
+          })
+        );
+        return;
+      }
+
+      if (!worktree.client?.ready) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Worktree client not ready.",
+            worktreeId,
+          })
+        );
+        return;
+      }
+
+      try {
+        await worktree.client.interruptTurn(payload.turnId);
+        socket.send(
+          JSON.stringify({
+            type: "turn_interrupt_sent",
+            worktreeId,
+          })
+        );
+      } catch (error) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: error.message || "Failed to interrupt worktree turn.",
+            worktreeId,
+          })
+        );
+      }
+      return;
+    }
+
+    // Sync messages for a specific worktree
+    if (payload.type === "sync_worktree_messages") {
+      const worktreeId = payload.worktreeId;
+      const worktree = getWorktree(session, worktreeId);
+
+      if (!worktree) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Worktree not found.",
+            worktreeId,
+          })
+        );
+        return;
+      }
+
+      socket.send(
+        JSON.stringify({
+          type: "worktree_messages_sync",
+          worktreeId,
+          messages: worktree.messages,
+          status: worktree.status,
+        })
+      );
+      return;
+    }
+
+    // List all worktrees
+    if (payload.type === "list_worktrees") {
+      const worktrees = listWorktrees(session);
+      socket.send(
+        JSON.stringify({
+          type: "worktrees_list",
+          worktrees,
+        })
+      );
+      return;
+    }
+
+    // ============== End Worktree WebSocket Handlers ==============
 
     if (payload.type === "user_message") {
       const client = getActiveClient(session);
@@ -1333,6 +1877,318 @@ app.post("/api/branches/switch", async (req, res) => {
     res.status(500).json({ error: "Failed to switch branch." });
   }
 });
+
+// ============== Worktree API Endpoints ==============
+
+app.get("/api/worktrees", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  try {
+    const worktrees = listWorktrees(session);
+    res.json({ worktrees });
+  } catch (error) {
+    console.error("Failed to list worktrees:", {
+      sessionId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to list worktrees." });
+  }
+});
+
+app.post("/api/worktree", async (req, res) => {
+  const sessionId = req.body?.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  const provider = req.body?.provider;
+  if (!isValidProvider(provider)) {
+    res.status(400).json({ error: "Invalid provider. Must be 'codex' or 'claude'." });
+    return;
+  }
+
+  try {
+    const worktree = await createWorktree(session, {
+      provider,
+      name: req.body?.name || null,
+      parentWorktreeId: req.body?.parentWorktreeId || null,
+      startingBranch: req.body?.startingBranch || null,
+    });
+
+    // Attacher les événements au client
+    if (worktree.client) {
+      if (provider === "claude") {
+        attachClaudeEventsForWorktree(sessionId, worktree);
+      } else {
+        attachClientEventsForWorktree(sessionId, worktree);
+      }
+      // Démarrer le client
+      worktree.client.start().catch((error) => {
+        console.error("Failed to start worktree client:", error);
+        updateWorktreeStatus(session, worktree.id, "error");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId: worktree.id,
+          status: "error",
+          error: error.message,
+        });
+      });
+    }
+
+    res.json({
+      worktreeId: worktree.id,
+      name: worktree.name,
+      branchName: worktree.branchName,
+      provider: worktree.provider,
+      status: worktree.status,
+      color: worktree.color,
+    });
+  } catch (error) {
+    console.error("Failed to create worktree:", {
+      sessionId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to create worktree." });
+  }
+});
+
+app.get("/api/worktree/:worktreeId", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  const worktree = getWorktree(session, req.params.worktreeId);
+  if (!worktree) {
+    res.status(404).json({ error: "Worktree not found." });
+    return;
+  }
+
+  try {
+    const diff = await getWorktreeDiff(session, worktree.id);
+    res.json({
+      id: worktree.id,
+      name: worktree.name,
+      branchName: worktree.branchName,
+      provider: worktree.provider,
+      status: worktree.status,
+      messages: worktree.messages,
+      color: worktree.color,
+      createdAt: worktree.createdAt,
+      diff,
+    });
+  } catch (error) {
+    console.error("Failed to get worktree:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to get worktree." });
+  }
+});
+
+app.delete("/api/worktree/:worktreeId", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  try {
+    await removeWorktree(session, req.params.worktreeId);
+    broadcastToSession(sessionId, {
+      type: "worktree_removed",
+      worktreeId: req.params.worktreeId,
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Failed to remove worktree:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to remove worktree." });
+  }
+});
+
+app.patch("/api/worktree/:worktreeId", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  const worktree = getWorktree(session, req.params.worktreeId);
+  if (!worktree) {
+    res.status(404).json({ error: "Worktree not found." });
+    return;
+  }
+
+  if (req.body?.name) {
+    renameWorktree(session, req.params.worktreeId, req.body.name);
+    broadcastToSession(sessionId, {
+      type: "worktree_renamed",
+      worktreeId: req.params.worktreeId,
+      name: req.body.name,
+    });
+  }
+
+  res.json({
+    id: worktree.id,
+    name: worktree.name,
+    branchName: worktree.branchName,
+    status: worktree.status,
+  });
+});
+
+app.get("/api/worktree/:worktreeId/diff", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  try {
+    const diff = await getWorktreeDiff(session, req.params.worktreeId);
+    res.json(diff);
+  } catch (error) {
+    console.error("Failed to get worktree diff:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to get worktree diff." });
+  }
+});
+
+app.get("/api/worktree/:worktreeId/commits", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  try {
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const commits = await getWorktreeCommits(session, req.params.worktreeId, limit);
+    res.json({ commits });
+  } catch (error) {
+    console.error("Failed to get worktree commits:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to get worktree commits." });
+  }
+});
+
+app.post("/api/worktree/:worktreeId/merge", async (req, res) => {
+  const sessionId = req.body?.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  const targetWorktreeId = req.body?.targetWorktreeId;
+  if (!targetWorktreeId) {
+    res.status(400).json({ error: "Target worktree ID is required." });
+    return;
+  }
+
+  try {
+    const result = await mergeWorktree(session, req.params.worktreeId, targetWorktreeId);
+    if (result.success) {
+      // Broadcast diff update for target worktree
+      const diff = await getWorktreeDiff(session, targetWorktreeId);
+      broadcastToSession(sessionId, {
+        type: "worktree_diff",
+        worktreeId: targetWorktreeId,
+        ...diff,
+      });
+    }
+    res.json(result);
+  } catch (error) {
+    console.error("Failed to merge worktree:", {
+      sessionId,
+      sourceWorktreeId: req.params.worktreeId,
+      targetWorktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to merge worktree." });
+  }
+});
+
+app.post("/api/worktree/:worktreeId/abort-merge", async (req, res) => {
+  const sessionId = req.body?.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  try {
+    await abortMerge(session, req.params.worktreeId);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Failed to abort merge:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to abort merge." });
+  }
+});
+
+app.post("/api/worktree/:worktreeId/cherry-pick", async (req, res) => {
+  const sessionId = req.body?.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+
+  const commitSha = req.body?.commitSha;
+  if (!commitSha) {
+    res.status(400).json({ error: "Commit SHA is required." });
+    return;
+  }
+
+  try {
+    const result = await cherryPickCommit(session, commitSha, req.params.worktreeId);
+    if (result.success) {
+      const diff = await getWorktreeDiff(session, req.params.worktreeId);
+      broadcastToSession(sessionId, {
+        type: "worktree_diff",
+        worktreeId: req.params.worktreeId,
+        ...diff,
+      });
+    }
+    res.json(result);
+  } catch (error) {
+    console.error("Failed to cherry-pick:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      commitSha,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to cherry-pick commit." });
+  }
+});
+
+// ============== End Worktree API Endpoints ==============
 
 app.get("/api/attachments", async (req, res) => {
   const sessionId = req.query.session;

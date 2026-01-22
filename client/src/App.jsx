@@ -7,6 +7,7 @@ import "react-diff-view/style/index.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import WorktreeTabs from "./components/WorktreeTabs.jsx";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
@@ -244,6 +245,10 @@ function App() {
   const [branchMenuOpen, setBranchMenuOpen] = useState(false);
   const [sideTab, setSideTab] = useState("attachments");
   const [sideOpen, setSideOpen] = useState(false);
+  // Worktree states for parallel LLM requests
+  const [worktrees, setWorktrees] = useState(new Map());
+  const [activeWorktreeId, setActiveWorktreeId] = useState(null);
+  const [worktreeMode, setWorktreeMode] = useState(false); // false = legacy mode, true = worktree mode
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
@@ -1142,6 +1147,256 @@ function App() {
         if (payload.type === "messages_sync") {
           mergeAndApplyMessages(payload.messages || []);
         }
+
+        // ============== Worktree WebSocket Handlers ==============
+
+        if (payload.type === "worktree_created") {
+          setWorktrees((current) => {
+            const next = new Map(current);
+            next.set(payload.worktreeId, {
+              id: payload.worktreeId,
+              name: payload.name,
+              branchName: payload.branchName,
+              provider: payload.provider,
+              status: payload.status || "creating",
+              color: payload.color,
+              messages: [],
+            });
+            return next;
+          });
+          // Auto-select the new worktree
+          setActiveWorktreeId(payload.worktreeId);
+          setWorktreeMode(true);
+        }
+
+        if (payload.type === "worktree_ready") {
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(payload.worktreeId);
+            if (wt) {
+              next.set(payload.worktreeId, { ...wt, status: "ready" });
+            }
+            return next;
+          });
+        }
+
+        if (payload.type === "worktree_status") {
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(payload.worktreeId);
+            if (wt) {
+              next.set(payload.worktreeId, {
+                ...wt,
+                status: payload.status,
+                error: payload.error || null,
+              });
+            }
+            return next;
+          });
+        }
+
+        if (payload.type === "worktree_removed") {
+          setWorktrees((current) => {
+            const next = new Map(current);
+            next.delete(payload.worktreeId);
+            return next;
+          });
+          // If active worktree was removed, switch to another
+          if (activeWorktreeId === payload.worktreeId) {
+            setWorktrees((current) => {
+              const keys = Array.from(current.keys());
+              setActiveWorktreeId(keys[0] || null);
+              return current;
+            });
+          }
+        }
+
+        if (payload.type === "worktree_renamed") {
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(payload.worktreeId);
+            if (wt) {
+              next.set(payload.worktreeId, { ...wt, name: payload.name });
+            }
+            return next;
+          });
+        }
+
+        if (payload.type === "worktrees_list") {
+          if (Array.isArray(payload.worktrees)) {
+            const newMap = new Map();
+            payload.worktrees.forEach((wt) => {
+              newMap.set(wt.id, { ...wt, messages: [] });
+            });
+            setWorktrees(newMap);
+            if (payload.worktrees.length > 0 && !activeWorktreeId) {
+              setActiveWorktreeId(payload.worktrees[0].id);
+              setWorktreeMode(true);
+            }
+          }
+        }
+
+        if (payload.type === "worktree_messages_sync") {
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(payload.worktreeId);
+            if (wt) {
+              next.set(payload.worktreeId, {
+                ...wt,
+                messages: payload.messages || [],
+                status: payload.status || wt.status,
+              });
+            }
+            return next;
+          });
+        }
+
+        if (payload.type === "worktree_diff") {
+          // Store diff per worktree if needed (for future use)
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(payload.worktreeId);
+            if (wt) {
+              next.set(payload.worktreeId, {
+                ...wt,
+                diff: { status: payload.status, diff: payload.diff },
+              });
+            }
+            return next;
+          });
+        }
+
+        // Handle messages with worktreeId (parallel mode)
+        if (payload.worktreeId && (
+          payload.type === "assistant_delta" ||
+          payload.type === "assistant_message" ||
+          payload.type === "command_execution_delta" ||
+          payload.type === "command_execution_completed" ||
+          payload.type === "turn_started" ||
+          payload.type === "turn_completed" ||
+          payload.type === "turn_error"
+        )) {
+          const wtId = payload.worktreeId;
+
+          if (payload.type === "turn_started") {
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(wtId);
+              if (wt) {
+                next.set(wtId, { ...wt, status: "processing", currentTurnId: payload.turnId });
+              }
+              return next;
+            });
+          }
+
+          if (payload.type === "turn_completed" || payload.type === "turn_error") {
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(wtId);
+              if (wt) {
+                next.set(wtId, { ...wt, status: "ready", currentTurnId: null });
+              }
+              return next;
+            });
+          }
+
+          if (payload.type === "assistant_delta" || payload.type === "assistant_message") {
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(wtId);
+              if (!wt) return current;
+
+              const messages = [...wt.messages];
+              const existingIdx = messages.findIndex((m) => m.id === payload.itemId);
+
+              if (payload.type === "assistant_delta") {
+                if (existingIdx === -1) {
+                  messages.push({
+                    id: payload.itemId,
+                    role: "assistant",
+                    text: payload.delta || "",
+                  });
+                } else {
+                  messages[existingIdx] = {
+                    ...messages[existingIdx],
+                    text: (messages[existingIdx].text || "") + (payload.delta || ""),
+                  };
+                }
+              } else {
+                if (existingIdx === -1) {
+                  messages.push({
+                    id: payload.itemId,
+                    role: "assistant",
+                    text: payload.text || "",
+                  });
+                } else {
+                  messages[existingIdx] = {
+                    ...messages[existingIdx],
+                    text: payload.text || "",
+                  };
+                }
+              }
+
+              next.set(wtId, { ...wt, messages });
+              return next;
+            });
+          }
+
+          if (payload.type === "command_execution_delta" || payload.type === "command_execution_completed") {
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(wtId);
+              if (!wt) return current;
+
+              const messages = [...wt.messages];
+              const itemId = payload.itemId || payload.item?.id;
+              const existingIdx = messages.findIndex((m) => m.id === itemId);
+
+              if (payload.type === "command_execution_delta") {
+                if (existingIdx === -1) {
+                  messages.push({
+                    id: itemId,
+                    role: "commandExecution",
+                    command: "Commande",
+                    output: payload.delta || "",
+                    status: "running",
+                    isExpandable: true,
+                  });
+                } else {
+                  messages[existingIdx] = {
+                    ...messages[existingIdx],
+                    output: (messages[existingIdx].output || "") + (payload.delta || ""),
+                  };
+                }
+              } else {
+                const item = payload.item;
+                const command = item?.commandActions?.command || item?.command || "Commande";
+                if (existingIdx === -1) {
+                  messages.push({
+                    id: itemId,
+                    role: "commandExecution",
+                    command,
+                    output: item?.aggregatedOutput || "",
+                    status: "completed",
+                    isExpandable: true,
+                  });
+                } else {
+                  messages[existingIdx] = {
+                    ...messages[existingIdx],
+                    command,
+                    output: item?.aggregatedOutput || messages[existingIdx].output || "",
+                    status: "completed",
+                  };
+                }
+              }
+
+              next.set(wtId, { ...wt, messages });
+              return next;
+            });
+          }
+        }
+
+        // ============== End Worktree WebSocket Handlers ==============
       });
     };
 
@@ -1808,6 +2063,157 @@ function App() {
     sendMessage(text, []);
   };
 
+  // ============== Worktree Functions ==============
+
+  const createWorktree = useCallback(
+    ({ name, provider: wtProvider }) => {
+      if (!socketRef.current || !connected) return;
+
+      socketRef.current.send(
+        JSON.stringify({
+          type: "create_parallel_request",
+          provider: wtProvider || llmProvider,
+          name: name || null,
+        })
+      );
+    },
+    [connected, llmProvider]
+  );
+
+  const sendWorktreeMessage = useCallback(
+    (worktreeId, textOverride, attachmentsOverride) => {
+      const rawText = (textOverride ?? input).trim();
+      if (!rawText || !socketRef.current || !connected || !worktreeId) return;
+
+      const selectedPaths = attachmentsOverride ?? selectedAttachments;
+      const suffix =
+        selectedPaths.length > 0
+          ? `;; attachments: ${JSON.stringify(selectedPaths)}`
+          : "";
+      const displayText = rawText;
+      const text = `${displayText}${suffix}`;
+
+      // Add user message to worktree locally
+      setWorktrees((current) => {
+        const next = new Map(current);
+        const wt = next.get(worktreeId);
+        if (wt) {
+          const messages = [
+            ...wt.messages,
+            { id: `user-${Date.now()}`, role: "user", text: displayText },
+          ];
+          next.set(worktreeId, { ...wt, messages });
+        }
+        return next;
+      });
+
+      socketRef.current.send(
+        JSON.stringify({
+          type: "worktree_message",
+          worktreeId,
+          text,
+          displayText,
+        })
+      );
+      setInput("");
+    },
+    [connected, input, selectedAttachments]
+  );
+
+  const closeWorktree = useCallback(
+    async (worktreeId) => {
+      if (!attachmentSession?.sessionId) return;
+
+      try {
+        const response = await fetch(
+          `/api/worktree/${worktreeId}?session=${encodeURIComponent(
+            attachmentSession.sessionId
+          )}`,
+          { method: "DELETE" }
+        );
+        if (!response.ok) {
+          console.error("Failed to close worktree");
+        }
+      } catch (error) {
+        console.error("Error closing worktree:", error);
+      }
+    },
+    [attachmentSession?.sessionId]
+  );
+
+  const renameWorktreeHandler = useCallback(
+    async (worktreeId, newName) => {
+      if (!attachmentSession?.sessionId) return;
+
+      try {
+        const response = await fetch(
+          `/api/worktree/${worktreeId}?session=${encodeURIComponent(
+            attachmentSession.sessionId
+          )}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: newName }),
+          }
+        );
+        if (!response.ok) {
+          console.error("Failed to rename worktree");
+        }
+      } catch (error) {
+        console.error("Error renaming worktree:", error);
+      }
+    },
+    [attachmentSession?.sessionId]
+  );
+
+  // Get current worktree messages
+  const activeWorktree = worktreeMode && activeWorktreeId
+    ? worktrees.get(activeWorktreeId)
+    : null;
+
+  const currentMessages = worktreeMode && activeWorktree
+    ? activeWorktree.messages
+    : messages;
+
+  // Group messages for display (works with both legacy and worktree modes)
+  const displayedGroupedMessages = useMemo(() => {
+    const grouped = [];
+    (currentMessages || []).forEach((message) => {
+      if (message?.role === "commandExecution") {
+        const last = grouped[grouped.length - 1];
+        if (last?.groupType === "commandExecution") {
+          last.items.push(message);
+        } else {
+          grouped.push({
+            groupType: "commandExecution",
+            id: `command-group-${message.id}`,
+            items: [message],
+          });
+        }
+        return;
+      }
+      grouped.push(message);
+    });
+    return grouped;
+  }, [currentMessages]);
+
+  const isWorktreeProcessing = activeWorktree?.status === "processing";
+  const currentProcessing = worktreeMode ? isWorktreeProcessing : processing;
+
+  // Handle send message - route to worktree or legacy
+  const handleSendMessage = useCallback(
+    (textOverride, attachmentsOverride) => {
+      if (worktreeMode && activeWorktreeId) {
+        sendWorktreeMessage(activeWorktreeId, textOverride, attachmentsOverride);
+      } else {
+        sendMessage(textOverride, attachmentsOverride);
+      }
+    },
+    [worktreeMode, activeWorktreeId, sendWorktreeMessage]
+  );
+
+  // ============== End Worktree Functions ==============
+
   const addToBacklog = () => {
     const trimmed = input.trim();
     if (!trimmed) {
@@ -1840,7 +2246,7 @@ function App() {
 
   const onSubmit = (event) => {
     event.preventDefault();
-    sendMessage();
+    handleSendMessage();
   };
 
   const interruptTurn = () => {
@@ -2852,15 +3258,38 @@ function App() {
         </aside>
 
         <section className="conversation">
+          {/* Worktree Tabs */}
+          {worktreeMode && worktrees.size > 0 && (
+            <WorktreeTabs
+              worktrees={worktrees}
+              activeWorktreeId={activeWorktreeId}
+              onSelect={setActiveWorktreeId}
+              onCreate={createWorktree}
+              onClose={closeWorktree}
+              onRename={renameWorktreeHandler}
+              provider={llmProvider}
+              disabled={!connected}
+            />
+          )}
+
           <div className="pane-stack">
             <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
               <div className="chat-scroll" ref={listRef}>
-                {messages.length === 0 && (
+                {currentMessages.length === 0 && (
                   <div className="empty">
                     <p>Envoyez un message pour demarrer une session.</p>
+                    {!worktreeMode && connected && (
+                      <button
+                        type="button"
+                        className="worktree-start-btn"
+                        onClick={() => createWorktree({ provider: llmProvider })}
+                      >
+                        + Créer une branche parallèle
+                      </button>
+                    )}
                   </div>
                 )}
-                {groupedMessages.map((message) => {
+                {displayedGroupedMessages.map((message) => {
                   if (message?.groupType === "commandExecution") {
                     return (
                       <div

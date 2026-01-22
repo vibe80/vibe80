@@ -1785,3 +1785,30 @@ main.chat {
     justify-self: center;
   }
 }
+
+/* Worktree start button */
+.worktree-start-btn {
+  margin-top: 16px;
+  padding: 12px 24px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.worktree-start-btn:hover {
+  background: var(--accent-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(238, 93, 59, 0.3);
+}
+
+/* Conversation section with worktree tabs */
+.conversation {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

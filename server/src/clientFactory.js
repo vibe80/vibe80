@@ -28,6 +28,27 @@ export async function getOrCreateClient(session, provider) {
 }
 
 /**
+ * Create a new client for a worktree (not cached, each worktree gets its own client).
+ *
+ * @param {object} worktree - The worktree object
+ * @param {string} worktree.path - The worktree directory path
+ * @param {"codex" | "claude"} worktree.provider - The provider
+ * @param {string} [attachmentsDir] - The attachments directory
+ * @returns {CodexAppServerClient | ClaudeCliClient}
+ */
+export function createWorktreeClient(worktree, attachmentsDir) {
+  const client =
+    worktree.provider === "claude"
+      ? new ClaudeCliClient({
+          cwd: worktree.path,
+          attachmentsDir,
+        })
+      : new CodexAppServerClient({ cwd: worktree.path });
+
+  return client;
+}
+
+/**
  * Get the currently active client for the session.
  *
  * @param {object} session - The session object
