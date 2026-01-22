@@ -858,6 +858,8 @@ function App() {
           return;
         }
 
+        const isWorktreeScoped = Boolean(payload.worktreeId);
+
         if (payload.type === "pong") {
           lastPongRef.current = Date.now();
         }
@@ -871,7 +873,7 @@ function App() {
           setAppServerReady(true);
         }
 
-        if (payload.type === "assistant_delta") {
+        if (!isWorktreeScoped && payload.type === "assistant_delta") {
           if (typeof payload.delta !== "string") {
             return;
           }
@@ -896,7 +898,7 @@ function App() {
           });
         }
 
-        if (payload.type === "assistant_message") {
+        if (!isWorktreeScoped && payload.type === "assistant_message") {
           if (typeof payload.text !== "string") {
             return;
           }
@@ -922,7 +924,7 @@ function App() {
           });
         }
 
-        if (payload.type === "command_execution_delta") {
+        if (!isWorktreeScoped && payload.type === "command_execution_delta") {
           if (typeof payload.delta !== "string") {
             return;
           }
@@ -950,7 +952,7 @@ function App() {
           });
         }
 
-        if (payload.type === "command_execution_completed") {
+        if (!isWorktreeScoped && payload.type === "command_execution_completed") {
           const item = payload.item;
           const itemId = payload.itemId || item?.id;
           if (!itemId) {
@@ -984,14 +986,14 @@ function App() {
           });
         }
 
-        if (payload.type === "turn_error") {
+        if (!isWorktreeScoped && payload.type === "turn_error") {
           setStatus(`Erreur: ${payload.message}`);
           setProcessing(false);
           setActivity("");
           setCurrentTurnId(null);
         }
 
-        if (payload.type === "error") {
+        if (!isWorktreeScoped && payload.type === "error") {
           setStatus(payload.message || "Erreur inattendue");
           setProcessing(false);
           setActivity("");
@@ -999,26 +1001,26 @@ function App() {
           setModelError(payload.message || "Erreur inattendue");
         }
 
-        if (payload.type === "turn_started") {
+        if (!isWorktreeScoped && payload.type === "turn_started") {
           setProcessing(true);
           setActivity("Traitement en cours...");
           setCurrentTurnId(payload.turnId || null);
         }
 
-        if (payload.type === "turn_completed") {
+        if (!isWorktreeScoped && payload.type === "turn_completed") {
           setProcessing(false);
           setActivity("");
           setCurrentTurnId(null);
         }
 
-        if (payload.type === "repo_diff") {
+        if (!isWorktreeScoped && payload.type === "repo_diff") {
           setRepoDiff({
             status: payload.status || "",
             diff: payload.diff || "",
           });
         }
 
-        if (payload.type === "model_list") {
+        if (!isWorktreeScoped && payload.type === "model_list") {
           const list = Array.isArray(payload.models) ? payload.models : [];
           setModels(list);
           const defaultModel = list.find((model) => model.isDefault);
@@ -1032,7 +1034,7 @@ function App() {
           setModelError("");
         }
 
-        if (payload.type === "model_set") {
+        if (!isWorktreeScoped && payload.type === "model_set") {
           setSelectedModel(payload.model || "");
           if (payload.reasoningEffort !== undefined) {
             setSelectedReasoningEffort(payload.reasoningEffort || "");
@@ -1041,13 +1043,13 @@ function App() {
           setModelError("");
         }
 
-        if (payload.type === "rpc_log") {
+        if (!isWorktreeScoped && payload.type === "rpc_log") {
           if (payload.entry) {
             setRpcLogs((current) => [payload.entry, ...current].slice(0, 500));
           }
         }
 
-        if (payload.type === "account_login_completed") {
+        if (!isWorktreeScoped && payload.type === "account_login_completed") {
           if (payload.success) {
             setOpenAiReady(true);
             setOpenAiLoginPending(false);
@@ -1061,7 +1063,7 @@ function App() {
           }
         }
 
-        if (payload.type === "account_login_error") {
+        if (!isWorktreeScoped && payload.type === "account_login_error") {
           setOpenAiReady(false);
           setOpenAiLoginPending(false);
           setOpenAiLoginError(
@@ -1069,7 +1071,7 @@ function App() {
           );
         }
 
-        if (payload.type === "item_started") {
+        if (!isWorktreeScoped && payload.type === "item_started") {
           const { item } = payload;
           if (!item?.type) {
             return;
@@ -1122,7 +1124,7 @@ function App() {
           }
         }
 
-        if (payload.type === "provider_switched") {
+        if (!isWorktreeScoped && payload.type === "provider_switched") {
           setLlmProvider(payload.provider);
           setStatus("Pret");
           if (Array.isArray(payload.messages)) {
@@ -1143,7 +1145,7 @@ function App() {
           }
         }
 
-        if (payload.type === "messages_sync") {
+        if (!isWorktreeScoped && payload.type === "messages_sync") {
           mergeAndApplyMessages(payload.messages || []);
         }
 
