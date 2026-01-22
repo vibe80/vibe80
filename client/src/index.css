@@ -1732,7 +1732,7 @@ main.chat {
 
   .topbar-left {
     gap: 10px;
-    padding-right: 42px;
+    padding-right: calc(56px + env(safe-area-inset-right));
   }
 
   .topbar-brand {
