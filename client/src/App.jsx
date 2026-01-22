@@ -1804,6 +1804,10 @@ function App() {
     setInput("");
   };
 
+  const sendCommitMessage = (text) => {
+    sendMessage(text, []);
+  };
+
   const addToBacklog = () => {
     const trimmed = input.trim();
     if (!trimmed) {
@@ -3078,6 +3082,26 @@ function App() {
                     {diffStatusLines.length} fichiers modifies
                   </div>
                 )}
+                <div className="diff-actions">
+                  <button
+                    type="button"
+                    className="diff-action-button"
+                    onClick={() => sendCommitMessage("Commit")}
+                    disabled={!connected || processing}
+                    title="Envoyer 'Commit' dans le chat"
+                  >
+                    Commit
+                  </button>
+                  <button
+                    type="button"
+                    className="diff-action-button primary"
+                    onClick={() => sendCommitMessage("Commit & Push")}
+                    disabled={!connected || processing}
+                    title="Envoyer 'Commit & Push' dans le chat"
+                  >
+                    Commit &amp; Push
+                  </button>
+                </div>
               </div>
               {diffStatusLines.length > 0 && (
                 <div className="diff-status">
