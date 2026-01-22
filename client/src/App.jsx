@@ -71,6 +71,8 @@ const AUTH_MODE_KEY = "authMode";
 const OPENAI_AUTH_MODE_KEY = "openAiAuthMode";
 const LLM_PROVIDER_KEY = "llmProvider";
 const MAX_REPO_HISTORY = 10;
+const SOCKET_PING_INTERVAL_MS = 25000;
+const SOCKET_PONG_GRACE_MS = 8000;
 
 const getTruncatedText = (text, limit) => {
   if (!text) {
@@ -267,6 +269,9 @@ function App() {
   const closingRef = useRef(false);
   const lastNotifiedIdRef = useRef(null);
   const audioContextRef = useRef(null);
+  const pingIntervalRef = useRef(null);
+  const lastPongRef = useRef(0);
+  const messagesRef = useRef([]);
 
   const messageIndex = useMemo(() => new Map(), []);
   const commandIndex = useMemo(() => new Map(), []);
@@ -274,6 +279,10 @@ function App() {
     () => extractRepoName(attachmentSession?.repoUrl),
     [attachmentSession?.repoUrl]
   );
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const choicesKey = useMemo(
     () =>
       attachmentSession?.sessionId
@@ -503,6 +512,87 @@ function App() {
     [messageIndex, commandIndex]
   );
 
+  const mergeAndApplyMessages = useCallback(
+    (incoming = []) => {
+      if (!Array.isArray(incoming) || incoming.length === 0) {
+        return;
+      }
+      const current = Array.isArray(messagesRef.current)
+        ? messagesRef.current
+        : [];
+      const seen = new Set(
+        current.map((item) => item?.id).filter(Boolean)
+      );
+      const merged = [...current];
+      for (const item of incoming) {
+        const id = item?.id;
+        if (id && seen.has(id)) {
+          continue;
+        }
+        if (id) {
+          seen.add(id);
+        }
+        merged.push(item);
+      }
+      applyMessages(merged);
+    },
+    [applyMessages]
+  );
+
+  const resyncSession = useCallback(async () => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/session/${encodeURIComponent(sessionId)}`
+      );
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      if (data?.provider && data.provider !== llmProvider) {
+        setLlmProvider(data.provider);
+      }
+      if (Array.isArray(data?.messages)) {
+        applyMessages(data.messages);
+      }
+      if (data?.repoDiff) {
+        setRepoDiff(data.repoDiff);
+      }
+      if (Array.isArray(data?.rpcLogs)) {
+        setRpcLogs(data.rpcLogs);
+      }
+    } catch (error) {
+      // Ignore resync failures; reconnect loop will retry.
+    }
+  }, [attachmentSession?.sessionId, applyMessages, llmProvider]);
+
+  const requestMessageSync = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    const current = Array.isArray(messagesRef.current)
+      ? messagesRef.current
+      : [];
+    let lastSeenMessageId = null;
+    for (let i = current.length - 1; i >= 0; i -= 1) {
+      if (current[i]?.id) {
+        lastSeenMessageId = current[i].id;
+        break;
+      }
+    }
+    socket.send(
+      JSON.stringify({
+        type: "sync_messages",
+        provider: llmProvider,
+        lastSeenMessageId,
+      })
+    );
+  }, [llmProvider]);
+
   const connectTerminal = useCallback(() => {
     const sessionId = attachmentSession?.sessionId;
     if (!sessionId) {
@@ -670,6 +760,30 @@ function App() {
       }
     };
 
+    const clearPingInterval = () => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
+    };
+
+    const startPingInterval = () => {
+      clearPingInterval();
+      lastPongRef.current = Date.now();
+      pingIntervalRef.current = setInterval(() => {
+        const socket = socketRef.current;
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          return;
+        }
+        const elapsed = Date.now() - lastPongRef.current;
+        if (elapsed > SOCKET_PING_INTERVAL_MS + SOCKET_PONG_GRACE_MS) {
+          socket.close();
+          return;
+        }
+        socket.send(JSON.stringify({ type: "ping" }));
+      }, SOCKET_PING_INTERVAL_MS);
+    };
+
     const scheduleReconnect = () => {
       if (!isMounted) {
         return;
@@ -704,6 +818,9 @@ function App() {
         clearReconnectTimer();
         setConnected(true);
         setStatus("Connecte");
+        startPingInterval();
+        void resyncSession();
+        requestMessageSync();
       });
 
       socket.addEventListener("close", () => {
@@ -713,6 +830,7 @@ function App() {
         setConnected(false);
         setStatus("Deconnecte");
         setAppServerReady(false);
+        clearPingInterval();
         if (!closingRef.current) {
           scheduleReconnect();
         }
@@ -734,6 +852,10 @@ function App() {
           payload = JSON.parse(event.data);
         } catch (error) {
           return;
+        }
+
+        if (payload.type === "pong") {
+          lastPongRef.current = Date.now();
         }
 
         if (payload.type === "status") {
@@ -1016,6 +1138,10 @@ function App() {
             }
           }
         }
+
+        if (payload.type === "messages_sync") {
+          mergeAndApplyMessages(payload.messages || []);
+        }
       });
     };
 
@@ -1025,12 +1151,20 @@ function App() {
       isMounted = false;
       closingRef.current = true;
       clearReconnectTimer();
+      clearPingInterval();
       if (socketRef.current) {
         socketRef.current.close();
       }
       closingRef.current = false;
     };
-  }, [attachmentSession?.sessionId, messageIndex, commandIndex]);
+  }, [
+    attachmentSession?.sessionId,
+    messageIndex,
+    commandIndex,
+    mergeAndApplyMessages,
+    requestMessageSync,
+    resyncSession,
+  ]);
 
   useEffect(() => {
     if (

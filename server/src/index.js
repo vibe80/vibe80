@@ -344,6 +344,19 @@ const appendSessionMessage = (sessionId, message) => {
   }
 };
 
+const getMessagesSince = (session, provider, lastSeenMessageId) => {
+  const messages =
+    session?.messagesByProvider?.[provider] || session?.messages || [];
+  if (!lastSeenMessageId) {
+    return messages;
+  }
+  const index = messages.findIndex((message) => message?.id === lastSeenMessageId);
+  if (index === -1) {
+    return messages;
+  }
+  return messages.slice(index + 1);
+};
+
 const appendRpcLog = (sessionId, entry) => {
   const session = getSession(sessionId);
   if (!session) {
@@ -792,6 +805,30 @@ wss.on("connection", (socket, req) => {
     } catch (error) {
       socket.send(
         JSON.stringify({ type: "error", message: "Invalid JSON message." })
+      );
+      return;
+    }
+
+    if (payload.type === "ping") {
+      socket.send(JSON.stringify({ type: "pong" }));
+      return;
+    }
+
+    if (payload.type === "sync_messages") {
+      const provider = isValidProvider(payload.provider)
+        ? payload.provider
+        : session.activeProvider || "codex";
+      const messages = getMessagesSince(
+        session,
+        provider,
+        payload.lastSeenMessageId || null
+      );
+      socket.send(
+        JSON.stringify({
+          type: "messages_sync",
+          provider,
+          messages,
+        })
       );
       return;
     }
