@@ -247,8 +247,7 @@ function App() {
   const [sideOpen, setSideOpen] = useState(false);
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
-  const [activeWorktreeId, setActiveWorktreeId] = useState(null);
-  const [worktreeMode, setWorktreeMode] = useState(false); // false = legacy mode, true = worktree mode
+  const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
@@ -1166,7 +1165,6 @@ function App() {
           });
           // Auto-select the new worktree
           setActiveWorktreeId(payload.worktreeId);
-          setWorktreeMode(true);
         }
 
         if (payload.type === "worktree_ready") {
@@ -1201,13 +1199,9 @@ function App() {
             next.delete(payload.worktreeId);
             return next;
           });
-          // If active worktree was removed, switch to another
+          // If active worktree was removed, switch back to main
           if (activeWorktreeId === payload.worktreeId) {
-            setWorktrees((current) => {
-              const keys = Array.from(current.keys());
-              setActiveWorktreeId(keys[0] || null);
-              return current;
-            });
+            setActiveWorktreeId("main");
           }
         }
 
@@ -1229,10 +1223,7 @@ function App() {
               newMap.set(wt.id, { ...wt, messages: [] });
             });
             setWorktrees(newMap);
-            if (payload.worktrees.length > 0 && !activeWorktreeId) {
-              setActiveWorktreeId(payload.worktrees[0].id);
-              setWorktreeMode(true);
-            }
+            // Keep activeWorktreeId as is, don't auto-switch
           }
         }
 
@@ -2166,14 +2157,27 @@ function App() {
     [attachmentSession?.sessionId]
   );
 
-  // Get current worktree messages
-  const activeWorktree = worktreeMode && activeWorktreeId
-    ? worktrees.get(activeWorktreeId)
-    : null;
+  // Check if we're in a real worktree (not "main")
+  const isInWorktree = activeWorktreeId && activeWorktreeId !== "main";
+  const activeWorktree = isInWorktree ? worktrees.get(activeWorktreeId) : null;
 
-  const currentMessages = worktreeMode && activeWorktree
-    ? activeWorktree.messages
-    : messages;
+  // Get current messages based on active tab
+  const currentMessages = activeWorktree ? activeWorktree.messages : messages;
+
+  // Combined list for tabs: "main" + all worktrees
+  const allTabs = useMemo(() => {
+    const mainTab = {
+      id: "main",
+      name: currentBranch || "Main",
+      branchName: currentBranch || "main",
+      provider: llmProvider,
+      status: processing ? "processing" : (connected ? "ready" : "creating"),
+      color: "#6b7280",
+      messages: messages,
+    };
+    const wtList = Array.from(worktrees.values());
+    return [mainTab, ...wtList];
+  }, [currentBranch, llmProvider, processing, connected, messages, worktrees]);
 
   // Group messages for display (works with both legacy and worktree modes)
   const displayedGroupedMessages = useMemo(() => {
@@ -2198,18 +2202,18 @@ function App() {
   }, [currentMessages]);
 
   const isWorktreeProcessing = activeWorktree?.status === "processing";
-  const currentProcessing = worktreeMode ? isWorktreeProcessing : processing;
+  const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
 
   // Handle send message - route to worktree or legacy
   const handleSendMessage = useCallback(
     (textOverride, attachmentsOverride) => {
-      if (worktreeMode && activeWorktreeId) {
+      if (isInWorktree && activeWorktreeId) {
         sendWorktreeMessage(activeWorktreeId, textOverride, attachmentsOverride);
       } else {
         sendMessage(textOverride, attachmentsOverride);
       }
     },
-    [worktreeMode, activeWorktreeId, sendWorktreeMessage]
+    [isInWorktree, activeWorktreeId, sendWorktreeMessage]
   );
 
   // ============== End Worktree Functions ==============
@@ -3258,19 +3262,17 @@ function App() {
         </aside>
 
         <section className="conversation">
-          {/* Worktree Tabs */}
-          {worktreeMode && worktrees.size > 0 && (
-            <WorktreeTabs
-              worktrees={worktrees}
-              activeWorktreeId={activeWorktreeId}
-              onSelect={setActiveWorktreeId}
-              onCreate={createWorktree}
-              onClose={closeWorktree}
-              onRename={renameWorktreeHandler}
-              provider={llmProvider}
-              disabled={!connected}
-            />
-          )}
+          {/* Worktree Tabs - Always visible */}
+          <WorktreeTabs
+            worktrees={allTabs}
+            activeWorktreeId={activeWorktreeId}
+            onSelect={setActiveWorktreeId}
+            onCreate={createWorktree}
+            onClose={closeWorktree}
+            onRename={renameWorktreeHandler}
+            provider={llmProvider}
+            disabled={!connected}
+          />
 
           <div className="pane-stack">
             <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
@@ -3278,15 +3280,6 @@ function App() {
                 {currentMessages.length === 0 && (
                   <div className="empty">
                     <p>Envoyez un message pour demarrer une session.</p>
-                    {!worktreeMode && connected && (
-                      <button
-                        type="button"
-                        className="worktree-start-btn"
-                        onClick={() => createWorktree({ provider: llmProvider })}
-                      >
-                        + Créer une branche parallèle
-                      </button>
-                    )}
                   </div>
                 )}
                 {displayedGroupedMessages.map((message) => {

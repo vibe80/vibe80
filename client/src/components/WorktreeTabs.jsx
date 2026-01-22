@@ -113,7 +113,7 @@ export default function WorktreeTabs({
               {STATUS_ICONS[wt.status] || STATUS_ICONS.ready}
             </span>
 
-            {editingId === wt.id ? (
+            {editingId === wt.id && wt.id !== "main" ? (
               <input
                 ref={editInputRef}
                 className="worktree-tab-edit"
@@ -128,7 +128,10 @@ export default function WorktreeTabs({
                 className="worktree-tab-name"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  handleStartEdit(wt);
+                  // Don't allow renaming "main" tab
+                  if (wt.id !== "main") {
+                    handleStartEdit(wt);
+                  }
                 }}
                 title={`${wt.name} (${wt.branchName})`}
               >
@@ -138,7 +141,8 @@ export default function WorktreeTabs({
 
             <span className="worktree-tab-provider">{wt.provider}</span>
 
-            {worktreeList.length > 1 && (
+            {/* Don't show close button for "main" tab */}
+            {wt.id !== "main" && (
               <button
                 className="worktree-tab-close"
                 onClick={(e) => {
