@@ -1760,3 +1760,28 @@ main.chat {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 640px) {
+  .session-gate {
+    padding: 16px;
+  }
+
+  .session-card {
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .session-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .session-form-row > div:empty {
+    display: none;
+  }
+
+  .session-form-row > button {
+    width: 100%;
+    justify-self: center;
+  }
+}
