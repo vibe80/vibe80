@@ -71,6 +71,8 @@ const REPO_HISTORY_KEY = "repoHistory";
 const AUTH_MODE_KEY = "authMode";
 const OPENAI_AUTH_MODE_KEY = "openAiAuthMode";
 const LLM_PROVIDER_KEY = "llmProvider";
+const CHAT_COMMANDS_VISIBLE_KEY = "chatCommandsVisible";
+const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const MAX_REPO_HISTORY = 10;
 const SOCKET_PING_INTERVAL_MS = 25000;
 const SOCKET_PONG_GRACE_MS = 8000;
@@ -126,6 +128,30 @@ const readOpenAiAuthMode = () => {
     // Ignore storage errors (private mode, quota).
   }
   return "apiKey";
+};
+
+const readChatCommandsVisible = () => {
+  try {
+    const stored = localStorage.getItem(CHAT_COMMANDS_VISIBLE_KEY);
+    if (stored === "true" || stored === "false") {
+      return stored === "true";
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return true;
+};
+
+const readNotificationsEnabled = () => {
+  try {
+    const stored = localStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
+    if (stored === "true" || stored === "false") {
+      return stored === "true";
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return true;
 };
 
 const readLlmProvider = () => {
@@ -226,7 +252,13 @@ function App() {
   const [sessionRequested, setSessionRequested] = useState(() =>
     Boolean(getInitialRepoUrl())
   );
-  const [soundEnabled] = useState(true);
+  const [showChatCommands, setShowChatCommands] = useState(
+    readChatCommandsVisible
+  );
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    readNotificationsEnabled
+  );
+  const soundEnabled = notificationsEnabled;
   const [choiceSelections, setChoiceSelections] = useState({});
   const [activePane, setActivePane] = useState("chat");
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
@@ -455,6 +487,28 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [openAiAuthMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CHAT_COMMANDS_VISIBLE_KEY,
+        showChatCommands ? "true" : "false"
+      );
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [showChatCommands]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        NOTIFICATIONS_ENABLED_KEY,
+        notificationsEnabled ? "true" : "false"
+      );
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [notificationsEnabled]);
 
   const loadBranches = useCallback(async () => {
     if (!attachmentSession?.sessionId) {
@@ -716,6 +770,9 @@ function App() {
   }, [soundEnabled]);
 
   const maybeNotify = useCallback((message) => {
+    if (!notificationsEnabled) {
+      return;
+    }
     if (!("Notification" in window)) {
       return;
     }
@@ -736,12 +793,15 @@ function App() {
       // Ignore notification failures (permissions or browser quirks).
     }
     playNotificationSound();
-  }, [playNotificationSound]);
+  }, [notificationsEnabled, playNotificationSound]);
 
   useEffect(() => {
+    if (!notificationsEnabled) {
+      return;
+    }
     void ensureNotificationPermission();
     primeAudioContext();
-  }, [ensureNotificationPermission, primeAudioContext]);
+  }, [ensureNotificationPermission, primeAudioContext, notificationsEnabled]);
 
   useEffect(() => {
     try {
@@ -2186,6 +2246,9 @@ function App() {
     const grouped = [];
     (currentMessages || []).forEach((message) => {
       if (message?.role === "commandExecution") {
+        if (!showChatCommands) {
+          return;
+        }
         const last = grouped[grouped.length - 1];
         if (last?.groupType === "commandExecution") {
           last.items.push(message);
@@ -2201,7 +2264,7 @@ function App() {
       grouped.push(message);
     });
     return grouped;
-  }, [currentMessages]);
+  }, [currentMessages, showChatCommands]);
 
   const isWorktreeProcessing = activeWorktree?.status === "processing";
   const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
@@ -3078,6 +3141,15 @@ function App() {
                 </button>
                 <button
                   type="button"
+                  className={`menu-item ${
+                    activePane === "settings" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("settings")}
+                >
+                  Paramètres
+                </button>
+                <button
+                  type="button"
                   className="menu-item"
                   onClick={() => handleExportChat("markdown")}
                   disabled={messages.length === 0}
@@ -3656,6 +3728,55 @@ function App() {
                 ))}
               </div>
             )}
+          </div>
+          <div
+            className={`settings-panel ${
+              activePane === "settings" ? "" : "is-hidden"
+            }`}
+          >
+            <div className="settings-header">
+              <div className="settings-title">Paramètres utilisateur</div>
+              <div className="settings-subtitle">
+                Ces réglages sont stockés dans votre navigateur.
+              </div>
+            </div>
+            <div className="settings-group">
+              <label className="settings-item">
+                <span className="settings-text">
+                  <span className="settings-name">
+                    Afficher les commandes dans le chat
+                  </span>
+                  <span className="settings-hint">
+                    Affiche les blocs de commandes exécutées dans la conversation.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="settings-toggle"
+                  checked={showChatCommands}
+                  onChange={(event) =>
+                    setShowChatCommands(event.target.checked)
+                  }
+                />
+              </label>
+              <label className="settings-item">
+                <span className="settings-text">
+                  <span className="settings-name">Notifications</span>
+                  <span className="settings-hint">
+                    Affiche une notification et un son quand un nouveau message
+                    arrive.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="settings-toggle"
+                  checked={notificationsEnabled}
+                  onChange={(event) =>
+                    setNotificationsEnabled(event.target.checked)
+                  }
+                />
+              </label>
+            </div>
           </div>
           </div>
 
