@@ -2965,7 +2965,7 @@ function App() {
             </div>
           )}
 
-          <div className="dropdown" ref={moreMenuRef}>
+          <div className="dropdown more-menu" ref={moreMenuRef}>
             <button
               type="button"
               className="pill-button"

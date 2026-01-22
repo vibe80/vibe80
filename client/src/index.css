@@ -1727,10 +1727,12 @@ main.chat {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
+    position: relative;
   }
 
   .topbar-left {
     gap: 10px;
+    padding-right: 42px;
   }
 
   .topbar-brand {
@@ -1746,6 +1748,12 @@ main.chat {
   .topbar-right {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .more-menu {
+    position: absolute;
+    top: 0;
+    right: calc(0px + env(safe-area-inset-right));
   }
 
   .layout {
