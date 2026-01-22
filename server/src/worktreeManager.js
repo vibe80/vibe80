@@ -439,6 +439,19 @@ export function appendWorktreeMessage(session, worktreeId, message) {
 }
 
 /**
+ * Efface les messages d'un worktree
+ * @param {object} session - La session
+ * @param {string} worktreeId - L'ID du worktree
+ */
+export function clearWorktreeMessages(session, worktreeId) {
+  const worktree = session.worktrees?.get(worktreeId);
+  if (worktree) {
+    worktree.messages = [];
+    worktree.lastActivityAt = new Date();
+  }
+}
+
+/**
  * Renomme un worktree
  * @param {object} session - La session
  * @param {string} worktreeId - L'ID du worktree

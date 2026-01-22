@@ -2492,7 +2492,36 @@ function App() {
     sendMessage(choice);
   };
 
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
+    if (activeWorktreeId !== "main") {
+      setWorktrees((current) => {
+        const next = new Map(current);
+        const wt = next.get(activeWorktreeId);
+        if (wt) {
+          next.set(activeWorktreeId, { ...wt, messages: [] });
+        }
+        return next;
+      });
+      lastNotifiedIdRef.current = null;
+      if (attachmentSession?.sessionId) {
+        try {
+          await fetch(
+            `/api/session/${encodeURIComponent(
+              attachmentSession.sessionId
+            )}/clear`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ worktreeId: activeWorktreeId }),
+            }
+          );
+        } catch (error) {
+          // Ignore clear failures; next refresh will resync.
+        }
+      }
+      return;
+    }
+
     setMessages([]);
     messageIndex.clear();
     commandIndex.clear();
@@ -2502,6 +2531,22 @@ function App() {
     }
     setCommandPanelOpen({});
     lastNotifiedIdRef.current = null;
+    if (attachmentSession?.sessionId) {
+      try {
+        await fetch(
+          `/api/session/${encodeURIComponent(
+            attachmentSession.sessionId
+          )}/clear`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider: llmProvider }),
+          }
+        );
+      } catch (error) {
+        // Ignore clear failures; next refresh will resync.
+      }
+    }
   };
 
   const llmReady = llmProvider === "claude" ? claudeReady : openAiReady;

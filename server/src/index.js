@@ -28,6 +28,7 @@ import {
   getWorktree,
   updateWorktreeStatus,
   appendWorktreeMessage,
+  clearWorktreeMessages,
   renameWorktree,
 } from "./worktreeManager.js";
 
@@ -1763,6 +1764,36 @@ app.get("/api/session/:sessionId", async (req, res) => {
     repoDiff,
     rpcLogs: session.rpcLogs || [],
   });
+});
+
+app.post("/api/session/:sessionId/clear", async (req, res) => {
+  const session = getSession(req.params.sessionId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  const worktreeId = req.body?.worktreeId;
+  if (worktreeId) {
+    const worktree = getWorktree(session, worktreeId);
+    if (!worktree) {
+      res.status(404).json({ error: "Worktree not found." });
+      return;
+    }
+    clearWorktreeMessages(session, worktreeId);
+    res.json({ ok: true, worktreeId });
+    return;
+  }
+  const provider = isValidProvider(req.body?.provider)
+    ? req.body.provider
+    : session.activeProvider || "codex";
+  if (!session.messagesByProvider) {
+    session.messagesByProvider = {};
+  }
+  session.messagesByProvider[provider] = [];
+  if (session.activeProvider === provider) {
+    session.messages = session.messagesByProvider[provider];
+  }
+  res.json({ ok: true, provider });
 });
 
 app.post("/api/session", async (req, res) => {
