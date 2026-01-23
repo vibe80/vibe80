@@ -1201,6 +1201,9 @@ wss.on("connection", (socket, req) => {
           id: createMessageId(),
           role: "user",
           text: payload.displayText || payload.text,
+          attachments: Array.isArray(payload.attachments)
+            ? payload.attachments
+            : [],
           provider: worktree.provider,
         });
         updateWorktreeStatus(session, worktreeId, "processing");
@@ -1427,6 +1430,9 @@ wss.on("connection", (socket, req) => {
           id: createMessageId(),
           role: "user",
           text: payload.displayText || payload.text,
+          attachments: Array.isArray(payload.attachments)
+            ? payload.attachments
+            : [],
           provider,
         });
         socket.send(
@@ -2286,6 +2292,39 @@ app.post("/api/worktree/:worktreeId/cherry-pick", async (req, res) => {
 });
 
 // ============== End Worktree API Endpoints ==============
+
+app.get("/api/attachments/file", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  const rawPath = req.query.path;
+  const rawName = req.query.name;
+  if (!rawPath && !rawName) {
+    res.status(400).json({ error: "Attachment path is required." });
+    return;
+  }
+  const candidatePath = rawPath
+    ? path.resolve(rawPath)
+    : path.resolve(session.attachmentsDir, sanitizeFilename(rawName));
+  const relative = path.relative(session.attachmentsDir, candidatePath);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    res.status(400).json({ error: "Invalid attachment path." });
+    return;
+  }
+  try {
+    const stats = await fs.promises.stat(candidatePath);
+    if (!stats.isFile()) {
+      res.status(404).json({ error: "Attachment not found." });
+      return;
+    }
+    res.sendFile(candidatePath);
+  } catch (error) {
+    res.status(404).json({ error: "Attachment not found." });
+  }
+});
 
 app.get("/api/attachments", async (req, res) => {
   const sessionId = req.query.session;

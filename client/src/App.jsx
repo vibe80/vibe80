@@ -77,6 +77,16 @@ const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const MAX_REPO_HISTORY = 10;
 const SOCKET_PING_INTERVAL_MS = 25000;
 const SOCKET_PONG_GRACE_MS = 8000;
+const IMAGE_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "bmp",
+  "svg",
+  "avif",
+]);
 
 const getTruncatedText = (text, limit) => {
   if (!text) {
@@ -86,6 +96,55 @@ const getTruncatedText = (text, limit) => {
     return text;
   }
   return `${text.slice(0, limit)}…`;
+};
+
+const getAttachmentName = (attachment) => {
+  if (!attachment) {
+    return "";
+  }
+  if (typeof attachment === "string") {
+    const parts = attachment.split("/");
+    return parts[parts.length - 1] || attachment;
+  }
+  if (attachment.name) {
+    return attachment.name;
+  }
+  if (attachment.path) {
+    const parts = attachment.path.split("/");
+    return parts[parts.length - 1] || attachment.path;
+  }
+  return "";
+};
+
+const normalizeAttachments = (attachments) => {
+  if (!Array.isArray(attachments)) {
+    return [];
+  }
+  return attachments
+    .map((item) => {
+      if (!item) {
+        return null;
+      }
+      if (typeof item === "string") {
+        const name = getAttachmentName(item);
+        return { name, path: item };
+      }
+      if (typeof item === "object") {
+        const name = item.name || getAttachmentName(item.path);
+        return { ...item, name };
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
+
+const isImageAttachment = (attachment) => {
+  const name = getAttachmentName(attachment);
+  if (!name || !name.includes(".")) {
+    return false;
+  }
+  const ext = name.split(".").pop()?.toLowerCase();
+  return IMAGE_EXTENSIONS.has(ext);
 };
 
 const readRepoHistory = () => {
@@ -241,8 +300,7 @@ function App() {
   const [activity, setActivity] = useState("");
   const [connected, setConnected] = useState(false);
   const [attachmentSession, setAttachmentSession] = useState(null);
-  const [attachments, setAttachments] = useState([]);
-  const [selectedAttachments, setSelectedAttachments] = useState([]);
+  const [draftAttachments, setDraftAttachments] = useState([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [attachmentsError, setAttachmentsError] = useState("");
   const [repoUrl, setRepoUrl] = useState(getInitialRepoUrl);
@@ -293,8 +351,8 @@ function App() {
   const [branchLoading, setBranchLoading] = useState(false);
   const [branchError, setBranchError] = useState("");
   const [branchMenuOpen, setBranchMenuOpen] = useState(false);
-  const [sideTab, setSideTab] = useState("attachments");
   const [sideOpen, setSideOpen] = useState(false);
+  const [attachmentPreview, setAttachmentPreview] = useState(null);
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
@@ -347,6 +405,85 @@ function App() {
     () => selectedProviders.filter((provider) => authenticatedProviders.includes(provider)),
     [selectedProviders, authenticatedProviders]
   );
+  const getAttachmentUrl = useCallback(
+    (attachment) => {
+      if (!attachmentSession?.sessionId) {
+        return "";
+      }
+      const url = new URL("/api/attachments/file", window.location.origin);
+      url.searchParams.set("session", attachmentSession.sessionId);
+      if (attachment?.path) {
+        url.searchParams.set("path", attachment.path);
+      } else if (attachment?.name) {
+        url.searchParams.set("name", attachment.name);
+      }
+      return url.toString();
+    },
+    [attachmentSession?.sessionId]
+  );
+  const renderMessageAttachments = useCallback(
+    (attachments = []) => {
+      const normalized = normalizeAttachments(attachments);
+      if (!normalized.length) {
+        return null;
+      }
+      return (
+        <div className="bubble-attachments">
+          {normalized.map((attachment) => {
+            const name = getAttachmentName(attachment);
+            const url = getAttachmentUrl(attachment);
+            const key = attachment?.path || attachment?.name || name;
+            if (isImageAttachment(attachment)) {
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  className="attachment-card attachment-card--image"
+                  onClick={() =>
+                    url ? setAttachmentPreview({ url, name }) : null
+                  }
+                  disabled={!url}
+                >
+                  {url ? (
+                    <img
+                      src={url}
+                      alt={name || "Image jointe"}
+                      className="attachment-thumb"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="attachment-thumb attachment-thumb--empty" />
+                  )}
+                  <span className="attachment-name">{name}</span>
+                </button>
+              );
+            }
+            if (url) {
+              return (
+                <a
+                  key={key}
+                  className="attachment-card"
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span className="attachment-icon">📎</span>
+                  <span className="attachment-name">{name}</span>
+                </a>
+              );
+            }
+            return (
+              <div key={key} className="attachment-card">
+                <span className="attachment-icon">📎</span>
+                <span className="attachment-name">{name}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    },
+    [getAttachmentUrl]
+  );
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -365,12 +502,6 @@ function App() {
         : null,
     [attachmentSession?.sessionId]
   );
-  const selectedAttachmentNames = useMemo(() => {
-    const byPath = new Map((attachments || []).map((file) => [file.path, file]));
-    return (selectedAttachments || [])
-      .map((path) => byPath.get(path)?.name || path)
-      .filter(Boolean);
-  }, [attachments, selectedAttachments]);
   const diffFiles = useMemo(() => {
     if (!repoDiff.diff) {
       return [];
@@ -597,6 +728,12 @@ function App() {
   }, [attachmentSession?.sessionId, loadBranches]);
 
   useEffect(() => {
+    if (!attachmentSession?.sessionId) {
+      setDraftAttachments([]);
+    }
+  }, [attachmentSession?.sessionId]);
+
+  useEffect(() => {
     if (isMobileLayout) {
       setSideOpen(false);
     }
@@ -608,6 +745,7 @@ function App() {
         id: item.id || `history-${index}`,
         role: item.role,
         text: item.text,
+        attachments: normalizeAttachments(item.attachments || []),
       }));
       messageIndex.clear();
       commandIndex.clear();
@@ -1387,9 +1525,16 @@ function App() {
             const next = new Map(current);
             const wt = next.get(payload.worktreeId);
             if (wt) {
+              const normalizedMessages = (payload.messages || []).map(
+                (message, index) => ({
+                  ...message,
+                  id: message?.id || `history-${index}`,
+                  attachments: normalizeAttachments(message?.attachments || []),
+                })
+              );
               next.set(payload.worktreeId, {
                 ...wt,
-                messages: payload.messages || [],
+                messages: normalizedMessages,
                 status: payload.status || wt.status,
               });
             }
@@ -2121,47 +2266,6 @@ function App() {
   }, [backlog, backlogKey]);
 
   useEffect(() => {
-    if (!attachmentSession?.sessionId) {
-      return;
-    }
-
-    const loadAttachments = async () => {
-      try {
-        setAttachmentsLoading(true);
-        setAttachmentsError("");
-        const response = await fetch(
-          `/api/attachments?session=${encodeURIComponent(
-            attachmentSession.sessionId
-          )}`
-        );
-        if (!response.ok) {
-          throw new Error("Failed to list attachments.");
-        }
-        const data = await response.json();
-        setAttachments(data.files || []);
-      } catch (error) {
-        setAttachmentsError(
-          error.message || "Impossible de charger les pieces jointes."
-        );
-      } finally {
-        setAttachmentsLoading(false);
-      }
-    };
-
-    loadAttachments();
-  }, [attachmentSession]);
-
-  useEffect(() => {
-    if (!attachments.length) {
-      setSelectedAttachments([]);
-      return;
-    }
-    setSelectedAttachments((current) =>
-      current.filter((path) => attachments.some((file) => file.path === path))
-    );
-  }, [attachments]);
-
-  useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
@@ -2189,7 +2293,8 @@ function App() {
         throw new Error("Upload failed.");
       }
       const data = await response.json();
-      setAttachments((current) => [...current, ...(data.files || [])]);
+      const uploaded = normalizeAttachments(data.files || []);
+      setDraftAttachments((current) => [...current, ...uploaded]);
     } catch (error) {
       setAttachmentsError(
         error.message || "Impossible d'uploader les pieces jointes."
@@ -2221,13 +2326,16 @@ function App() {
     await uploadFiles(files);
   };
 
-  const toggleAttachment = (path) => {
-    setSelectedAttachments((current) => {
-      if (current.includes(path)) {
-        return current.filter((item) => item !== path);
-      }
-      return [...current, path];
-    });
+  const removeDraftAttachment = (identifier) => {
+    if (!identifier) {
+      return;
+    }
+    setDraftAttachments((current) =>
+      current.filter((item) => {
+        const key = item?.path || item?.name;
+        return key !== identifier;
+      })
+    );
   };
 
   const sendMessage = (textOverride, attachmentsOverride) => {
@@ -2237,7 +2345,12 @@ function App() {
     }
 
     void ensureNotificationPermission();
-    const selectedPaths = attachmentsOverride ?? selectedAttachments;
+    const resolvedAttachments = normalizeAttachments(
+      attachmentsOverride ?? draftAttachments
+    );
+    const selectedPaths = resolvedAttachments
+      .map((item) => item?.path)
+      .filter(Boolean);
     const suffix =
       selectedPaths.length > 0
         ? `;; attachments: ${JSON.stringify(selectedPaths)}`
@@ -2246,12 +2359,23 @@ function App() {
     const text = `${displayText}${suffix}`;
     setMessages((current) => [
       ...current,
-      { id: `user-${Date.now()}`, role: "user", text: displayText },
+      {
+        id: `user-${Date.now()}`,
+        role: "user",
+        text: displayText,
+        attachments: resolvedAttachments,
+      },
     ]);
     socketRef.current.send(
-      JSON.stringify({ type: "user_message", text, displayText })
+      JSON.stringify({
+        type: "user_message",
+        text,
+        displayText,
+        attachments: resolvedAttachments,
+      })
     );
     setInput("");
+    setDraftAttachments([]);
   };
 
   const sendCommitMessage = (text) => {
@@ -2282,7 +2406,12 @@ function App() {
       const rawText = (textOverride ?? input).trim();
       if (!rawText || !socketRef.current || !connected || !worktreeId) return;
 
-      const selectedPaths = attachmentsOverride ?? selectedAttachments;
+      const resolvedAttachments = normalizeAttachments(
+        attachmentsOverride ?? draftAttachments
+      );
+      const selectedPaths = resolvedAttachments
+        .map((item) => item?.path)
+        .filter(Boolean);
       const suffix =
         selectedPaths.length > 0
           ? `;; attachments: ${JSON.stringify(selectedPaths)}`
@@ -2297,7 +2426,12 @@ function App() {
         if (wt) {
           const messages = [
             ...wt.messages,
-            { id: `user-${Date.now()}`, role: "user", text: displayText },
+            {
+              id: `user-${Date.now()}`,
+              role: "user",
+              text: displayText,
+              attachments: resolvedAttachments,
+            },
           ];
           next.set(worktreeId, { ...wt, messages });
         }
@@ -2310,11 +2444,13 @@ function App() {
           worktreeId,
           text,
           displayText,
+          attachments: resolvedAttachments,
         })
       );
       setInput("");
+      setDraftAttachments([]);
     },
-    [connected, input, selectedAttachments]
+    [connected, input, draftAttachments]
   );
 
   const closeWorktree = useCallback(
@@ -2436,7 +2572,7 @@ function App() {
       id: `backlog-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       text: trimmed,
       createdAt: Date.now(),
-      attachments: selectedAttachments,
+      attachments: draftAttachments,
     };
     setBacklog((current) => [entry, ...current]);
     setInput("");
@@ -2448,7 +2584,7 @@ function App() {
 
   const editBacklogItem = (item) => {
     setInput(item.text || "");
-    setSelectedAttachments(item.attachments || []);
+    setDraftAttachments(normalizeAttachments(item.attachments || []));
     inputRef.current?.focus();
   };
 
@@ -2472,22 +2608,14 @@ function App() {
     setActivity("Interruption...");
   };
 
-  const openSidePanel = useCallback((nextTab) => {
-    if (nextTab) {
-      setSideTab(nextTab);
-    }
-    setSideOpen(true);
-  }, []);
-
   const triggerAttachmentPicker = useCallback(() => {
-    openSidePanel("attachments");
     if (!attachmentSession || attachmentsLoading) {
       return;
     }
     requestAnimationFrame(() => {
       uploadInputRef.current?.click();
     });
-  }, [attachmentSession, attachmentsLoading, openSidePanel]);
+  }, [attachmentSession, attachmentsLoading]);
 
   const handleViewSelect = useCallback((nextPane) => {
     setActivePane(nextPane);
@@ -2525,6 +2653,14 @@ function App() {
           const roleLabel = message.role === "user" ? "Utilisateur" : "Assistant";
           lines.push(`## ${roleLabel}`);
           lines.push(message.text || "");
+          const attachmentNames = normalizeAttachments(
+            message.attachments || []
+          )
+            .map((item) => item?.name || item?.path)
+            .filter(Boolean);
+          if (attachmentNames.length) {
+            lines.push(`Pièces jointes: ${attachmentNames.join(", ")}`);
+          }
           lines.push("");
         });
         const content = lines.join("\n").trim() + "\n";
@@ -2552,6 +2688,7 @@ function App() {
             id: message.id,
             role: message.role,
             text: message.text || "",
+            attachments: normalizeAttachments(message.attachments || []),
           };
         }),
       };
@@ -3378,141 +3515,60 @@ function App() {
         ) : null}
 
         <aside className="side">
-          <div className="side-tabs">
-            <button
-              type="button"
-              className={`side-tab ${
-                sideTab === "attachments" ? "is-active" : ""
-              }`}
-              onClick={() => openSidePanel("attachments")}
-            >
-              Pièces <span className="badge">{attachments.length}</span>
-            </button>
-            <button
-              type="button"
-              className={`side-tab ${sideTab === "backlog" ? "is-active" : ""}`}
-              onClick={() => openSidePanel("backlog")}
-            >
-              Backlog <span className="badge">{backlog.length}</span>
-            </button>
-          </div>
-
           <div className="side-body">
-            {sideTab === "attachments" ? (
-              <div className="attachments">
-                <div className="panel-header">
-                  <div className="panel-title">Pièces jointes</div>
-                  <div className="panel-subtitle">
-                    {repoName || "Session en cours…"}
-                  </div>
+            <section className="backlog">
+              <div className="panel-header">
+                <div className="panel-title">Backlog</div>
+                <div className="panel-subtitle">
+                  {backlog.length === 0
+                    ? "Aucune tâche"
+                    : `${backlog.length} élément(s)`}
                 </div>
-
-                <label
-                  className={`upload ${
-                    !attachmentSession || attachmentsLoading ? "disabled" : ""
-                  }`}
-                >
-                  <input
-                    ref={uploadInputRef}
-                    type="file"
-                    multiple
-                    onChange={onUploadAttachments}
-                    disabled={!attachmentSession || attachmentsLoading}
-                  />
-                  <span>Ajouter des fichiers</span>
-                </label>
-
-                <div className="attachments-meta">
-                  <span>
-                    Sélectionnées: {selectedAttachments.length}/
-                    {attachments.length}
-                  </span>
-                  {attachmentsLoading && <span>Chargement…</span>}
-                </div>
-
-                {attachmentsError && (
-                  <div className="attachments-error">{attachmentsError}</div>
-                )}
-
-                {attachments.length === 0 ? (
-                  <div className="attachments-empty">
-                    Aucune pièce jointe pour cette session.
-                  </div>
-                ) : (
-                  <ul className="attachments-list">
-                    {attachments.map((file) => {
-                      const isSelected = selectedAttachments.includes(file.path);
-                      return (
-                        <li key={file.path}>
-                          <label className="attachments-item">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleAttachment(file.path)}
-                            />
-                            <span className="attachments-name">{file.name}</span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
               </div>
-            ) : (
-              <section className="backlog">
-                <div className="panel-header">
-                  <div className="panel-title">Backlog</div>
-                  <div className="panel-subtitle">
-                    {backlog.length === 0
-                      ? "Aucune tâche"
-                      : `${backlog.length} élément(s)`}
-                  </div>
+              {backlog.length === 0 ? (
+                <div className="backlog-empty">
+                  Aucune tâche en attente pour le moment.
                 </div>
-                {backlog.length === 0 ? (
-                  <div className="backlog-empty">
-                    Aucune tâche en attente pour le moment.
-                  </div>
-                ) : (
-                  <ul className="backlog-list">
-                    {backlog.map((item) => (
-                      <li key={item.id} className="backlog-item">
-                        <div className="backlog-text">
-                          {getTruncatedText(item.text, 180)}
+              ) : (
+                <ul className="backlog-list">
+                  {backlog.map((item) => (
+                    <li key={item.id} className="backlog-item">
+                      <div className="backlog-text">
+                        {getTruncatedText(item.text, 180)}
+                      </div>
+                      <div className="backlog-actions">
+                        <button
+                          type="button"
+                          className="ghost"
+                          onClick={() => editBacklogItem(item)}
+                        >
+                          Éditer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => launchBacklogItem(item)}
+                          disabled={!connected}
+                        >
+                          Lancer
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost"
+                          onClick={() => removeFromBacklog(item.id)}
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                      {item.attachments?.length ? (
+                        <div className="backlog-meta">
+                          {item.attachments.length} pièce(s) jointe(s)
                         </div>
-                        <div className="backlog-actions">
-                          <button
-                            type="button"
-                            className="ghost"
-                            onClick={() => editBacklogItem(item)}
-                          >
-                            Éditer
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => launchBacklogItem(item)}
-                            disabled={!connected}
-                          >
-                            Lancer
-                          </button>
-                          <button
-                            type="button"
-                            className="ghost"
-                            onClick={() => removeFromBacklog(item.id)}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                        {item.attachments?.length ? (
-                          <div className="backlog-meta">
-                            {item.attachments.length} pièce(s) jointe(s)
-                          </div>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            )}
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
         </aside>
 
@@ -3612,6 +3668,7 @@ function App() {
                     return (
                       <div key={message.id} className={`bubble ${message.role}`}>
                         <div className="plain-text">{truncatedText}</div>
+                        {renderMessageAttachments(message.attachments)}
                       </div>
                     );
                   }
@@ -3723,6 +3780,7 @@ function App() {
                                 </div>
                               );
                             })}
+                            {renderMessageAttachments(message.attachments)}
                           </>
                         );
                       })()}
@@ -3974,10 +4032,18 @@ function App() {
                 ＋
                 {isMobileLayout ? (
                   <span className="attachment-badge">
-                    {selectedAttachments.length}
+                    {draftAttachments.length}
                   </span>
                 ) : null}
               </button>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                multiple
+                onChange={onUploadAttachments}
+                disabled={!attachmentSession || attachmentsLoading}
+                className="visually-hidden"
+              />
               <textarea
                 className="composer-input"
                 value={input}
@@ -3999,13 +4065,9 @@ function App() {
 
             {(!isMobileLayout || (processing && currentTurnId)) && (
               <div className="composer-meta">
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => openSidePanel("attachments")}
-                >
-                  Pièces: {selectedAttachments.length}
-                </button>
+                <div className="composer-attachments-count">
+                  Pièces: {draftAttachments.length}
+                </div>
                 <div className="composer-actions">
                   {processing && currentTurnId ? (
                     <button
@@ -4030,23 +4092,73 @@ function App() {
               </div>
             )}
 
-            {selectedAttachmentNames.length ? (
+            {draftAttachments.length ? (
               <div className="composer-chips" aria-label="Pièces sélectionnées">
-                {selectedAttachmentNames.slice(0, 3).map((name) => (
-                  <span className="chip" key={name}>
-                    {name}
-                  </span>
-                ))}
-                {selectedAttachmentNames.length > 3 ? (
+                {draftAttachments.slice(0, 3).map((attachment) => {
+                  const label = attachment?.name || attachment?.path || "";
+                  const key = attachment?.path || attachment?.name || label;
+                  return (
+                    <button
+                      type="button"
+                      className="chip chip--removable"
+                      key={key}
+                      onClick={() =>
+                        removeDraftAttachment(
+                          attachment?.path || attachment?.name
+                        )
+                      }
+                    >
+                      {label}
+                      <span className="chip-remove">×</span>
+                    </button>
+                  );
+                })}
+                {draftAttachments.length > 3 ? (
                   <span className="chip chip-muted">
-                    +{selectedAttachmentNames.length - 3}
+                    +{draftAttachments.length - 3}
                   </span>
                 ) : null}
               </div>
             ) : null}
+            {attachmentsError && (
+              <div className="attachments-error composer-attachments-error">
+                {attachmentsError}
+              </div>
+            )}
           </form>
         </section>
       </div>
+      {attachmentPreview ? (
+        <div
+          className="attachment-modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setAttachmentPreview(null)}
+        >
+          <button
+            type="button"
+            className="attachment-modal-close"
+            aria-label="Fermer"
+            onClick={() => setAttachmentPreview(null)}
+          >
+            ×
+          </button>
+          <div
+            className="attachment-modal-body"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img
+              src={attachmentPreview.url}
+              alt={attachmentPreview.name || "Aperçu"}
+            />
+            {attachmentPreview.name ? (
+              <div className="attachment-modal-name">
+                {attachmentPreview.name}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
