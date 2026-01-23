@@ -195,7 +195,7 @@ const ensureSshConfigEntry = async (host, keyPath) => {
   await fs.promises.chmod(sshConfigPath, 0o600).catch(() => {});
 };
 
-const createSession = async (repoUrl, auth, provider = "codex") => {
+const createSession = async (repoUrl, auth, provider = "codex", providers = null) => {
   while (true) {
     const sessionId = crypto.randomBytes(12).toString("hex");
     const dir = path.join(os.tmpdir(), sessionId);
@@ -269,6 +269,12 @@ const createSession = async (repoUrl, auth, provider = "codex") => {
           { env }
         );
       }
+      const normalizedProviders = Array.isArray(providers)
+        ? providers.filter((entry) => isValidProvider(entry))
+        : [];
+      if (!normalizedProviders.includes(provider)) {
+        normalizedProviders.unshift(provider);
+      }
       // Initialize session with multi-client structure
       const session = {
         dir,
@@ -276,6 +282,7 @@ const createSession = async (repoUrl, auth, provider = "codex") => {
         repoDir,
         repoUrl,
         activeProvider: provider,
+        providers: normalizedProviders,
         clients: {
           codex: null,
           claude: null,
@@ -1228,6 +1235,19 @@ wss.on("connection", (socket, req) => {
         );
         return;
       }
+      if (
+        Array.isArray(session.providers) &&
+        session.providers.length &&
+        !session.providers.includes(provider)
+      ) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Provider not enabled for this session.",
+          })
+        );
+        return;
+      }
 
       try {
         const worktree = await createWorktree(session, {
@@ -1524,23 +1544,33 @@ wss.on("connection", (socket, req) => {
     }
 
     if (payload.type === "account_login_start") {
-      const client = getActiveClient(session);
-      if (!client?.ready) {
-        socket.send(
-          JSON.stringify({
-            type: "account_login_error",
-            message: `${getProviderLabel(session)} not ready yet.`,
-          })
-        );
-        return;
-      }
       try {
+        const requestedProvider = isValidProvider(payload.provider)
+          ? payload.provider
+          : session.activeProvider || "codex";
+        if (
+          Array.isArray(session.providers) &&
+          session.providers.length &&
+          !session.providers.includes(requestedProvider)
+        ) {
+          socket.send(
+            JSON.stringify({
+              type: "account_login_error",
+              message: "Provider not enabled for this session.",
+            })
+          );
+          return;
+        }
+        const client = await getOrCreateClient(session, requestedProvider);
+        if (!client.ready) {
+          await client.start();
+        }
         const result = await client.startAccountLogin(payload.params);
         socket.send(
           JSON.stringify({
             type: "account_login_started",
             result,
-            provider: session.activeProvider,
+            provider: requestedProvider,
           })
         );
       } catch (error) {
@@ -1560,6 +1590,19 @@ wss.on("connection", (socket, req) => {
           JSON.stringify({
             type: "error",
             message: "Invalid provider. Must be 'codex' or 'claude'.",
+          })
+        );
+        return;
+      }
+      if (
+        Array.isArray(session.providers) &&
+        session.providers.length &&
+        !session.providers.includes(newProvider)
+      ) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Provider not enabled for this session.",
           })
         );
         return;
@@ -1760,6 +1803,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
     path: session.dir,
     repoUrl: session.repoUrl,
     provider: activeProvider,
+    providers: session.providers || [activeProvider],
     messages,
     repoDiff,
     rpcLogs: session.rpcLogs || [],
@@ -1805,16 +1849,20 @@ app.post("/api/session", async (req, res) => {
   try {
     const auth = req.body?.auth || null;
     const provider = req.body?.provider || "codex";
+    const providers = Array.isArray(req.body?.providers)
+      ? req.body.providers.filter((entry) => isValidProvider(entry))
+      : null;
     if (provider !== "codex" && provider !== "claude") {
       res.status(400).json({ error: "Invalid provider." });
       return;
     }
-    const session = await createSession(repoUrl, auth, provider);
+    const session = await createSession(repoUrl, auth, provider, providers);
     res.json({
       sessionId: session.sessionId,
       path: session.dir,
       repoUrl,
       provider,
+      providers: session.providers || [provider],
       messages: [],
     });
   } catch (error) {
@@ -1951,6 +1999,14 @@ app.post("/api/worktree", async (req, res) => {
   const provider = req.body?.provider;
   if (!isValidProvider(provider)) {
     res.status(400).json({ error: "Invalid provider. Must be 'codex' or 'claude'." });
+    return;
+  }
+  if (
+    Array.isArray(session.providers) &&
+    session.providers.length &&
+    !session.providers.includes(provider)
+  ) {
+    res.status(400).json({ error: "Provider not enabled for this session." });
     return;
   }
 

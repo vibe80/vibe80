@@ -71,6 +71,7 @@ const REPO_HISTORY_KEY = "repoHistory";
 const AUTH_MODE_KEY = "authMode";
 const OPENAI_AUTH_MODE_KEY = "openAiAuthMode";
 const LLM_PROVIDER_KEY = "llmProvider";
+const LLM_PROVIDERS_KEY = "llmProviders";
 const CHAT_COMMANDS_VISIBLE_KEY = "chatCommandsVisible";
 const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const MAX_REPO_HISTORY = 10;
@@ -166,6 +167,26 @@ const readLlmProvider = () => {
   return "codex";
 };
 
+const readLlmProviders = () => {
+  try {
+    const stored = localStorage.getItem(LLM_PROVIDERS_KEY);
+    if (!stored) {
+      return [readLlmProvider()];
+    }
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      return [readLlmProvider()];
+    }
+    const filtered = parsed.filter(
+      (entry) => entry === "codex" || entry === "claude"
+    );
+    return filtered.length ? filtered : [readLlmProvider()];
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return [readLlmProvider()];
+};
+
 const mergeRepoHistory = (history, url) => {
   const trimmed = url.trim();
   if (!trimmed) {
@@ -232,6 +253,7 @@ function App() {
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
   const [llmProvider, setLlmProvider] = useState(readLlmProvider);
+  const [selectedProviders, setSelectedProviders] = useState(readLlmProviders);
   const [providerSwitching, setProviderSwitching] = useState(false);
   const [openAiAuthMode, setOpenAiAuthMode] = useState(readOpenAiAuthMode);
   const [openAiAuthFile, setOpenAiAuthFile] = useState(null);
@@ -239,15 +261,11 @@ function App() {
   const [openAiLoginError, setOpenAiLoginError] = useState("");
   const [openAiLoginPending, setOpenAiLoginPending] = useState(false);
   const [openAiLoginRequest, setOpenAiLoginRequest] = useState(null);
-  const [openAiReady, setOpenAiReady] = useState(() =>
-    Boolean(getSessionIdFromUrl())
-  );
+  const [openAiReady, setOpenAiReady] = useState(false);
   const [claudeAuthFile, setClaudeAuthFile] = useState(null);
   const [claudeLoginError, setClaudeLoginError] = useState("");
   const [claudeLoginPending, setClaudeLoginPending] = useState(false);
-  const [claudeReady, setClaudeReady] = useState(() =>
-    Boolean(getSessionIdFromUrl())
-  );
+  const [claudeReady, setClaudeReady] = useState(false);
   const [appServerReady, setAppServerReady] = useState(false);
   const [sessionRequested, setSessionRequested] = useState(() =>
     Boolean(getInitialRepoUrl())
@@ -314,6 +332,20 @@ function App() {
   const repoName = useMemo(
     () => extractRepoName(attachmentSession?.repoUrl),
     [attachmentSession?.repoUrl]
+  );
+  const authenticatedProviders = useMemo(() => {
+    const list = [];
+    if (openAiReady) {
+      list.push("codex");
+    }
+    if (claudeReady) {
+      list.push("claude");
+    }
+    return list;
+  }, [openAiReady, claudeReady]);
+  const availableProviders = useMemo(
+    () => selectedProviders.filter((provider) => authenticatedProviders.includes(provider)),
+    [selectedProviders, authenticatedProviders]
   );
 
   useEffect(() => {
@@ -478,11 +510,27 @@ function App() {
   }, [llmProvider]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(LLM_PROVIDERS_KEY, JSON.stringify(selectedProviders));
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [selectedProviders]);
+
+  useEffect(() => {
     setOpenAiLoginError("");
     setClaudeLoginError("");
-    setOpenAiLoginPending(false);
-    setClaudeLoginPending(false);
   }, [llmProvider]);
+
+  useEffect(() => {
+    if (selectedProviders.includes(llmProvider)) {
+      return;
+    }
+    const fallback = selectedProviders[0] || "codex";
+    if (fallback !== llmProvider) {
+      setLlmProvider(fallback);
+    }
+  }, [selectedProviders, llmProvider]);
 
   useEffect(() => {
     try {
@@ -616,6 +664,16 @@ function App() {
       const data = await response.json();
       if (data?.provider && data.provider !== llmProvider) {
         setLlmProvider(data.provider);
+      }
+      if (Array.isArray(data?.providers) && data.providers.length) {
+        const filtered = data.providers.filter(
+          (entry) => entry === "codex" || entry === "claude"
+        );
+        if (filtered.length) {
+          setSelectedProviders(filtered);
+          setOpenAiReady(filtered.includes("codex"));
+          setClaudeReady(filtered.includes("claude"));
+        }
       }
       if (Array.isArray(data?.messages)) {
         applyMessages(data.messages);
@@ -1515,9 +1573,7 @@ function App() {
     if (
       !attachmentSession?.sessionId ||
       !openAiLoginRequest ||
-      !appServerReady ||
-      !connected ||
-      llmProvider !== "codex"
+      !connected
     ) {
       return;
     }
@@ -1528,16 +1584,15 @@ function App() {
     socket.send(
       JSON.stringify({
         type: "account_login_start",
+        provider: "codex",
         params: openAiLoginRequest,
       })
     );
     setOpenAiLoginRequest(null);
   }, [
     attachmentSession?.sessionId,
-    appServerReady,
     connected,
     openAiLoginRequest,
-    llmProvider,
   ]);
 
   useEffect(() => {
@@ -1674,7 +1729,7 @@ function App() {
       try {
         setAttachmentsLoading(true);
         setAttachmentsError("");
-        const payload = { repoUrl, provider: llmProvider };
+        const payload = { repoUrl, provider: llmProvider, providers: selectedProviders };
         if (repoAuth) {
           payload.auth = repoAuth;
         }
@@ -1723,7 +1778,7 @@ function App() {
     };
 
     createAttachmentSession();
-  }, [repoUrl, repoAuth, llmProvider]);
+  }, [repoUrl, repoAuth, llmProvider, selectedProviders]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -1765,8 +1820,14 @@ function App() {
         auth = { type: "http", username: user, password: httpPassword };
       }
     }
+    const wantsCodex = selectedProviders.includes("codex");
+    const wantsClaude = selectedProviders.includes("claude");
+    if (!wantsCodex && !wantsClaude) {
+      setAttachmentsError("Selectionnez au moins un provider LLM.");
+      return;
+    }
     let openAiParams = null;
-    if (llmProvider === "codex") {
+    if (wantsCodex) {
       if (openAiAuthMode === "apiKey") {
         const key = openAiApiKey.trim();
         if (!key) {
@@ -1780,16 +1841,15 @@ function App() {
           return;
         }
       }
-    } else {
-      if (!claudeAuthFile) {
-        setClaudeLoginError("Fichier credentials.json requis pour demarrer.");
-        return;
-      }
+    }
+    if (wantsClaude && !claudeAuthFile) {
+      setClaudeLoginError("Fichier credentials.json requis pour demarrer.");
+      return;
     }
     setAttachmentsError("");
     setOpenAiLoginError("");
     setClaudeLoginError("");
-    if (llmProvider === "codex") {
+    if (wantsCodex) {
       setClaudeLoginPending(false);
       if (openAiAuthMode === "apiKey") {
         setOpenAiReady(false);
@@ -1830,6 +1890,8 @@ function App() {
     } else {
       setOpenAiLoginRequest(null);
       setOpenAiLoginPending(false);
+    }
+    if (wantsClaude) {
       setClaudeReady(false);
       setClaudeLoginPending(true);
       try {
@@ -1861,6 +1923,8 @@ function App() {
       } finally {
         setClaudeLoginPending(false);
       }
+    } else {
+      setClaudeLoginPending(false);
     }
     if (!hasSession) {
       setSessionRequested(true);
@@ -1881,14 +1945,28 @@ function App() {
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
 
   useEffect(() => {
-    if (!attachmentSession?.provider) {
+    if (!attachmentSession?.provider && !attachmentSession?.providers) {
       return;
     }
+    const sessionProviders = Array.isArray(attachmentSession.providers)
+      ? attachmentSession.providers.filter(
+          (entry) => entry === "codex" || entry === "claude"
+        )
+      : [];
+    if (sessionProviders.length) {
+      setSelectedProviders(sessionProviders);
+      setOpenAiReady(sessionProviders.includes("codex"));
+      setClaudeReady(sessionProviders.includes("claude"));
+    } else if (attachmentSession.provider) {
+      setSelectedProviders([attachmentSession.provider]);
+      setOpenAiReady(attachmentSession.provider === "codex");
+      setClaudeReady(attachmentSession.provider === "claude");
+    }
     // Sync local state with session provider on initial load
-    if (attachmentSession.provider !== llmProvider) {
+    if (attachmentSession.provider && attachmentSession.provider !== llmProvider) {
       setLlmProvider(attachmentSession.provider);
     }
-  }, [attachmentSession?.provider]);
+  }, [attachmentSession?.provider, attachmentSession?.providers]);
 
   useEffect(() => {
     if (!attachmentSession?.repoUrl) {
@@ -1907,6 +1985,9 @@ function App() {
       ) {
         return;
       }
+      if (!availableProviders.includes(newProvider)) {
+        return;
+      }
       if (newProvider === llmProvider || providerSwitching || processing) {
         return;
       }
@@ -1916,7 +1997,31 @@ function App() {
         JSON.stringify({ type: "switch_provider", provider: newProvider })
       );
     },
-    [llmProvider, providerSwitching, processing]
+    [llmProvider, providerSwitching, processing, availableProviders]
+  );
+
+  const toggleProviderSelection = useCallback(
+    (provider) => {
+      if (attachmentSession?.sessionId) {
+        return;
+      }
+      setSelectedProviders((current) => {
+        const exists = current.includes(provider);
+        const next = exists
+          ? current.filter((item) => item !== provider)
+          : [...current, provider];
+        if (!exists) {
+          setLlmProvider(provider);
+        } else if (provider === llmProvider) {
+          const fallback = next[0] || provider;
+          if (fallback !== llmProvider) {
+            setLlmProvider(fallback);
+          }
+        }
+        return next;
+      });
+    },
+    [attachmentSession?.sessionId, llmProvider]
   );
 
   const requestModelList = () => {
@@ -2162,12 +2267,14 @@ function App() {
       socketRef.current.send(
         JSON.stringify({
           type: "create_parallel_request",
-          provider: wtProvider || llmProvider,
+          provider: availableProviders.includes(wtProvider)
+            ? wtProvider
+            : llmProvider,
           name: name || null,
         })
       );
     },
-    [connected, llmProvider]
+    [connected, llmProvider, availableProviders]
   );
 
   const sendWorktreeMessage = useCallback(
@@ -2551,11 +2658,12 @@ function App() {
 
   const llmReady = llmProvider === "claude" ? claudeReady : openAiReady;
   const supportsModels = llmProvider === "codex";
-  const llmAuthPending =
-    llmProvider === "claude" ? claudeLoginPending : openAiLoginPending;
-  const llmAuthError =
-    llmProvider === "claude" ? claudeLoginError : openAiLoginError;
+  const anyAuthPending = openAiLoginPending || claudeLoginPending;
   const hasSession = Boolean(attachmentSession?.sessionId);
+  const canSwitchProvider = availableProviders.length > 1;
+  const nextProvider = canSwitchProvider
+    ? availableProviders.find((provider) => provider !== llmProvider) || llmProvider
+    : llmProvider;
 
   if (!attachmentSession?.sessionId || !llmReady) {
     const isRepoProvided = Boolean(repoUrl);
@@ -2564,7 +2672,9 @@ function App() {
       attachmentSession?.repoUrl || repoUrl,
       72
     );
-    const formDisabled = sessionRequested || openAiLoginPending || claudeLoginPending;
+    const formDisabled =
+      sessionRequested || openAiLoginPending || claudeLoginPending;
+    const submitDisabled = formDisabled || selectedProviders.length === 0;
     const buttonLabel = "Go";
     return (
       <div className="session-gate">
@@ -2582,9 +2692,7 @@ function App() {
             <>
               <p className="session-hint">
                 {hasSession
-                  ? llmProvider === "claude"
-                    ? "Authentification Claude requise pour continuer."
-                    : "Authentification OpenAI requise pour continuer."
+                  ? "Authentification requise pour continuer."
                   : "Indique l'URL du depot git a cloner pour cette session."}
               </p>
               {hasSession && repoDisplay && (
@@ -2709,127 +2817,117 @@ function App() {
                   <div className="session-auth-options">
                     <label className="session-auth-option">
                       <input
-                        type="radio"
-                        name="llmProvider"
-                        value="codex"
-                        checked={llmProvider === "codex"}
-                        onChange={() =>
-                          hasSession
-                            ? handleProviderSwitch("codex")
-                            : setLlmProvider("codex")
-                        }
-                        disabled={formDisabled || providerSwitching || processing}
+                        type="checkbox"
+                        name="llmProviderCodex"
+                        checked={selectedProviders.includes("codex")}
+                        onChange={() => toggleProviderSelection("codex")}
+                        disabled={formDisabled || hasSession}
                       />
                       Codex
                     </label>
                     <label className="session-auth-option">
                       <input
-                        type="radio"
-                        name="llmProvider"
-                        value="claude"
-                        checked={llmProvider === "claude"}
-                        onChange={() =>
-                          hasSession
-                            ? handleProviderSwitch("claude")
-                            : setLlmProvider("claude")
-                        }
-                        disabled={formDisabled || providerSwitching || processing}
+                        type="checkbox"
+                        name="llmProviderClaude"
+                        checked={selectedProviders.includes("claude")}
+                        onChange={() => toggleProviderSelection("claude")}
+                        disabled={formDisabled || hasSession}
                       />
                       Claude
                     </label>
                   </div>
                   <div className="session-auth-hint">
                     {hasSession
-                      ? "Vous pouvez changer de provider en cours de session."
-                      : "Le provider peut etre change apres la creation de la session."}
+                      ? "Providers verrouilles pour cette session."
+                      : "Selectionnez un ou plusieurs providers. Le dernier coche devient actif."}
                   </div>
                 </div>
-                <div className="session-auth">
-                  <div className="session-auth-title">
-                    {llmProvider === "claude"
-                      ? "Authentification Claude"
-                      : "Authentification OpenAI"}
+                {selectedProviders.includes("codex") && (
+                  <div className="session-auth">
+                    <div className="session-auth-title">
+                      Authentification OpenAI
+                    </div>
+                    <div className="session-auth-options">
+                      <label className="session-auth-option">
+                        <input
+                          type="radio"
+                          name="openAiAuthMode"
+                          value="apiKey"
+                          checked={openAiAuthMode === "apiKey"}
+                          onChange={() => setOpenAiAuthMode("apiKey")}
+                          disabled={formDisabled}
+                        />
+                        API Key
+                      </label>
+                      <label className="session-auth-option">
+                        <input
+                          type="radio"
+                          name="openAiAuthMode"
+                          value="authFile"
+                          checked={openAiAuthMode === "authFile"}
+                          onChange={() => setOpenAiAuthMode("authFile")}
+                          disabled={formDisabled}
+                        />
+                        Fichier d'authentification (auth.json)
+                      </label>
+                    </div>
+                    {openAiAuthMode === "apiKey" && (
+                      <>
+                        <input
+                          type="password"
+                          placeholder="sk-..."
+                          value={openAiApiKey}
+                          onChange={(event) =>
+                            setOpenAiApiKey(event.target.value)
+                          }
+                          disabled={formDisabled}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                        <div className="session-auth-hint">
+                          La cle est utilisee pour connecter l'agent OpenAI.
+                        </div>
+                      </>
+                    )}
+                    {openAiAuthMode === "authFile" && (
+                      <>
+                        <input
+                          type="file"
+                          accept="application/json,.json"
+                          onChange={(event) =>
+                            setOpenAiAuthFile(event.target.files?.[0] || null)
+                          }
+                          disabled={formDisabled}
+                        />
+                        <div className="session-auth-hint">
+                          Le fichier est copie dans ~/.codex/auth.json.
+                        </div>
+                      </>
+                    )}
                   </div>
-                  {llmProvider === "codex" ? (
-                    <>
-                      <div className="session-auth-options">
-                        <label className="session-auth-option">
-                          <input
-                            type="radio"
-                            name="openAiAuthMode"
-                            value="apiKey"
-                            checked={openAiAuthMode === "apiKey"}
-                            onChange={() => setOpenAiAuthMode("apiKey")}
-                            disabled={formDisabled}
-                          />
-                          API Key
-                        </label>
-                        <label className="session-auth-option">
-                          <input
-                            type="radio"
-                            name="openAiAuthMode"
-                            value="authFile"
-                            checked={openAiAuthMode === "authFile"}
-                            onChange={() => setOpenAiAuthMode("authFile")}
-                            disabled={formDisabled}
-                          />
-                          Fichier d'authentification (auth.json)
-                        </label>
-                      </div>
-                      {openAiAuthMode === "apiKey" && (
-                        <>
-                          <input
-                            type="password"
-                            placeholder="sk-..."
-                            value={openAiApiKey}
-                            onChange={(event) =>
-                              setOpenAiApiKey(event.target.value)
-                            }
-                            disabled={formDisabled}
-                            autoComplete="off"
-                            spellCheck={false}
-                          />
-                          <div className="session-auth-hint">
-                            La cle est utilisee pour connecter l'agent OpenAI.
-                          </div>
-                        </>
-                      )}
-                      {openAiAuthMode === "authFile" && (
-                        <>
-                          <input
-                            type="file"
-                            accept="application/json,.json"
-                            onChange={(event) =>
-                              setOpenAiAuthFile(event.target.files?.[0] || null)
-                            }
-                            disabled={formDisabled}
-                          />
-                          <div className="session-auth-hint">
-                            Le fichier est copie dans ~/.codex/auth.json.
-                          </div>
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <input
-                        type="file"
-                        accept="application/json,.json"
-                        onChange={(event) =>
-                          setClaudeAuthFile(event.target.files?.[0] || null)
-                        }
-                        disabled={formDisabled}
-                      />
-                      <div className="session-auth-hint">
-                        Le fichier est copie dans ~/.claude/.credentials.json.
-                      </div>
-                    </>
-                  )}
-                </div>
+                )}
+                {selectedProviders.includes("claude") && (
+                  <div className="session-auth">
+                    <div className="session-auth-title">
+                      Authentification Claude
+                    </div>
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      onChange={(event) =>
+                        setClaudeAuthFile(event.target.files?.[0] || null)
+                      }
+                      disabled={formDisabled}
+                    />
+                    <div className="session-auth-hint">
+                      Le fichier est copie dans ~/.claude/.credentials.json.
+                    </div>
+                  </div>
+                )}
                 <div className="session-form-row">
                   <div />
-                  <button type="submit" disabled={formDisabled}>
-                    {llmAuthPending
+                  <button type="submit" disabled={submitDisabled}>
+                    {anyAuthPending
                       ? "Connexion..."
                       : sessionRequested
                       ? "Chargement..."
@@ -2839,18 +2937,23 @@ function App() {
               </form>
             </>
           )}
-          {llmAuthPending && hasSession && (
+          {anyAuthPending && hasSession && (
             <div className="session-hint">
-              {llmProvider === "claude"
-                ? "Authentification Claude en cours..."
-                : "Authentification OpenAI en cours..."}
+              {openAiLoginPending && claudeLoginPending
+                ? "Authentification OpenAI et Claude en cours..."
+                : openAiLoginPending
+                ? "Authentification OpenAI en cours..."
+                : "Authentification Claude en cours..."}
             </div>
           )}
           {attachmentsError && (
             <div className="attachments-error">{attachmentsError}</div>
           )}
-          {llmAuthError && (
-            <div className="attachments-error">{llmAuthError}</div>
+          {openAiLoginError && (
+            <div className="attachments-error">{openAiLoginError}</div>
+          )}
+          {claudeLoginError && (
+            <div className="attachments-error">{claudeLoginError}</div>
           )}
         </div>
       </div>
@@ -2892,13 +2995,13 @@ function App() {
               type="button"
               className={`status-pill ${providerSwitching ? "busy" : ""}`}
               style={{ cursor: "pointer" }}
-              onClick={() =>
-                handleProviderSwitch(
-                  llmProvider === "codex" ? "claude" : "codex"
-                )
+              onClick={() => handleProviderSwitch(nextProvider)}
+              disabled={providerSwitching || processing || !canSwitchProvider}
+              title={
+                canSwitchProvider
+                  ? "Cliquez pour changer de provider"
+                  : "Provider unique"
               }
-              disabled={providerSwitching || processing}
-              title="Cliquez pour changer de provider"
             >
               {providerSwitching
                 ? "Basculement..."
@@ -3072,12 +3175,8 @@ function App() {
                         className={`menu-item ${
                           providerSwitching ? "is-active" : ""
                         }`}
-                        onClick={() =>
-                          handleProviderSwitch(
-                            llmProvider === "codex" ? "claude" : "codex"
-                          )
-                        }
-                        disabled={providerSwitching || processing}
+                        onClick={() => handleProviderSwitch(nextProvider)}
+                        disabled={providerSwitching || processing || !canSwitchProvider}
                       >
                         {providerSwitching
                           ? "Basculement..."
@@ -3427,6 +3526,7 @@ function App() {
             onClose={closeWorktree}
             onRename={renameWorktreeHandler}
             provider={llmProvider}
+            providers={availableProviders.length ? availableProviders : [llmProvider]}
             disabled={!connected}
           />
 

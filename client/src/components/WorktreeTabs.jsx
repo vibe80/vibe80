@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 const STATUS_ICONS = {
   creating: "◌",
@@ -24,13 +24,21 @@ export default function WorktreeTabs({
   onClose,
   onRename,
   provider,
+  providers,
   disabled,
 }) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
   const [newName, setNewName] = useState("");
-  const [newProvider, setNewProvider] = useState(provider || "codex");
+  const providerOptions = useMemo(
+    () =>
+      Array.isArray(providers) && providers.length
+        ? providers
+        : [provider || "codex"],
+    [providers, provider]
+  );
+  const [newProvider, setNewProvider] = useState(providerOptions[0]);
   const editInputRef = useRef(null);
   const createInputRef = useRef(null);
 
@@ -47,6 +55,12 @@ export default function WorktreeTabs({
     }
   }, [createDialogOpen]);
 
+  useEffect(() => {
+    if (!providerOptions.includes(newProvider)) {
+      setNewProvider(providerOptions[0]);
+    }
+  }, [providerOptions, newProvider]);
+
   const handleCreate = () => {
     if (onCreate) {
       onCreate({
@@ -55,7 +69,7 @@ export default function WorktreeTabs({
       });
     }
     setNewName("");
-    setNewProvider(provider || "codex");
+    setNewProvider(providerOptions[0]);
     setCreateDialogOpen(false);
   };
 
@@ -184,9 +198,17 @@ export default function WorktreeTabs({
             </div>
             <div className="worktree-create-field">
               <label>Provider</label>
-              <select value={newProvider} onChange={(e) => setNewProvider(e.target.value)}>
-                <option value="codex">Codex (OpenAI)</option>
-                <option value="claude">Claude</option>
+              <select
+                value={newProvider}
+                onChange={(e) => setNewProvider(e.target.value)}
+                disabled={providerOptions.length <= 1}
+              >
+                {providerOptions.includes("codex") && (
+                  <option value="codex">Codex (OpenAI)</option>
+                )}
+                {providerOptions.includes("claude") && (
+                  <option value="claude">Claude</option>
+                )}
               </select>
             </div>
             <div className="worktree-create-actions">
