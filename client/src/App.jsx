@@ -1722,7 +1722,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!repoUrl) {
+    if (!repoUrl || attachmentSession?.sessionId) {
       return;
     }
     const createAttachmentSession = async () => {
@@ -1778,7 +1778,7 @@ function App() {
     };
 
     createAttachmentSession();
-  }, [repoUrl, repoAuth, llmProvider, selectedProviders]);
+  }, [repoUrl, repoAuth, llmProvider, selectedProviders, attachmentSession?.sessionId]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
