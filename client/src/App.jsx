@@ -74,6 +74,7 @@ const LLM_PROVIDER_KEY = "llmProvider";
 const LLM_PROVIDERS_KEY = "llmProviders";
 const CHAT_COMMANDS_VISIBLE_KEY = "chatCommandsVisible";
 const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
+const THEME_MODE_KEY = "themeMode";
 const MAX_REPO_HISTORY = 10;
 const SOCKET_PING_INTERVAL_MS = 25000;
 const SOCKET_PONG_GRACE_MS = 8000;
@@ -238,6 +239,18 @@ const readNotificationsEnabled = () => {
   return true;
 };
 
+const readThemeMode = () => {
+  try {
+    const stored = localStorage.getItem(THEME_MODE_KEY);
+    if (stored === "light" || stored === "dark") {
+      return stored;
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return "light";
+};
+
 const readLlmProvider = () => {
   try {
     const stored = localStorage.getItem(LLM_PROVIDER_KEY);
@@ -358,6 +371,7 @@ function App() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     readNotificationsEnabled
   );
+  const [themeMode, setThemeMode] = useState(readThemeMode);
   const soundEnabled = notificationsEnabled;
   const [choiceSelections, setChoiceSelections] = useState({});
   const [activePane, setActivePane] = useState("chat");
@@ -731,6 +745,18 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [notificationsEnabled]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_MODE_KEY, themeMode);
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [themeMode]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = themeMode;
+  }, [themeMode]);
 
   const loadBranches = useCallback(async () => {
     if (!attachmentSession?.sessionId) {
@@ -3923,6 +3949,22 @@ function App() {
                   checked={notificationsEnabled}
                   onChange={(event) =>
                     setNotificationsEnabled(event.target.checked)
+                  }
+                />
+              </label>
+              <label className="settings-item">
+                <span className="settings-text">
+                  <span className="settings-name">Mode sombre</span>
+                  <span className="settings-hint">
+                    Active le thème sombre pour l'interface.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="settings-toggle"
+                  checked={themeMode === "dark"}
+                  onChange={(event) =>
+                    setThemeMode(event.target.checked ? "dark" : "light")
                   }
                 />
               </label>

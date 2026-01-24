@@ -11,7 +11,25 @@
   --accent-dark: #b43c24;
   --surface: #ffffff;
   --shadow: 0 20px 60px rgba(20, 19, 17, 0.12);
+  --app-bg: radial-gradient(circle at top left, #fff6df, transparent 60%),
+    radial-gradient(circle at 20% 20%, #f6dbc7, transparent 55%),
+    linear-gradient(160deg, #f4efe6, #efe5d3);
   --radius: 20px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e0f0e;
+  --bg-strong: #171a18;
+  --ink: #f2ede3;
+  --ink-muted: #b7ada1;
+  --accent: #ee5d3b;
+  --accent-dark: #d9573c;
+  --surface: #171a19;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --app-bg: radial-gradient(circle at top left, #1b211f, transparent 60%),
+    radial-gradient(circle at 20% 20%, #261a16, transparent 55%),
+    linear-gradient(160deg, #0f1110, #141816);
 }
 
 * {
@@ -24,9 +42,7 @@ body {
   min-height: 100vh;
   height: 100dvh;
   min-height: 100dvh;
-  background: radial-gradient(circle at top left, #fff6df, transparent 60%),
-    radial-gradient(circle at 20% 20%, #f6dbc7, transparent 55%),
-    linear-gradient(160deg, #f4efe6, #efe5d3);
+  background: var(--app-bg);
   color: var(--ink);
   overflow: hidden;
 }
@@ -93,7 +109,7 @@ body {
 }
 
 .session-form select {
-  background: white;
+  background: var(--surface);
   cursor: pointer;
 }
 
@@ -243,7 +259,7 @@ body {
 
 .icon-button {
   border: 1px solid rgba(20, 19, 17, 0.16);
-  background: white;
+  background: var(--surface);
   color: var(--ink);
   border-radius: 12px;
   width: 38px;
@@ -274,7 +290,7 @@ body {
 .pill-button {
   border-radius: 999px;
   border: 1px solid rgba(20, 19, 17, 0.16);
-  background: white;
+  background: var(--surface);
   color: var(--ink);
   font-weight: 600;
   font-size: 12px;
@@ -389,7 +405,7 @@ body {
   border: 1px solid rgba(20, 19, 17, 0.16);
   padding: 6px 10px;
   font-size: 13px;
-  background: white;
+  background: var(--surface);
   color: var(--ink);
 }
 
@@ -981,7 +997,7 @@ main.chat {
 .diff-action-button {
   border-radius: 999px;
   border: 1px solid rgba(20, 19, 17, 0.16);
-  background: white;
+  background: var(--surface);
   padding: 5px 10px;
   font-size: 11px;
   font-weight: 700;
@@ -1040,7 +1056,7 @@ main.chat {
   border: 1px solid rgba(20, 19, 17, 0.08);
   border-radius: 12px;
   overflow: hidden;
-  background: white;
+  background: var(--surface);
 }
 
 .diff-file-header {
@@ -1296,7 +1312,7 @@ main.chat {
 }
 
 .attachment-modal-body {
-  background: white;
+  background: var(--surface);
   border-radius: 16px;
   padding: 14px;
   max-width: 92vw;
@@ -1325,7 +1341,7 @@ main.chat {
   top: 16px;
   right: 16px;
   border: none;
-  background: white;
+  background: var(--surface);
   color: var(--ink);
   border-radius: 999px;
   width: 36px;
