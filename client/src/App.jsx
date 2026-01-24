@@ -75,6 +75,7 @@ const LLM_PROVIDERS_KEY = "llmProviders";
 const CHAT_COMMANDS_VISIBLE_KEY = "chatCommandsVisible";
 const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const THEME_MODE_KEY = "themeMode";
+const COMPOSER_INPUT_MODE_KEY = "composerInputMode";
 const MAX_REPO_HISTORY = 10;
 const SOCKET_PING_INTERVAL_MS = 25000;
 const SOCKET_PONG_GRACE_MS = 8000;
@@ -251,6 +252,18 @@ const readThemeMode = () => {
   return "light";
 };
 
+const readComposerInputMode = () => {
+  try {
+    const stored = localStorage.getItem(COMPOSER_INPUT_MODE_KEY);
+    if (stored === "single" || stored === "multi") {
+      return stored;
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return "multi";
+};
+
 const readLlmProvider = () => {
   try {
     const stored = localStorage.getItem(LLM_PROVIDER_KEY);
@@ -372,6 +385,9 @@ function App() {
     readNotificationsEnabled
   );
   const [themeMode, setThemeMode] = useState(readThemeMode);
+  const [composerInputMode, setComposerInputMode] = useState(
+    readComposerInputMode
+  );
   const soundEnabled = notificationsEnabled;
   const [choiceSelections, setChoiceSelections] = useState({});
   const [activePane, setActivePane] = useState("chat");
@@ -753,6 +769,14 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [themeMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COMPOSER_INPUT_MODE_KEY, composerInputMode);
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [composerInputMode]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
@@ -3970,6 +3994,22 @@ function App() {
                   }
                 />
               </label>
+              <label className="settings-item">
+                <span className="settings-text">
+                  <span className="settings-name">Style de l'input</span>
+                  <span className="settings-hint">
+                    Choisissez un champ de saisie mono ou multiligne.
+                  </span>
+                </span>
+                <select
+                  className="settings-select"
+                  value={composerInputMode}
+                  onChange={(event) => setComposerInputMode(event.target.value)}
+                >
+                  <option value="single">Monoligne</option>
+                  <option value="multi">Multiligne</option>
+                </select>
+              </label>
             </div>
           </div>
           </div>
@@ -4048,12 +4088,14 @@ function App() {
                 className="visually-hidden"
               />
               <textarea
-                className="composer-input"
+                className={`composer-input ${
+                  composerInputMode === "single" ? "is-single" : "is-multi"
+                }`}
                 value={input}
                 onChange={handleInputChange}
                 onPaste={onPasteAttachments}
                 placeholder="Écris ton message…"
-                rows={isMobileLayout ? 1 : 2}
+                rows={composerInputMode === "single" ? 1 : 2}
                 ref={inputRef}
               />
               {canInterrupt ? (

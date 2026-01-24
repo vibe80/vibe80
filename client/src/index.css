@@ -863,6 +863,16 @@ main.chat {
   accent-color: #1f2a44;
 }
 
+.settings-select {
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .is-hidden {
   display: none;
 }
@@ -1650,6 +1660,16 @@ main.chat {
   background: var(--surface);
   resize: none;
   outline: none;
+}
+
+.composer-input.is-single {
+  min-height: 42px;
+  height: 42px;
+  overflow: hidden;
+}
+
+.composer-input.is-multi {
+  min-height: 64px;
 }
 
 .composer-input:focus {
