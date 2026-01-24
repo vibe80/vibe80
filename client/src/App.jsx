@@ -116,6 +116,30 @@ const getAttachmentName = (attachment) => {
   return "";
 };
 
+const getAttachmentExtension = (attachment) => {
+  const name = getAttachmentName(attachment);
+  if (!name || !name.includes(".")) {
+    return "FILE";
+  }
+  const ext = name.split(".").pop();
+  return ext ? ext.toUpperCase() : "FILE";
+};
+
+const formatAttachmentSize = (bytes) => {
+  if (!Number.isFinite(bytes)) {
+    return "";
+  }
+  if (bytes < 1024) {
+    return `${bytes} o`;
+  }
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${Math.round(kb)} Ko`;
+  }
+  const mb = kb / 1024;
+  return `${mb.toFixed(1)} Mo`;
+};
+
 const normalizeAttachments = (attachments) => {
   if (!Array.isArray(attachments)) {
     return [];
@@ -368,6 +392,8 @@ function App() {
   const inputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const moreMenuRef = useRef(null);
+  const conversationRef = useRef(null);
+  const composerRef = useRef(null);
   const initialBranchRef = useRef("");
   const terminalContainerRef = useRef(null);
   const terminalRef = useRef(null);
@@ -2793,6 +2819,36 @@ function App() {
     inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
   }, [input, isMobileLayout]);
 
+  useEffect(() => {
+    if (!conversationRef.current || !composerRef.current) {
+      return undefined;
+    }
+    const updateComposerSpace = () => {
+      if (!conversationRef.current || !composerRef.current) {
+        return;
+      }
+      const rect = composerRef.current.getBoundingClientRect();
+      const extra = isMobileLayout ? 12 : 16;
+      conversationRef.current.style.setProperty(
+        "--composer-space",
+        `${Math.ceil(rect.height + extra)}px`
+      );
+    };
+    updateComposerSpace();
+    let observer;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(updateComposerSpace);
+      observer.observe(composerRef.current);
+    }
+    window.addEventListener("resize", updateComposerSpace);
+    return () => {
+      window.removeEventListener("resize", updateComposerSpace);
+      if (observer) {
+        observer.disconnect();
+      }
+    };
+  }, [isMobileLayout, draftAttachments.length]);
+
   const handleChoiceClick = (choice, blockKey, choiceIndex) => {
     setChoiceSelections((prev) => ({
       ...prev,
@@ -3181,12 +3237,29 @@ function App() {
               {repoName || attachmentSession?.sessionId || "Session"}
             </div>
           </div>
-          <div
-            className={`status-pill ${
-              processing ? "busy" : connected ? "ok" : "down"
-            }`}
-          >
-            {processing ? "Génération…" : connected ? "Connecté" : status}
+          <div className="topbar-tabs">
+            <WorktreeTabs
+              worktrees={allTabs}
+              activeWorktreeId={activeWorktreeId}
+              onSelect={setActiveWorktreeId}
+              onCreate={createWorktree}
+              onClose={closeWorktree}
+              onRename={renameWorktreeHandler}
+              provider={llmProvider}
+              providers={
+                availableProviders.length
+                  ? availableProviders
+                  : [llmProvider]
+              }
+              branches={branches}
+              defaultBranch={defaultBranch || currentBranch}
+              branchLoading={branchLoading}
+              branchError={branchError}
+              onRefreshBranches={loadBranches}
+              providerModelState={providerModelState}
+              onRequestProviderModels={loadProviderModels}
+              disabled={!connected}
+            />
           </div>
         </div>
 
@@ -3355,27 +3428,7 @@ function App() {
           </div>
         </aside>
 
-        <section className="conversation">
-          {/* Worktree Tabs - Always visible */}
-          <WorktreeTabs
-            worktrees={allTabs}
-            activeWorktreeId={activeWorktreeId}
-            onSelect={setActiveWorktreeId}
-            onCreate={createWorktree}
-            onClose={closeWorktree}
-            onRename={renameWorktreeHandler}
-            provider={llmProvider}
-            providers={availableProviders.length ? availableProviders : [llmProvider]}
-            branches={branches}
-            defaultBranch={defaultBranch || currentBranch}
-            branchLoading={branchLoading}
-            branchError={branchError}
-            onRefreshBranches={loadBranches}
-            providerModelState={providerModelState}
-            onRequestProviderModels={loadProviderModels}
-            disabled={!connected}
-          />
-
+        <section className="conversation" ref={conversationRef}>
           <div className="pane-stack">
             <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
               <div className="chat-scroll" ref={listRef}>
@@ -3810,7 +3863,56 @@ function App() {
           </div>
           </div>
 
-          <form className="composer composer--sticky" onSubmit={onSubmit}>
+          <form
+            className="composer composer--sticky"
+            onSubmit={onSubmit}
+            ref={composerRef}
+          >
+            {draftAttachments.length ? (
+              <div
+                className="composer-attachments"
+                aria-label="Pièces sélectionnées"
+              >
+                {draftAttachments.map((attachment) => {
+                  const label = attachment?.name || attachment?.path || "";
+                  const key = attachment?.path || attachment?.name || label;
+                  const extension = getAttachmentExtension(attachment);
+                  const sizeLabel =
+                    attachment?.lineCount || attachment?.lines
+                      ? `${attachment.lineCount || attachment.lines} lignes`
+                      : formatAttachmentSize(attachment?.size);
+                  return (
+                    <div className="attachment-card" key={key}>
+                      <div className="attachment-card-body">
+                        <div className="attachment-card-title">{label}</div>
+                        {sizeLabel ? (
+                          <div className="attachment-card-meta">
+                            {sizeLabel}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="attachment-card-footer">
+                        <span className="attachment-card-type">
+                          {extension}
+                        </span>
+                        <button
+                          type="button"
+                          className="attachment-card-remove"
+                          aria-label={`Retirer ${label}`}
+                          onClick={() =>
+                            removeDraftAttachment(
+                              attachment?.path || attachment?.name
+                            )
+                          }
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
             <div className="composer-main">
               <button
                 type="button"
@@ -3840,7 +3942,7 @@ function App() {
                 onChange={handleInputChange}
                 onPaste={onPasteAttachments}
                 placeholder="Écris ton message…"
-                rows={isMobileLayout ? 1 : 3}
+                rows={isMobileLayout ? 1 : 2}
                 ref={inputRef}
               />
               <button
@@ -3868,48 +3970,9 @@ function App() {
                       Stop
                     </button>
                   ) : null}
-                  {!isMobileLayout && (
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={addToBacklog}
-                      disabled={!input.trim()}
-                    >
-                      Ajouter à la backlog
-                    </button>
-                  )}
                 </div>
               </div>
             )}
-
-            {draftAttachments.length ? (
-              <div className="composer-chips" aria-label="Pièces sélectionnées">
-                {draftAttachments.slice(0, 3).map((attachment) => {
-                  const label = attachment?.name || attachment?.path || "";
-                  const key = attachment?.path || attachment?.name || label;
-                  return (
-                    <button
-                      type="button"
-                      className="chip chip--removable"
-                      key={key}
-                      onClick={() =>
-                        removeDraftAttachment(
-                          attachment?.path || attachment?.name
-                        )
-                      }
-                    >
-                      {label}
-                      <span className="chip-remove">×</span>
-                    </button>
-                  );
-                })}
-                {draftAttachments.length > 3 ? (
-                  <span className="chip chip-muted">
-                    +{draftAttachments.length - 3}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
             {attachmentsError && (
               <div className="attachments-error composer-attachments-error">
                 {attachmentsError}

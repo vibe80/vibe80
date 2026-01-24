@@ -420,15 +420,17 @@ export default function WorktreeTabs({
       <style>{`
         .worktree-tabs-container {
           width: 100%;
+          min-width: 0;
         }
 
         .worktree-tabs {
           display: flex;
           align-items: center;
           gap: 4px;
-          padding: 8px 12px;
-          background: rgba(255, 255, 255, 0.5);
-          border-radius: 12px 12px 0 0;
+          padding: 6px 10px;
+          background: rgba(20, 19, 17, 0.04);
+          border-radius: 999px;
+          border: 1px solid rgba(20, 19, 17, 0.1);
           overflow-x: auto;
           scrollbar-width: thin;
         }
