@@ -384,6 +384,28 @@ function App() {
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
+  const getItemActivityLabel = (item) => {
+    if (!item?.type) {
+      return "";
+    }
+    if (item.type === "commandExecution") {
+      const command = item.commandActions?.command || item.command || "Commande";
+      return `Commande: ${command}`;
+    }
+    if (item.type === "fileChange") {
+      return "Application de modifications...";
+    }
+    if (item.type === "mcpToolCall") {
+      return `Outil: ${item.tool}`;
+    }
+    if (item.type === "reasoning") {
+      return "Raisonnement...";
+    }
+    if (item.type === "agentMessage") {
+      return "Generation de reponse...";
+    }
+    return "";
+  };
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
@@ -1440,9 +1462,8 @@ function App() {
             return;
           }
           if (item.type === "commandExecution") {
-            const command =
-              item.commandActions?.command || item.command || "Commande";
-            setActivity(`Commande: ${command}`);
+            const label = getItemActivityLabel(item);
+            setActivity(label);
             if (!item.id) {
               return;
             }
@@ -1451,7 +1472,8 @@ function App() {
               const existingIndex = commandIndex.get(item.id);
               if (existingIndex !== undefined) {
                 const updated = { ...next[existingIndex] };
-                updated.command = command;
+                updated.command =
+                  item.commandActions?.command || item.command || "Commande";
                 updated.status = "running";
                 next[existingIndex] = updated;
                 return next;
@@ -1459,7 +1481,8 @@ function App() {
               const entry = {
                 id: item.id,
                 role: "commandExecution",
-                command,
+                command:
+                  item.commandActions?.command || item.command || "Commande",
                 output: "",
                 isExpandable: false,
                 status: "running",
@@ -1470,20 +1493,9 @@ function App() {
             });
             return;
           }
-          if (item.type === "fileChange") {
-            setActivity("Application de modifications...");
-            return;
-          }
-          if (item.type === "mcpToolCall") {
-            setActivity(`Outil: ${item.tool}`);
-            return;
-          }
-          if (item.type === "reasoning") {
-            setActivity("Raisonnement...");
-            return;
-          }
-          if (item.type === "agentMessage") {
-            setActivity("Generation de reponse...");
+          const label = getItemActivityLabel(item);
+          if (label) {
+            setActivity(label);
           }
         }
 
@@ -1533,6 +1545,8 @@ function App() {
               status: payload.status || "creating",
               color: payload.color,
               messages: [],
+              activity: "",
+              currentTurnId: null,
             });
             return next;
           });
@@ -1593,7 +1607,12 @@ function App() {
           if (Array.isArray(payload.worktrees)) {
             const newMap = new Map();
             payload.worktrees.forEach((wt) => {
-              newMap.set(wt.id, { ...wt, messages: [] });
+              newMap.set(wt.id, {
+                ...wt,
+                messages: [],
+                activity: "",
+                currentTurnId: null,
+              });
             });
             setWorktrees(newMap);
             payload.worktrees.forEach((wt) => {
@@ -1663,7 +1682,12 @@ function App() {
               const next = new Map(current);
               const wt = next.get(wtId);
               if (wt) {
-                next.set(wtId, { ...wt, status: "processing", currentTurnId: payload.turnId });
+                next.set(wtId, {
+                  ...wt,
+                  status: "processing",
+                  currentTurnId: payload.turnId,
+                  activity: "Traitement en cours...",
+                });
               }
               return next;
             });
@@ -1674,7 +1698,12 @@ function App() {
               const next = new Map(current);
               const wt = next.get(wtId);
               if (wt) {
-                next.set(wtId, { ...wt, status: "ready", currentTurnId: null });
+                next.set(wtId, {
+                  ...wt,
+                  status: "ready",
+                  currentTurnId: null,
+                  activity: "",
+                });
               }
               return next;
             });
@@ -1774,6 +1803,22 @@ function App() {
               return next;
             });
           }
+        }
+
+        if (payload.worktreeId && payload.type === "item_started") {
+          const label = getItemActivityLabel(payload.item);
+          if (!label) {
+            return;
+          }
+          const wtId = payload.worktreeId;
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(wtId);
+            if (wt) {
+              next.set(wtId, { ...wt, activity: label });
+            }
+            return next;
+          });
         }
 
         // ============== End Worktree WebSocket Handlers ==============
@@ -2640,6 +2685,10 @@ function App() {
 
   const isWorktreeProcessing = activeWorktree?.status === "processing";
   const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
+  const currentActivity = isInWorktree ? activeWorktree?.activity || "" : activity;
+  const currentTurnIdForActive = isInWorktree
+    ? activeWorktree?.currentTurnId
+    : currentTurnId;
 
   // Handle send message - route to worktree or legacy
   const handleSendMessage = useCallback(
@@ -2691,11 +2740,29 @@ function App() {
   };
 
   const interruptTurn = () => {
-    if (!currentTurnId || !socketRef.current) {
+    if (!currentTurnIdForActive || !socketRef.current) {
+      return;
+    }
+    if (isInWorktree && activeWorktreeId) {
+      socketRef.current.send(
+        JSON.stringify({
+          type: "worktree_turn_interrupt",
+          worktreeId: activeWorktreeId,
+          turnId: currentTurnIdForActive,
+        })
+      );
+      setWorktrees((current) => {
+        const next = new Map(current);
+        const wt = next.get(activeWorktreeId);
+        if (wt) {
+          next.set(activeWorktreeId, { ...wt, activity: "Interruption..." });
+        }
+        return next;
+      });
       return;
     }
     socketRef.current.send(
-      JSON.stringify({ type: "turn_interrupt", turnId: currentTurnId })
+      JSON.stringify({ type: "turn_interrupt", turnId: currentTurnIdForActive })
     );
     setActivity("Interruption...");
   };
@@ -3631,19 +3698,19 @@ function App() {
                   );
                 })}
               </div>
-              {processing && (
+              {currentProcessing && (
                 <div className="bubble assistant typing">
                   <div className="typing-indicator">
                     <div
                       className="loader"
-                      title={activity || "Traitement en cours..."}
+                      title={currentActivity || "Traitement en cours..."}
                     >
                       <span className="dot" />
                       <span className="dot" />
                       <span className="dot" />
                     </div>
                     <span className="typing-text">
-                      {activity || "Traitement en cours..."}
+                      {currentActivity || "Traitement en cours..."}
                     </span>
                   </div>
                 </div>
@@ -3955,13 +4022,13 @@ function App() {
               </button>
             </div>
 
-            {(!isMobileLayout || (processing && currentTurnId)) && (
+            {(!isMobileLayout || (currentProcessing && currentTurnIdForActive)) && (
               <div className="composer-meta">
                 <div className="composer-attachments-count">
                   Pièces: {draftAttachments.length}
                 </div>
                 <div className="composer-actions">
-                  {processing && currentTurnId ? (
+                  {currentProcessing && currentTurnIdForActive ? (
                     <button
                       type="button"
                       className="ghost"
