@@ -73,6 +73,23 @@ const runCommandOutput = (command, args, options = {}) =>
     });
   });
 
+const resolveStartingRef = (startingBranch, remote = "origin") => {
+  if (!startingBranch || typeof startingBranch !== "string") {
+    return null;
+  }
+  const trimmed = startingBranch.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.startsWith("refs/")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith(`${remote}/`)) {
+    return trimmed;
+  }
+  return `${remote}/${trimmed}`;
+};
+
 /**
  * Génère un nom de worktree à partir du premier message ou un nom par défaut
  */
@@ -99,10 +116,12 @@ const generateWorktreeName = (text, index) => {
  * @param {string} [options.name] - Nom personnalisé pour le worktree
  * @param {string} [options.parentWorktreeId] - ID du worktree parent (pour forker)
  * @param {string} [options.startingBranch] - Branche de départ (défaut: HEAD actuel)
+ * @param {string} [options.model] - Modèle LLM (si supporté)
+ * @param {string} [options.reasoningEffort] - Niveau de reasoning (si supporté)
  * @returns {Promise<object>} L'entrée worktree créée
  */
 export async function createWorktree(session, options) {
-  const { provider, name, parentWorktreeId, startingBranch } = options;
+  const { provider, name, parentWorktreeId, startingBranch, model, reasoningEffort } = options;
 
   // Initialiser la Map des worktrees si nécessaire
   if (!session.worktrees) {
@@ -134,7 +153,7 @@ export async function createWorktree(session, options) {
     });
     startCommit = startCommit.trim();
   } else if (startingBranch) {
-    startCommit = startingBranch;
+    startCommit = resolveStartingRef(startingBranch) || startingBranch;
   }
 
   // Créer la branche
@@ -154,6 +173,9 @@ export async function createWorktree(session, options) {
     branchName,
     path: worktreePath,
     provider,
+    model: model || null,
+    reasoningEffort: reasoningEffort || null,
+    startingBranch: startingBranch || null,
     client: null,
     messages: [],
     status: "creating",

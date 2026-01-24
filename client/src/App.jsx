@@ -346,11 +346,12 @@ function App() {
   const [selectedReasoningEffort, setSelectedReasoningEffort] = useState("");
   const [modelLoading, setModelLoading] = useState(false);
   const [modelError, setModelError] = useState("");
+  const [providerModelState, setProviderModelState] = useState({});
   const [branches, setBranches] = useState([]);
   const [currentBranch, setCurrentBranch] = useState("");
+  const [defaultBranch, setDefaultBranch] = useState("");
   const [branchLoading, setBranchLoading] = useState(false);
   const [branchError, setBranchError] = useState("");
-  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   // Worktree states for parallel LLM requests
@@ -360,16 +361,14 @@ function App() {
     window.matchMedia("(max-width: 1024px)").matches
   );
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const uploadInputRef = useRef(null);
-  const settingsRef = useRef(null);
   const moreMenuRef = useRef(null);
-  const branchRef = useRef(null);
+  const initialBranchRef = useRef("");
   const terminalContainerRef = useRef(null);
   const terminalRef = useRef(null);
   const terminalFitRef = useRef(null);
@@ -578,27 +577,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!settingsOpen && !moreMenuOpen && !branchMenuOpen) {
+    if (!moreMenuOpen) {
       return;
     }
     const handlePointerDown = (event) => {
       const target = event.target;
-      if (settingsOpen && settingsRef.current?.contains(target)) {
+      if (moreMenuRef.current?.contains(target)) {
         return;
       }
-      if (moreMenuOpen && moreMenuRef.current?.contains(target)) {
-        return;
-      }
-      if (branchMenuOpen && branchRef.current?.contains(target)) {
-        return;
-      }
-      setSettingsOpen(false);
       setMoreMenuOpen(false);
-      setBranchMenuOpen(false);
     };
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [settingsOpen, moreMenuOpen, branchMenuOpen]);
+  }, [moreMenuOpen]);
 
   useEffect(() => {
     if (!choicesKey) {
@@ -709,6 +700,10 @@ function App() {
       }
       setBranches(Array.isArray(payload.branches) ? payload.branches : []);
       setCurrentBranch(payload.current || "");
+      if (!initialBranchRef.current && payload.current) {
+        initialBranchRef.current = payload.current;
+        setDefaultBranch(payload.current);
+      }
     } catch (error) {
       setBranchError(error.message || "Impossible de charger les branches.");
     } finally {
@@ -716,14 +711,64 @@ function App() {
     }
   }, [attachmentSession?.sessionId]);
 
+  const loadProviderModels = useCallback(
+    async (provider) => {
+      if (!attachmentSession?.sessionId || !provider) {
+        return;
+      }
+      setProviderModelState((current) => ({
+        ...current,
+        [provider]: {
+          ...(current?.[provider] || {}),
+          loading: true,
+          error: "",
+        },
+      }));
+      try {
+        const response = await fetch(
+          `/api/models?session=${encodeURIComponent(
+            attachmentSession.sessionId
+          )}&provider=${encodeURIComponent(provider)}`
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || "Impossible de charger les modeles.");
+        }
+        setProviderModelState((current) => ({
+          ...current,
+          [provider]: {
+            models: Array.isArray(payload.models) ? payload.models : [],
+            loading: false,
+            error: "",
+          },
+        }));
+      } catch (error) {
+        setProviderModelState((current) => ({
+          ...current,
+          [provider]: {
+            ...(current?.[provider] || {}),
+            loading: false,
+            error: error.message || "Impossible de charger les modeles.",
+          },
+        }));
+      }
+    },
+    [attachmentSession?.sessionId]
+  );
+
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
       setBranches([]);
       setCurrentBranch("");
+      setDefaultBranch("");
       setBranchError("");
-      setBranchMenuOpen(false);
+      initialBranchRef.current = "";
+      setProviderModelState({});
       return;
     }
+    initialBranchRef.current = "";
+    setDefaultBranch("");
+    setProviderModelState({});
     loadBranches();
   }, [attachmentSession?.sessionId, loadBranches]);
 
@@ -1305,6 +1350,16 @@ function App() {
         if (!isWorktreeScoped && payload.type === "model_list") {
           const list = Array.isArray(payload.models) ? payload.models : [];
           setModels(list);
+          if (payload.provider) {
+            setProviderModelState((current) => ({
+              ...current,
+              [payload.provider]: {
+                models: list,
+                loading: false,
+                error: "",
+              },
+            }));
+          }
           const defaultModel = list.find((model) => model.isDefault);
           if (defaultModel?.model) {
             setSelectedModel(defaultModel.model);
@@ -1417,6 +1472,14 @@ function App() {
           setProviderSwitching(false);
           if (Array.isArray(payload.models)) {
             setModels(payload.models);
+            setProviderModelState((current) => ({
+              ...current,
+              [payload.provider]: {
+                models: payload.models,
+                loading: false,
+                error: "",
+              },
+            }));
             const defaultModel = payload.models.find((m) => m.isDefault);
             if (defaultModel?.model) {
               setSelectedModel(defaultModel.model);
@@ -2385,7 +2448,7 @@ function App() {
   // ============== Worktree Functions ==============
 
   const createWorktree = useCallback(
-    ({ name, provider: wtProvider }) => {
+    ({ name, provider: wtProvider, startingBranch, model, reasoningEffort }) => {
       if (!socketRef.current || !connected) return;
 
       socketRef.current.send(
@@ -2395,6 +2458,9 @@ function App() {
             ? wtProvider
             : llmProvider,
           name: name || null,
+          startingBranch: startingBranch || null,
+          model: model || null,
+          reasoningEffort: reasoningEffort ?? null,
         })
       );
     },
@@ -3125,301 +3191,18 @@ function App() {
         </div>
 
         <div className="topbar-right">
-          {branchError && <div className="status-pill down">{branchError}</div>}
-          {modelError && <div className="status-pill down">{modelError}</div>}
-          {!isMobileLayout && hasSession && (
-            <button
-              type="button"
-              className={`status-pill ${providerSwitching ? "busy" : ""}`}
-              style={{ cursor: "pointer" }}
-              onClick={() => handleProviderSwitch(nextProvider)}
-              disabled={providerSwitching || processing || !canSwitchProvider}
-              title={
-                canSwitchProvider
-                  ? "Cliquez pour changer de provider"
-                  : "Provider unique"
-              }
-            >
-              {providerSwitching
-                ? "Basculement..."
-                : `LLM: ${llmProvider}`}
-            </button>
-          )}
-
-          {!isMobileLayout && (
-            <div className="dropdown" ref={branchRef}>
-              <button
-                type="button"
-                className="pill-button"
-                onClick={() => {
-                  setBranchMenuOpen((current) => {
-                    const next = !current;
-                    if (next && !branches.length && !branchLoading) {
-                      loadBranches();
-                    }
-                    return next;
-                  });
-                  setSettingsOpen(false);
-                  setMoreMenuOpen(false);
-                }}
-                disabled={
-                  !attachmentSession?.sessionId || branchLoading || processing
-                }
-              >
-                Branche: {currentBranch || "detachee"} ▾
-              </button>
-              {branchMenuOpen && (
-                <div className="dropdown-menu">
-                  <div className="dropdown-title">Branches</div>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={loadBranches}
-                    disabled={
-                      !attachmentSession?.sessionId ||
-                      branchLoading ||
-                      processing
-                    }
-                  >
-                    {branchLoading ? "Chargement…" : "Rafraîchir"}
-                  </button>
-                  <div className="dropdown-divider" />
-                  {branches.length ? (
-                    branches.map((branch) => (
-                      <button
-                        key={branch}
-                        type="button"
-                        className={`menu-item ${
-                          branch === currentBranch ? "is-active" : ""
-                        }`}
-                        onClick={() => handleBranchSelect(branch)}
-                        disabled={branchLoading || processing}
-                      >
-                        {branch}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="menu-label">Aucune branche distante</div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {!isMobileLayout && supportsModels && (
-            <div className="dropdown" ref={settingsRef}>
-              <button
-                type="button"
-                className="pill-button"
-                onClick={() => {
-                  setSettingsOpen((current) => !current);
-                  setMoreMenuOpen(false);
-                }}
-                disabled={!connected}
-              >
-                Modèle:{" "}
-                {selectedModelDetails?.displayName ||
-                  selectedModelDetails?.model ||
-                  "par défaut"}{" "}
-                ▾
-              </button>
-              {settingsOpen && (
-                <div className="dropdown-menu">
-                  <div className="dropdown-title">Paramètres</div>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={requestModelList}
-                    disabled={!connected || modelLoading}
-                  >
-                    {modelLoading ? "Chargement…" : "Rafraîchir la liste"}
-                  </button>
-                  <label className="menu-label">
-                    Modèle
-                    <select
-                      className="model-select"
-                      value={selectedModel}
-                      onChange={handleModelChange}
-                      disabled={
-                        !connected || models.length === 0 || modelLoading
-                      }
-                    >
-                      <option value="">Modele par defaut</option>
-                      {models.map((model) => (
-                        <option key={model.id} value={model.model}>
-                          {model.displayName || model.model}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="menu-label">
-                    Reasoning
-                    <select
-                      className="model-select"
-                      value={selectedReasoningEffort}
-                      onChange={handleReasoningEffortChange}
-                      disabled={
-                        !connected ||
-                        !selectedModelDetails ||
-                        !selectedModelDetails.supportedReasoningEfforts?.length ||
-                        modelLoading
-                      }
-                    >
-                      <option value="">Reasoning par defaut</option>
-                      {(selectedModelDetails?.supportedReasoningEfforts || []).map(
-                        (effort) => (
-                          <option
-                            key={effort.reasoningEffort}
-                            value={effort.reasoningEffort}
-                          >
-                            {effort.reasoningEffort}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </label>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="dropdown more-menu" ref={moreMenuRef}>
             <button
               type="button"
               className="pill-button"
               onClick={() => {
-                setMoreMenuOpen((current) => {
-                  const next = !current;
-                  if (next && isMobileLayout && !branches.length && !branchLoading) {
-                    loadBranches();
-                  }
-                  return next;
-                });
-                setSettingsOpen(false);
-                setBranchMenuOpen(false);
+                setMoreMenuOpen((current) => !current);
               }}
             >
               ⋯
             </button>
             {moreMenuOpen && (
               <div className="dropdown-menu">
-                {isMobileLayout && (
-                  <>
-                    <div className="dropdown-title">Session</div>
-                    {hasSession && (
-                      <button
-                        type="button"
-                        className={`menu-item ${
-                          providerSwitching ? "is-active" : ""
-                        }`}
-                        onClick={() => handleProviderSwitch(nextProvider)}
-                        disabled={providerSwitching || processing || !canSwitchProvider}
-                      >
-                        {providerSwitching
-                          ? "Basculement..."
-                          : `LLM: ${llmProvider}`}
-                      </button>
-                    )}
-                    <div className="menu-label">
-                      Branche
-                      <span>
-                        {currentBranch ? currentBranch : "detachee"}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="menu-item"
-                      onClick={loadBranches}
-                      disabled={
-                        !attachmentSession?.sessionId ||
-                        branchLoading ||
-                        processing
-                      }
-                    >
-                      {branchLoading ? "Chargement…" : "Rafraîchir les branches"}
-                    </button>
-                    {branches.length ? (
-                      branches.map((branch) => (
-                        <button
-                          key={`mobile-branch-${branch}`}
-                          type="button"
-                          className={`menu-item ${
-                            branch === currentBranch ? "is-active" : ""
-                          }`}
-                          onClick={() => handleBranchSelect(branch)}
-                          disabled={branchLoading || processing}
-                        >
-                          {branch}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="menu-label">Aucune branche distante</div>
-                    )}
-                    {supportsModels && (
-                      <>
-                        <div className="dropdown-divider" />
-                        <div className="dropdown-title">Modèle</div>
-                        <button
-                          type="button"
-                          className="menu-item"
-                          onClick={requestModelList}
-                          disabled={!connected || modelLoading}
-                        >
-                          {modelLoading
-                            ? "Chargement…"
-                            : "Rafraîchir la liste"}
-                        </button>
-                        <label className="menu-label">
-                          Modèle
-                          <select
-                            className="model-select"
-                            value={selectedModel}
-                            onChange={handleModelChange}
-                            disabled={
-                              !connected || models.length === 0 || modelLoading
-                            }
-                          >
-                            <option value="">Modele par defaut</option>
-                            {models.map((model) => (
-                              <option key={model.id} value={model.model}>
-                                {model.displayName || model.model}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="menu-label">
-                          Reasoning
-                          <select
-                            className="model-select"
-                            value={selectedReasoningEffort}
-                            onChange={handleReasoningEffortChange}
-                            disabled={
-                              !connected ||
-                              !selectedModelDetails ||
-                              !selectedModelDetails.supportedReasoningEfforts
-                                ?.length ||
-                              modelLoading
-                            }
-                          >
-                            <option value="">Reasoning par defaut</option>
-                            {(
-                              selectedModelDetails?.supportedReasoningEfforts ||
-                              []
-                            ).map((effort) => (
-                              <option
-                                key={effort.reasoningEffort}
-                                value={effort.reasoningEffort}
-                              >
-                                {effort.reasoningEffort}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </>
-                    )}
-                    <div className="dropdown-divider" />
-                  </>
-                )}
                 <div className="dropdown-title">Vue</div>
                 <button
                   type="button"
@@ -3583,6 +3366,13 @@ function App() {
             onRename={renameWorktreeHandler}
             provider={llmProvider}
             providers={availableProviders.length ? availableProviders : [llmProvider]}
+            branches={branches}
+            defaultBranch={defaultBranch || currentBranch}
+            branchLoading={branchLoading}
+            branchError={branchError}
+            onRefreshBranches={loadBranches}
+            providerModelState={providerModelState}
+            onRequestProviderModels={loadProviderModels}
             disabled={!connected}
           />
 

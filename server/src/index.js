@@ -1253,10 +1253,30 @@ wss.on("connection", (socket, req) => {
       }
 
       try {
+        const model = typeof payload.model === "string" ? payload.model : null;
+        const reasoningEffort =
+          typeof payload.reasoningEffort === "string" ? payload.reasoningEffort : null;
+        const startingBranch =
+          typeof payload.startingBranch === "string" ? payload.startingBranch.trim() : "";
+        if (startingBranch) {
+          const targetRef = startingBranch.replace(/^origin\//, "");
+          try {
+            await runCommand(
+              "git",
+              ["show-ref", "--verify", `refs/remotes/origin/${targetRef}`],
+              { cwd: session.repoDir }
+            );
+          } catch (error) {
+            throw new Error("Branche distante invalide.");
+          }
+        }
         const worktree = await createWorktree(session, {
           provider,
           name: payload.name || null,
           parentWorktreeId: payload.parentWorktreeId || null,
+          startingBranch: startingBranch || null,
+          model,
+          reasoningEffort,
         });
 
         // Attach events to the client
@@ -1270,6 +1290,12 @@ wss.on("connection", (socket, req) => {
           // Wait for client to be ready before sending initial message
           const startClient = async () => {
             await worktree.client.start();
+            if (
+              typeof worktree.client.setDefaultModel === "function" &&
+              (model || reasoningEffort)
+            ) {
+              await worktree.client.setDefaultModel(model || null, reasoningEffort ?? null);
+            }
 
             // Send initial message if provided
             if (payload.text) {
@@ -1896,6 +1922,46 @@ app.get("/api/branches", async (req, res) => {
       error: error?.message || error,
     });
     res.status(500).json({ error: "Failed to list branches." });
+  }
+});
+
+app.get("/api/models", async (req, res) => {
+  const session = getSession(req.query?.session);
+  const provider = req.query?.provider;
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  if (!isValidProvider(provider)) {
+    res.status(400).json({ error: "Invalid provider. Must be 'codex' or 'claude'." });
+    return;
+  }
+  if (
+    Array.isArray(session.providers) &&
+    session.providers.length &&
+    !session.providers.includes(provider)
+  ) {
+    res.status(403).json({ error: "Provider not enabled for this session." });
+    return;
+  }
+
+  try {
+    const client = await getOrCreateClient(session, provider);
+    if (!client.ready) {
+      await client.start();
+    }
+    let cursor = null;
+    const models = [];
+    do {
+      const result = await client.listModels(cursor, 200);
+      if (Array.isArray(result?.data)) {
+        models.push(...result.data);
+      }
+      cursor = result?.nextCursor ?? null;
+    } while (cursor);
+    res.json({ models, provider });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Failed to list models." });
   }
 });
 

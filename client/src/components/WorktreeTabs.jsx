@@ -25,12 +25,20 @@ export default function WorktreeTabs({
   onRename,
   provider,
   providers,
+  branches,
+  defaultBranch,
+  branchLoading,
+  branchError,
+  onRefreshBranches,
+  providerModelState,
+  onRequestProviderModels,
   disabled,
 }) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
   const [newName, setNewName] = useState("");
+  const [startingBranch, setStartingBranch] = useState("");
   const providerOptions = useMemo(
     () =>
       Array.isArray(providers) && providers.length
@@ -39,6 +47,8 @@ export default function WorktreeTabs({
     [providers, provider]
   );
   const [newProvider, setNewProvider] = useState(providerOptions[0]);
+  const [newModel, setNewModel] = useState("");
+  const [newReasoningEffort, setNewReasoningEffort] = useState("");
   const editInputRef = useRef(null);
   const createInputRef = useRef(null);
 
@@ -56,20 +66,109 @@ export default function WorktreeTabs({
   }, [createDialogOpen]);
 
   useEffect(() => {
+    if (!createDialogOpen) return;
+    if (!startingBranch) {
+      setStartingBranch(defaultBranch || "");
+    }
+    if (!branches?.length && onRefreshBranches && !branchLoading) {
+      onRefreshBranches();
+    }
+    if (newProvider === "codex" && onRequestProviderModels) {
+      const providerState = providerModelState?.[newProvider] || {};
+      if (!providerState.loading && !(providerState.models || []).length) {
+        onRequestProviderModels(newProvider);
+      }
+    }
+  }, [
+    createDialogOpen,
+    startingBranch,
+    defaultBranch,
+    branches,
+    onRefreshBranches,
+    branchLoading,
+    newProvider,
+    onRequestProviderModels,
+  ]);
+
+  useEffect(() => {
     if (!providerOptions.includes(newProvider)) {
       setNewProvider(providerOptions[0]);
     }
   }, [providerOptions, newProvider]);
+
+  useEffect(() => {
+    if (newProvider === "codex" && onRequestProviderModels) {
+      const providerState = providerModelState?.[newProvider] || {};
+      if (!providerState.loading && !(providerState.models || []).length) {
+        onRequestProviderModels(newProvider);
+      }
+    } else {
+      setNewModel("");
+      setNewReasoningEffort("");
+    }
+  }, [newProvider, onRequestProviderModels]);
+
+  const providerState = providerModelState?.[newProvider] || {};
+  const availableModels = Array.isArray(providerState.models) ? providerState.models : [];
+  const branchOptions = useMemo(
+    () =>
+      Array.isArray(branches)
+        ? branches.map((branch) => branch.trim()).filter(Boolean)
+        : [],
+    [branches]
+  );
+  const effectiveBranch = (startingBranch || defaultBranch || "").trim();
+  const isBranchValid =
+    Boolean(effectiveBranch) && branchOptions.includes(effectiveBranch);
+  const defaultModel = useMemo(
+    () => availableModels.find((model) => model.isDefault) || null,
+    [availableModels]
+  );
+  const selectedModelDetails = useMemo(
+    () => availableModels.find((model) => model.model === newModel) || null,
+    [availableModels, newModel]
+  );
+
+  useEffect(() => {
+    if (newProvider !== "codex") return;
+    if (!newModel && defaultModel?.model) {
+      setNewModel(defaultModel.model);
+    }
+    if (!newReasoningEffort && defaultModel?.defaultReasoningEffort) {
+      setNewReasoningEffort(defaultModel.defaultReasoningEffort);
+    }
+  }, [newProvider, newModel, newReasoningEffort, defaultModel]);
+
+  useEffect(() => {
+    if (!selectedModelDetails?.supportedReasoningEfforts?.length) {
+      if (newReasoningEffort) {
+        setNewReasoningEffort("");
+      }
+      return;
+    }
+    const valid = selectedModelDetails.supportedReasoningEfforts.some(
+      (effort) => effort.reasoningEffort === newReasoningEffort
+    );
+    if (!valid && newReasoningEffort) {
+      setNewReasoningEffort("");
+    }
+  }, [selectedModelDetails, newReasoningEffort]);
 
   const handleCreate = () => {
     if (onCreate) {
       onCreate({
         name: newName.trim() || null,
         provider: newProvider,
+        startingBranch: effectiveBranch || null,
+        model: newModel || null,
+        reasoningEffort: newReasoningEffort || null,
       });
     }
     setNewName("");
     setNewProvider(providerOptions[0]);
+    setStartingBranch(defaultBranch || "");
+    setNewModel("");
+    setNewReasoningEffort("");
     setCreateDialogOpen(false);
   };
 
@@ -211,11 +310,106 @@ export default function WorktreeTabs({
                 )}
               </select>
             </div>
+            <div className="worktree-create-field">
+              <label>Branche source</label>
+              <div className="worktree-branch-row">
+                <input
+                  type="text"
+                  list="worktree-branch-options"
+                  placeholder={defaultBranch || "main"}
+                  value={startingBranch}
+                  onChange={(e) => setStartingBranch(e.target.value)}
+                  onKeyDown={handleKeyDownCreate}
+                />
+                <button
+                  type="button"
+                  className="worktree-btn-refresh"
+                  onClick={onRefreshBranches}
+                  disabled={!onRefreshBranches || branchLoading}
+                >
+                  {branchLoading ? "Chargement..." : "Rafraichir"}
+                </button>
+              </div>
+              <datalist id="worktree-branch-options">
+                {branchOptions.map((branch) => (
+                  <option key={branch} value={branch} />
+                ))}
+              </datalist>
+              <div className="worktree-field-hint">
+                Branche distante. Par defaut: {defaultBranch || "main"}.
+              </div>
+              {!isBranchValid && (
+                <div className="worktree-field-error">
+                  Selectionnez une branche distante valide.
+                </div>
+              )}
+              {branchError && <div className="worktree-field-error">{branchError}</div>}
+            </div>
+            {newProvider === "codex" && (
+              <>
+                <div className="worktree-create-field">
+                  <label>Modele</label>
+                  <div className="worktree-branch-row">
+                    <select
+                      value={newModel}
+                      onChange={(e) => setNewModel(e.target.value)}
+                      disabled={providerState.loading || availableModels.length === 0}
+                    >
+                      <option value="">Modele par defaut</option>
+                      {availableModels.map((model) => (
+                        <option key={model.id} value={model.model}>
+                          {model.displayName || model.model}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="worktree-btn-refresh"
+                      onClick={() => onRequestProviderModels?.(newProvider)}
+                      disabled={!onRequestProviderModels || providerState.loading}
+                    >
+                      {providerState.loading ? "Chargement..." : "Rafraichir"}
+                    </button>
+                  </div>
+                  {providerState.error && (
+                    <div className="worktree-field-error">{providerState.error}</div>
+                  )}
+                </div>
+                <div className="worktree-create-field">
+                  <label>Reasoning</label>
+                  <select
+                    value={newReasoningEffort}
+                    onChange={(e) => setNewReasoningEffort(e.target.value)}
+                    disabled={
+                      providerState.loading ||
+                      !selectedModelDetails ||
+                      !selectedModelDetails.supportedReasoningEfforts?.length
+                    }
+                  >
+                    <option value="">Reasoning par defaut</option>
+                    {(selectedModelDetails?.supportedReasoningEfforts || []).map(
+                      (effort) => (
+                        <option
+                          key={effort.reasoningEffort}
+                          value={effort.reasoningEffort}
+                        >
+                          {effort.reasoningEffort}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+              </>
+            )}
             <div className="worktree-create-actions">
               <button className="worktree-btn-cancel" onClick={() => setCreateDialogOpen(false)}>
                 Annuler
               </button>
-              <button className="worktree-btn-create" onClick={handleCreate}>
+              <button
+                className="worktree-btn-create"
+                onClick={handleCreate}
+                disabled={!isBranchValid}
+              >
                 Créer
               </button>
             </div>
@@ -388,6 +582,44 @@ export default function WorktreeTabs({
         .worktree-create-field input:focus,
         .worktree-create-field select:focus {
           border-color: var(--accent, #ee5d3b);
+        }
+
+        .worktree-branch-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .worktree-branch-row select,
+        .worktree-branch-row input {
+          flex: 1;
+        }
+
+        .worktree-btn-refresh {
+          border: 1px solid rgba(20, 19, 17, 0.14);
+          border-radius: 10px;
+          padding: 10px 12px;
+          background: white;
+          font-size: 13px;
+          color: #6b7280;
+          cursor: pointer;
+        }
+
+        .worktree-btn-refresh:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .worktree-field-hint {
+          margin-top: 6px;
+          font-size: 12px;
+          color: #9ca3af;
+        }
+
+        .worktree-field-error {
+          margin-top: 6px;
+          font-size: 12px;
+          color: #ef4444;
         }
 
         .worktree-create-actions {
