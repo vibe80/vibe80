@@ -1217,7 +1217,8 @@ main.chat {
 
 .bubble-attachments {
   margin-top: 10px;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
