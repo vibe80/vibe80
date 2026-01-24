@@ -161,6 +161,22 @@ export async function createWorktree(session, options) {
     cwd: session.repoDir,
   });
 
+  // Associer directement la branche locale au remote pour permettre `git push` sans -u.
+  await runCommand(
+    "git",
+    ["config", `branch.${branchName}.remote`, "origin"],
+    {
+      cwd: session.repoDir,
+    }
+  );
+  await runCommand(
+    "git",
+    ["config", `branch.${branchName}.merge`, `refs/heads/${branchName}`],
+    {
+      cwd: session.repoDir,
+    }
+  );
+
   // Créer le worktree
   await runCommand("git", ["worktree", "add", worktreePath, branchName], {
     cwd: session.repoDir,
