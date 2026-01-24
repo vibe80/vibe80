@@ -57,6 +57,38 @@ steps:
       - 'git commit -m "vibecoder: bump image to ${TAG}" || exit 0'
       - git push
 
+  - name: update_gitops_vibeit
+    image: alpine:3.20
+    when:
+      branch:
+        - main
+    environment:
+      GITOPS_SSH_KEY:
+        from_secret: gitops_ssh_key
+    commands:
+      - apk add --no-cache git openssh yq
+      - mkdir -p ~/.ssh
+      - echo "$GITOPS_SSH_KEY" > ~/.ssh/id_rsa
+      - chmod 600 ~/.ssh/id_rsa
+      - ssh-keyscan -H gitea.devops >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - git clone git@gitea.devops:mont5piques/gitops.git gitops
+      - cd gitops
+
+      - export TAG="${DRONE_COMMIT_SHA:0:8}"
+
+      - yq -i '
+          (select(.kind=="Deployment" and .metadata.name=="vibecoder")
+            .spec.template.spec.containers[] | select(.name=="vibecoder").image)
+          = "git.lab.adho.app/mont5piques/m5chat:" + strenv(TAG)
+        ' contabo/vibecoder/vibeit.yml
+
+      - git config user.email "drone@company.local"
+      - git config user.name "drone-ci"
+      - git add contabo/vibecoder/vibeit.yml
+      - 'git commit -m "vibecoder: bump image to ${TAG}" || exit 0'
+      - git push
+
 
 trigger:
   event:
