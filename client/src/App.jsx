@@ -2973,7 +2973,7 @@ function App() {
       [blockKey]: choiceIndex,
     }));
     setInput(choice);
-    sendMessage(choice);
+    handleSendMessage(choice);
   };
 
   const handleClearChat = async () => {
