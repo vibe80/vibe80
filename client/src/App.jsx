@@ -4189,125 +4189,127 @@ function App() {
           </div>
           </div>
 
-          <form
-            className="composer composer--sticky"
-            onSubmit={onSubmit}
-            ref={composerRef}
-          >
-            {draftAttachments.length ? (
-              <div
-                className="composer-attachments"
-                aria-label="Pièces sélectionnées"
-              >
-                {draftAttachments.map((attachment) => {
-                  const label = attachment?.name || attachment?.path || "";
-                  const key = attachment?.path || attachment?.name || label;
-                  const extension = getAttachmentExtension(attachment);
-                  const sizeLabel =
-                    attachment?.lineCount || attachment?.lines
-                      ? `${attachment.lineCount || attachment.lines} lignes`
-                      : formatAttachmentSize(attachment?.size);
-                  return (
-                    <div className="attachment-card" key={key}>
-                      <div className="attachment-card-body">
-                        <div className="attachment-card-title">{label}</div>
-                        {sizeLabel ? (
-                          <div className="attachment-card-meta">
-                            {sizeLabel}
-                          </div>
-                        ) : null}
+          {activePane === "chat" ? (
+            <form
+              className="composer composer--sticky"
+              onSubmit={onSubmit}
+              ref={composerRef}
+            >
+              {draftAttachments.length ? (
+                <div
+                  className="composer-attachments"
+                  aria-label="Pièces sélectionnées"
+                >
+                  {draftAttachments.map((attachment) => {
+                    const label = attachment?.name || attachment?.path || "";
+                    const key = attachment?.path || attachment?.name || label;
+                    const extension = getAttachmentExtension(attachment);
+                    const sizeLabel =
+                      attachment?.lineCount || attachment?.lines
+                        ? `${attachment.lineCount || attachment.lines} lignes`
+                        : formatAttachmentSize(attachment?.size);
+                    return (
+                      <div className="attachment-card" key={key}>
+                        <div className="attachment-card-body">
+                          <div className="attachment-card-title">{label}</div>
+                          {sizeLabel ? (
+                            <div className="attachment-card-meta">
+                              {sizeLabel}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="attachment-card-footer">
+                          <span className="attachment-card-type">
+                            {extension}
+                          </span>
+                          <button
+                            type="button"
+                            className="attachment-card-remove"
+                            aria-label={`Retirer ${label}`}
+                            onClick={() =>
+                              removeDraftAttachment(
+                                attachment?.path || attachment?.name
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
-                      <div className="attachment-card-footer">
-                        <span className="attachment-card-type">
-                          {extension}
-                        </span>
-                        <button
-                          type="button"
-                          className="attachment-card-remove"
-                          aria-label={`Retirer ${label}`}
-                          onClick={() =>
-                            removeDraftAttachment(
-                              attachment?.path || attachment?.name
-                            )
-                          }
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            <div className="composer-main">
-              <button
-                type="button"
-                className="icon-button composer-attach-button"
-                aria-label="Ajouter une pièce jointe"
-                onClick={triggerAttachmentPicker}
-                disabled={!attachmentSession || attachmentsLoading}
-              >
-                ＋
-                {isMobileLayout ? (
-                  <span className="attachment-badge">
-                    {draftAttachments.length}
-                  </span>
-                ) : null}
-              </button>
-              <input
-                ref={uploadInputRef}
-                type="file"
-                multiple
-                onChange={onUploadAttachments}
-                disabled={!attachmentSession || attachmentsLoading}
-                className="visually-hidden"
-              />
-              <textarea
-                className={`composer-input ${
-                  composerInputMode === "single" ? "is-single" : "is-multi"
-                }`}
-                value={input}
-                onChange={handleInputChange}
-                onPaste={onPasteAttachments}
-                placeholder="Écris ton message…"
-                rows={composerInputMode === "single" ? 1 : 2}
-                ref={inputRef}
-              />
-              {canInterrupt ? (
+                    );
+                  })}
+                </div>
+              ) : null}
+              <div className="composer-main">
                 <button
                   type="button"
-                  className="primary stop-button"
-                  onClick={interruptTurn}
-                  aria-label="Stop"
-                  title="Stop"
+                  className="icon-button composer-attach-button"
+                  aria-label="Ajouter une pièce jointe"
+                  onClick={triggerAttachmentPicker}
+                  disabled={!attachmentSession || attachmentsLoading}
                 >
-                  <span className="stop-icon">⏹</span>
+                  ＋
+                  {isMobileLayout ? (
+                    <span className="attachment-badge">
+                      {draftAttachments.length}
+                    </span>
+                  ) : null}
                 </button>
-              ) : (
-                <button
-                  type="submit"
-                  className="primary"
-                  disabled={!connected || !input.trim()}
-                >
-                  <span className="send-text">Envoyer</span>
-                  <span className="send-icon">➤</span>
-                </button>
-              )}
-            </div>
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  multiple
+                  onChange={onUploadAttachments}
+                  disabled={!attachmentSession || attachmentsLoading}
+                  className="visually-hidden"
+                />
+                <textarea
+                  className={`composer-input ${
+                    composerInputMode === "single" ? "is-single" : "is-multi"
+                  }`}
+                  value={input}
+                  onChange={handleInputChange}
+                  onPaste={onPasteAttachments}
+                  placeholder="Écris ton message…"
+                  rows={composerInputMode === "single" ? 1 : 2}
+                  ref={inputRef}
+                />
+                {canInterrupt ? (
+                  <button
+                    type="button"
+                    className="primary stop-button"
+                    onClick={interruptTurn}
+                    aria-label="Stop"
+                    title="Stop"
+                  >
+                    <span className="stop-icon">⏹</span>
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={!connected || !input.trim()}
+                  >
+                    <span className="send-text">Envoyer</span>
+                    <span className="send-icon">➤</span>
+                  </button>
+                )}
+              </div>
 
-            {(!isMobileLayout || canInterrupt) && (
-              <div className="composer-meta">
-                <div className="composer-attachments-count">
-                  Pièces: {draftAttachments.length}
+              {(!isMobileLayout || canInterrupt) && (
+                <div className="composer-meta">
+                  <div className="composer-attachments-count">
+                    Pièces: {draftAttachments.length}
+                  </div>
                 </div>
-              </div>
-            )}
-            {attachmentsError && (
-              <div className="attachments-error composer-attachments-error">
-                {attachmentsError}
-              </div>
-            )}
-          </form>
+              )}
+              {attachmentsError && (
+                <div className="attachments-error composer-attachments-error">
+                  {attachmentsError}
+                </div>
+              )}
+            </form>
+          ) : null}
         </section>
       </div>
       {attachmentPreview ? (
