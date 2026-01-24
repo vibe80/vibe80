@@ -2715,6 +2715,7 @@ function App() {
   const currentTurnIdForActive = isInWorktree
     ? activeWorktree?.currentTurnId
     : currentTurnId;
+  const canInterrupt = currentProcessing && Boolean(currentTurnIdForActive);
 
   // Handle send message - route to worktree or legacy
   const handleSendMessage = useCallback(
@@ -4054,31 +4055,32 @@ function App() {
                 rows={isMobileLayout ? 1 : 2}
                 ref={inputRef}
               />
-              <button
-                type="submit"
-                className="primary"
-                disabled={!connected || !input.trim()}
-              >
-                <span className="send-text">Envoyer</span>
-                <span className="send-icon">➤</span>
-              </button>
+              {canInterrupt ? (
+                <button
+                  type="button"
+                  className="primary stop-button"
+                  onClick={interruptTurn}
+                  aria-label="Stop"
+                  title="Stop"
+                >
+                  <span className="stop-icon">⏹</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="primary"
+                  disabled={!connected || !input.trim()}
+                >
+                  <span className="send-text">Envoyer</span>
+                  <span className="send-icon">➤</span>
+                </button>
+              )}
             </div>
 
-            {(!isMobileLayout || (currentProcessing && currentTurnIdForActive)) && (
+            {(!isMobileLayout || canInterrupt) && (
               <div className="composer-meta">
                 <div className="composer-attachments-count">
                   Pièces: {draftAttachments.length}
-                </div>
-                <div className="composer-actions">
-                  {currentProcessing && currentTurnIdForActive ? (
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={interruptTurn}
-                    >
-                      Stop
-                    </button>
-                  ) : null}
                 </div>
               </div>
             )}

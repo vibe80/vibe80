@@ -1685,6 +1685,22 @@ main.chat {
   line-height: 1;
 }
 
+.stop-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.composer button.primary.stop-button {
+  padding: 10px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .link-button {
   border: none;
   background: transparent;
