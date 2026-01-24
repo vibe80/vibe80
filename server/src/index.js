@@ -1731,6 +1731,16 @@ terminalWss.on("connection", (socket, req) => {
     socket.close();
     return;
   }
+  let worktree = null;
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const worktreeId = url.searchParams.get("worktreeId");
+    if (worktreeId && worktreeId !== "main") {
+      worktree = getWorktree(session, worktreeId) || null;
+    }
+  } catch {
+    // Ignore invalid URL parsing; fall back to main repo.
+  }
   const shell = process.env.SHELL || "bash";
   let term = null;
   let closed = false;
@@ -1743,7 +1753,7 @@ terminalWss.on("connection", (socket, req) => {
       name: "xterm-256color",
       cols,
       rows,
-      cwd: session.repoDir,
+      cwd: worktree?.path || session.repoDir,
       env: { ...process.env, TERM: "xterm-256color" },
     });
 

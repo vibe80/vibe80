@@ -31,10 +31,18 @@ const wsUrl = (sessionId) => {
   return `${protocol}://${window.location.host}/ws${query}`;
 };
 
-const terminalWsUrl = (sessionId) => {
+const terminalWsUrl = (sessionId, worktreeId) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const query = sessionId ? `?session=${encodeURIComponent(sessionId)}` : "";
-  return `${protocol}://${window.location.host}/terminal${query}`;
+  const params = new URLSearchParams();
+  if (sessionId) {
+    params.set("session", sessionId);
+  }
+  if (worktreeId) {
+    params.set("worktreeId", worktreeId);
+  }
+  const query = params.toString();
+  const suffix = query ? `?${query}` : "";
+  return `${protocol}://${window.location.host}/terminal${suffix}`;
 };
 
 const extractChoices = (text) => {
@@ -390,11 +398,12 @@ function App() {
   );
   const soundEnabled = notificationsEnabled;
   const [choiceSelections, setChoiceSelections] = useState({});
-  const [activePane, setActivePane] = useState("chat");
+  const [paneByTab, setPaneByTab] = useState({ main: "chat" });
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
   const [backlog, setBacklog] = useState([]);
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [rpcLogs, setRpcLogs] = useState([]);
+  const [logFilterByTab, setLogFilterByTab] = useState({ main: "all" });
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedReasoningEffort, setSelectedReasoningEffort] = useState("");
@@ -411,6 +420,7 @@ function App() {
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
+  const activePane = paneByTab[activeWorktreeId] || "chat";
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
@@ -453,6 +463,7 @@ function App() {
   const terminalDisposableRef = useRef(null);
   const terminalSocketRef = useRef(null);
   const terminalSessionRef = useRef(null);
+  const terminalWorktreeRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const reconnectAttemptRef = useRef(0);
   const closingRef = useRef(false);
@@ -579,27 +590,34 @@ function App() {
         : null,
     [attachmentSession?.sessionId]
   );
+  const currentDiff = useMemo(() => {
+    if (activeWorktreeId && activeWorktreeId !== "main") {
+      const wt = worktrees.get(activeWorktreeId);
+      return wt?.diff || { status: "", diff: "" };
+    }
+    return repoDiff;
+  }, [activeWorktreeId, worktrees, repoDiff]);
   const diffFiles = useMemo(() => {
-    if (!repoDiff.diff) {
+    if (!currentDiff.diff) {
       return [];
     }
     try {
-      return parseDiff(repoDiff.diff);
+      return parseDiff(currentDiff.diff);
     } catch (error) {
       return [];
     }
-  }, [repoDiff.diff]);
+  }, [currentDiff.diff]);
   const diffStatusLines = useMemo(
     () =>
-      (repoDiff.status || "")
+      (currentDiff.status || "")
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean),
-    [repoDiff.status]
+    [currentDiff.status]
   );
-  const hasRepoChanges = useMemo(
-    () => diffStatusLines.length > 0 || Boolean((repoDiff.diff || "").trim()),
-    [diffStatusLines.length, repoDiff.diff]
+  const hasCurrentChanges = useMemo(
+    () => diffStatusLines.length > 0 || Boolean((currentDiff.diff || "").trim()),
+    [diffStatusLines.length, currentDiff.diff]
   );
   const groupedMessages = useMemo(() => {
     const grouped = [];
@@ -621,16 +639,34 @@ function App() {
     });
     return grouped;
   }, [messages]);
-  const [logFilter, setLogFilter] = useState("all");
+  const logFilter = logFilterByTab[activeWorktreeId] || "all";
+  const setLogFilter = useCallback(
+    (value) => {
+      const key = activeWorktreeId || "main";
+      setLogFilterByTab((current) => ({
+        ...current,
+        [key]: value,
+      }));
+    },
+    [activeWorktreeId]
+  );
+  const scopedRpcLogs = useMemo(() => {
+    if (activeWorktreeId && activeWorktreeId !== "main") {
+      return (rpcLogs || []).filter(
+        (entry) => entry?.worktreeId === activeWorktreeId
+      );
+    }
+    return (rpcLogs || []).filter((entry) => !entry?.worktreeId);
+  }, [rpcLogs, activeWorktreeId]);
   const formattedRpcLogs = useMemo(
     () =>
-      (rpcLogs || []).map((entry) => ({
+      scopedRpcLogs.map((entry) => ({
         ...entry,
         timeLabel: entry?.timestamp
           ? new Date(entry.timestamp).toLocaleTimeString("fr-FR")
           : "",
       })),
-    [rpcLogs]
+    [scopedRpcLogs]
   );
   const filteredRpcLogs = useMemo(() => {
     if (logFilter === "stdin") {
@@ -1015,24 +1051,74 @@ function App() {
     );
   }, []);
 
+  const requestWorktreeDiff = useCallback(
+    async (worktreeId) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !worktreeId) {
+        return;
+      }
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            worktreeId
+          )}/diff?session=${encodeURIComponent(sessionId)}`
+        );
+        if (!response.ok) {
+          return;
+        }
+        const payload = await response.json();
+        if (!payload) {
+          return;
+        }
+        setWorktrees((current) => {
+          const next = new Map(current);
+          const wt = next.get(worktreeId);
+          if (wt) {
+            next.set(worktreeId, {
+              ...wt,
+              diff: {
+                status: payload.status || "",
+                diff: payload.diff || "",
+              },
+            });
+          }
+          return next;
+        });
+      } catch (error) {
+        // Ignore diff refresh failures.
+      }
+    },
+    [attachmentSession?.sessionId]
+  );
+
   const connectTerminal = useCallback(() => {
     const sessionId = attachmentSession?.sessionId;
     if (!sessionId) {
       return;
     }
+    const worktreeId =
+      activeWorktreeId && activeWorktreeId !== "main"
+        ? activeWorktreeId
+        : null;
     if (
       terminalSocketRef.current &&
       terminalSocketRef.current.readyState <= WebSocket.OPEN &&
-      terminalSessionRef.current === sessionId
+      terminalSessionRef.current === sessionId &&
+      terminalWorktreeRef.current === worktreeId
     ) {
       return;
     }
     if (terminalSocketRef.current) {
       terminalSocketRef.current.close();
     }
-    const socket = new WebSocket(terminalWsUrl(sessionId));
+    const term = terminalRef.current;
+    if (term) {
+      term.reset();
+    }
+    const socket = new WebSocket(terminalWsUrl(sessionId, worktreeId));
     terminalSocketRef.current = socket;
     terminalSessionRef.current = sessionId;
+    terminalWorktreeRef.current = worktreeId;
 
     socket.addEventListener("open", () => {
       const term = terminalRef.current;
@@ -1074,7 +1160,7 @@ function App() {
         term.write("\r\n[terminal disconnected]\r\n");
       }
     });
-  }, [attachmentSession?.sessionId]);
+  }, [attachmentSession?.sessionId, activeWorktreeId]);
 
   const ensureNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
@@ -1600,6 +1686,14 @@ function App() {
             });
             return next;
           });
+          setPaneByTab((current) => ({
+            ...current,
+            [payload.worktreeId]: current[payload.worktreeId] || "chat",
+          }));
+          setLogFilterByTab((current) => ({
+            ...current,
+            [payload.worktreeId]: current[payload.worktreeId] || "all",
+          }));
           // Auto-select the new worktree
           setActiveWorktreeId(payload.worktreeId);
         }
@@ -1636,6 +1730,16 @@ function App() {
             next.delete(payload.worktreeId);
             return next;
           });
+          setPaneByTab((current) => {
+            const next = { ...current };
+            delete next[payload.worktreeId];
+            return next;
+          });
+          setLogFilterByTab((current) => {
+            const next = { ...current };
+            delete next[payload.worktreeId];
+            return next;
+          });
           // If active worktree was removed, switch back to main
           if (activeWorktreeId === payload.worktreeId) {
             setActiveWorktreeId("main");
@@ -1665,6 +1769,24 @@ function App() {
               });
             });
             setWorktrees(newMap);
+            setPaneByTab((current) => {
+              const next = { ...current };
+              payload.worktrees.forEach((wt) => {
+                if (!next[wt.id]) {
+                  next[wt.id] = "chat";
+                }
+              });
+              return next;
+            });
+            setLogFilterByTab((current) => {
+              const next = { ...current };
+              payload.worktrees.forEach((wt) => {
+                if (!next[wt.id]) {
+                  next[wt.id] = "all";
+                }
+              });
+              return next;
+            });
             payload.worktrees.forEach((wt) => {
               requestWorktreeMessages(wt.id);
             });
@@ -2019,6 +2141,7 @@ function App() {
       terminalSocketRef.current.close();
       terminalSocketRef.current = null;
       terminalSessionRef.current = null;
+      terminalWorktreeRef.current = null;
     }
   }, [attachmentSession?.sessionId]);
 
@@ -2563,7 +2686,7 @@ function App() {
   };
 
   const sendCommitMessage = (text) => {
-    sendMessage(text, []);
+    handleSendMessage(text, []);
   };
 
   // ============== Worktree Functions ==============
@@ -2828,27 +2951,59 @@ function App() {
   }, [attachmentSession, attachmentsLoading]);
 
   const handleViewSelect = useCallback((nextPane) => {
-    setActivePane(nextPane);
+    const key = activeWorktreeId || "main";
+    setPaneByTab((current) => ({
+      ...current,
+      [key]: nextPane,
+    }));
     setMoreMenuOpen(false);
-  }, []);
+  }, [activeWorktreeId]);
+
+  const handleClearRpcLogs = useCallback(() => {
+    setRpcLogs((current) => {
+      if (activeWorktreeId && activeWorktreeId !== "main") {
+        return current.filter(
+          (entry) => entry?.worktreeId !== activeWorktreeId
+        );
+      }
+      return current.filter((entry) => Boolean(entry?.worktreeId));
+    });
+  }, [activeWorktreeId]);
+
+  useEffect(() => {
+    if (activePane !== "diff") {
+      return;
+    }
+    if (activeWorktreeId && activeWorktreeId !== "main") {
+      requestWorktreeDiff(activeWorktreeId);
+    }
+  }, [activePane, activeWorktreeId, requestWorktreeDiff]);
 
   const handleExportChat = useCallback(
     (format) => {
-      if (!messages.length) {
+      const exportMessages = Array.isArray(currentMessages)
+        ? currentMessages
+        : [];
+      if (!exportMessages.length) {
         return;
       }
       setMoreMenuOpen(false);
       const baseName = extractRepoName(
         attachmentSession?.repoUrl || repoUrl || ""
       );
+      const tabLabel =
+        isInWorktree && activeWorktree
+          ? `${activeWorktree.name || "Worktree"} (${activeWorktree.branchName || activeWorktree.id})`
+          : "Main";
       if (format === "markdown") {
         const lines = [
           "# Historique du chat",
           "",
           `Export: ${new Date().toISOString()}`,
+          `Onglet: ${tabLabel}`,
           "",
         ];
-        messages.forEach((message) => {
+        exportMessages.forEach((message) => {
           if (message.role === "commandExecution") {
             lines.push("## Commande");
             lines.push(`\`${message.command || "Commande"}\``);
@@ -2884,7 +3039,13 @@ function App() {
       const payload = {
         exportedAt: new Date().toISOString(),
         repoUrl: attachmentSession?.repoUrl || repoUrl || "",
-        messages: messages.map((message) => {
+        tab: {
+          type: isInWorktree ? "worktree" : "main",
+          worktreeId: activeWorktree?.id || null,
+          worktreeName: activeWorktree?.name || null,
+          branchName: activeWorktree?.branchName || null,
+        },
+        messages: exportMessages.map((message) => {
           if (message.role === "commandExecution") {
             return {
               id: message.id,
@@ -2908,7 +3069,13 @@ function App() {
         "application/json"
       );
     },
-    [messages, attachmentSession?.repoUrl, repoUrl]
+    [
+      currentMessages,
+      attachmentSession?.repoUrl,
+      repoUrl,
+      isInWorktree,
+      activeWorktree,
+    ]
   );
 
   const handleInputChange = (event) => {
@@ -3774,7 +3941,9 @@ function App() {
               }`}
             >
               <div className="diff-header">
-                <div className="diff-title">Diff du repository</div>
+                <div className="diff-title">
+                  {isInWorktree ? "Diff du worktree" : "Diff du repository"}
+                </div>
                 {diffStatusLines.length > 0 && (
                   <div className="diff-count">
                     {diffStatusLines.length} fichiers modifies
@@ -3785,7 +3954,7 @@ function App() {
                     type="button"
                     className="diff-action-button"
                     onClick={() => sendCommitMessage("Commit")}
-                    disabled={!connected || processing || !hasRepoChanges}
+                    disabled={!connected || currentProcessing || !hasCurrentChanges}
                     title="Envoyer 'Commit' dans le chat"
                   >
                     Commit
@@ -3794,7 +3963,7 @@ function App() {
                     type="button"
                     className="diff-action-button primary"
                     onClick={() => sendCommitMessage("Commit & Push")}
-                    disabled={!connected || processing || !hasRepoChanges}
+                    disabled={!connected || currentProcessing || !hasCurrentChanges}
                     title="Envoyer 'Commit & Push' dans le chat"
                   >
                     Commit &amp; Push
@@ -3833,8 +4002,8 @@ function App() {
                     );
                   })}
                 </div>
-              ) : repoDiff.diff ? (
-                <pre className="diff-fallback">{repoDiff.diff}</pre>
+              ) : currentDiff.diff ? (
+                <pre className="diff-fallback">{currentDiff.diff}</pre>
               ) : (
                 <div className="diff-empty">Aucun changement detecte.</div>
               )}
@@ -3846,7 +4015,13 @@ function App() {
             >
             <div className="terminal-header">
               <div className="terminal-title">Terminal</div>
-              {repoName && <div className="terminal-meta">{repoName}</div>}
+              {(repoName || activeWorktree?.branchName || activeWorktree?.name) && (
+                <div className="terminal-meta">
+                  {isInWorktree
+                    ? activeWorktree?.branchName || activeWorktree?.name
+                    : repoName}
+                </div>
+              )}
             </div>
             <div className="terminal-body" ref={terminalContainerRef} />
             {!attachmentSession?.sessionId && (
@@ -3893,14 +4068,14 @@ function App() {
                     Stdout
                   </button>
                 </div>
-                <button
-                  type="button"
-                  className="logs-clear"
-                  onClick={() => setRpcLogs([])}
-                  disabled={rpcLogs.length === 0}
-                >
-                  Clear
-                </button>
+                  <button
+                    type="button"
+                    className="logs-clear"
+                    onClick={handleClearRpcLogs}
+                    disabled={scopedRpcLogs.length === 0}
+                  >
+                    Clear
+                  </button>
               </div>
             </div>
             {filteredRpcLogs.length === 0 ? (
