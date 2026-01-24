@@ -27,6 +27,9 @@ steps:
         - latest
   - name: update_gitops_vibecoder
     image: alpine:3.20
+    when:
+      branch:
+        - main
     environment:
       GITOPS_SSH_KEY:
         from_secret: gitops_ssh_key
