@@ -33,6 +33,7 @@ export default function WorktreeTabs({
   providerModelState,
   onRequestProviderModels,
   disabled,
+  isMobile,
 }) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -209,75 +210,104 @@ export default function WorktreeTabs({
   return (
     <div className="worktree-tabs-container">
       <div className="worktree-tabs">
-        {worktreeList.map((wt) => (
-          <div
-            key={wt.id}
-            className={`worktree-tab ${activeWorktreeId === wt.id ? "active" : ""}`}
-            onClick={() => !disabled && onSelect?.(wt.id)}
-            style={{
-              "--tab-accent": wt.color || "#3b82f6",
-            }}
-          >
-            <span
-              className={`worktree-status ${wt.status === "processing" ? "pulse" : ""}`}
-              style={{ color: STATUS_COLORS[wt.status] || STATUS_COLORS.ready }}
-              title={wt.status}
+        {isMobile ? (
+          <div className="worktree-tabs-select">
+            <select
+              className="worktree-select"
+              value={activeWorktreeId}
+              onChange={(event) => !disabled && onSelect?.(event.target.value)}
+              aria-label="Selectionner une branche"
+              disabled={disabled}
             >
-              {STATUS_ICONS[wt.status] || STATUS_ICONS.ready}
-            </span>
-
-            {editingId === wt.id && wt.id !== "main" ? (
-              <input
-                ref={editInputRef}
-                className="worktree-tab-edit"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onBlur={handleFinishEdit}
-                onKeyDown={handleKeyDownEdit}
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <span
-                className="worktree-tab-name"
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  // Don't allow renaming "main" tab
-                  if (wt.id !== "main") {
-                    handleStartEdit(wt);
-                  }
-                }}
-                title={`${wt.name} (${wt.branchName})`}
-              >
-                {wt.name}
-              </span>
-            )}
-
-            <span className="worktree-tab-provider">{wt.provider}</span>
-
-            {/* Don't show close button for "main" tab */}
-            {wt.id !== "main" && (
-              <button
-                className="worktree-tab-close"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClose?.(wt.id);
-                }}
-                title="Fermer"
-              >
-                ×
-              </button>
-            )}
+              {worktreeList.map((wt) => (
+                <option key={wt.id} value={wt.id}>
+                  {wt.name} · {wt.provider}
+                </option>
+              ))}
+            </select>
+            <button
+              className="worktree-tab-add"
+              onClick={() => setCreateDialogOpen(true)}
+              disabled={disabled || worktreeList.length >= 5}
+              title="Nouvelle branche parallèle"
+              aria-label="Nouvelle branche parallèle"
+            >
+              +
+            </button>
           </div>
-        ))}
+        ) : (
+          <>
+            {worktreeList.map((wt) => (
+              <div
+                key={wt.id}
+                className={`worktree-tab ${activeWorktreeId === wt.id ? "active" : ""}`}
+                onClick={() => !disabled && onSelect?.(wt.id)}
+                style={{
+                  "--tab-accent": wt.color || "#3b82f6",
+                }}
+              >
+                <span
+                  className={`worktree-status ${wt.status === "processing" ? "pulse" : ""}`}
+                  style={{ color: STATUS_COLORS[wt.status] || STATUS_COLORS.ready }}
+                  title={wt.status}
+                >
+                  {STATUS_ICONS[wt.status] || STATUS_ICONS.ready}
+                </span>
 
-        <button
-          className="worktree-tab-add"
-          onClick={() => setCreateDialogOpen(true)}
-          disabled={disabled || worktreeList.length >= 5}
-          title="Nouvelle branche parallèle"
-        >
-          +
-        </button>
+                {editingId === wt.id && wt.id !== "main" ? (
+                  <input
+                    ref={editInputRef}
+                    className="worktree-tab-edit"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onBlur={handleFinishEdit}
+                    onKeyDown={handleKeyDownEdit}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span
+                    className="worktree-tab-name"
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      // Don't allow renaming "main" tab
+                      if (wt.id !== "main") {
+                        handleStartEdit(wt);
+                      }
+                    }}
+                    title={`${wt.name} (${wt.branchName})`}
+                  >
+                    {wt.name}
+                  </span>
+                )}
+
+                <span className="worktree-tab-provider">{wt.provider}</span>
+
+                {/* Don't show close button for "main" tab */}
+                {wt.id !== "main" && (
+                  <button
+                    className="worktree-tab-close"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClose?.(wt.id);
+                    }}
+                    title="Fermer"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+
+            <button
+              className="worktree-tab-add"
+              onClick={() => setCreateDialogOpen(true)}
+              disabled={disabled || worktreeList.length >= 5}
+              title="Nouvelle branche parallèle"
+            >
+              +
+            </button>
+          </>
+        )}
       </div>
 
       {createDialogOpen && (
@@ -433,6 +463,31 @@ export default function WorktreeTabs({
           border: 1px solid rgba(20, 19, 17, 0.1);
           overflow-x: auto;
           scrollbar-width: thin;
+        }
+
+        .worktree-tabs-select {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 8px;
+          align-items: center;
+          width: 100%;
+        }
+
+        .worktree-select {
+          width: 100%;
+          border: 1px solid rgba(20, 19, 17, 0.12);
+          border-radius: 999px;
+          padding: 6px 12px;
+          background: var(--surface);
+          color: var(--ink);
+          font-size: 13px;
+          font-weight: 600;
+          outline: none;
+        }
+
+        .worktree-select:focus {
+          border-color: rgba(238, 93, 59, 0.6);
+          box-shadow: 0 0 0 3px rgba(238, 93, 59, 0.12);
         }
 
         .worktree-tab {

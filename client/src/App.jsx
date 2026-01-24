@@ -3353,6 +3353,7 @@ function App() {
               providerModelState={providerModelState}
               onRequestProviderModels={loadProviderModels}
               disabled={!connected}
+              isMobile={isMobileLayout}
             />
           </div>
         </div>
