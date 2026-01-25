@@ -1,11 +1,17 @@
 package app.m5chat.android.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -13,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -32,6 +39,43 @@ fun SessionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showPassword by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // File picker for Claude config (~/.claude/config.json)
+    val claudeConfigPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val inputStream = context.contentResolver.openInputStream(it)
+                val configJson = inputStream?.bufferedReader()?.readText()
+                inputStream?.close()
+                if (configJson != null) {
+                    viewModel.saveClaudeConfig(configJson)
+                }
+            } catch (e: Exception) {
+                // Error reading file - could add error handling here
+            }
+        }
+    }
+
+    // File picker for Codex config (~/.codex/auth.json)
+    val codexConfigPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val inputStream = context.contentResolver.openInputStream(it)
+                val configJson = inputStream?.bufferedReader()?.readText()
+                inputStream?.close()
+                if (configJson != null) {
+                    viewModel.saveCodexConfig(configJson)
+                }
+            } catch (e: Exception) {
+                // Error reading file - could add error handling here
+            }
+        }
+    }
 
     LaunchedEffect(uiState.sessionId) {
         uiState.sessionId?.let { sessionId ->
@@ -247,6 +291,88 @@ fun SessionScreen(
                                 label = { Text(provider.name) },
                                 enabled = !uiState.isLoading
                             )
+                        }
+                    }
+
+                    // LLM Configuration Files
+                    Text(
+                        text = "Configuration LLM",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+
+                    // Claude config
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { claudeConfigPicker.launch(arrayOf("application/json", "*/*")) },
+                            modifier = Modifier.weight(1f),
+                            enabled = !uiState.isLoading
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileOpen,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Claude config.json")
+                        }
+                        if (uiState.hasClaudeConfig) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Configuré",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            IconButton(
+                                onClick = viewModel::clearClaudeConfig,
+                                enabled = !uiState.isLoading
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Supprimer",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+
+                    // Codex config
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { codexConfigPicker.launch(arrayOf("application/json", "*/*")) },
+                            modifier = Modifier.weight(1f),
+                            enabled = !uiState.isLoading
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileOpen,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Codex auth.json")
+                        }
+                        if (uiState.hasCodexConfig) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Configuré",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            IconButton(
+                                onClick = viewModel::clearCodexConfig,
+                                enabled = !uiState.isLoading
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Supprimer",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
 

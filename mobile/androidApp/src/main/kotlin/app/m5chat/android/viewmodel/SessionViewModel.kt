@@ -24,7 +24,9 @@ data class SessionUiState(
     val isCheckingExistingSession: Boolean = true,
     val error: String? = null,
     val sessionId: String? = null,
-    val hasSavedSession: Boolean = false
+    val hasSavedSession: Boolean = false,
+    val hasClaudeConfig: Boolean = false,
+    val hasCodexConfig: Boolean = false
 )
 
 enum class AuthMethod {
@@ -41,6 +43,44 @@ class SessionViewModel(
 
     init {
         checkExistingSession()
+        loadLLMConfigs()
+    }
+
+    private fun loadLLMConfigs() {
+        viewModelScope.launch {
+            sessionPreferences.llmConfig.collect { config ->
+                _uiState.update {
+                    it.copy(
+                        hasClaudeConfig = config.claudeConfig != null,
+                        hasCodexConfig = config.codexConfig != null
+                    )
+                }
+            }
+        }
+    }
+
+    fun saveClaudeConfig(configJson: String) {
+        viewModelScope.launch {
+            sessionPreferences.saveClaudeConfig(configJson)
+        }
+    }
+
+    fun saveCodexConfig(configJson: String) {
+        viewModelScope.launch {
+            sessionPreferences.saveCodexConfig(configJson)
+        }
+    }
+
+    fun clearClaudeConfig() {
+        viewModelScope.launch {
+            sessionPreferences.clearClaudeConfig()
+        }
+    }
+
+    fun clearCodexConfig() {
+        viewModelScope.launch {
+            sessionPreferences.clearCodexConfig()
+        }
     }
 
     private fun checkExistingSession() {

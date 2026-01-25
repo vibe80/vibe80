@@ -23,7 +23,6 @@ class M5ChatApplication : Application() {
     }
 
     companion object {
-        // TODO: Make configurable via settings
-        const val BASE_URL = "http://10.0.2.2:3000" // localhost from emulator
+        const val BASE_URL = "https://vibecoder.lab.adho.app"
     }
 }
