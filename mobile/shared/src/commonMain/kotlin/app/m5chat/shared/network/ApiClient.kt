@@ -4,8 +4,10 @@ import app.m5chat.shared.models.*
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.*
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 
 class ApiClient(
     private val httpClient: HttpClient,
@@ -15,11 +17,31 @@ class ApiClient(
      * Create a new session by cloning a repository
      */
     suspend fun createSession(request: SessionCreateRequest): Result<SessionCreateResponse> {
-        return runCatching {
-            httpClient.post("$baseUrl/api/session") {
+        return try {
+            val response = httpClient.post("$baseUrl/api/session") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
-            }.body()
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                val errorBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+                Result.failure(
+                    SessionCreationException(
+                        statusCode = response.status.value,
+                        statusDescription = response.status.description,
+                        errorBody = errorBody,
+                        url = "$baseUrl/api/session"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(
+                SessionCreationException(
+                    cause = e,
+                    url = "$baseUrl/api/session"
+                )
+            )
         }
     }
 
@@ -136,4 +158,43 @@ class ApiClient(
      * Get base URL for platform-specific upload implementation
      */
     fun getBaseUrl(): String = baseUrl
+}
+
+/**
+ * Exception thrown when session creation fails with detailed debug info
+ */
+class SessionCreationException(
+    val statusCode: Int? = null,
+    val statusDescription: String? = null,
+    val errorBody: String? = null,
+    val url: String,
+    cause: Throwable? = null
+) : Exception(buildMessage(statusCode, statusDescription, errorBody, url, cause), cause) {
+    companion object {
+        private fun buildMessage(
+            statusCode: Int?,
+            statusDescription: String?,
+            errorBody: String?,
+            url: String,
+            cause: Throwable?
+        ): String {
+            return buildString {
+                append("Échec création session\n")
+                append("URL: $url\n")
+                if (statusCode != null) {
+                    append("Status: $statusCode")
+                    if (statusDescription != null) {
+                        append(" ($statusDescription)")
+                    }
+                    append("\n")
+                }
+                if (!errorBody.isNullOrBlank()) {
+                    append("Réponse: ${errorBody.take(500)}\n")
+                }
+                if (cause != null) {
+                    append("Cause: ${cause::class.simpleName}: ${cause.message}")
+                }
+            }.trim()
+        }
+    }
 }
