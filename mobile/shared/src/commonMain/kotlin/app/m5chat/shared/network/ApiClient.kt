@@ -107,4 +107,33 @@ class ApiClient(
             Unit
         }
     }
+
+    /**
+     * List attachments for a session
+     */
+    suspend fun listAttachments(sessionId: String): Result<AttachmentListResponse> {
+        return runCatching {
+            httpClient.get("$baseUrl/api/attachments") {
+                parameter("session", sessionId)
+            }.body()
+        }
+    }
+
+    /**
+     * Upload attachments - platform-specific implementation required
+     * This is a placeholder that returns empty list
+     */
+    suspend fun uploadAttachments(
+        sessionId: String,
+        files: List<Pair<String, String>>
+    ): Result<List<Attachment>> {
+        // This needs platform-specific implementation
+        // Android will use OkHttp multipart
+        return Result.success(emptyList())
+    }
+
+    /**
+     * Get base URL for platform-specific upload implementation
+     */
+    fun getBaseUrl(): String = baseUrl
 }

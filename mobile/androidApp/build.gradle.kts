@@ -96,4 +96,7 @@ dependencies {
 
     // DataStore
     implementation(libs.datastore.preferences)
+
+    // OkHttp for file uploads
+    implementation(libs.okhttp)
 }

@@ -166,18 +166,30 @@ class SessionRepository(
         }
     }
 
-    suspend fun sendMessage(text: String, attachments: List<String> = emptyList()) {
+    suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
         // Add user message locally
         val userMessage = ChatMessage(
             id = generateMessageId(),
             role = MessageRole.USER,
             text = text,
+            attachments = attachments,
             timestamp = System.currentTimeMillis()
         )
         _messages.update { it + userMessage }
 
         // Send via WebSocket
         webSocketManager.sendMessage(text, attachments)
+    }
+
+    /**
+     * Upload attachments to the server
+     * Returns list of uploaded file info
+     */
+    suspend fun uploadAttachments(
+        sessionId: String,
+        files: List<Pair<String, String>> // uri to name
+    ): List<Attachment> {
+        return apiClient.uploadAttachments(sessionId, files).getOrDefault(emptyList())
     }
 
     suspend fun switchProvider(provider: LLMProvider) {

@@ -161,7 +161,7 @@ data class PingMessage(
 data class SendMessageRequest(
     override val type: String = "send_message",
     val text: String,
-    val attachments: List<String> = emptyList()
+    val attachments: List<Attachment> = emptyList()
 ) : ClientMessage()
 
 @Serializable
@@ -185,7 +185,7 @@ data class WorktreeMessageRequest(
     val worktreeId: String,
     val text: String,
     val displayText: String? = null,
-    val attachments: List<String> = emptyList()
+    val attachments: List<Attachment> = emptyList()
 ) : ClientMessage()
 
 @Serializable

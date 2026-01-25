@@ -55,3 +55,20 @@ data class RpcLogEntry(
     val timestamp: Long,
     val payload: String
 )
+
+@Serializable
+data class AttachmentUploadResponse(
+    val files: List<UploadedFile>
+)
+
+@Serializable
+data class UploadedFile(
+    val name: String,
+    val path: String,
+    val size: Long
+)
+
+@Serializable
+data class AttachmentListResponse(
+    val files: List<UploadedFile>
+)

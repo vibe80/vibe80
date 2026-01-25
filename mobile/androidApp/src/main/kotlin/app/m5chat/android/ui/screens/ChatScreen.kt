@@ -1,23 +1,40 @@
 package app.m5chat.android.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DifferenceOutlined
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.m5chat.android.R
 import app.m5chat.android.ui.components.MessageBubble
+import app.m5chat.android.ui.components.ProviderSelectionDialog
 import app.m5chat.android.viewmodel.ChatViewModel
+import app.m5chat.android.viewmodel.PendingAttachment
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.network.ConnectionState
 import org.koin.androidx.compose.koinViewModel
@@ -29,8 +46,28 @@ fun ChatScreen(
     onDisconnect: () -> Unit,
     viewModel: ChatViewModel = koinViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
+
+    // File picker launcher
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        uris.forEach { uri ->
+            val name = getFileName(context, uri) ?: "attachment"
+            val size = getFileSize(context, uri)
+            val mimeType = context.contentResolver.getType(uri)
+            viewModel.addPendingAttachment(
+                PendingAttachment(
+                    uri = uri.toString(),
+                    name = name,
+                    mimeType = mimeType,
+                    size = size
+                )
+            )
+        }
+    }
 
     // Auto-scroll to bottom on new messages
     LaunchedEffect(uiState.messages.size, uiState.currentStreamingMessage) {
@@ -66,16 +103,9 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    // Provider chip
+                    // Provider chip - opens dialog on click
                     AssistChip(
-                        onClick = {
-                            val newProvider = if (uiState.activeProvider == LLMProvider.CODEX) {
-                                LLMProvider.CLAUDE
-                            } else {
-                                LLMProvider.CODEX
-                            }
-                            viewModel.switchProvider(newProvider)
-                        },
+                        onClick = viewModel::showProviderDialog,
                         label = { Text(uiState.activeProvider.name) },
                         leadingIcon = {
                             Icon(
@@ -120,33 +150,80 @@ fun ChatScreen(
                 tonalElevation = 3.dp,
                 shadowElevation = 8.dp
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .imePadding(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .imePadding()
                 ) {
-                    OutlinedTextField(
-                        value = uiState.inputText,
-                        onValueChange = viewModel::updateInputText,
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text(stringResource(R.string.message_hint)) },
-                        maxLines = 4,
-                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
-                    )
-
-                    FilledIconButton(
-                        onClick = viewModel::sendMessage,
-                        enabled = uiState.inputText.isNotBlank() &&
-                                uiState.connectionState == ConnectionState.CONNECTED &&
-                                !uiState.processing
+                    // Pending attachments preview
+                    AnimatedVisibility(
+                        visible = uiState.pendingAttachments.isNotEmpty(),
+                        enter = slideInVertically { it } + fadeIn(),
+                        exit = slideOutVertically { it } + fadeOut()
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = stringResource(R.string.send_message)
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(uiState.pendingAttachments) { attachment ->
+                                AttachmentChip(
+                                    attachment = attachment,
+                                    onRemove = { viewModel.removePendingAttachment(attachment) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Upload progress
+                    if (uiState.uploadingAttachments) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth()
                         )
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Attach button
+                        IconButton(
+                            onClick = {
+                                filePickerLauncher.launch(arrayOf("*/*"))
+                            },
+                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AttachFile,
+                                contentDescription = "Joindre un fichier"
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = uiState.inputText,
+                            onValueChange = viewModel::updateInputText,
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text(stringResource(R.string.message_hint)) },
+                            maxLines = 4,
+                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && !uiState.uploadingAttachments
+                        )
+
+                        FilledIconButton(
+                            onClick = viewModel::sendMessageWithAttachments,
+                            enabled = (uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()) &&
+                                    uiState.connectionState == ConnectionState.CONNECTED &&
+                                    !uiState.processing &&
+                                    !uiState.uploadingAttachments
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = stringResource(R.string.send_message)
+                            )
+                        }
                     }
                 }
             }
@@ -227,6 +304,77 @@ fun ChatScreen(
             DiffSheetContent(repoDiff = uiState.repoDiff)
         }
     }
+
+    // Provider Selection Dialog
+    if (uiState.showProviderDialog) {
+        ProviderSelectionDialog(
+            currentProvider = uiState.activeProvider,
+            onProviderSelected = { provider ->
+                viewModel.switchProvider(provider)
+            },
+            onDismiss = viewModel::hideProviderDialog
+        )
+    }
+}
+
+@Composable
+private fun AttachmentChip(
+    attachment: PendingAttachment,
+    onRemove: () -> Unit
+) {
+    InputChip(
+        selected = false,
+        onClick = { },
+        label = {
+            Text(
+                text = attachment.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 120.dp)
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = if (attachment.mimeType?.startsWith("image/") == true) {
+                    Icons.Default.Image
+                } else {
+                    Icons.Default.InsertDriveFile
+                },
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+        },
+        trailingIcon = {
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier.size(18.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Retirer",
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    )
+}
+
+private fun getFileName(context: android.content.Context, uri: Uri): String? {
+    return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+        if (cursor.moveToFirst() && nameIndex >= 0) {
+            cursor.getString(nameIndex)
+        } else null
+    }
+}
+
+private fun getFileSize(context: android.content.Context, uri: Uri): Long {
+    return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+        if (cursor.moveToFirst() && sizeIndex >= 0) {
+            cursor.getLong(sizeIndex)
+        } else 0L
+    } ?: 0L
 }
 
 @Composable

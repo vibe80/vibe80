@@ -114,11 +114,11 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 
 #### 3.2 Provider Switching
 - [x] UI chip/badge provider actif
-- [ ] Dialog sélection provider
+- [x] Dialog sélection provider
 - [x] Envoi `switch_provider` WebSocket
 - [x] Réception `provider_switched`
 - [x] Mise à jour historique messages
-- [ ] Animation transition
+- [x] Animation transition
 
 #### 3.3 Gestion État Session
 - [x] Persistance sessionId (DataStore)
@@ -127,11 +127,11 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [x] Bouton déconnexion/nouvelle session
 
 #### 3.4 Gestion Attachments
-- [ ] Bouton attach dans composer
-- [ ] Sélecteur fichier Android
-- [ ] Upload fichier vers serveur
-- [ ] Affichage attachments dans messages
-- [ ] Preview images inline
+- [x] Bouton attach dans composer
+- [x] Sélecteur fichier Android
+- [x] Upload fichier vers serveur
+- [x] Affichage attachments dans messages
+- [x] Preview images inline
 
 **Livrables v0.3** :
 - Création session depuis l'app
@@ -509,3 +509,32 @@ mobile/
 
 **DI :**
 - `AppModule.kt` - Injection SessionPreferences dans ViewModels
+
+### 2026-01-25 - Phase 3 Complétée
+
+**Provider Switching avec Dialog :**
+- `ui/components/ProviderSelectionDialog.kt` - Dialog sélection provider animé
+- `ChatScreen.kt` - Intégration dialog provider
+- `ChatViewModel.kt` - Méthodes showProviderDialog/hideProviderDialog
+- Animation couleur sur sélection provider
+
+**Gestion Attachments :**
+- `data/AttachmentUploader.kt` - Service upload fichiers via OkHttp multipart
+- `ChatScreen.kt` - File picker Android avec ActivityResultContracts
+- `ChatScreen.kt` - Preview chips des fichiers en attente
+- `ChatScreen.kt` - Barre de progression upload
+- `ChatViewModel.kt` - Gestion pendingAttachments et upload
+- `MessageBubble.kt` - Affichage attachments avec preview images (Coil)
+- `MessageBubble.kt` - Affichage fichiers non-image avec icône et taille
+- Ajout dépendance OkHttp pour multipart upload
+
+**Modifications modèles :**
+- `WebSocketMessages.kt` - Support List<Attachment> au lieu de List<String>
+- `WebSocketManager.kt` - Mise à jour sendMessage avec attachments
+- `SessionRepository.kt` - Méthode uploadAttachments
+- `Session.kt` - Modèles AttachmentUploadResponse, UploadedFile
+
+**CI/CD :**
+- `.drone.yml` - Étape build_android_apk pour générer et publier APK
+- `mobile/gradlew` - Wrapper Gradle pour CI
+- `mobile/.gitignore` - Exclusion fichiers build

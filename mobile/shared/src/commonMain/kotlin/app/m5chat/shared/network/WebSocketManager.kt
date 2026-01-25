@@ -164,7 +164,7 @@ class WebSocketManager(
         outgoingMessages.send(message)
     }
 
-    suspend fun sendMessage(text: String, attachments: List<String> = emptyList()) {
+    suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
         send(SendMessageRequest(text = text, attachments = attachments))
     }
 
@@ -176,7 +176,7 @@ class WebSocketManager(
         worktreeId: String,
         text: String,
         displayText: String? = null,
-        attachments: List<String> = emptyList()
+        attachments: List<Attachment> = emptyList()
     ) {
         send(WorktreeMessageRequest(
             worktreeId = worktreeId,
