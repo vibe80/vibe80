@@ -197,6 +197,27 @@ class SessionRepository(
         return apiClient.switchBranch(sessionId, branch)
     }
 
+    /**
+     * Reconnect to an existing session
+     */
+    suspend fun reconnectSession(sessionId: String): Result<SessionState> {
+        return apiClient.getSession(sessionId).map { response ->
+            val state = SessionState(
+                sessionId = sessionId,
+                repoUrl = "", // Not returned by getSession
+                activeProvider = LLMProvider.CODEX, // Default, will be updated by WebSocket
+                providers = listOf(LLMProvider.CODEX, LLMProvider.CLAUDE)
+            )
+            _sessionState.value = state
+            _messages.value = response.messages
+
+            // Connect WebSocket
+            webSocketManager.connect(sessionId)
+
+            state
+        }
+    }
+
     fun disconnect() {
         webSocketManager.disconnect()
         _sessionState.value = null

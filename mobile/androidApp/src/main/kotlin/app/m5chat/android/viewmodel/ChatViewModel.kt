@@ -2,6 +2,7 @@ package app.m5chat.android.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.m5chat.android.data.SessionPreferences
 import app.m5chat.shared.models.ChatMessage
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.models.RepoDiff
@@ -26,7 +27,8 @@ data class ChatUiState(
 )
 
 class ChatViewModel(
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    private val sessionPreferences: SessionPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -122,6 +124,9 @@ class ChatViewModel(
     }
 
     fun disconnect() {
+        viewModelScope.launch {
+            sessionPreferences.clearSession()
+        }
         sessionRepository.disconnect()
     }
 }

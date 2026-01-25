@@ -88,8 +88,8 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 #### 2.5 Rendu Markdown
 - [x] Intégration Markwon
 - [x] Support GFM (tables, strikethrough)
-- [ ] Blocs de code avec background
-- [ ] Liens cliquables
+- [x] Blocs de code avec background
+- [x] Liens cliquables
 
 **Livrables v0.2** :
 - Chat fonctionnel avec streaming
@@ -121,10 +121,10 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [ ] Animation transition
 
 #### 3.3 Gestion État Session
-- [ ] Persistance sessionId (DataStore)
-- [ ] Reprise session existante au lancement
-- [ ] Détection session expirée
-- [ ] Bouton déconnexion/nouvelle session
+- [x] Persistance sessionId (DataStore)
+- [x] Reprise session existante au lancement
+- [x] Détection session expirée
+- [x] Bouton déconnexion/nouvelle session
 
 #### 3.4 Gestion Attachments
 - [ ] Bouton attach dans composer
@@ -492,3 +492,20 @@ mobile/
   - `ui/screens/ChatScreen.kt` - Écran chat
   - `ui/components/MessageBubble.kt` - Composant message
 - Ressources (strings, themes, colors, icons)
+
+### 2026-01-25 - Phases 2 & 3 Avancées
+
+**Améliorations Markdown :**
+- `MessageBubble.kt` - Support blocs de code avec background coloré
+- `MessageBubble.kt` - Liens cliquables avec LinkifyPlugin
+- Ajout dépendance `markwon-html`
+
+**Persistance Session (DataStore) :**
+- `data/SessionPreferences.kt` - Gestion préférences session
+- `SessionViewModel.kt` - Vérification session existante au lancement
+- `SessionViewModel.kt` - Reprise session / détection expiration
+- `SessionScreen.kt` - UI carte "Session précédente" avec reprise/oubli
+- `SessionRepository.kt` - Méthode `reconnectSession()`
+
+**DI :**
+- `AppModule.kt` - Injection SessionPreferences dans ViewModels

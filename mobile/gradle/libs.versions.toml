@@ -62,6 +62,7 @@ markwon-core = { module = "io.noties.markwon:core", version.ref = "markwon" }
 markwon-strikethrough = { module = "io.noties.markwon:ext-strikethrough", version.ref = "markwon" }
 markwon-tables = { module = "io.noties.markwon:ext-tables", version.ref = "markwon" }
 markwon-linkify = { module = "io.noties.markwon:linkify", version.ref = "markwon" }
+markwon-html = { module = "io.noties.markwon:html", version.ref = "markwon" }
 
 # Images
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }

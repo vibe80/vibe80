@@ -1,5 +1,7 @@
 package app.m5chat.android.ui.components
 
+import android.graphics.Typeface
+import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -7,14 +9,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.m5chat.shared.models.ChatMessage
 import app.m5chat.shared.models.MessageRole
+import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
+import io.noties.markwon.core.MarkwonTheme
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
+import io.noties.markwon.linkify.LinkifyPlugin
 
 @Composable
 fun MessageBubble(
@@ -126,20 +132,44 @@ fun MarkdownText(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val markwon = remember {
+    val textColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val linkColor = MaterialTheme.colorScheme.primary
+    val codeBackgroundColor = MaterialTheme.colorScheme.surface
+    val codeTextColor = MaterialTheme.colorScheme.onSurface
+
+    val markwon = remember(textColor, linkColor, codeBackgroundColor) {
         Markwon.builder(context)
             .usePlugin(StrikethroughPlugin.create())
             .usePlugin(TablePlugin.create(context))
+            .usePlugin(LinkifyPlugin.create())
+            .usePlugin(object : AbstractMarkwonPlugin() {
+                override fun configureTheme(builder: MarkwonTheme.Builder) {
+                    builder
+                        .codeTextColor(codeTextColor.toArgb())
+                        .codeBackgroundColor(codeBackgroundColor.toArgb())
+                        .codeBlockTextColor(codeTextColor.toArgb())
+                        .codeBlockBackgroundColor(codeBackgroundColor.toArgb())
+                        .codeTypeface(Typeface.MONOSPACE)
+                        .codeBlockTypeface(Typeface.MONOSPACE)
+                        .codeTextSize(14)
+                        .codeBlockTextSize(13)
+                        .codeBlockMargin(16)
+                        .linkColor(linkColor.toArgb())
+                        .isLinkUnderlined(true)
+                        .headingBreakHeight(0)
+                }
+            })
             .build()
     }
-
-    val textColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
             TextView(ctx).apply {
-                setTextColor(textColor.hashCode())
+                setTextColor(textColor.toArgb())
+                setLinkTextColor(linkColor.toArgb())
+                movementMethod = LinkMovementMethod.getInstance()
+                textSize = 14f
             }
         },
         update = { textView ->

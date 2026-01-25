@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.markwon.strikethrough)
     implementation(libs.markwon.tables)
     implementation(libs.markwon.linkify)
+    implementation(libs.markwon.html)
 
     // Images
     implementation(libs.coil.compose)

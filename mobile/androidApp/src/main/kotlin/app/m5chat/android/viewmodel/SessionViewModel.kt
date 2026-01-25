@@ -2,11 +2,14 @@ package app.m5chat.android.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.m5chat.android.M5ChatApplication
+import app.m5chat.android.data.SessionPreferences
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.repository.SessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -18,8 +21,10 @@ data class SessionUiState(
     val selectedProvider: LLMProvider = LLMProvider.CODEX,
     val authMethod: AuthMethod = AuthMethod.NONE,
     val isLoading: Boolean = false,
+    val isCheckingExistingSession: Boolean = true,
     val error: String? = null,
-    val sessionId: String? = null
+    val sessionId: String? = null,
+    val hasSavedSession: Boolean = false
 )
 
 enum class AuthMethod {
@@ -27,11 +32,88 @@ enum class AuthMethod {
 }
 
 class SessionViewModel(
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    private val sessionPreferences: SessionPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SessionUiState())
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
+
+    init {
+        checkExistingSession()
+    }
+
+    private fun checkExistingSession() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCheckingExistingSession = true) }
+
+            val savedSession = sessionPreferences.savedSession.first()
+            if (savedSession != null) {
+                _uiState.update {
+                    it.copy(
+                        isCheckingExistingSession = false,
+                        hasSavedSession = true,
+                        repoUrl = savedSession.repoUrl,
+                        selectedProvider = try {
+                            LLMProvider.valueOf(savedSession.provider.uppercase())
+                        } catch (e: Exception) {
+                            LLMProvider.CODEX
+                        }
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isCheckingExistingSession = false,
+                        hasSavedSession = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun resumeExistingSession() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            val savedSession = sessionPreferences.savedSession.first()
+            if (savedSession == null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Aucune session sauvegardée",
+                        hasSavedSession = false
+                    )
+                }
+                return@launch
+            }
+
+            // Try to reconnect to existing session
+            val result = sessionRepository.reconnectSession(savedSession.sessionId)
+
+            result.fold(
+                onSuccess = {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            sessionId = savedSession.sessionId
+                        )
+                    }
+                },
+                onFailure = { exception ->
+                    // Session expired or invalid, clear it
+                    sessionPreferences.clearSession()
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Session expirée. Veuillez créer une nouvelle session.",
+                            hasSavedSession = false
+                        )
+                    }
+                }
+            )
+        }
+    }
 
     fun updateRepoUrl(url: String) {
         _uiState.update { it.copy(repoUrl = url, error = null) }
@@ -78,6 +160,14 @@ class SessionViewModel(
 
             result.fold(
                 onSuccess = { sessionState ->
+                    // Save session for later
+                    sessionPreferences.saveSession(
+                        sessionId = sessionState.sessionId,
+                        repoUrl = state.repoUrl,
+                        provider = state.selectedProvider.name,
+                        baseUrl = M5ChatApplication.BASE_URL
+                    )
+
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -94,6 +184,13 @@ class SessionViewModel(
                     }
                 }
             )
+        }
+    }
+
+    fun clearSavedSession() {
+        viewModelScope.launch {
+            sessionPreferences.clearSession()
+            _uiState.update { it.copy(hasSavedSession = false) }
         }
     }
 
