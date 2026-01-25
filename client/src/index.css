@@ -563,6 +563,13 @@ main.chat {
   padding-bottom: var(--composer-space, 160px);
 }
 
+.chat-scroll-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
@@ -593,6 +600,14 @@ main.chat {
   height: 100%;
   position: relative;
   --composer-space: 160px;
+  --chat-max-width: 72ch;
+}
+
+.conversation.is-chat-narrow .chat-scroll-inner,
+.conversation.is-chat-narrow .composer-inner {
+  max-width: var(--chat-max-width);
+  width: 100%;
+  margin: 0 auto;
 }
 
 .pane-stack {
@@ -1828,6 +1843,13 @@ main.chat {
   box-shadow: var(--shadow);
   align-items: stretch;
   position: relative;
+}
+
+.composer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
 }
 
 .composer-attach-button {

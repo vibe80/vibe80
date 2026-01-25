@@ -138,6 +138,7 @@ const OPENAI_AUTH_MODE_KEY = "openAiAuthMode";
 const LLM_PROVIDER_KEY = "llmProvider";
 const LLM_PROVIDERS_KEY = "llmProviders";
 const CHAT_COMMANDS_VISIBLE_KEY = "chatCommandsVisible";
+const CHAT_FULL_WIDTH_KEY = "chatFullWidth";
 const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const THEME_MODE_KEY = "themeMode";
 const COMPOSER_INPUT_MODE_KEY = "composerInputMode";
@@ -293,6 +294,18 @@ const readChatCommandsVisible = () => {
   return true;
 };
 
+const readChatFullWidth = () => {
+  try {
+    const stored = localStorage.getItem(CHAT_FULL_WIDTH_KEY);
+    if (stored === "true" || stored === "false") {
+      return stored === "true";
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return false;
+};
+
 const readNotificationsEnabled = () => {
   try {
     const stored = localStorage.getItem(NOTIFICATIONS_ENABLED_KEY);
@@ -446,6 +459,7 @@ function App() {
   const [showChatCommands, setShowChatCommands] = useState(
     readChatCommandsVisible
   );
+  const [chatFullWidth, setChatFullWidth] = useState(readChatFullWidth);
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     readNotificationsEnabled
   );
@@ -845,6 +859,17 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [showChatCommands]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CHAT_FULL_WIDTH_KEY,
+        chatFullWidth ? "true" : "false"
+      );
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [chatFullWidth]);
 
   useEffect(() => {
     try {
@@ -3787,8 +3812,8 @@ function App() {
                   {backlog.length === 0
                     ? "Aucune tâche"
                     : `${backlog.length} élément(s)`}
-                </div>
               </div>
+            </div>
               {backlog.length === 0 ? (
                 <div className="backlog-empty">
                   Aucune tâche en attente pour le moment.
@@ -3836,60 +3861,66 @@ function App() {
           </div>
         </aside>
 
-        <section className="conversation" ref={conversationRef}>
+        <section
+          className={`conversation ${
+            chatFullWidth ? "is-chat-full" : "is-chat-narrow"
+          }`}
+          ref={conversationRef}
+        >
           <div className="pane-stack">
             <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
               <div className="chat-scroll" ref={listRef}>
-                {currentMessages.length === 0 && (
-                  <div className="empty">
-                    <p>Envoyez un message pour demarrer une session.</p>
-                  </div>
-                )}
-                {displayedGroupedMessages.map((message) => {
-                  if (message?.groupType === "commandExecution") {
-                    return (
-                      <div
-                        key={message.id}
-                        className="bubble command-execution"
-                      >
-                        {message.items.map((item) => {
-                          const commandTitle = `Commande : ${
-                            item.command || "Commande"
-                          }`;
-                          const showLoader = item.status !== "completed";
-                          const isExpandable =
-                            item.isExpandable || Boolean(item.output);
-                          const summaryContent = (
-                            <>
-                              {showLoader && (
-                                <span
-                                  className="loader command-execution-loader"
-                                  title="Execution en cours"
-                                >
-                                  <span className="dot" />
-                                  <span className="dot" />
-                                  <span className="dot" />
+                <div className="chat-scroll-inner">
+                  {currentMessages.length === 0 && (
+                    <div className="empty">
+                      <p>Envoyez un message pour demarrer une session.</p>
+                    </div>
+                  )}
+                  {displayedGroupedMessages.map((message) => {
+                    if (message?.groupType === "commandExecution") {
+                      return (
+                        <div
+                          key={message.id}
+                          className="bubble command-execution"
+                        >
+                          {message.items.map((item) => {
+                            const commandTitle = `Commande : ${
+                              item.command || "Commande"
+                            }`;
+                            const showLoader = item.status !== "completed";
+                            const isExpandable =
+                              item.isExpandable || Boolean(item.output);
+                            const summaryContent = (
+                              <>
+                                {showLoader && (
+                                  <span
+                                    className="loader command-execution-loader"
+                                    title="Execution en cours"
+                                  >
+                                    <span className="dot" />
+                                    <span className="dot" />
+                                    <span className="dot" />
+                                  </span>
+                                )}
+                                <span className="command-execution-title">
+                                  {commandTitle}
                                 </span>
-                              )}
-                              <span className="command-execution-title">
-                                {commandTitle}
-                              </span>
-                            </>
-                          );
-                          return (
-                            <div key={item.id}>
-                              {isExpandable ? (
-                                <details
-                                  className="command-execution-panel"
-                                  open={Boolean(commandPanelOpen[item.id])}
-                                  onToggle={(event) => {
-                                    const isOpen = event.currentTarget.open;
-                                    setCommandPanelOpen((prev) => ({
-                                      ...prev,
-                                      [item.id]: isOpen,
-                                    }));
-                                  }}
-                                >
+                              </>
+                            );
+                            return (
+                              <div key={item.id}>
+                                {isExpandable ? (
+                                  <details
+                                    className="command-execution-panel"
+                                    open={Boolean(commandPanelOpen[item.id])}
+                                    onToggle={(event) => {
+                                      const isOpen = event.currentTarget.open;
+                                      setCommandPanelOpen((prev) => ({
+                                        ...prev,
+                                        [item.id]: isOpen,
+                                      }));
+                                    }}
+                                  >
                                   <summary className="command-execution-summary">
                                     {summaryContent}
                                   </summary>
@@ -4059,7 +4090,8 @@ function App() {
                   );
                 })}
               </div>
-              {currentProcessing && (
+            </div>
+            {currentProcessing && (
                 <div className="bubble assistant typing">
                   <div className="typing-indicator">
                     <div
@@ -4280,6 +4312,20 @@ function App() {
               </label>
               <label className="settings-item">
                 <span className="settings-text">
+                  <span className="settings-name">Chat pleine largeur</span>
+                  <span className="settings-hint">
+                    Utilise toute la largeur disponible pour la zone de chat.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="settings-toggle"
+                  checked={chatFullWidth}
+                  onChange={(event) => setChatFullWidth(event.target.checked)}
+                />
+              </label>
+              <label className="settings-item">
+                <span className="settings-text">
                   <span className="settings-name">Notifications</span>
                   <span className="settings-hint">
                     Affiche une notification et un son quand un nouveau message
@@ -4337,119 +4383,121 @@ function App() {
               onSubmit={onSubmit}
               ref={composerRef}
             >
-              {draftAttachments.length ? (
-                <div
-                  className="composer-attachments"
-                  aria-label="Pièces sélectionnées"
-                >
-                  {draftAttachments.map((attachment) => {
-                    const label = attachment?.name || attachment?.path || "";
-                    const key = attachment?.path || attachment?.name || label;
-                    const extension = getAttachmentExtension(attachment);
-                    const sizeLabel =
-                      attachment?.lineCount || attachment?.lines
-                        ? `${attachment.lineCount || attachment.lines} lignes`
-                        : formatAttachmentSize(attachment?.size);
-                    return (
-                      <div className="attachment-card" key={key}>
-                        <div className="attachment-card-body">
-                          <div className="attachment-card-title">{label}</div>
-                          {sizeLabel ? (
-                            <div className="attachment-card-meta">
-                              {sizeLabel}
-                            </div>
-                          ) : null}
+              <div className="composer-inner">
+                {draftAttachments.length ? (
+                  <div
+                    className="composer-attachments"
+                    aria-label="Pièces sélectionnées"
+                  >
+                    {draftAttachments.map((attachment) => {
+                      const label = attachment?.name || attachment?.path || "";
+                      const key = attachment?.path || attachment?.name || label;
+                      const extension = getAttachmentExtension(attachment);
+                      const sizeLabel =
+                        attachment?.lineCount || attachment?.lines
+                          ? `${attachment.lineCount || attachment.lines} lignes`
+                          : formatAttachmentSize(attachment?.size);
+                      return (
+                        <div className="attachment-card" key={key}>
+                          <div className="attachment-card-body">
+                            <div className="attachment-card-title">{label}</div>
+                            {sizeLabel ? (
+                              <div className="attachment-card-meta">
+                                {sizeLabel}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="attachment-card-footer">
+                            <span className="attachment-card-type">
+                              {extension}
+                            </span>
+                            <button
+                              type="button"
+                              className="attachment-card-remove"
+                              aria-label={`Retirer ${label}`}
+                              onClick={() =>
+                                removeDraftAttachment(
+                                  attachment?.path || attachment?.name
+                                )
+                              }
+                            >
+                              ×
+                            </button>
+                          </div>
                         </div>
-                        <div className="attachment-card-footer">
-                          <span className="attachment-card-type">
-                            {extension}
-                          </span>
-                          <button
-                            type="button"
-                            className="attachment-card-remove"
-                            aria-label={`Retirer ${label}`}
-                            onClick={() =>
-                              removeDraftAttachment(
-                                attachment?.path || attachment?.name
-                              )
-                            }
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-              <div className="composer-main">
-                <button
-                  type="button"
-                  className="icon-button composer-attach-button"
-                  aria-label="Ajouter une pièce jointe"
-                  onClick={triggerAttachmentPicker}
-                  disabled={!attachmentSession || attachmentsLoading}
-                >
-                  ＋
-                  {isMobileLayout ? (
-                    <span className="attachment-badge">
-                      {draftAttachments.length}
-                    </span>
-                  ) : null}
-                </button>
-                <input
-                  ref={uploadInputRef}
-                  type="file"
-                  multiple
-                  onChange={onUploadAttachments}
-                  disabled={!attachmentSession || attachmentsLoading}
-                  className="visually-hidden"
-                />
-                <textarea
-                  className={`composer-input ${
-                    composerInputMode === "single" ? "is-single" : "is-multi"
-                  }`}
-                  value={input}
-                  onChange={handleInputChange}
-                  onPaste={onPasteAttachments}
-                  placeholder="Écris ton message…"
-                  rows={composerInputMode === "single" ? 1 : 2}
-                  ref={inputRef}
-                />
-                {canInterrupt ? (
+                      );
+                    })}
+                  </div>
+                ) : null}
+                <div className="composer-main">
                   <button
                     type="button"
-                    className="primary stop-button"
-                    onClick={interruptTurn}
-                    aria-label="Stop"
-                    title="Stop"
+                    className="icon-button composer-attach-button"
+                    aria-label="Ajouter une pièce jointe"
+                    onClick={triggerAttachmentPicker}
+                    disabled={!attachmentSession || attachmentsLoading}
                   >
-                    <span className="stop-icon">⏹</span>
+                    ＋
+                    {isMobileLayout ? (
+                      <span className="attachment-badge">
+                        {draftAttachments.length}
+                      </span>
+                    ) : null}
                   </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="primary"
-                    disabled={!connected || !input.trim()}
-                  >
-                    <span className="send-text">Envoyer</span>
-                    <span className="send-icon">➤</span>
-                  </button>
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    multiple
+                    onChange={onUploadAttachments}
+                    disabled={!attachmentSession || attachmentsLoading}
+                    className="visually-hidden"
+                  />
+                  <textarea
+                    className={`composer-input ${
+                      composerInputMode === "single" ? "is-single" : "is-multi"
+                    }`}
+                    value={input}
+                    onChange={handleInputChange}
+                    onPaste={onPasteAttachments}
+                    placeholder="Écris ton message…"
+                    rows={composerInputMode === "single" ? 1 : 2}
+                    ref={inputRef}
+                  />
+                  {canInterrupt ? (
+                    <button
+                      type="button"
+                      className="primary stop-button"
+                      onClick={interruptTurn}
+                      aria-label="Stop"
+                      title="Stop"
+                    >
+                      <span className="stop-icon">⏹</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      className="primary"
+                      disabled={!connected || !input.trim()}
+                    >
+                      <span className="send-text">Envoyer</span>
+                      <span className="send-icon">➤</span>
+                    </button>
+                  )}
+                </div>
+
+                {(!isMobileLayout || canInterrupt) && (
+                  <div className="composer-meta">
+                    <div className="composer-attachments-count">
+                      Pièces: {draftAttachments.length}
+                    </div>
+                  </div>
+                )}
+                {attachmentsError && (
+                  <div className="attachments-error composer-attachments-error">
+                    {attachmentsError}
+                  </div>
                 )}
               </div>
-
-              {(!isMobileLayout || canInterrupt) && (
-                <div className="composer-meta">
-                  <div className="composer-attachments-count">
-                    Pièces: {draftAttachments.length}
-                  </div>
-                </div>
-              )}
-              {attachmentsError && (
-                <div className="attachments-error composer-attachments-error">
-                  {attachmentsError}
-                </div>
-              )}
             </form>
           ) : null}
         </section>
