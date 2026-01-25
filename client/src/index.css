@@ -1834,6 +1834,8 @@ main.chat {
 }
 
 .composer {
+  --composer-control-height: 44px;
+  --composer-icon-size: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1854,6 +1856,9 @@ main.chat {
 
 .composer-attach-button {
   position: relative;
+  width: var(--composer-control-height);
+  height: var(--composer-control-height);
+  padding: 0;
 }
 
 .attachment-badge {
@@ -1887,26 +1892,26 @@ main.chat {
 
 .composer-input {
   width: 100%;
-  min-height: 64px;
+  min-height: var(--composer-control-height);
   border-radius: 16px;
-  border: 1px solid rgba(20, 19, 17, 0.12);
-  padding: 12px 14px;
+  border: none;
+  padding: 12px 8px;
   font-family: "Space Grotesk", system-ui, sans-serif;
   font-size: 15px;
   color: var(--ink);
-  background: var(--surface);
+  background: transparent;
   resize: none;
   outline: none;
 }
 
 .composer-input.is-single {
-  min-height: 42px;
-  height: 42px;
+  min-height: var(--composer-control-height);
   overflow: hidden;
 }
 
 .composer-input.is-multi {
-  min-height: 64px;
+  min-height: var(--composer-control-height);
+  overflow: auto;
 }
 
 .composer-input:focus {
@@ -1918,7 +1923,7 @@ main.chat {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 10px;
-  align-items: end;
+  align-items: flex-end;
 }
 
 .composer-actions {
@@ -1938,21 +1943,27 @@ main.chat {
 
 .send-icon {
   display: none;
-  font-size: 16px;
+  font-size: var(--composer-icon-size);
   line-height: 1;
+  width: var(--composer-icon-size);
+  height: var(--composer-icon-size);
 }
 
 .stop-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: var(--composer-icon-size);
   line-height: 1;
+  width: var(--composer-icon-size);
+  height: var(--composer-icon-size);
 }
 
 .composer button.primary.stop-button {
-  padding: 10px;
-  min-width: 44px;
+  padding: 0;
+  width: var(--composer-control-height);
+  min-width: var(--composer-control-height);
+  min-height: var(--composer-control-height);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2091,6 +2102,7 @@ main.chat {
   border-radius: 999px;
   font-weight: 700;
   padding: 10px 16px;
+  min-height: var(--composer-control-height);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -2292,6 +2304,7 @@ main.chat {
   }
 
   .layout.is-mobile .composer {
+    --composer-control-height: 42px;
     padding: 8px;
     gap: 6px;
   }
@@ -2325,18 +2338,16 @@ main.chat {
 
   .layout.is-mobile .composer-attach-button,
   .layout.is-mobile .composer button.primary {
-    width: 42px;
-    height: 42px;
+    width: var(--composer-control-height);
+    height: var(--composer-control-height);
     padding: 0;
     border-radius: 12px;
   }
 
   .layout.is-mobile .composer-input {
-    min-height: 42px;
-    height: 42px;
-    max-height: 42px;
+    min-height: var(--composer-control-height);
     padding: 10px 12px;
-    overflow: hidden;
+    overflow: auto;
   }
 
   .layout.is-mobile .composer-meta {

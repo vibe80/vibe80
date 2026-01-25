@@ -3231,20 +3231,12 @@ function App() {
     if (!inputRef.current) {
       return;
     }
-    if (isMobileLayout) {
-      inputRef.current.style.height = "42px";
-      return;
-    }
     inputRef.current.style.height = "auto";
     inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
   };
 
   useEffect(() => {
     if (!inputRef.current) {
-      return;
-    }
-    if (isMobileLayout) {
-      inputRef.current.style.height = "42px";
       return;
     }
     inputRef.current.style.height = "auto";
@@ -4485,13 +4477,6 @@ function App() {
                   )}
                 </div>
 
-                {(!isMobileLayout || canInterrupt) && (
-                  <div className="composer-meta">
-                    <div className="composer-attachments-count">
-                      Pièces: {draftAttachments.length}
-                    </div>
-                  </div>
-                )}
                 {attachmentsError && (
                   <div className="attachments-error composer-attachments-error">
                     {attachmentsError}
