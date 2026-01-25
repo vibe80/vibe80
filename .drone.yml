@@ -59,7 +59,7 @@ steps:
       - git push
 
   - name: build_android_apk
-    image: cimg/android:2024.01.1-ndk
+    image: thyrlian/android-sdk:latest
     when:
       branch:
         - main
@@ -81,19 +81,13 @@ steps:
       - echo "ANDROID_HOME=$ANDROID_HOME"
 
       # Accept Android SDK licenses
-      - yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+      - yes | sdkmanager --licenses || true
 
       # Install required SDK components
-      - $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" || true
+      - sdkmanager "platforms;android-34" "build-tools;34.0.0" || true
 
-      # Make gradlew executable
-      - chmod +x ./gradlew
-
-      # Clean and build debug APK
-      - ./gradlew clean
-
-      # Build the debug APK
-      - ./gradlew :androidApp:assembleDebug --no-daemon --stacktrace
+      # Run gradle via sh to avoid permission issues
+      - sh ./gradlew :androidApp:assembleDebug --no-daemon --stacktrace
 
       # Verify APK was created
       - ls -la androidApp/build/outputs/apk/debug/
