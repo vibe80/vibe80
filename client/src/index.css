@@ -2013,6 +2013,15 @@ main.chat {
   gap: 10px;
 }
 
+.composer-attachments .attachment-card-body {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.composer-attachments .attachment-card-title {
+  max-width: 100%;
+}
+
 .attachment-card {
   border: 1px solid rgba(20, 19, 17, 0.12);
   border-radius: 16px;
