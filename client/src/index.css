@@ -1969,6 +1969,22 @@ main.chat {
   justify-content: center;
 }
 
+.composer button.primary.send-button {
+  padding: 0;
+  width: var(--composer-control-height);
+  min-width: var(--composer-control-height);
+  min-height: var(--composer-control-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.composer button.primary.send-button .send-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .link-button {
   border: none;
   background: transparent;

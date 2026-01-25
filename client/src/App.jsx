@@ -4468,10 +4468,11 @@ function App() {
                   ) : (
                     <button
                       type="submit"
-                      className="primary"
+                      className="primary send-button"
                       disabled={!connected || !input.trim()}
+                      aria-label="Envoyer"
+                      title="Envoyer"
                     >
-                      <span className="send-text">Envoyer</span>
                       <span className="send-icon">➤</span>
                     </button>
                   )}
