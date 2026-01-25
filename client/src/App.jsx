@@ -1626,6 +1626,26 @@ function App() {
         }
 
         if (!isWorktreeScoped && payload.type === "turn_completed") {
+          const turnErrorInfo = payload?.turn?.error?.codexErrorInfo;
+          if (turnErrorInfo === "usageLimitExceeded") {
+            const warningId = `usage-limit-${payload.turn?.id || Date.now()}`;
+            const warningText =
+              payload?.turn?.error?.message ||
+              "Limite d'usage atteinte. Merci de reessayer plus tard.";
+            setMessages((current) => {
+              if (current.some((message) => message.id === warningId)) {
+                return current;
+              }
+              return [
+                ...current,
+                {
+                  id: warningId,
+                  role: "assistant",
+                  text: `⚠️ ${warningText}`,
+                },
+              ];
+            });
+          }
           setProcessing(false);
           setActivity("");
           setCurrentTurnId(null);
