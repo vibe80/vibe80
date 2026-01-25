@@ -1,0 +1,37 @@
+# Gradle
+.gradle/
+build/
+*/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration
+local.properties
+*.local
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Android
+*.apk
+*.ap_
+*.aab
+
+# Kotlin
+*.kotlin_module
+
+# Logs
+*.log
+
+# Test outputs
+/reports/
+/test-results/
+
+# iOS (for future)
+iosApp/Pods/
+iosApp/.symlinks/
+iosApp/Flutter/
+iosApp/*.xcworkspace
+!iosApp/*.xcodeproj
+iosApp/build/

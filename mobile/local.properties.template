@@ -1,0 +1,7 @@
+# Template for local.properties
+# Copy this file to local.properties and update the values
+
+# SDK location (will be set automatically by Android Studio)
+# sdk.dir=/path/to/android/sdk
+
+# For CI builds, set ANDROID_HOME environment variable instead
