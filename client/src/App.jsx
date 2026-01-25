@@ -45,9 +45,55 @@ const terminalWsUrl = (sessionId, worktreeId) => {
   return `${protocol}://${window.location.host}/terminal${suffix}`;
 };
 
-const extractChoices = (text) => {
+const normalizeVibecoderQuestion = (rawQuestion) => {
+  const trimmed = rawQuestion?.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+};
+
+const parseFormFields = (blockBody) => {
+  if (!blockBody) {
+    return [];
+  }
+  return blockBody
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("::");
+      const [rawType, rawId, rawLabel, ...rest] = parts;
+      const type = (rawType || "").trim().toLowerCase();
+      const id = (rawId || "").trim();
+      const label = (rawLabel || "").trim();
+      if (!type || !id || !label) {
+        return null;
+      }
+      if (type === "radio" || type === "select") {
+        const choices = rest.map((item) => item.trim()).filter(Boolean);
+        return { type, id, label, choices };
+      }
+      if (type === "checkbox") {
+        const rawValue = rest.join("::").trim();
+        const defaultChecked = rawValue === "1";
+        return { type, id, label, defaultChecked };
+      }
+      if (type === "input" || type === "textarea") {
+        const defaultValue = rest.join("::").trim();
+        return { type, id, label, defaultValue };
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
+
+const extractVibecoderBlocks = (text) => {
   const pattern =
-    /<!--\s*vibecoder:choices\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:choices\s*-->/g;
+    /<!--\s*vibecoder:(choices|form)\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:\1\s*-->/g;
   const blocks = [];
   let cleaned = "";
   let lastIndex = 0;
@@ -56,13 +102,24 @@ const extractChoices = (text) => {
   while ((match = pattern.exec(text)) !== null) {
     cleaned += text.slice(lastIndex, match.index);
     lastIndex = match.index + match[0].length;
-    const question = match[1]?.trim();
-    const choices = match[2]
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (choices.length) {
-      blocks.push({ question, choices });
+    const blockType = match[1];
+    const question = normalizeVibecoderQuestion(match[2]);
+    const body = match[3] || "";
+
+    if (blockType === "choices") {
+      const choices = body
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      if (choices.length) {
+        blocks.push({ type: "choices", question, choices });
+      }
+      continue;
+    }
+
+    const fields = parseFormFields(body);
+    if (fields.length) {
+      blocks.push({ type: "form", question, fields });
     }
   }
 
@@ -398,6 +455,8 @@ function App() {
   );
   const soundEnabled = notificationsEnabled;
   const [choiceSelections, setChoiceSelections] = useState({});
+  const [activeForm, setActiveForm] = useState(null);
+  const [activeFormValues, setActiveFormValues] = useState({});
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
   const [backlog, setBacklog] = useState([]);
@@ -2878,6 +2937,69 @@ function App() {
 
   // ============== End Worktree Functions ==============
 
+  const openVibecoderForm = useCallback((block, blockKey) => {
+    if (!block?.fields?.length) {
+      return;
+    }
+    const defaults = {};
+    block.fields.forEach((field) => {
+      if (field.type === "checkbox") {
+        defaults[field.id] = Boolean(field.defaultChecked);
+      } else if (field.type === "radio" || field.type === "select") {
+        defaults[field.id] = field.choices?.[0] || "";
+      } else {
+        defaults[field.id] = field.defaultValue || "";
+      }
+    });
+    setActiveForm({ ...block, key: blockKey });
+    setActiveFormValues(defaults);
+  }, []);
+
+  const closeVibecoderForm = useCallback(() => {
+    setActiveForm(null);
+    setActiveFormValues({});
+  }, []);
+
+  const updateActiveFormValue = useCallback((fieldId, value) => {
+    setActiveFormValues((current) => ({
+      ...current,
+      [fieldId]: value,
+    }));
+  }, []);
+
+  const sendFormMessage = useCallback(
+    (text) => {
+      const preservedInput = input;
+      const preservedAttachments = draftAttachments;
+      handleSendMessage(text, []);
+      setInput(preservedInput);
+      setDraftAttachments(preservedAttachments);
+    },
+    [handleSendMessage, input, draftAttachments]
+  );
+
+  const submitActiveForm = useCallback(
+    (event) => {
+      event?.preventDefault();
+      if (!activeForm) {
+        return;
+      }
+      const lines = activeForm.fields.map((field) => {
+        let value = activeFormValues[field.id];
+        if (field.type === "checkbox") {
+          value = value ? "1" : "0";
+        }
+        if (value === undefined || value === null) {
+          value = "";
+        }
+        return `${field.id}=${value}`;
+      });
+      sendFormMessage(lines.join("\n"));
+      closeVibecoderForm();
+    },
+    [activeForm, activeFormValues, sendFormMessage, closeVibecoderForm]
+  );
+
   const addToBacklog = () => {
     const trimmed = input.trim();
     if (!trimmed) {
@@ -3805,8 +3927,8 @@ function App() {
                   return (
                     <div key={message.id} className={`bubble ${message.role}`}>
                       {(() => {
-                        const { cleanedText, blocks } = extractChoices(
-                          message.text
+                        const { cleanedText, blocks } = extractVibecoderBlocks(
+                          message.text || ""
                         );
                         return (
                           <>
@@ -3826,6 +3948,26 @@ function App() {
                             </ReactMarkdown>
                             {blocks.map((block, index) => {
                               const blockKey = `${message.id}-${index}`;
+                              if (block.type === "form") {
+                                return (
+                                  <div
+                                    className="vibecoder-form"
+                                    key={blockKey}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="vibecoder-form-button"
+                                      onClick={() =>
+                                        openVibecoderForm(block, blockKey)
+                                      }
+                                    >
+                                      {block.question ||
+                                        "Ouvrir le formulaire"}
+                                    </button>
+                                  </div>
+                                );
+                              }
+
                               const selectedIndex = choiceSelections[blockKey];
                               const choicesWithIndex = block.choices.map(
                                 (choice, choiceIndex) => ({
@@ -4312,6 +4454,163 @@ function App() {
           ) : null}
         </section>
       </div>
+      {activeForm ? (
+        <div
+          className="vibecoder-form-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeVibecoderForm}
+        >
+          <div
+            className="vibecoder-form-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="vibecoder-form-header">
+              <div className="vibecoder-form-title">
+                {activeForm.question || "Formulaire"}
+              </div>
+              <button
+                type="button"
+                className="vibecoder-form-close"
+                aria-label="Fermer"
+                onClick={closeVibecoderForm}
+              >
+                ×
+              </button>
+            </div>
+            <form className="vibecoder-form-body" onSubmit={submitActiveForm}>
+              {activeForm.fields.map((field) => {
+                const fieldId = `vibecoder-${activeForm.key}-${field.id}`;
+                const value = activeFormValues[field.id] ?? "";
+                if (field.type === "checkbox") {
+                  return (
+                    <div className="vibecoder-form-field" key={field.id}>
+                      <label className="vibecoder-form-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(activeFormValues[field.id])}
+                          onChange={(event) =>
+                            updateActiveFormValue(
+                              field.id,
+                              event.target.checked
+                            )
+                          }
+                        />
+                        <span>{field.label}</span>
+                      </label>
+                    </div>
+                  );
+                }
+                if (field.type === "textarea") {
+                  return (
+                    <div className="vibecoder-form-field" key={field.id}>
+                      <label className="vibecoder-form-label" htmlFor={fieldId}>
+                        {field.label}
+                      </label>
+                      <textarea
+                        id={fieldId}
+                        className="vibecoder-form-input"
+                        rows={4}
+                        value={value}
+                        onChange={(event) =>
+                          updateActiveFormValue(field.id, event.target.value)
+                        }
+                      />
+                    </div>
+                  );
+                }
+                if (field.type === "radio") {
+                  return (
+                    <div className="vibecoder-form-field" key={field.id}>
+                      <div className="vibecoder-form-label">{field.label}</div>
+                      <div className="vibecoder-form-options">
+                        {(field.choices || []).length ? (
+                          field.choices.map((choice) => (
+                            <label
+                              key={`${field.id}-${choice}`}
+                              className="vibecoder-form-option"
+                            >
+                              <input
+                                type="radio"
+                                name={fieldId}
+                                value={choice}
+                                checked={value === choice}
+                                onChange={() =>
+                                  updateActiveFormValue(field.id, choice)
+                                }
+                              />
+                              <span>{choice}</span>
+                            </label>
+                          ))
+                        ) : (
+                          <div className="vibecoder-form-empty">
+                            Aucune option.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                if (field.type === "select") {
+                  return (
+                    <div className="vibecoder-form-field" key={field.id}>
+                      <label className="vibecoder-form-label" htmlFor={fieldId}>
+                        {field.label}
+                      </label>
+                      <select
+                        id={fieldId}
+                        className="vibecoder-form-input"
+                        value={value}
+                        onChange={(event) =>
+                          updateActiveFormValue(field.id, event.target.value)
+                        }
+                      >
+                        {(field.choices || []).length ? (
+                          field.choices.map((choice) => (
+                            <option key={`${field.id}-${choice}`} value={choice}>
+                              {choice}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">Aucune option</option>
+                        )}
+                      </select>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="vibecoder-form-field" key={field.id}>
+                    <label className="vibecoder-form-label" htmlFor={fieldId}>
+                      {field.label}
+                    </label>
+                    <input
+                      id={fieldId}
+                      className="vibecoder-form-input"
+                      type="text"
+                      value={value}
+                      onChange={(event) =>
+                        updateActiveFormValue(field.id, event.target.value)
+                      }
+                    />
+                  </div>
+                );
+              })}
+              <div className="vibecoder-form-actions">
+                <button
+                  type="button"
+                  className="vibecoder-form-cancel"
+                  onClick={closeVibecoderForm}
+                >
+                  Annuler
+                </button>
+                <button type="submit" className="vibecoder-form-submit">
+                  Envoyer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
       {attachmentPreview ? (
         <div
           className="attachment-modal"
