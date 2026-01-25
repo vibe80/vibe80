@@ -8,6 +8,73 @@ platform:
   arch: amd64
 
 steps:
+  - name: build_android_apk
+    image: thyrlian/android-sdk:latest
+    when:
+      branch:
+        - main
+      event:
+        - push
+    environment:
+      REGISTRY_USERNAME:
+        from_secret: registry_username
+      REGISTRY_TOKEN:
+        from_secret: registry_token
+    commands:
+      # Navigate to mobile directory
+      - cd mobile
+
+      # Display environment info for debugging
+      - echo "Build Number $DRONE_BUILD_NUMBER"
+      - echo "Commit SHA ${DRONE_COMMIT_SHA:0:8}"
+      - java -version
+      - echo "ANDROID_HOME=$ANDROID_HOME"
+
+      # Accept Android SDK licenses
+      - yes | sdkmanager --licenses || true
+
+      # Install required SDK components for API 35
+      - sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
+
+      # Run gradle via sh to avoid permission issues
+      - sh ./gradlew :androidApp:assembleDebug --no-daemon --stacktrace
+
+      # Verify APK was created
+      - ls -la androidApp/build/outputs/apk/debug/
+
+      # Find and upload APK
+      - |
+        apk_path=$(find androidApp/build/outputs/apk/debug -name "*.apk" -type f | head -1)
+        if [ -z "$apk_path" ]; then
+          echo "ERROR: No APK file found!"
+          exit 1
+        fi
+        echo "Found APK: $apk_path"
+
+        # Prepare upload variables
+        build_number="${DRONE_BUILD_NUMBER}"
+        commit_sha="${DRONE_COMMIT_SHA:0:8}"
+        package_name="m5chat-android"
+        apk_name="m5chat-debug-${commit_sha}.apk"
+
+        echo "Uploading APK to package registry..."
+        echo "Package: $package_name"
+        echo "Version: $build_number"
+        echo "Filename: $apk_name"
+
+        # Upload to Gitea package registry
+        curl --fail --user "$REGISTRY_USERNAME:$REGISTRY_TOKEN" \
+          --upload-file "$apk_path" \
+          "https://git.lab.adho.app/api/packages/m5chat/generic/$package_name/$build_number/$apk_name"
+
+        if [ $? -eq 0 ]; then
+          echo "APK uploaded successfully!"
+          echo "Download URL: https://git.lab.adho.app/api/packages/m5chat/generic/$package_name/$build_number/$apk_name"
+        else
+          echo "ERROR: APK upload failed!"
+          exit 1
+        fi
+
   - name: build_image
     image: plugins/docker:20.14
     settings:
@@ -57,73 +124,6 @@ steps:
       - git add contabo/vibecoder/vibecoder.yml
       - 'git commit -m "vibecoder: bump image to ${TAG}" || exit 0'
       - git push
-
-  - name: build_android_apk
-    image: thyrlian/android-sdk:latest
-    when:
-      branch:
-        - main
-      event:
-        - push
-    environment:
-      REGISTRY_USERNAME:
-        from_secret: registry_username
-      REGISTRY_TOKEN:
-        from_secret: registry_token
-    commands:
-      # Navigate to mobile directory
-      - cd mobile
-
-      # Display environment info for debugging
-      - echo "Build Number $DRONE_BUILD_NUMBER"
-      - echo "Commit SHA ${DRONE_COMMIT_SHA:0:8}"
-      - java -version
-      - echo "ANDROID_HOME=$ANDROID_HOME"
-
-      # Accept Android SDK licenses
-      - yes | sdkmanager --licenses || true
-
-      # Install required SDK components
-      - sdkmanager "platforms;android-34" "build-tools;34.0.0" || true
-
-      # Run gradle via sh to avoid permission issues
-      - sh ./gradlew :androidApp:assembleDebug --no-daemon --stacktrace
-
-      # Verify APK was created
-      - ls -la androidApp/build/outputs/apk/debug/
-
-      # Find and upload APK
-      - |
-        apk_path=$(find androidApp/build/outputs/apk/debug -name "*.apk" -type f | head -1)
-        if [ -z "$apk_path" ]; then
-          echo "ERROR: No APK file found!"
-          exit 1
-        fi
-        echo "Found APK: $apk_path"
-
-        # Prepare upload variables
-        build_number="${DRONE_BUILD_NUMBER}"
-        commit_sha="${DRONE_COMMIT_SHA:0:8}"
-        package_name="m5chat-android"
-        apk_name="m5chat-debug-${commit_sha}.apk"
-
-        echo "Uploading APK to package registry..."
-        echo "Package: $package_name"
-        echo "Version: $build_number"
-        echo "Filename: $apk_name"
-
-        # Upload to Gitea package registry
-        curl --fail --user "$REGISTRY_USERNAME:$REGISTRY_TOKEN" \
-          --upload-file "$apk_path" \
-          "https://git.lab.adho.app/api/packages/m5chat/generic/$package_name/$build_number/$apk_name"
-
-        if [ $? -eq 0 ]; then
-          echo "APK uploaded successfully!"
-          echo "Download URL: https://git.lab.adho.app/api/packages/m5chat/generic/$package_name/$build_number/$apk_name"
-        else
-          echo "ERROR: APK upload failed!"
-          exit 1
-        fi
 
 trigger:
   event:

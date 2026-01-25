@@ -50,7 +50,7 @@ kotlin {
 
 android {
     namespace = "app.m5chat.shared"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 26
