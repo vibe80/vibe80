@@ -19,7 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.DifferenceOutlined
+import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
@@ -127,7 +127,7 @@ fun ChatScreen(
                     // Diff button
                     IconButton(onClick = viewModel::showDiffSheet) {
                         Icon(
-                            imageVector = Icons.Default.DifferenceOutlined,
+                            imageVector = Icons.Default.CompareArrows,
                             contentDescription = stringResource(R.string.diff)
                         )
                     }

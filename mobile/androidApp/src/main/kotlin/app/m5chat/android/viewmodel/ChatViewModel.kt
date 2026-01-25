@@ -44,6 +44,14 @@ data class ChatUiState(
     val uploadingAttachments: Boolean = false
 )
 
+private data class SessionSnapshot(
+    val messages: List<ChatMessage>,
+    val streaming: String?,
+    val connection: ConnectionState,
+    val processing: Boolean,
+    val branches: BranchInfo?
+)
+
 class ChatViewModel(
     private val sessionRepository: SessionRepository,
     private val sessionPreferences: SessionPreferences,
@@ -59,25 +67,38 @@ class ChatViewModel(
 
     private fun observeSessionState() {
         viewModelScope.launch {
-            combine(
+            val baseStateFlow = combine(
                 sessionRepository.messages,
                 sessionRepository.currentStreamingMessage,
                 sessionRepository.connectionState,
                 sessionRepository.processing,
-                sessionRepository.branches,
-                sessionRepository.repoDiff
-            ) { messages, streaming, connection, processing, branches, diff ->
-                _uiState.update {
-                    it.copy(
-                        messages = messages,
-                        currentStreamingMessage = streaming,
-                        connectionState = connection,
-                        processing = processing,
-                        branches = branches,
-                        repoDiff = diff
-                    )
+                sessionRepository.branches
+            ) { messages, streaming, connection, processing, branches ->
+                SessionSnapshot(
+                    messages = messages,
+                    streaming = streaming,
+                    connection = connection,
+                    processing = processing,
+                    branches = branches
+                )
+            }
+
+            baseStateFlow
+                .combine(sessionRepository.repoDiff) { snapshot, diff ->
+                    snapshot to diff
                 }
-            }.collect()
+                .collect { (snapshot, diff) ->
+                    _uiState.update {
+                        it.copy(
+                            messages = snapshot.messages,
+                            currentStreamingMessage = snapshot.streaming,
+                            connectionState = snapshot.connection,
+                            processing = snapshot.processing,
+                            branches = snapshot.branches,
+                            repoDiff = diff
+                        )
+                    }
+                }
         }
 
         viewModelScope.launch {
