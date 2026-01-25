@@ -76,11 +76,11 @@ steps:
         # Upload to Gitea package registry
         curl --fail --user "$REGISTRY_USERNAME:$REGISTRY_TOKEN" \
           --upload-file "$apk_path" \
-          "https://git.lab.adho.app/api/packages/m5chat/generic/$package_name/$build_number/$apk_name"
+          "https://git.lab.adho.app/api/packages/mont5piques/generic/$package_name/$build_number/$apk_name"
 
         if [ $? -eq 0 ]; then
           echo "APK uploaded successfully!"
-          echo "Download URL: https://git.lab.adho.app/api/packages/m5chat/generic/$package_name/$build_number/$apk_name"
+          echo "Download URL: https://git.lab.adho.app/api/packages/mont5piques/generic/$package_name/$build_number/$apk_name"
         else
           echo "ERROR: APK upload failed!"
           exit 1
