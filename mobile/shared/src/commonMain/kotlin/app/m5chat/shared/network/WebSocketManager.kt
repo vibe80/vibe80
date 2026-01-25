@@ -1,5 +1,6 @@
 package app.m5chat.shared.network
 
+import app.m5chat.shared.logging.AppLogger
 import app.m5chat.shared.models.*
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.*
@@ -65,10 +66,14 @@ class WebSocketManager(
                 .replace("http://", "ws://")
                 .replace("https://", "wss://")
 
-            httpClient.webSocket("$wsUrl/ws?session=$currentSessionId") {
+            val fullWsUrl = "$wsUrl/ws?session=$currentSessionId"
+            AppLogger.wsConnecting(fullWsUrl)
+
+            httpClient.webSocket(fullWsUrl) {
                 session = this
                 _connectionState.value = ConnectionState.CONNECTED
                 reconnectAttempt = 0
+                AppLogger.wsConnected(fullWsUrl)
 
                 // Start ping job
                 pingJob = launch {
@@ -82,6 +87,15 @@ class WebSocketManager(
                 val outgoingJob = launch {
                     for (message in outgoingMessages) {
                         val jsonString = json.encodeToString(ClientMessage.serializer(), message)
+                        val messageType = when (message) {
+                            is PingMessage -> "ping"
+                            is SendMessageRequest -> "send_message"
+                            is SwitchProviderRequest -> "switch_provider"
+                            is WorktreeMessageRequest -> "worktree_message"
+                            is CreateWorktreeRequest -> "create_worktree"
+                            else -> "unknown"
+                        }
+                        AppLogger.wsSend(messageType, jsonString)
                         send(Frame.Text(jsonString))
                     }
                 }
@@ -106,6 +120,7 @@ class WebSocketManager(
                 }
             }
         } catch (e: Exception) {
+            AppLogger.wsError(e)
             _connectionState.value = ConnectionState.ERROR
             _errors.emit(e)
             scheduleReconnect()
@@ -116,7 +131,12 @@ class WebSocketManager(
         try {
             // First parse to get the type
             val jsonObject = json.decodeFromString<JsonObject>(text)
-            val type = jsonObject["type"]?.jsonPrimitive?.content
+            val type = jsonObject["type"]?.jsonPrimitive?.content ?: "unknown"
+
+            // Log received message (skip pong to reduce noise)
+            if (type != "pong") {
+                AppLogger.wsReceive(type, text)
+            }
 
             val message: ServerMessage? = when (type) {
                 "ready" -> json.decodeFromString<ReadyMessage>(text)
@@ -134,13 +154,15 @@ class WebSocketManager(
                 "pong" -> json.decodeFromString<PongMessage>(text)
                 "command_execution_delta" -> json.decodeFromString<CommandExecutionDeltaMessage>(text)
                 "command_execution_completed" -> json.decodeFromString<CommandExecutionCompletedMessage>(text)
-                else -> null
+                else -> {
+                    AppLogger.warning(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Unknown message type: $type", text)
+                    null
+                }
             }
 
             message?.let { _messages.tryEmit(it) }
         } catch (e: Exception) {
-            // Log parsing error but don't crash
-            e.printStackTrace()
+            AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Parse error: ${e.message}", text)
         }
     }
 
@@ -201,6 +223,7 @@ class WebSocketManager(
     }
 
     fun disconnect() {
+        AppLogger.wsDisconnected("Client initiated disconnect")
         reconnectJob?.cancel()
         pingJob?.cancel()
         session?.let {

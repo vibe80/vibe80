@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Image
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.m5chat.android.R
 import app.m5chat.android.ui.components.DiffSheetContent
+import app.m5chat.android.ui.components.LogsSheetContent
 import app.m5chat.android.ui.components.MessageBubble
 import app.m5chat.android.ui.components.ProviderSelectionDialog
 import app.m5chat.android.viewmodel.ChatViewModel
@@ -130,6 +132,14 @@ fun ChatScreen(
                         Icon(
                             imageVector = Icons.Default.CompareArrows,
                             contentDescription = stringResource(R.string.diff)
+                        )
+                    }
+
+                    // Logs button (debug)
+                    IconButton(onClick = viewModel::showLogsSheet) {
+                        Icon(
+                            imageVector = Icons.Default.BugReport,
+                            contentDescription = "Logs"
                         )
                     }
 
@@ -318,6 +328,16 @@ fun ChatScreen(
             },
             onDismiss = viewModel::hideProviderDialog
         )
+    }
+
+    // Logs Sheet
+    if (uiState.showLogsSheet) {
+        ModalBottomSheet(
+            onDismissRequest = viewModel::hideLogsSheet,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            LogsSheetContent()
+        }
     }
 }
 

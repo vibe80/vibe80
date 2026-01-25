@@ -1,5 +1,6 @@
 package app.m5chat.shared.network
 
+import app.m5chat.shared.logging.AppLogger
 import app.m5chat.shared.models.*
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -8,38 +9,49 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class ApiClient(
     private val httpClient: HttpClient,
     private val baseUrl: String
 ) {
+    private val json = Json { prettyPrint = false }
+
     /**
      * Create a new session by cloning a repository
      */
     suspend fun createSession(request: SessionCreateRequest): Result<SessionCreateResponse> {
+        val url = "$baseUrl/api/session"
+        val requestBody = json.encodeToString(request)
+        AppLogger.apiRequest("POST", url, requestBody)
+
         return try {
-            val response = httpClient.post("$baseUrl/api/session") {
+            val response = httpClient.post(url) {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
+            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            AppLogger.apiResponse("POST", url, response.status.value, responseBody)
+
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                val errorBody = try { response.bodyAsText() } catch (e: Exception) { "" }
                 Result.failure(
                     SessionCreationException(
                         statusCode = response.status.value,
                         statusDescription = response.status.description,
-                        errorBody = errorBody,
-                        url = "$baseUrl/api/session"
+                        errorBody = responseBody,
+                        url = url
                     )
                 )
             }
         } catch (e: Exception) {
+            AppLogger.apiError("POST", url, e)
             Result.failure(
                 SessionCreationException(
                     cause = e,
-                    url = "$baseUrl/api/session"
+                    url = url
                 )
             )
         }

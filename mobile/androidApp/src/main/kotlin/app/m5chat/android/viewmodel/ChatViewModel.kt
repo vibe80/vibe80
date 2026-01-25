@@ -40,6 +40,7 @@ data class ChatUiState(
     val showBranchesSheet: Boolean = false,
     val showDiffSheet: Boolean = false,
     val showProviderDialog: Boolean = false,
+    val showLogsSheet: Boolean = false,
     val pendingAttachments: List<PendingAttachment> = emptyList(),
     val uploadingAttachments: Boolean = false
 )
@@ -169,6 +170,14 @@ class ChatViewModel(
 
     fun hideProviderDialog() {
         _uiState.update { it.copy(showProviderDialog = false) }
+    }
+
+    fun showLogsSheet() {
+        _uiState.update { it.copy(showLogsSheet = true) }
+    }
+
+    fun hideLogsSheet() {
+        _uiState.update { it.copy(showLogsSheet = false) }
     }
 
     fun addPendingAttachment(attachment: PendingAttachment) {
