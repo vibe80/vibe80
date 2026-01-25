@@ -1256,6 +1256,45 @@ main.chat {
   border-radius: 8px;
 }
 
+.bubble .inline-code {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.bubble .inline-code code {
+  padding-right: 22px;
+}
+
+.bubble .inline-code .code-copy {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.95);
+  width: 16px;
+  height: 16px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(20, 19, 17, 0.12);
+  color: var(--ink);
+  font-size: 10px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.bubble .inline-code:hover .code-copy,
+.bubble .inline-code:focus-within .code-copy {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+
 .bubble pre {
   padding: 12px 14px;
   background: rgba(20, 19, 17, 0.08);

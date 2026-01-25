@@ -131,6 +131,29 @@ const extractVibecoderBlocks = (text) => {
   return { cleanedText: cleaned.trim(), blocks };
 };
 
+const copyTextToClipboard = async (text) => {
+  if (!text) {
+    return;
+  }
+  if (navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Fall back to legacy copy behavior.
+    }
+  }
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "absolute";
+  textArea.style.left = "-9999px";
+  document.body.appendChild(textArea);
+  textArea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textArea);
+};
+
 const MAX_USER_DISPLAY_LENGTH = 1024;
 const REPO_HISTORY_KEY = "repoHistory";
 const AUTH_MODE_KEY = "authMode";
@@ -3965,6 +3988,45 @@ function App() {
                                     rel="noopener noreferrer"
                                   />
                                 ),
+                                code: ({
+                                  node,
+                                  inline,
+                                  className,
+                                  children,
+                                  ...props
+                                }) => {
+                                  const rawText = Array.isArray(children)
+                                    ? children.join("")
+                                    : String(children);
+                                  const text = rawText.replace(/\n$/, "");
+                                  if (!inline) {
+                                    return (
+                                      <code className={className} {...props}>
+                                        {children}
+                                      </code>
+                                    );
+                                  }
+                                  return (
+                                    <span className="inline-code">
+                                      <code className={className} {...props}>
+                                        {text}
+                                      </code>
+                                      <button
+                                        type="button"
+                                        className="code-copy"
+                                        aria-label="Copier le code"
+                                        title="Copier"
+                                        onClick={(event) => {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          copyTextToClipboard(text);
+                                        }}
+                                      >
+                                        ⧉
+                                      </button>
+                                    </span>
+                                  );
+                                },
                               }}
                             >
                               {cleanedText}
