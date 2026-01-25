@@ -1,0 +1,450 @@
+# M5Chat Mobile - Plan de Développement
+
+## Vue d'ensemble
+
+Application mobile native Android/iOS avec support futur WearOS, reproduisant les fonctionnalités essentielles de M5Chat.
+
+**Architecture**: Kotlin Multiplatform (KMP)
+**Exclusions**: Terminal, Logs JSONRPC, Diff avancé
+
+---
+
+## Phases de Développement
+
+### Phase 1 : Fondations (Stable v0.1)
+
+> **Objectif** : Structure projet KMP fonctionnelle avec communication serveur basique
+
+#### 1.1 Setup Projet KMP
+- [ ] Initialisation projet Gradle multi-modules
+- [ ] Configuration module `shared` (commonMain, androidMain, iosMain)
+- [ ] Setup Kotlin Serialization
+- [ ] Configuration CI/CD basique (GitHub Actions)
+
+#### 1.2 Modèles de Données Partagés
+- [ ] `ChatMessage` (id, role, text, attachments, timestamp)
+- [ ] `MessageRole` enum (USER, ASSISTANT, TOOL_RESULT, COMMAND_EXECUTION)
+- [ ] `SessionState` (sessionId, provider, connected, processing)
+- [ ] `LLMProvider` enum (CODEX, CLAUDE)
+- [ ] `Worktree` modèle de base
+- [ ] `BranchInfo` et `RepoDiff`
+
+#### 1.3 Client REST API
+- [ ] Configuration Ktor Client (shared)
+- [ ] Endpoint `POST /api/session` - création session
+- [ ] Endpoint `GET /api/session/:id` - état session
+- [ ] Endpoint `GET /api/branches` - liste branches
+- [ ] Endpoint `GET /api/models` - liste modèles
+- [ ] Gestion erreurs HTTP communes
+
+#### 1.4 Android App Shell
+- [ ] Setup module Android avec Jetpack Compose
+- [ ] MainActivity + Navigation Compose
+- [ ] Écran placeholder SessionScreen
+- [ ] Écran placeholder ChatScreen
+- [ ] Theme Material 3
+
+**Livrables v0.1** :
+- Projet compile sur Android
+- Module shared accessible depuis Android
+- Appel REST API fonctionnel (création session)
+
+---
+
+### Phase 2 : Chat Temps Réel (Stable v0.2)
+
+> **Objectif** : Conversation fonctionnelle avec streaming WebSocket
+
+#### 2.1 Client WebSocket Shared
+- [ ] `WebSocketManager` avec Ktor WebSockets
+- [ ] Connexion avec sessionId en query param
+- [ ] Système ping/pong (25s interval)
+- [ ] Reconnexion automatique (exponential backoff)
+- [ ] États de connexion (Connecting, Connected, Disconnected, Error)
+
+#### 2.2 Parsing Messages Serveur
+- [ ] Parser `ready` message
+- [ ] Parser `status` message
+- [ ] Parser `assistant_delta` (streaming)
+- [ ] Parser `assistant_message` (complet)
+- [ ] Parser `turn_started` / `turn_completed` / `turn_error`
+- [ ] Parser `provider_switched`
+- [ ] Parser `pong`
+
+#### 2.3 Envoi Messages Client
+- [ ] Message `ping`
+- [ ] Message `send_message` avec texte
+- [ ] Message `switch_provider`
+- [ ] Sérialisation JSON des messages sortants
+
+#### 2.4 UI Chat Android
+- [ ] `ChatViewModel` avec StateFlow
+- [ ] `MessageList` composable (LazyColumn)
+- [ ] `MessageBubble` composable (user/assistant)
+- [ ] `MessageComposer` (input + bouton send)
+- [ ] Indicateur de typing/processing
+- [ ] Auto-scroll sur nouveau message
+
+#### 2.5 Rendu Markdown
+- [ ] Intégration Markwon
+- [ ] Support GFM (tables, strikethrough)
+- [ ] Blocs de code avec background
+- [ ] Liens cliquables
+
+**Livrables v0.2** :
+- Chat fonctionnel avec streaming
+- Messages user/assistant affichés
+- Markdown rendu correctement
+- Reconnexion automatique
+
+---
+
+### Phase 3 : Session & Providers (Stable v0.3)
+
+> **Objectif** : Création de session complète et switch provider
+
+#### 3.1 SessionScreen Complet
+- [ ] Input URL repository
+- [ ] Sélection méthode auth (SSH / HTTP)
+- [ ] Input credentials (clé SSH ou user/password)
+- [ ] Sélection provider initial (Codex/Claude)
+- [ ] Bouton "Créer Session"
+- [ ] État de chargement (clonage repo)
+- [ ] Gestion erreurs (repo invalide, auth échouée)
+
+#### 3.2 Provider Switching
+- [ ] UI chip/badge provider actif
+- [ ] Dialog sélection provider
+- [ ] Envoi `switch_provider` WebSocket
+- [ ] Réception `provider_switched`
+- [ ] Mise à jour historique messages
+- [ ] Animation transition
+
+#### 3.3 Gestion État Session
+- [ ] Persistance sessionId (DataStore)
+- [ ] Reprise session existante au lancement
+- [ ] Détection session expirée
+- [ ] Bouton déconnexion/nouvelle session
+
+#### 3.4 Gestion Attachments
+- [ ] Bouton attach dans composer
+- [ ] Sélecteur fichier Android
+- [ ] Upload fichier vers serveur
+- [ ] Affichage attachments dans messages
+- [ ] Preview images inline
+
+**Livrables v0.3** :
+- Création session depuis l'app
+- Switch provider fonctionnel
+- Persistence session
+- Upload fichiers
+
+---
+
+### Phase 4 : Git & Branches (Stable v0.4)
+
+> **Objectif** : Gestion branches et visualisation diff
+
+#### 4.1 BranchesSheet
+- [ ] Bottom sheet branches
+- [ ] Affichage branche courante (badge)
+- [ ] Liste branches remote
+- [ ] Bouton Fetch
+- [ ] Action switch branche
+- [ ] Confirmation changement
+
+#### 4.2 DiffSheet Simplifié
+- [ ] Bottom sheet diff
+- [ ] Endpoint `GET /api/worktree/:id/diff`
+- [ ] Liste fichiers modifiés avec status (A/M/D)
+- [ ] Vue diff unifiée par fichier
+- [ ] Coloration simple (+ vert, - rouge)
+- [ ] Scroll horizontal pour lignes longues
+
+#### 4.3 Status Repository
+- [ ] Indicateur changements non commités
+- [ ] Badge nombre fichiers modifiés
+- [ ] Refresh automatique après action LLM
+
+#### 4.4 TopBar Enrichie
+- [ ] Affichage nom branche
+- [ ] Bouton accès branches
+- [ ] Bouton accès diff
+- [ ] Indicateur status connexion
+
+**Livrables v0.4** :
+- Navigation branches
+- Visualisation diff basique
+- Status repo visible
+
+---
+
+### Phase 5 : Worktrees (Stable v0.5)
+
+> **Objectif** : Contextes parallèles fonctionnels
+
+#### 5.1 Modèles Worktree Complets
+- [ ] `WorktreeStatus` enum complet
+- [ ] Messages par worktree
+- [ ] Provider par worktree
+- [ ] Couleur worktree
+
+#### 5.2 UI Tabs Worktrees
+- [ ] Barre tabs horizontale scrollable
+- [ ] Tab "main" par défaut
+- [ ] Tabs worktrees avec couleur
+- [ ] Bouton "+" création
+- [ ] Indicateur status (creating, processing)
+- [ ] Swipe to close (avec confirmation)
+
+#### 5.3 Création Worktree
+- [ ] Bottom sheet création
+- [ ] Input nom worktree
+- [ ] Sélection provider
+- [ ] Sélection branche source (optionnel)
+- [ ] Envoi `create_parallel_request`
+- [ ] Réception `worktree_created`
+
+#### 5.4 Messages par Worktree
+- [ ] Parser `worktree_message` events
+- [ ] Historique séparé par worktree
+- [ ] Switch contexte au tap tab
+- [ ] Envoi message avec `worktreeId`
+
+#### 5.5 Merge Worktree
+- [ ] Bouton merge dans menu worktree
+- [ ] Endpoint `POST /api/worktree/:id/merge`
+- [ ] Affichage résultat merge
+- [ ] Gestion conflits (message erreur)
+
+**Livrables v0.5** :
+- Création worktrees
+- Chat par worktree
+- Merge basique
+
+---
+
+### Phase 6 : iOS (Stable v0.6)
+
+> **Objectif** : Application iOS fonctionnelle
+
+#### 6.1 Setup iOS
+- [ ] Configuration Xcode projet
+- [ ] Intégration XCFramework KMP
+- [ ] Podfile ou SPM setup
+- [ ] Signing & capabilities
+
+#### 6.2 UI SwiftUI - Écrans Principaux
+- [ ] `SessionView` (création session)
+- [ ] `ChatView` (conversation)
+- [ ] `MessageRow` (bulle message)
+- [ ] `ComposerView` (input)
+
+#### 6.3 UI SwiftUI - Features
+- [ ] `BranchesSheet`
+- [ ] `DiffSheet`
+- [ ] `WorktreeTabs`
+- [ ] Provider switcher
+
+#### 6.4 Intégration Module Shared
+- [ ] Appels Ktor depuis iOS
+- [ ] WebSocket manager
+- [ ] Mapping types Kotlin → Swift
+- [ ] Gestion async/await
+
+#### 6.5 Spécificités iOS
+- [ ] Haptic feedback
+- [ ] Keyboard avoidance
+- [ ] Safe area handling
+- [ ] Dark mode support
+
+**Livrables v0.6** :
+- App iOS feature-complete
+- Parité fonctionnelle avec Android
+
+---
+
+### Phase 7 : Polish & Production (Stable v1.0)
+
+> **Objectif** : Application prête pour production
+
+#### 7.1 Gestion Erreurs
+- [ ] Écrans d'erreur dédiés
+- [ ] Retry automatique intelligent
+- [ ] Messages d'erreur user-friendly
+- [ ] Logging Crashlytics/Sentry
+
+#### 7.2 Performance
+- [ ] Optimisation LazyColumn/LazyStack
+- [ ] Caching images et attachments
+- [ ] Debounce inputs
+- [ ] Memory profiling
+
+#### 7.3 Offline Partiel
+- [ ] Cache local messages (Room/CoreData)
+- [ ] Queue messages en attente
+- [ ] Sync au retour connexion
+- [ ] Banner mode offline
+
+#### 7.4 Tests
+- [ ] Tests unitaires module shared
+- [ ] Tests UI Android (Compose)
+- [ ] Tests UI iOS (XCTest)
+- [ ] Tests intégration WebSocket
+
+#### 7.5 Release
+- [ ] Configuration ProGuard/R8
+- [ ] App signing (release keys)
+- [ ] Store listings (Play Store, App Store)
+- [ ] Screenshots et assets
+
+**Livrables v1.0** :
+- Application stable production-ready
+- Disponible sur stores
+
+---
+
+### Phase 8 : WearOS (Stable v1.1)
+
+> **Objectif** : Companion app WearOS
+
+#### 8.1 Setup Module Wear
+- [ ] Module Gradle wear
+- [ ] Compose for Wear OS
+- [ ] Manifest WearOS
+
+#### 8.2 DataLayer Communication
+- [ ] `WearableClient` phone side
+- [ ] `WearableListenerService` watch side
+- [ ] Sync état session
+- [ ] Sync dernier message
+
+#### 8.3 UI Watch
+- [ ] Écran principal simplifié
+- [ ] Affichage dernier message
+- [ ] Bouton commande vocale
+- [ ] Bouton stop/continue
+- [ ] Bouton ouvrir phone
+
+#### 8.4 Tile
+- [ ] `M5ChatTileService`
+- [ ] Layout tile (status + message)
+- [ ] Refresh périodique
+- [ ] Click action
+
+#### 8.5 Complications
+- [ ] Short text (status)
+- [ ] Icon (indicateur)
+- [ ] Long text (message tronqué)
+
+#### 8.6 Voice Input
+- [ ] Intégration Speech-to-Text
+- [ ] Envoi message vocal → phone → serveur
+- [ ] Feedback confirmation
+
+**Livrables v1.1** :
+- App WearOS companion
+- Tile fonctionnelle
+- Commandes vocales
+
+---
+
+## Récapitulatif des Versions
+
+| Version | Phase | Fonctionnalités Clés |
+|---------|-------|---------------------|
+| v0.1 | Fondations | Projet KMP, REST API, shell Android |
+| v0.2 | Chat Temps Réel | WebSocket, streaming, Markdown |
+| v0.3 | Session & Providers | Création session, switch provider, attachments |
+| v0.4 | Git & Branches | Navigation branches, diff simplifié |
+| v0.5 | Worktrees | Contextes parallèles, merge |
+| v0.6 | iOS | App iOS complète |
+| v1.0 | Production | Polish, tests, stores |
+| v1.1 | WearOS | Companion watch, tile, voice |
+
+---
+
+## Structure Projet Cible
+
+```
+mobile/
+├── build.gradle.kts              # Root build config
+├── settings.gradle.kts
+├── gradle.properties
+│
+├── shared/                       # Module KMP partagé
+│   ├── build.gradle.kts
+│   └── src/
+│       ├── commonMain/
+│       │   └── kotlin/
+│       │       ├── models/       # Data classes
+│       │       ├── network/      # Ktor clients
+│       │       ├── websocket/    # WebSocket manager
+│       │       └── repository/   # Data repositories
+│       ├── androidMain/
+│       │   └── kotlin/
+│       └── iosMain/
+│           └── kotlin/
+│
+├── androidApp/                   # Application Android
+│   ├── build.gradle.kts
+│   └── src/main/
+│       ├── kotlin/
+│       │   ├── ui/
+│       │   │   ├── screens/      # SessionScreen, ChatScreen
+│       │   │   ├── components/   # MessageBubble, Composer
+│       │   │   └── theme/        # Material 3 theme
+│       │   └── viewmodel/        # ViewModels
+│       └── res/
+│
+├── iosApp/                       # Application iOS
+│   ├── iosApp.xcodeproj
+│   └── iosApp/
+│       ├── Views/                # SwiftUI views
+│       ├── ViewModels/
+│       └── Assets.xcassets
+│
+└── wearApp/                      # Application WearOS
+    ├── build.gradle.kts
+    └── src/main/
+        ├── kotlin/
+        │   ├── ui/               # Wear Compose screens
+        │   ├── tile/             # TileService
+        │   └── complication/     # ComplicationDataSource
+        └── res/
+```
+
+---
+
+## Notes Techniques
+
+### Dépendances Principales
+
+**Shared (KMP)**
+- `io.ktor:ktor-client-core` - HTTP/WebSocket
+- `org.jetbrains.kotlinx:kotlinx-serialization-json`
+- `org.jetbrains.kotlinx:kotlinx-coroutines-core`
+
+**Android**
+- `androidx.compose.*` - Jetpack Compose
+- `io.noties.markwon:core` - Markdown
+- `com.google.android.gms:play-services-wearable`
+
+**iOS**
+- SwiftUI (natif)
+- swift-markdown (SPM)
+
+**WearOS**
+- `androidx.wear.compose:compose-*`
+- `androidx.wear.tiles:tiles`
+
+### Points d'Attention
+
+1. **WebSocket mobile** : Gestion cycle de vie (foreground/background)
+2. **Streaming texte** : Buffering pour éviter re-renders excessifs
+3. **WearOS batterie** : Limiter syncs, utiliser ambient mode
+4. **iOS KMP** : Mapping coroutines → async/await
+
+---
+
+*Dernière mise à jour : 2025-01-25*
