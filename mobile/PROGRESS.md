@@ -16,33 +16,33 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 > **Objectif** : Structure projet KMP fonctionnelle avec communication serveur basique
 
 #### 1.1 Setup Projet KMP
-- [ ] Initialisation projet Gradle multi-modules
-- [ ] Configuration module `shared` (commonMain, androidMain, iosMain)
-- [ ] Setup Kotlin Serialization
+- [x] Initialisation projet Gradle multi-modules
+- [x] Configuration module `shared` (commonMain, androidMain, iosMain)
+- [x] Setup Kotlin Serialization
 - [ ] Configuration CI/CD basique (GitHub Actions)
 
 #### 1.2 Modèles de Données Partagés
-- [ ] `ChatMessage` (id, role, text, attachments, timestamp)
-- [ ] `MessageRole` enum (USER, ASSISTANT, TOOL_RESULT, COMMAND_EXECUTION)
-- [ ] `SessionState` (sessionId, provider, connected, processing)
-- [ ] `LLMProvider` enum (CODEX, CLAUDE)
-- [ ] `Worktree` modèle de base
-- [ ] `BranchInfo` et `RepoDiff`
+- [x] `ChatMessage` (id, role, text, attachments, timestamp)
+- [x] `MessageRole` enum (USER, ASSISTANT, TOOL_RESULT, COMMAND_EXECUTION)
+- [x] `SessionState` (sessionId, provider, connected, processing)
+- [x] `LLMProvider` enum (CODEX, CLAUDE)
+- [x] `Worktree` modèle de base
+- [x] `BranchInfo` et `RepoDiff`
 
 #### 1.3 Client REST API
-- [ ] Configuration Ktor Client (shared)
-- [ ] Endpoint `POST /api/session` - création session
-- [ ] Endpoint `GET /api/session/:id` - état session
-- [ ] Endpoint `GET /api/branches` - liste branches
-- [ ] Endpoint `GET /api/models` - liste modèles
-- [ ] Gestion erreurs HTTP communes
+- [x] Configuration Ktor Client (shared)
+- [x] Endpoint `POST /api/session` - création session
+- [x] Endpoint `GET /api/session/:id` - état session
+- [x] Endpoint `GET /api/branches` - liste branches
+- [x] Endpoint `GET /api/models` - liste modèles
+- [x] Gestion erreurs HTTP communes
 
 #### 1.4 Android App Shell
-- [ ] Setup module Android avec Jetpack Compose
-- [ ] MainActivity + Navigation Compose
-- [ ] Écran placeholder SessionScreen
-- [ ] Écran placeholder ChatScreen
-- [ ] Theme Material 3
+- [x] Setup module Android avec Jetpack Compose
+- [x] MainActivity + Navigation Compose
+- [x] Écran placeholder SessionScreen
+- [x] Écran placeholder ChatScreen
+- [x] Theme Material 3
 
 **Livrables v0.1** :
 - Projet compile sur Android
@@ -56,38 +56,38 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 > **Objectif** : Conversation fonctionnelle avec streaming WebSocket
 
 #### 2.1 Client WebSocket Shared
-- [ ] `WebSocketManager` avec Ktor WebSockets
-- [ ] Connexion avec sessionId en query param
-- [ ] Système ping/pong (25s interval)
-- [ ] Reconnexion automatique (exponential backoff)
-- [ ] États de connexion (Connecting, Connected, Disconnected, Error)
+- [x] `WebSocketManager` avec Ktor WebSockets
+- [x] Connexion avec sessionId en query param
+- [x] Système ping/pong (25s interval)
+- [x] Reconnexion automatique (exponential backoff)
+- [x] États de connexion (Connecting, Connected, Disconnected, Error)
 
 #### 2.2 Parsing Messages Serveur
-- [ ] Parser `ready` message
-- [ ] Parser `status` message
-- [ ] Parser `assistant_delta` (streaming)
-- [ ] Parser `assistant_message` (complet)
-- [ ] Parser `turn_started` / `turn_completed` / `turn_error`
-- [ ] Parser `provider_switched`
-- [ ] Parser `pong`
+- [x] Parser `ready` message
+- [x] Parser `status` message
+- [x] Parser `assistant_delta` (streaming)
+- [x] Parser `assistant_message` (complet)
+- [x] Parser `turn_started` / `turn_completed` / `turn_error`
+- [x] Parser `provider_switched`
+- [x] Parser `pong`
 
 #### 2.3 Envoi Messages Client
-- [ ] Message `ping`
-- [ ] Message `send_message` avec texte
-- [ ] Message `switch_provider`
-- [ ] Sérialisation JSON des messages sortants
+- [x] Message `ping`
+- [x] Message `send_message` avec texte
+- [x] Message `switch_provider`
+- [x] Sérialisation JSON des messages sortants
 
 #### 2.4 UI Chat Android
-- [ ] `ChatViewModel` avec StateFlow
-- [ ] `MessageList` composable (LazyColumn)
-- [ ] `MessageBubble` composable (user/assistant)
-- [ ] `MessageComposer` (input + bouton send)
-- [ ] Indicateur de typing/processing
-- [ ] Auto-scroll sur nouveau message
+- [x] `ChatViewModel` avec StateFlow
+- [x] `MessageList` composable (LazyColumn)
+- [x] `MessageBubble` composable (user/assistant)
+- [x] `MessageComposer` (input + bouton send)
+- [x] Indicateur de typing/processing
+- [x] Auto-scroll sur nouveau message
 
 #### 2.5 Rendu Markdown
-- [ ] Intégration Markwon
-- [ ] Support GFM (tables, strikethrough)
+- [x] Intégration Markwon
+- [x] Support GFM (tables, strikethrough)
 - [ ] Blocs de code avec background
 - [ ] Liens cliquables
 
@@ -104,20 +104,20 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 > **Objectif** : Création de session complète et switch provider
 
 #### 3.1 SessionScreen Complet
-- [ ] Input URL repository
-- [ ] Sélection méthode auth (SSH / HTTP)
-- [ ] Input credentials (clé SSH ou user/password)
-- [ ] Sélection provider initial (Codex/Claude)
-- [ ] Bouton "Créer Session"
-- [ ] État de chargement (clonage repo)
-- [ ] Gestion erreurs (repo invalide, auth échouée)
+- [x] Input URL repository
+- [x] Sélection méthode auth (SSH / HTTP)
+- [x] Input credentials (clé SSH ou user/password)
+- [x] Sélection provider initial (Codex/Claude)
+- [x] Bouton "Créer Session"
+- [x] État de chargement (clonage repo)
+- [x] Gestion erreurs (repo invalide, auth échouée)
 
 #### 3.2 Provider Switching
-- [ ] UI chip/badge provider actif
+- [x] UI chip/badge provider actif
 - [ ] Dialog sélection provider
-- [ ] Envoi `switch_provider` WebSocket
-- [ ] Réception `provider_switched`
-- [ ] Mise à jour historique messages
+- [x] Envoi `switch_provider` WebSocket
+- [x] Réception `provider_switched`
+- [x] Mise à jour historique messages
 - [ ] Animation transition
 
 #### 3.3 Gestion État Session
@@ -146,16 +146,16 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 > **Objectif** : Gestion branches et visualisation diff
 
 #### 4.1 BranchesSheet
-- [ ] Bottom sheet branches
-- [ ] Affichage branche courante (badge)
-- [ ] Liste branches remote
+- [x] Bottom sheet branches
+- [x] Affichage branche courante (badge)
+- [x] Liste branches remote
 - [ ] Bouton Fetch
-- [ ] Action switch branche
+- [x] Action switch branche
 - [ ] Confirmation changement
 
 #### 4.2 DiffSheet Simplifié
-- [ ] Bottom sheet diff
-- [ ] Endpoint `GET /api/worktree/:id/diff`
+- [x] Bottom sheet diff
+- [x] Endpoint `GET /api/worktree/:id/diff`
 - [ ] Liste fichiers modifiés avec status (A/M/D)
 - [ ] Vue diff unifiée par fichier
 - [ ] Coloration simple (+ vert, - rouge)
@@ -447,4 +447,48 @@ mobile/
 
 ---
 
-*Dernière mise à jour : 2025-01-25*
+*Dernière mise à jour : 2026-01-25*
+
+---
+
+## Changelog
+
+### 2026-01-25 - Phase 1 Complétée
+
+**Fichiers créés :**
+- `mobile/settings.gradle.kts` - Configuration multi-modules
+- `mobile/build.gradle.kts` - Build root avec version catalog
+- `mobile/gradle.properties` - Propriétés Gradle/KMP
+- `mobile/gradle/libs.versions.toml` - Catalogue de versions
+- `mobile/gradle/wrapper/gradle-wrapper.properties`
+
+**Module Shared :**
+- `shared/build.gradle.kts` - Config KMP (Android + iOS)
+- `shared/src/commonMain/kotlin/app/m5chat/shared/`
+  - `Platform.kt` - Interface plateforme
+  - `models/ChatMessage.kt` - Messages et attachments
+  - `models/Session.kt` - État session
+  - `models/Worktree.kt` - Worktrees
+  - `models/Branch.kt` - Branches et diff
+  - `models/WebSocketMessages.kt` - Messages WS (client/serveur)
+  - `network/HttpClientFactory.kt` - Factory Ktor
+  - `network/ApiClient.kt` - Client REST API
+  - `network/WebSocketManager.kt` - Gestionnaire WebSocket
+  - `repository/SessionRepository.kt` - Repository session
+  - `di/SharedModule.kt` - Module Koin
+
+**Module Android :**
+- `androidApp/build.gradle.kts` - Config Android + Compose
+- `androidApp/src/main/AndroidManifest.xml`
+- `androidApp/src/main/kotlin/app/m5chat/android/`
+  - `M5ChatApplication.kt` - Application avec Koin
+  - `MainActivity.kt` - Activité principale
+  - `di/AppModule.kt` - Module DI Android
+  - `viewmodel/SessionViewModel.kt`
+  - `viewmodel/ChatViewModel.kt`
+  - `ui/navigation/NavHost.kt` - Navigation Compose
+  - `ui/theme/Theme.kt` - Thème Material 3
+  - `ui/screens/SessionScreen.kt` - Écran création session
+  - `ui/screens/ChatScreen.kt` - Écran chat
+  - `ui/components/MessageBubble.kt` - Composant message
+- Ressources (strings, themes, colors, icons)

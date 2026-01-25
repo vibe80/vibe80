@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">M5Chat</string>
+    <string name="session_title">Nouvelle Session</string>
+    <string name="repo_url_hint">URL du repository (ex: github.com/user/repo)</string>
+    <string name="ssh_key_hint">Clé SSH (optionnel)</string>
+    <string name="http_user_hint">Utilisateur HTTP</string>
+    <string name="http_password_hint">Mot de passe HTTP</string>
+    <string name="provider_label">Provider</string>
+    <string name="create_session">Créer Session</string>
+    <string name="loading">Chargement...</string>
+    <string name="cloning_repo">Clonage du repository...</string>
+    <string name="send_message">Envoyer</string>
+    <string name="message_hint">Écrivez votre message...</string>
+    <string name="branches">Branches</string>
+    <string name="diff">Diff</string>
+    <string name="connected">Connecté</string>
+    <string name="disconnected">Déconnecté</string>
+    <string name="reconnecting">Reconnexion...</string>
+    <string name="error_connection">Erreur de connexion</string>
+</resources>
