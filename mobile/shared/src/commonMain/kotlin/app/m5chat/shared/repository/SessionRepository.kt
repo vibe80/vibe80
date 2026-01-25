@@ -1,5 +1,7 @@
 package app.m5chat.shared.repository
 
+import app.m5chat.shared.logging.AppLogger
+import app.m5chat.shared.logging.LogSource
 import app.m5chat.shared.models.*
 import app.m5chat.shared.network.ApiClient
 import app.m5chat.shared.network.ConnectionState
@@ -167,6 +169,8 @@ class SessionRepository(
     }
 
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
+        AppLogger.info(LogSource.APP, "SessionRepository.sendMessage called", "text='$text', attachments=${attachments.size}, connectionState=${connectionState.value}")
+
         // Add user message locally
         val userMessage = ChatMessage(
             id = generateMessageId(),
@@ -176,9 +180,12 @@ class SessionRepository(
             timestamp = System.currentTimeMillis()
         )
         _messages.update { it + userMessage }
+        AppLogger.debug(LogSource.APP, "User message added locally", "id=${userMessage.id}")
 
         // Send via WebSocket
+        AppLogger.info(LogSource.APP, "Calling webSocketManager.sendMessage...")
         webSocketManager.sendMessage(text, attachments)
+        AppLogger.info(LogSource.APP, "webSocketManager.sendMessage returned")
     }
 
     /**

@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.m5chat.android.data.AttachmentUploader
 import app.m5chat.android.data.SessionPreferences
+import app.m5chat.shared.logging.AppLogger
+import app.m5chat.shared.logging.LogSource
 import app.m5chat.shared.models.ChatMessage
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.models.RepoDiff
@@ -214,6 +216,8 @@ class ChatViewModel(
         val text = _uiState.value.inputText.trim()
         val attachments = _uiState.value.pendingAttachments
 
+        AppLogger.info(LogSource.APP, "sendMessageWithAttachments called", "text='$text', attachments=${attachments.size}")
+
         viewModelScope.launch {
             _uiState.update { it.copy(inputText = "", uploadingAttachments = attachments.isNotEmpty()) }
 
@@ -221,6 +225,7 @@ class ChatViewModel(
                 try {
                     uploadAttachments()
                 } catch (e: Exception) {
+                    AppLogger.error(LogSource.APP, "Failed to upload attachments", e.message)
                     _uiState.update { it.copy(uploadingAttachments = false) }
                     emptyList()
                 }
@@ -231,6 +236,7 @@ class ChatViewModel(
             clearPendingAttachments()
 
             if (text.isNotBlank() || uploadedAttachments.isNotEmpty()) {
+                AppLogger.info(LogSource.APP, "Calling sessionRepository.sendMessage...")
                 sessionRepository.sendMessage(
                     text = text,
                     attachments = uploadedAttachments.map {
@@ -241,6 +247,9 @@ class ChatViewModel(
                         )
                     }
                 )
+                AppLogger.info(LogSource.APP, "sessionRepository.sendMessage completed")
+            } else {
+                AppLogger.warning(LogSource.APP, "Nothing to send - text is blank and no attachments")
             }
         }
     }
