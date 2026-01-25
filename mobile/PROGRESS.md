@@ -156,10 +156,10 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 #### 4.2 DiffSheet Simplifié
 - [x] Bottom sheet diff
 - [x] Endpoint `GET /api/worktree/:id/diff`
-- [ ] Liste fichiers modifiés avec status (A/M/D)
-- [ ] Vue diff unifiée par fichier
-- [ ] Coloration simple (+ vert, - rouge)
-- [ ] Scroll horizontal pour lignes longues
+- [x] Liste fichiers modifiés avec status (A/M/D)
+- [x] Vue diff unifiée par fichier
+- [x] Coloration simple (+ vert, - rouge)
+- [x] Scroll horizontal pour lignes longues
 
 #### 4.3 Status Repository
 - [ ] Indicateur changements non commités
@@ -538,3 +538,16 @@ mobile/
 - `.drone.yml` - Étape build_android_apk pour générer et publier APK
 - `mobile/gradlew` - Wrapper Gradle pour CI
 - `mobile/.gitignore` - Exclusion fichiers build
+
+### 2026-01-25 - Phase 4 DiffSheet Complet
+
+**Nouveau composant DiffSheet :**
+- `ui/components/DiffSheet.kt` - Composant complet pour afficher les diffs
+  - Parsing du diff git en structure de données (DiffFile, DiffHunk, DiffLine)
+  - Liste des fichiers avec badge status (A/M/D/R)
+  - Statistiques +/- par fichier et total
+  - Vue diff expandable par fichier
+  - Coloration syntaxique (+vert, -rouge)
+  - Numéros de ligne (ancien/nouveau)
+  - Scroll horizontal pour lignes longues
+  - État vide élégant

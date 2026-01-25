@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.m5chat.android.R
+import app.m5chat.android.ui.components.DiffSheetContent
 import app.m5chat.android.ui.components.MessageBubble
 import app.m5chat.android.ui.components.ProviderSelectionDialog
 import app.m5chat.android.viewmodel.ChatViewModel
@@ -300,7 +301,10 @@ fun ChatScreen(
 
     // Diff Sheet
     if (uiState.showDiffSheet) {
-        ModalBottomSheet(onDismissRequest = viewModel::hideDiffSheet) {
+        ModalBottomSheet(
+            onDismissRequest = viewModel::hideDiffSheet,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
             DiffSheetContent(repoDiff = uiState.repoDiff)
         }
     }
@@ -430,48 +434,3 @@ private fun BranchesSheetContent(
     }
 }
 
-@Composable
-private fun DiffSheetContent(
-    repoDiff: app.m5chat.shared.models.RepoDiff?
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.diff),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        if (repoDiff == null) {
-            Text(
-                text = "Aucune modification",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            Text(
-                text = "Status: ${repoDiff.status}",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Text(
-                    text = repoDiff.diff.take(2000),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(12.dp),
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-    }
-}
