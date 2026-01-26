@@ -520,10 +520,15 @@ function App() {
       treeTotal: 0,
       selectedPath: null,
       fileContent: "",
+      draftContent: "",
       fileLoading: false,
+      fileSaving: false,
       fileError: "",
+      fileSaveError: "",
       fileTruncated: false,
       fileBinary: false,
+      editMode: false,
+      isDirty: false,
       expandedPaths: [],
     }),
     []
@@ -3303,6 +3308,10 @@ function App() {
         fileLoading: true,
         fileError: "",
         fileBinary: false,
+        fileSaveError: "",
+        fileSaving: false,
+        editMode: false,
+        isDirty: false,
       });
       try {
         const response = await fetch(
@@ -3316,8 +3325,10 @@ function App() {
           throw new Error("Failed to load file");
         }
         const payload = await response.json();
+        const content = payload?.content || "";
         updateExplorerState(tabId, {
-          fileContent: payload?.content || "",
+          fileContent: content,
+          draftContent: content,
           fileLoading: false,
           fileError: "",
           fileTruncated: Boolean(payload?.truncated),
@@ -3357,6 +3368,76 @@ function App() {
       });
     },
     [explorerDefaultState]
+  );
+
+  const toggleExplorerEditMode = useCallback(
+    (tabId, nextMode) => {
+      if (!tabId) {
+        return;
+      }
+      updateExplorerState(tabId, {
+        editMode: nextMode,
+        fileSaveError: "",
+      });
+    },
+    [updateExplorerState]
+  );
+
+  const updateExplorerDraft = useCallback(
+    (tabId, value) => {
+      if (!tabId) {
+        return;
+      }
+      updateExplorerState(tabId, {
+        draftContent: value,
+        isDirty: true,
+      });
+    },
+    [updateExplorerState]
+  );
+
+  const saveExplorerFile = useCallback(
+    async (tabId) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId) {
+        return;
+      }
+      const state = explorerByTab[tabId];
+      if (!state?.selectedPath || state?.fileBinary) {
+        return;
+      }
+      updateExplorerState(tabId, { fileSaving: true, fileSaveError: "" });
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            tabId
+          )}/file?session=${encodeURIComponent(sessionId)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path: state.selectedPath,
+              content: state.draftContent || "",
+            }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to save file");
+        }
+        updateExplorerState(tabId, {
+          fileContent: state.draftContent || "",
+          fileSaving: false,
+          fileSaveError: "",
+          isDirty: false,
+        });
+      } catch (error) {
+        updateExplorerState(tabId, {
+          fileSaving: false,
+          fileSaveError: "Impossible d'enregistrer le fichier.",
+        });
+      }
+    },
+    [attachmentSession?.sessionId, explorerByTab, updateExplorerState]
   );
 
   const handleClearRpcLogs = useCallback(() => {
@@ -4800,7 +4881,42 @@ function App() {
                 </div>
                 <div className="explorer-editor">
                   <div className="explorer-editor-header">
-                    {activeExplorer.selectedPath || "Aucun fichier selectionne"}
+                    <span className="explorer-editor-path">
+                      {activeExplorer.selectedPath ||
+                        "Aucun fichier selectionne"}
+                    </span>
+                    <div className="explorer-editor-actions">
+                      {activeExplorer.selectedPath && !activeExplorer.fileBinary && (
+                        <button
+                          type="button"
+                          className="explorer-action"
+                          onClick={() =>
+                            toggleExplorerEditMode(
+                              activeWorktreeId || "main",
+                              !activeExplorer.editMode
+                            )
+                          }
+                          disabled={activeExplorer.fileLoading}
+                        >
+                          {activeExplorer.editMode ? "Lecture" : "Editer"}
+                        </button>
+                      )}
+                      {activeExplorer.editMode && (
+                        <button
+                          type="button"
+                          className="explorer-action primary"
+                          onClick={() =>
+                            saveExplorerFile(activeWorktreeId || "main")
+                          }
+                          disabled={
+                            activeExplorer.fileSaving ||
+                            !activeExplorer.isDirty
+                          }
+                        >
+                          {activeExplorer.fileSaving ? "Sauvegarde..." : "Sauver"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {activeExplorer.fileLoading ? (
                     <div className="explorer-editor-empty">
@@ -4816,9 +4932,28 @@ function App() {
                     </div>
                   ) : activeExplorer.selectedPath ? (
                     <>
-                      <pre className="explorer-editor-content">
-                        {activeExplorer.fileContent}
-                      </pre>
+                      {activeExplorer.editMode ? (
+                        <textarea
+                          className="explorer-editor-input"
+                          value={activeExplorer.draftContent}
+                          onChange={(event) =>
+                            updateExplorerDraft(
+                              activeWorktreeId || "main",
+                              event.target.value
+                            )
+                          }
+                          spellCheck={false}
+                        />
+                      ) : (
+                        <pre className="explorer-editor-content">
+                          {activeExplorer.fileContent}
+                        </pre>
+                      )}
+                      {activeExplorer.fileSaveError && (
+                        <div className="explorer-truncated">
+                          {activeExplorer.fileSaveError}
+                        </div>
+                      )}
                       {activeExplorer.fileTruncated && (
                         <div className="explorer-truncated">
                           Fichier tronque pour l'affichage.

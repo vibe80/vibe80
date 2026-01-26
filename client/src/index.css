@@ -953,6 +953,44 @@ main.chat {
   border-bottom: 1px solid rgba(20, 19, 17, 0.08);
   color: var(--ink-muted);
   background: rgba(20, 19, 17, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.explorer-editor-path {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explorer-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.explorer-action {
+  border: 1px solid rgba(20, 19, 17, 0.16);
+  background: rgba(20, 19, 17, 0.04);
+  color: var(--ink);
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.explorer-action.primary {
+  background: rgba(238, 93, 59, 0.14);
+  color: var(--accent-dark);
+  border-color: rgba(238, 93, 59, 0.4);
+}
+
+.explorer-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .explorer-editor-content {
@@ -964,6 +1002,19 @@ main.chat {
   font-size: 12px;
   line-height: 1.6;
   white-space: pre;
+}
+
+.explorer-editor-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  margin: 0;
+  padding: 12px;
+  resize: none;
+  outline: none;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .explorer-tree-list {

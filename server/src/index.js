@@ -487,6 +487,7 @@ const TREE_IGNORED_NAMES = new Set([
 const MAX_TREE_ENTRIES = 3000;
 const MAX_TREE_DEPTH = 8;
 const MAX_FILE_BYTES = 200 * 1024;
+const MAX_WRITE_BYTES = 500 * 1024;
 
 const resolveWorktreeRoot = (session, worktreeId) => {
   if (!session) {
@@ -2471,6 +2472,58 @@ app.get("/api/worktree/:worktreeId/file", async (req, res) => {
       error: error?.message || error,
     });
     res.status(500).json({ error: "Failed to read file." });
+  }
+});
+
+app.post("/api/worktree/:worktreeId/file", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  if (!rootPath) {
+    res.status(404).json({ error: "Worktree not found." });
+    return;
+  }
+  const requestedPath = req.body?.path;
+  const content = req.body?.content;
+  if (!requestedPath || typeof requestedPath !== "string") {
+    res.status(400).json({ error: "Path is required." });
+    return;
+  }
+  if (typeof content !== "string") {
+    res.status(400).json({ error: "Content must be a string." });
+    return;
+  }
+  const bytes = Buffer.byteLength(content, "utf8");
+  if (bytes > MAX_WRITE_BYTES) {
+    res.status(400).json({ error: "File too large to write." });
+    return;
+  }
+  const absPath = path.resolve(rootPath, requestedPath);
+  const relative = path.relative(rootPath, absPath);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    res.status(400).json({ error: "Invalid path." });
+    return;
+  }
+  try {
+    const stats = await fs.promises.stat(absPath);
+    if (!stats.isFile()) {
+      res.status(400).json({ error: "Path is not a file." });
+      return;
+    }
+    await fs.promises.writeFile(absPath, content, "utf8");
+    res.json({ ok: true, path: requestedPath });
+  } catch (error) {
+    console.error("Failed to write file:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      path: requestedPath,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to write file." });
   }
 });
 
