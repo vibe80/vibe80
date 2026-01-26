@@ -511,6 +511,24 @@ function App() {
   const [activeForm, setActiveForm] = useState(null);
   const [activeFormValues, setActiveFormValues] = useState({});
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
+  const explorerDefaultState = useMemo(
+    () => ({
+      tree: null,
+      loading: false,
+      error: "",
+      treeTruncated: false,
+      treeTotal: 0,
+      selectedPath: null,
+      fileContent: "",
+      fileLoading: false,
+      fileError: "",
+      fileTruncated: false,
+      fileBinary: false,
+      expandedPaths: [],
+    }),
+    []
+  );
+  const [explorerByTab, setExplorerByTab] = useState({});
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
   const [backlog, setBacklog] = useState([]);
   const [currentTurnId, setCurrentTurnId] = useState(null);
@@ -536,6 +554,7 @@ function App() {
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
+  const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
   const getItemActivityLabel = (item) => {
     if (!item?.type) {
       return "";
@@ -3215,6 +3234,131 @@ function App() {
     setToolbarExportOpen(false);
   }, [activeWorktreeId]);
 
+  const updateExplorerState = useCallback((tabId, patch) => {
+    setExplorerByTab((current) => {
+      const prev = current[tabId] || explorerDefaultState;
+      return {
+        ...current,
+        [tabId]: {
+          ...explorerDefaultState,
+          ...prev,
+          ...patch,
+        },
+      };
+    });
+  }, [explorerDefaultState]);
+
+  const requestExplorerTree = useCallback(
+    async (tabId, force = false) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId) {
+        return;
+      }
+      const existing = explorerByTab[tabId];
+      if (!force && existing?.tree && !existing?.error) {
+        return;
+      }
+      updateExplorerState(tabId, { loading: true, error: "" });
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            tabId
+          )}/tree?session=${encodeURIComponent(sessionId)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to load tree");
+        }
+        const payload = await response.json();
+        updateExplorerState(tabId, {
+          tree: Array.isArray(payload?.tree) ? payload.tree : [],
+          loading: false,
+          error: "",
+          treeTruncated: Boolean(payload?.truncated),
+          treeTotal: Number.isFinite(Number(payload?.total))
+            ? Number(payload.total)
+            : 0,
+        });
+      } catch (error) {
+        updateExplorerState(tabId, {
+          loading: false,
+          error: "Impossible de charger l'explorateur.",
+        });
+      }
+    },
+    [
+      attachmentSession?.sessionId,
+      explorerByTab,
+      updateExplorerState,
+    ]
+  );
+
+  const loadExplorerFile = useCallback(
+    async (tabId, filePath) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId || !filePath) {
+        return;
+      }
+      updateExplorerState(tabId, {
+        selectedPath: filePath,
+        fileLoading: true,
+        fileError: "",
+        fileBinary: false,
+      });
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            tabId
+          )}/file?session=${encodeURIComponent(
+            sessionId
+          )}&path=${encodeURIComponent(filePath)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to load file");
+        }
+        const payload = await response.json();
+        updateExplorerState(tabId, {
+          fileContent: payload?.content || "",
+          fileLoading: false,
+          fileError: "",
+          fileTruncated: Boolean(payload?.truncated),
+          fileBinary: Boolean(payload?.binary),
+        });
+      } catch (error) {
+        updateExplorerState(tabId, {
+          fileLoading: false,
+          fileError: "Impossible de charger le fichier.",
+        });
+      }
+    },
+    [attachmentSession?.sessionId, updateExplorerState]
+  );
+
+  const toggleExplorerDir = useCallback(
+    (tabId, dirPath) => {
+      if (!tabId || !dirPath) {
+        return;
+      }
+      setExplorerByTab((current) => {
+        const prev = current[tabId] || explorerDefaultState;
+        const expanded = new Set(prev.expandedPaths || []);
+        if (expanded.has(dirPath)) {
+          expanded.delete(dirPath);
+        } else {
+          expanded.add(dirPath);
+        }
+        return {
+          ...current,
+          [tabId]: {
+            ...explorerDefaultState,
+            ...prev,
+            expandedPaths: Array.from(expanded),
+          },
+        };
+      });
+    },
+    [explorerDefaultState]
+  );
+
   const handleClearRpcLogs = useCallback(() => {
     setRpcLogs((current) => {
       if (activeWorktreeId && activeWorktreeId !== "main") {
@@ -3234,6 +3378,14 @@ function App() {
       requestWorktreeDiff(activeWorktreeId);
     }
   }, [activePane, activeWorktreeId, requestWorktreeDiff]);
+
+  useEffect(() => {
+    if (activePane !== "explorer") {
+      return;
+    }
+    const tabId = activeWorktreeId || "main";
+    requestExplorerTree(tabId);
+  }, [activePane, activeWorktreeId, requestExplorerTree]);
 
   const handleExportChat = useCallback(
     (format) => {
@@ -3777,6 +3929,63 @@ function App() {
     );
   }
 
+  const renderExplorerNodes = (nodes, tabId, expandedSet, selectedPath) => {
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return null;
+    }
+    return (
+      <ul className="explorer-tree-list">
+        {nodes.map((node) => {
+          if (node.type === "dir") {
+            const isExpanded = expandedSet.has(node.path);
+            return (
+              <li key={node.path} className="explorer-tree-item is-dir">
+                <button
+                  type="button"
+                  className="explorer-tree-toggle"
+                  onClick={() => toggleExplorerDir(tabId, node.path)}
+                >
+                  <span className="explorer-tree-caret">
+                    {isExpanded ? "▾" : "▸"}
+                  </span>
+                  <span className="explorer-tree-name">{node.name}</span>
+                </button>
+                {isExpanded
+                  ? renderExplorerNodes(
+                      node.children,
+                      tabId,
+                      expandedSet,
+                      selectedPath
+                    )
+                  : null}
+              </li>
+            );
+          }
+          const isSelected = selectedPath === node.path;
+          return (
+            <li
+              key={node.path}
+              className={`explorer-tree-item is-file ${
+                isSelected ? "is-selected" : ""
+              }`}
+            >
+              <button
+                type="button"
+                className="explorer-tree-file"
+                onClick={() => loadExplorerFile(tabId, node.path)}
+              >
+                <span className="explorer-tree-icon" aria-hidden="true">
+                  📄
+                </span>
+                <span className="explorer-tree-name">{node.name}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -3853,6 +4062,15 @@ function App() {
                   onClick={() => handleViewSelect("diff")}
                 >
                   Diff
+                </button>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "explorer" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("explorer")}
+                >
+                  Explorateur
                 </button>
                 <button
                   type="button"
@@ -4013,6 +4231,20 @@ function App() {
                 >
                   <span className="chat-toolbar-icon" aria-hidden="true">
                     Δ
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`chat-toolbar-button ${
+                    activePane === "explorer" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("explorer")}
+                  aria-pressed={activePane === "explorer"}
+                  aria-label="Explorateur"
+                  title="Explorateur"
+                >
+                  <span className="chat-toolbar-icon" aria-hidden="true">
+                    🗂
                   </span>
                 </button>
                 <button
@@ -4507,6 +4739,99 @@ function App() {
               ) : (
                 <div className="diff-empty">Aucun changement detecte.</div>
               )}
+            </div>
+            <div
+              className={`explorer-panel ${
+                activePane === "explorer" ? "" : "is-hidden"
+              }`}
+            >
+              <div className="explorer-header">
+                <div>
+                  <div className="explorer-title">Explorateur</div>
+                  {(repoName ||
+                    activeWorktree?.branchName ||
+                    activeWorktree?.name) && (
+                    <div className="explorer-subtitle">
+                      {isInWorktree
+                        ? activeWorktree?.branchName || activeWorktree?.name
+                        : repoName}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="explorer-refresh"
+                  onClick={() =>
+                    requestExplorerTree(activeWorktreeId || "main", true)
+                  }
+                  disabled={!attachmentSession?.sessionId}
+                >
+                  Rafraichir
+                </button>
+              </div>
+              <div className="explorer-body">
+                <div className="explorer-tree">
+                  {activeExplorer.loading ? (
+                    <div className="explorer-empty">Chargement...</div>
+                  ) : activeExplorer.error ? (
+                    <div className="explorer-empty">
+                      {activeExplorer.error}
+                    </div>
+                  ) : Array.isArray(activeExplorer.tree) &&
+                    activeExplorer.tree.length > 0 ? (
+                    <>
+                      {renderExplorerNodes(
+                        activeExplorer.tree,
+                        activeWorktreeId || "main",
+                        new Set(activeExplorer.expandedPaths || []),
+                        activeExplorer.selectedPath
+                      )}
+                      {activeExplorer.treeTruncated && (
+                        <div className="explorer-truncated">
+                          Liste tronquee apres {activeExplorer.treeTotal} entrees.
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="explorer-empty">
+                      Aucun fichier trouve.
+                    </div>
+                  )}
+                </div>
+                <div className="explorer-editor">
+                  <div className="explorer-editor-header">
+                    {activeExplorer.selectedPath || "Aucun fichier selectionne"}
+                  </div>
+                  {activeExplorer.fileLoading ? (
+                    <div className="explorer-editor-empty">
+                      Chargement...
+                    </div>
+                  ) : activeExplorer.fileError ? (
+                    <div className="explorer-editor-empty">
+                      {activeExplorer.fileError}
+                    </div>
+                  ) : activeExplorer.fileBinary ? (
+                    <div className="explorer-editor-empty">
+                      Fichier binaire non affiche.
+                    </div>
+                  ) : activeExplorer.selectedPath ? (
+                    <>
+                      <pre className="explorer-editor-content">
+                        {activeExplorer.fileContent}
+                      </pre>
+                      {activeExplorer.fileTruncated && (
+                        <div className="explorer-truncated">
+                          Fichier tronque pour l'affichage.
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="explorer-editor-empty">
+                      Selectionnez un fichier dans l'arborescence.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <div
               className={`terminal-panel ${
