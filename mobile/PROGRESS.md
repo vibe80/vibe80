@@ -186,43 +186,47 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 > **Objectif** : Contextes parallèles fonctionnels
 
 #### 5.1 Modèles Worktree Complets
-- [ ] `WorktreeStatus` enum complet
-- [ ] Messages par worktree
-- [ ] Provider par worktree
-- [ ] Couleur worktree
+- [x] `WorktreeStatus` enum complet (CREATING, READY, PROCESSING, COMPLETED, ERROR, MERGING, MERGE_CONFLICT)
+- [x] Messages par worktree
+- [x] Provider par worktree
+- [x] Couleur worktree (palette 8 couleurs)
 
 #### 5.2 UI Tabs Worktrees
-- [ ] Barre tabs horizontale scrollable
-- [ ] Tab "main" par défaut
-- [ ] Tabs worktrees avec couleur
-- [ ] Bouton "+" création
-- [ ] Indicateur status (creating, processing)
-- [ ] Swipe to close (avec confirmation)
+- [x] Barre tabs horizontale scrollable
+- [x] Tab "main" par défaut
+- [x] Tabs worktrees avec couleur
+- [x] Bouton "+" création
+- [x] Indicateur status (creating, processing, merging, error)
+- [x] Menu contextuel (avec confirmation fermeture)
 
 #### 5.3 Création Worktree
-- [ ] Bottom sheet création
-- [ ] Input nom worktree
-- [ ] Sélection provider
-- [ ] Sélection branche source (optionnel)
-- [ ] Envoi `create_parallel_request`
-- [ ] Réception `worktree_created`
+- [x] Bottom sheet création
+- [x] Input nom worktree
+- [x] Sélection provider
+- [x] Sélection branche source (optionnel)
+- [x] Sélection couleur
+- [x] Envoi `create_parallel_request`
+- [x] Réception `worktree_created`
 
 #### 5.4 Messages par Worktree
-- [ ] Parser `worktree_message` events
-- [ ] Historique séparé par worktree
-- [ ] Switch contexte au tap tab
-- [ ] Envoi message avec `worktreeId`
+- [x] Parser `worktree_message` events
+- [x] Parser `worktree_delta` events (streaming)
+- [x] Historique séparé par worktree
+- [x] Switch contexte au tap tab
+- [x] Envoi message avec `worktreeId`
 
 #### 5.5 Merge Worktree
-- [ ] Bouton merge dans menu worktree
-- [ ] Endpoint `POST /api/worktree/:id/merge`
-- [ ] Affichage résultat merge
-- [ ] Gestion conflits (message erreur)
+- [x] Bouton merge dans menu worktree
+- [x] Envoi `merge_worktree` via WebSocket
+- [x] Réception `worktree_merge_result`
+- [x] Gestion conflits (status MERGE_CONFLICT)
 
 **Livrables v0.5** :
 - Création worktrees
 - Chat par worktree
 - Merge basique
+
+**Phase 5 : COMPLÉTÉE**
 
 ---
 
@@ -576,3 +580,42 @@ mobile/
 
 **API :**
 - `ApiClient.kt` - Nouvelle méthode `fetchBranches()` pour POST /api/branches/fetch
+
+### 2026-01-26 - Phase 5 Complétée
+
+**Modèles Worktree enrichis :**
+- `Worktree.kt` - Ajout companion object avec MAIN_WORKTREE_ID, COLORS, createMain()
+- `Worktree.kt` - Nouveaux status: MERGING, MERGE_CONFLICT
+- `Worktree.kt` - Modèles WorktreeMergeResponse, WorktreeCloseResponse
+
+**Messages WebSocket worktrees :**
+- `WebSocketMessages.kt` - WorktreeMessageEvent (messages dans un worktree)
+- `WebSocketMessages.kt` - WorktreeDeltaMessage (streaming worktree)
+- `WebSocketMessages.kt` - WorktreeTurnStartedMessage, WorktreeTurnCompletedMessage
+- `WebSocketMessages.kt` - WorktreeClosedMessage, WorktreeMergeResultMessage
+- `WebSocketMessages.kt` - WorktreesListMessage
+- `WebSocketMessages.kt` - CloseWorktreeRequest, MergeWorktreeRequest (client)
+
+**SessionRepository worktrees :**
+- Nouveau state: `activeWorktreeId`, `worktreeMessages`, `worktreeStreamingMessages`, `worktreeProcessing`
+- Méthodes: `setActiveWorktree()`, `createWorktree()`, `sendWorktreeMessage()`
+- Méthodes: `closeWorktree()`, `mergeWorktree()`, `listWorktrees()`
+- Helpers: `getWorktreeMessages()`, `getWorktreeStreamingMessage()`, `isWorktreeProcessing()`
+
+**WebSocketManager :**
+- Parser pour tous les nouveaux messages worktree
+- Méthodes: `closeWorktree()`, `mergeWorktree()`, `listWorktrees()`
+
+**ChatViewModel worktrees :**
+- State: `worktrees`, `activeWorktreeId`, `showCreateWorktreeSheet`, `showWorktreeMenuFor`, `showCloseWorktreeConfirm`
+- Computed: `activeWorktree`, `sortedWorktrees`
+- Méthodes: `selectWorktree()`, `createWorktree()`, `mergeWorktree()`, `requestCloseWorktree()`, etc.
+
+**Nouveaux composants UI :**
+- `WorktreeTabs.kt` - Barre d'onglets horizontale scrollable avec indicateurs de status
+- `WorktreeMenuSheet.kt` - Menu contextuel pour merge/close
+- `CreateWorktreeSheet.kt` - Formulaire création worktree (nom, provider, couleur, branche)
+
+**ChatScreen :**
+- Intégration WorktreeTabs sous la TopBar
+- Dialogs: création worktree, menu worktree, confirmation fermeture

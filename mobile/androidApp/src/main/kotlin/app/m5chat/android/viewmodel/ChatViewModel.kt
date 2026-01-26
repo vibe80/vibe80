@@ -11,6 +11,8 @@ import app.m5chat.shared.models.ChatMessage
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.models.RepoDiff
 import app.m5chat.shared.models.BranchInfo
+import app.m5chat.shared.models.Worktree
+import app.m5chat.shared.models.WorktreeStatus
 import app.m5chat.shared.network.ConnectionState
 import app.m5chat.shared.repository.SessionRepository
 import kotlinx.coroutines.flow.*
@@ -47,7 +49,13 @@ data class ChatUiState(
     val pendingBranchSwitch: String? = null,
     val pendingAttachments: List<PendingAttachment> = emptyList(),
     val uploadingAttachments: Boolean = false,
-    val fetchingBranches: Boolean = false
+    val fetchingBranches: Boolean = false,
+    // Worktrees
+    val worktrees: Map<String, Worktree> = emptyMap(),
+    val activeWorktreeId: String = Worktree.MAIN_WORKTREE_ID,
+    val showCreateWorktreeSheet: Boolean = false,
+    val showWorktreeMenuFor: String? = null,
+    val showCloseWorktreeConfirm: String? = null
 ) {
     /** Number of modified files based on diff status */
     val modifiedFilesCount: Int
@@ -58,6 +66,16 @@ data class ChatUiState(
     /** Whether there are uncommitted changes */
     val hasUncommittedChanges: Boolean
         get() = modifiedFilesCount > 0 || repoDiff?.diff?.isNotBlank() == true
+
+    /** Get active worktree */
+    val activeWorktree: Worktree?
+        get() = worktrees[activeWorktreeId]
+
+    /** Sorted list of worktrees (main first, then by creation) */
+    val sortedWorktrees: List<Worktree>
+        get() = worktrees.values.sortedWith(
+            compareBy({ it.id != Worktree.MAIN_WORKTREE_ID }, { it.createdAt })
+        )
 }
 
 private data class SessionSnapshot(
@@ -65,7 +83,9 @@ private data class SessionSnapshot(
     val streaming: String?,
     val connection: ConnectionState,
     val processing: Boolean,
-    val branches: BranchInfo?
+    val branches: BranchInfo?,
+    val worktrees: Map<String, Worktree>,
+    val activeWorktreeId: String
 )
 
 class ChatViewModel(
@@ -83,35 +103,45 @@ class ChatViewModel(
 
     private fun observeSessionState() {
         viewModelScope.launch {
-            val baseStateFlow = combine(
+            // Combine main state flows
+            combine(
                 sessionRepository.messages,
                 sessionRepository.currentStreamingMessage,
                 sessionRepository.connectionState,
                 sessionRepository.processing,
-                sessionRepository.branches
-            ) { messages, streaming, connection, processing, branches ->
+                sessionRepository.branches,
+                sessionRepository.worktrees,
+                sessionRepository.activeWorktreeId
+            ) { messages, streaming, connection, processing, branches, worktrees, activeWorktreeId ->
                 SessionSnapshot(
                     messages = messages,
                     streaming = streaming,
                     connection = connection,
                     processing = processing,
-                    branches = branches
+                    branches = branches,
+                    worktrees = worktrees,
+                    activeWorktreeId = activeWorktreeId
                 )
             }
-
-            baseStateFlow
                 .combine(sessionRepository.repoDiff) { snapshot, diff ->
                     snapshot to diff
                 }
                 .collect { (snapshot, diff) ->
+                    // Get messages for active worktree
+                    val activeMessages = sessionRepository.getWorktreeMessages(snapshot.activeWorktreeId)
+                    val activeStreaming = sessionRepository.getWorktreeStreamingMessage(snapshot.activeWorktreeId)
+                    val activeProcessing = sessionRepository.isWorktreeProcessing(snapshot.activeWorktreeId)
+
                     _uiState.update {
                         it.copy(
-                            messages = snapshot.messages,
-                            currentStreamingMessage = snapshot.streaming,
+                            messages = activeMessages,
+                            currentStreamingMessage = activeStreaming,
                             connectionState = snapshot.connection,
-                            processing = snapshot.processing,
+                            processing = activeProcessing,
                             branches = snapshot.branches,
-                            repoDiff = diff
+                            repoDiff = diff,
+                            worktrees = snapshot.worktrees,
+                            activeWorktreeId = snapshot.activeWorktreeId
                         )
                     }
                 }
@@ -302,5 +332,72 @@ class ChatViewModel(
             sessionPreferences.clearSession()
         }
         sessionRepository.disconnect()
+    }
+
+    // ========== Worktree Management ==========
+
+    fun selectWorktree(worktreeId: String) {
+        sessionRepository.setActiveWorktree(worktreeId)
+    }
+
+    fun showCreateWorktreeSheet() {
+        _uiState.update { it.copy(showCreateWorktreeSheet = true) }
+    }
+
+    fun hideCreateWorktreeSheet() {
+        _uiState.update { it.copy(showCreateWorktreeSheet = false) }
+    }
+
+    fun createWorktree(name: String, provider: LLMProvider, branchName: String? = null) {
+        viewModelScope.launch {
+            sessionRepository.createWorktree(name, provider, branchName)
+            _uiState.update { it.copy(showCreateWorktreeSheet = false) }
+        }
+    }
+
+    fun showWorktreeMenu(worktreeId: String) {
+        _uiState.update { it.copy(showWorktreeMenuFor = worktreeId) }
+    }
+
+    fun hideWorktreeMenu() {
+        _uiState.update { it.copy(showWorktreeMenuFor = null) }
+    }
+
+    fun requestCloseWorktree(worktreeId: String) {
+        _uiState.update { it.copy(showCloseWorktreeConfirm = worktreeId, showWorktreeMenuFor = null) }
+    }
+
+    fun confirmCloseWorktree() {
+        val worktreeId = _uiState.value.showCloseWorktreeConfirm ?: return
+        viewModelScope.launch {
+            sessionRepository.closeWorktree(worktreeId)
+            _uiState.update { it.copy(showCloseWorktreeConfirm = null) }
+        }
+    }
+
+    fun cancelCloseWorktree() {
+        _uiState.update { it.copy(showCloseWorktreeConfirm = null) }
+    }
+
+    fun mergeWorktree(worktreeId: String) {
+        viewModelScope.launch {
+            sessionRepository.mergeWorktree(worktreeId)
+            _uiState.update { it.copy(showWorktreeMenuFor = null) }
+        }
+    }
+
+    fun sendWorktreeMessage() {
+        val text = _uiState.value.inputText.trim()
+        val worktreeId = _uiState.value.activeWorktreeId
+        if (text.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(inputText = "") }
+            if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+                sessionRepository.sendMessage(text)
+            } else {
+                sessionRepository.sendWorktreeMessage(worktreeId, text)
+            }
+        }
     }
 }

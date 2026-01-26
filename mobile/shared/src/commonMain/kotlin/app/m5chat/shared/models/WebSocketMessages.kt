@@ -109,7 +109,68 @@ data class WorktreeCreatedMessage(
 data class WorktreeUpdatedMessage(
     override val type: String = "worktree_updated",
     val worktreeId: String,
+    val status: WorktreeStatus? = null,
     val changes: Map<String, JsonElement> = emptyMap()
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_message")
+data class WorktreeMessageEvent(
+    override val type: String = "worktree_message",
+    val worktreeId: String,
+    val message: ChatMessage
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_delta")
+data class WorktreeDeltaMessage(
+    override val type: String = "worktree_delta",
+    val worktreeId: String,
+    val delta: String,
+    val itemId: String,
+    val turnId: String
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_turn_started")
+data class WorktreeTurnStartedMessage(
+    override val type: String = "worktree_turn_started",
+    val worktreeId: String,
+    val turnId: String
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_turn_completed")
+data class WorktreeTurnCompletedMessage(
+    override val type: String = "worktree_turn_completed",
+    val worktreeId: String,
+    val turnId: String,
+    val status: String
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_closed")
+data class WorktreeClosedMessage(
+    override val type: String = "worktree_closed",
+    val worktreeId: String
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_merge_result")
+data class WorktreeMergeResultMessage(
+    override val type: String = "worktree_merge_result",
+    val worktreeId: String,
+    val success: Boolean,
+    val message: String? = null,
+    val hasConflicts: Boolean = false,
+    val conflictFiles: List<String> = emptyList()
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktrees_list")
+data class WorktreesListMessage(
+    override val type: String = "worktrees_list",
+    val worktrees: List<Worktree>
 ) : ServerMessage()
 
 @Serializable
@@ -198,4 +259,16 @@ data class SyncMessagesRequest(
     override val type: String = "sync_messages",
     val provider: String,
     val lastSeenMessageId: String? = null
+) : ClientMessage()
+
+@Serializable
+data class CloseWorktreeRequest(
+    override val type: String = "close_worktree",
+    val worktreeId: String
+) : ClientMessage()
+
+@Serializable
+data class MergeWorktreeRequest(
+    override val type: String = "merge_worktree",
+    val worktreeId: String
 ) : ClientMessage()

@@ -38,13 +38,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.m5chat.android.R
+import app.m5chat.android.ui.components.CreateWorktreeSheet
 import app.m5chat.android.ui.components.DiffSheetContent
 import app.m5chat.android.ui.components.LogsSheetContent
 import app.m5chat.android.ui.components.MessageBubble
 import app.m5chat.android.ui.components.ProviderSelectionDialog
+import app.m5chat.android.ui.components.WorktreeMenuSheet
+import app.m5chat.android.ui.components.WorktreeTabs
 import app.m5chat.android.viewmodel.ChatViewModel
 import app.m5chat.android.viewmodel.PendingAttachment
 import app.m5chat.shared.models.LLMProvider
+import app.m5chat.shared.models.Worktree
 import app.m5chat.shared.network.ConnectionState
 import org.koin.androidx.compose.koinViewModel
 
@@ -310,14 +314,37 @@ fun ChatScreen(
             }
         }
     ) { padding ->
-        LazyColumn(
-            state = listState,
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(padding)
         ) {
+            // Worktree tabs
+            if (uiState.worktrees.isNotEmpty() || uiState.sortedWorktrees.isNotEmpty()) {
+                WorktreeTabs(
+                    worktrees = uiState.sortedWorktrees.ifEmpty {
+                        // Show at least main worktree
+                        listOf(Worktree.createMain(uiState.activeProvider))
+                    },
+                    activeWorktreeId = uiState.activeWorktreeId,
+                    onSelectWorktree = viewModel::selectWorktree,
+                    onCreateWorktree = {
+                        viewModel.loadBranches()
+                        viewModel.showCreateWorktreeSheet()
+                    },
+                    onWorktreeMenu = viewModel::showWorktreeMenu
+                )
+            }
+
+            // Messages list
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             items(
                 items = uiState.messages,
                 key = { it.id }
@@ -365,6 +392,7 @@ fun ChatScreen(
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -430,6 +458,58 @@ fun ChatScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             LogsSheetContent()
+        }
+    }
+
+    // Create Worktree Sheet
+    if (uiState.showCreateWorktreeSheet) {
+        CreateWorktreeSheet(
+            branches = uiState.branches,
+            currentProvider = uiState.activeProvider,
+            onDismiss = viewModel::hideCreateWorktreeSheet,
+            onCreate = { name, provider, branchName ->
+                viewModel.createWorktree(name, provider, branchName)
+            }
+        )
+    }
+
+    // Worktree Menu Sheet
+    uiState.showWorktreeMenuFor?.let { worktreeId ->
+        uiState.worktrees[worktreeId]?.let { worktree ->
+            WorktreeMenuSheet(
+                worktree = worktree,
+                onDismiss = viewModel::hideWorktreeMenu,
+                onMerge = { viewModel.mergeWorktree(worktreeId) },
+                onClose = { viewModel.requestCloseWorktree(worktreeId) }
+            )
+        }
+    }
+
+    // Close Worktree Confirmation Dialog
+    uiState.showCloseWorktreeConfirm?.let { worktreeId ->
+        uiState.worktrees[worktreeId]?.let { worktree ->
+            AlertDialog(
+                onDismissRequest = viewModel::cancelCloseWorktree,
+                title = { Text("Fermer le worktree") },
+                text = {
+                    Text("Voulez-vous fermer le worktree \"${worktree.name}\" ? Les modifications non mergées seront perdues.")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = viewModel::confirmCloseWorktree,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Fermer")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::cancelCloseWorktree) {
+                        Text("Annuler")
+                    }
+                }
+            )
         }
     }
 }

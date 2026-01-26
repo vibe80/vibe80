@@ -93,6 +93,10 @@ class WebSocketManager(
                             is SwitchProviderRequest -> "switch_provider"
                             is WorktreeMessageRequest -> "worktree_message"
                             is CreateWorktreeRequest -> "create_worktree"
+                            is ListWorktreesRequest -> "list_worktrees"
+                            is CloseWorktreeRequest -> "close_worktree"
+                            is MergeWorktreeRequest -> "merge_worktree"
+                            is SyncMessagesRequest -> "sync_messages"
                             else -> "unknown"
                         }
                         AppLogger.wsSend(messageType, jsonString)
@@ -150,6 +154,13 @@ class WebSocketManager(
                 "messages_sync" -> json.decodeFromString<MessagesSyncMessage>(text)
                 "worktree_created" -> json.decodeFromString<WorktreeCreatedMessage>(text)
                 "worktree_updated" -> json.decodeFromString<WorktreeUpdatedMessage>(text)
+                "worktree_message" -> json.decodeFromString<WorktreeMessageEvent>(text)
+                "worktree_delta" -> json.decodeFromString<WorktreeDeltaMessage>(text)
+                "worktree_turn_started" -> json.decodeFromString<WorktreeTurnStartedMessage>(text)
+                "worktree_turn_completed" -> json.decodeFromString<WorktreeTurnCompletedMessage>(text)
+                "worktree_closed" -> json.decodeFromString<WorktreeClosedMessage>(text)
+                "worktree_merge_result" -> json.decodeFromString<WorktreeMergeResultMessage>(text)
+                "worktrees_list" -> json.decodeFromString<WorktreesListMessage>(text)
                 "repo_diff" -> json.decodeFromString<RepoDiffMessage>(text)
                 "pong" -> json.decodeFromString<PongMessage>(text)
                 "command_execution_delta" -> json.decodeFromString<CommandExecutionDeltaMessage>(text)
@@ -220,6 +231,18 @@ class WebSocketManager(
             parentWorktreeId = parentWorktreeId,
             branchName = branchName
         ))
+    }
+
+    suspend fun closeWorktree(worktreeId: String) {
+        send(CloseWorktreeRequest(worktreeId = worktreeId))
+    }
+
+    suspend fun mergeWorktree(worktreeId: String) {
+        send(MergeWorktreeRequest(worktreeId = worktreeId))
+    }
+
+    suspend fun listWorktrees() {
+        send(ListWorktreesRequest())
     }
 
     fun disconnect() {

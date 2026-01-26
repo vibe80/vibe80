@@ -26,6 +26,21 @@ class SessionRepository(
     private val _worktrees = MutableStateFlow<Map<String, Worktree>>(emptyMap())
     val worktrees: StateFlow<Map<String, Worktree>> = _worktrees.asStateFlow()
 
+    private val _activeWorktreeId = MutableStateFlow(Worktree.MAIN_WORKTREE_ID)
+    val activeWorktreeId: StateFlow<String> = _activeWorktreeId.asStateFlow()
+
+    /** Messages organized by worktree ID */
+    private val _worktreeMessages = MutableStateFlow<Map<String, List<ChatMessage>>>(emptyMap())
+    val worktreeMessages: StateFlow<Map<String, List<ChatMessage>>> = _worktreeMessages.asStateFlow()
+
+    /** Streaming message per worktree */
+    private val _worktreeStreamingMessages = MutableStateFlow<Map<String, String>>(emptyMap())
+    val worktreeStreamingMessages: StateFlow<Map<String, String>> = _worktreeStreamingMessages.asStateFlow()
+
+    /** Processing state per worktree */
+    private val _worktreeProcessing = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val worktreeProcessing: StateFlow<Map<String, Boolean>> = _worktreeProcessing.asStateFlow()
+
     private val _branches = MutableStateFlow<BranchInfo?>(null)
     val branches: StateFlow<BranchInfo?> = _branches.asStateFlow()
 
@@ -112,10 +127,70 @@ class SessionRepository(
 
             is WorktreeCreatedMessage -> {
                 _worktrees.update { it + (message.worktree.id to message.worktree) }
+                // Initialize empty message list for new worktree
+                _worktreeMessages.update { it + (message.worktree.id to emptyList()) }
             }
 
             is WorktreeUpdatedMessage -> {
-                // Handle worktree updates
+                _worktrees.update { current ->
+                    current[message.worktreeId]?.let { worktree ->
+                        val updated = if (message.status != null) {
+                            worktree.copy(status = message.status)
+                        } else {
+                            worktree
+                        }
+                        current + (message.worktreeId to updated)
+                    } ?: current
+                }
+            }
+
+            is WorktreeMessageEvent -> {
+                _worktreeMessages.update { current ->
+                    val messages = current[message.worktreeId] ?: emptyList()
+                    current + (message.worktreeId to messages + message.message)
+                }
+            }
+
+            is WorktreeDeltaMessage -> {
+                _worktreeStreamingMessages.update { current ->
+                    val existing = current[message.worktreeId] ?: ""
+                    current + (message.worktreeId to existing + message.delta)
+                }
+            }
+
+            is WorktreeTurnStartedMessage -> {
+                _worktreeProcessing.update { it + (message.worktreeId to true) }
+            }
+
+            is WorktreeTurnCompletedMessage -> {
+                _worktreeProcessing.update { it + (message.worktreeId to false) }
+                _worktreeStreamingMessages.update { it - message.worktreeId }
+            }
+
+            is WorktreeClosedMessage -> {
+                _worktrees.update { it - message.worktreeId }
+                _worktreeMessages.update { it - message.worktreeId }
+                _worktreeStreamingMessages.update { it - message.worktreeId }
+                _worktreeProcessing.update { it - message.worktreeId }
+                // Switch to main if active worktree was closed
+                if (_activeWorktreeId.value == message.worktreeId) {
+                    _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
+                }
+            }
+
+            is WorktreeMergeResultMessage -> {
+                // Update worktree status based on merge result
+                if (message.hasConflicts) {
+                    _worktrees.update { current ->
+                        current[message.worktreeId]?.let { worktree ->
+                            current + (message.worktreeId to worktree.copy(status = WorktreeStatus.MERGE_CONFLICT))
+                        } ?: current
+                    }
+                }
+            }
+
+            is WorktreesListMessage -> {
+                _worktrees.value = message.worktrees.associateBy { it.id }
             }
 
             is RepoDiffMessage -> {
@@ -264,11 +339,102 @@ class SessionRepository(
         }
     }
 
+    // ========== Worktree Management ==========
+
+    fun setActiveWorktree(worktreeId: String) {
+        _activeWorktreeId.value = worktreeId
+    }
+
+    suspend fun createWorktree(
+        name: String,
+        provider: LLMProvider,
+        branchName: String? = null
+    ) {
+        webSocketManager.createWorktree(
+            provider = provider.name.lowercase(),
+            name = name,
+            parentWorktreeId = _activeWorktreeId.value,
+            branchName = branchName
+        )
+    }
+
+    suspend fun sendWorktreeMessage(
+        worktreeId: String,
+        text: String,
+        attachments: List<Attachment> = emptyList()
+    ) {
+        // Add user message locally
+        val userMessage = ChatMessage(
+            id = generateMessageId(),
+            role = MessageRole.USER,
+            text = text,
+            attachments = attachments,
+            timestamp = System.currentTimeMillis()
+        )
+        _worktreeMessages.update { current ->
+            val messages = current[worktreeId] ?: emptyList()
+            current + (worktreeId to messages + userMessage)
+        }
+
+        // Send via WebSocket
+        webSocketManager.sendWorktreeMessage(worktreeId, text, attachments = attachments)
+    }
+
+    suspend fun closeWorktree(worktreeId: String) {
+        if (worktreeId == Worktree.MAIN_WORKTREE_ID) return // Cannot close main
+        webSocketManager.closeWorktree(worktreeId)
+    }
+
+    suspend fun mergeWorktree(worktreeId: String) {
+        if (worktreeId == Worktree.MAIN_WORKTREE_ID) return // Cannot merge main
+        _worktrees.update { current ->
+            current[worktreeId]?.let { worktree ->
+                current + (worktreeId to worktree.copy(status = WorktreeStatus.MERGING))
+            } ?: current
+        }
+        webSocketManager.mergeWorktree(worktreeId)
+    }
+
+    suspend fun listWorktrees() {
+        webSocketManager.listWorktrees()
+    }
+
+    /** Get messages for a specific worktree */
+    fun getWorktreeMessages(worktreeId: String): List<ChatMessage> {
+        return if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+            _messages.value
+        } else {
+            _worktreeMessages.value[worktreeId] ?: emptyList()
+        }
+    }
+
+    /** Get streaming message for a specific worktree */
+    fun getWorktreeStreamingMessage(worktreeId: String): String? {
+        return if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+            _currentStreamingMessage.value
+        } else {
+            _worktreeStreamingMessages.value[worktreeId]
+        }
+    }
+
+    /** Check if a worktree is processing */
+    fun isWorktreeProcessing(worktreeId: String): Boolean {
+        return if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+            _processing.value
+        } else {
+            _worktreeProcessing.value[worktreeId] ?: false
+        }
+    }
+
     fun disconnect() {
         webSocketManager.disconnect()
         _sessionState.value = null
         _messages.value = emptyList()
         _worktrees.value = emptyMap()
+        _worktreeMessages.value = emptyMap()
+        _worktreeStreamingMessages.value = emptyMap()
+        _worktreeProcessing.value = emptyMap()
+        _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
     }
 
     private fun generateMessageId(): String {
