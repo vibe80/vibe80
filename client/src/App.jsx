@@ -560,14 +560,12 @@ function App() {
   };
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
   const [toolResultPanelOpen, setToolResultPanelOpen] = useState({});
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [toolbarExportOpen, setToolbarExportOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const uploadInputRef = useRef(null);
-  const moreMenuRef = useRef(null);
   const toolbarExportRef = useRef(null);
   const conversationRef = useRef(null);
   const composerRef = useRef(null);
@@ -804,21 +802,6 @@ function App() {
     query.addListener(update);
     return () => query.removeListener(update);
   }, []);
-
-  useEffect(() => {
-    if (!moreMenuOpen) {
-      return;
-    }
-    const handlePointerDown = (event) => {
-      const target = event.target;
-      if (moreMenuRef.current?.contains(target)) {
-        return;
-      }
-      setMoreMenuOpen(false);
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [moreMenuOpen]);
 
   useEffect(() => {
     if (!toolbarExportOpen) {
@@ -3211,7 +3194,6 @@ function App() {
       ...current,
       [key]: nextPane,
     }));
-    setMoreMenuOpen(false);
     setToolbarExportOpen(false);
   }, [activeWorktreeId]);
 
@@ -3243,7 +3225,6 @@ function App() {
       if (!exportMessages.length) {
         return;
       }
-      setMoreMenuOpen(false);
       setToolbarExportOpen(false);
       const baseName = extractRepoName(
         attachmentSession?.repoUrl || repoUrl || ""
@@ -3822,88 +3803,6 @@ function App() {
           </div>
         </div>
 
-        <div className="topbar-right">
-          <div className="dropdown more-menu" ref={moreMenuRef}>
-            <button
-              type="button"
-              className="pill-button"
-              onClick={() => {
-                setMoreMenuOpen((current) => !current);
-              }}
-            >
-              ⋯
-            </button>
-            {moreMenuOpen && (
-              <div className="dropdown-menu">
-                <div className="dropdown-title">Vue</div>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "chat" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("chat")}
-                >
-                  Messages
-                </button>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "diff" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("diff")}
-                >
-                  Diff
-                </button>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "terminal" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("terminal")}
-                >
-                  Terminal
-                </button>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "logs" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("logs")}
-                >
-                  Logs
-                </button>
-                <button
-                  type="button"
-                  className="menu-item"
-                  onClick={() => handleExportChat("markdown")}
-                  disabled={messages.length === 0}
-                >
-                  Export markdown
-                </button>
-                <button
-                  type="button"
-                  className="menu-item"
-                  onClick={() => handleExportChat("json")}
-                  disabled={messages.length === 0}
-                >
-                  Export JSON
-                </button>
-                <div className="dropdown-divider" />
-                <button
-                  type="button"
-                  className="menu-item danger"
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    handleClearChat();
-                  }}
-                  disabled={messages.length === 0}
-                >
-                  Clear chat
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
       </header>
 
       <div
@@ -3976,6 +3875,21 @@ function App() {
               )}
             </section>
           </div>
+          <div className="side-footer">
+            <button
+              type="button"
+              className={`side-footer-button ${
+                activePane === "settings" ? "is-active" : ""
+              }`}
+              onClick={() => handleViewSelect("settings")}
+              aria-pressed={activePane === "settings"}
+            >
+              <span className="side-footer-icon" aria-hidden="true">
+                ⚙
+              </span>
+              Paramètres
+            </button>
+          </div>
         </aside>
 
         <section
@@ -3985,7 +3899,12 @@ function App() {
           ref={conversationRef}
         >
           <div className="pane-stack">
-            <div className="chat-toolbar" role="toolbar" aria-label="Outils du chat">
+            {activePane !== "settings" && (
+              <div
+                className="chat-toolbar"
+                role="toolbar"
+                aria-label="Outils du chat"
+              >
               <div className="chat-toolbar-group">
                 <button
                   type="button"
@@ -4102,6 +4021,7 @@ function App() {
                 </button>
               </div>
             </div>
+            )}
             <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
               <div className="chat-scroll" ref={listRef}>
                 <div className="chat-scroll-inner">
