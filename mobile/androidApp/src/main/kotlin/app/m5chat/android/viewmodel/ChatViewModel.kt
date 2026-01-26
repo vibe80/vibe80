@@ -43,9 +43,22 @@ data class ChatUiState(
     val showDiffSheet: Boolean = false,
     val showProviderDialog: Boolean = false,
     val showLogsSheet: Boolean = false,
+    val showBranchConfirmDialog: Boolean = false,
+    val pendingBranchSwitch: String? = null,
     val pendingAttachments: List<PendingAttachment> = emptyList(),
-    val uploadingAttachments: Boolean = false
-)
+    val uploadingAttachments: Boolean = false,
+    val fetchingBranches: Boolean = false
+) {
+    /** Number of modified files based on diff status */
+    val modifiedFilesCount: Int
+        get() = repoDiff?.status?.lines()?.count {
+            it.startsWith(" M ") || it.startsWith("?? ") || it.startsWith(" A ") || it.startsWith(" D ")
+        } ?: 0
+
+    /** Whether there are uncommitted changes */
+    val hasUncommittedChanges: Boolean
+        get() = modifiedFilesCount > 0 || repoDiff?.diff?.isNotBlank() == true
+}
 
 private data class SessionSnapshot(
     val messages: List<ChatMessage>,
@@ -142,6 +155,30 @@ class ChatViewModel(
         }
     }
 
+    fun fetchBranches() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(fetchingBranches = true) }
+            sessionRepository.fetchBranches()
+            _uiState.update { it.copy(fetchingBranches = false) }
+        }
+    }
+
+    fun requestSwitchBranch(branch: String) {
+        _uiState.update { it.copy(showBranchConfirmDialog = true, pendingBranchSwitch = branch) }
+    }
+
+    fun confirmSwitchBranch() {
+        val branch = _uiState.value.pendingBranchSwitch ?: return
+        viewModelScope.launch {
+            sessionRepository.switchBranch(branch)
+            _uiState.update { it.copy(showBranchesSheet = false, showBranchConfirmDialog = false, pendingBranchSwitch = null) }
+        }
+    }
+
+    fun cancelSwitchBranch() {
+        _uiState.update { it.copy(showBranchConfirmDialog = false, pendingBranchSwitch = null) }
+    }
+
     fun switchBranch(branch: String) {
         viewModelScope.launch {
             sessionRepository.switchBranch(branch)
@@ -156,6 +193,12 @@ class ChatViewModel(
 
     fun hideBranchesSheet() {
         _uiState.update { it.copy(showBranchesSheet = false) }
+    }
+
+    fun loadDiff() {
+        viewModelScope.launch {
+            sessionRepository.loadDiff()
+        }
     }
 
     fun showDiffSheet() {

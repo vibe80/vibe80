@@ -4,15 +4,18 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -23,10 +26,13 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,30 +85,73 @@ fun ChatScreen(
         }
     }
 
+    // Connection status indicator color
+    val connectionColor by animateColorAsState(
+        targetValue = when (uiState.connectionState) {
+            ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
+            ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> MaterialTheme.colorScheme.tertiary
+            ConnectionState.ERROR -> MaterialTheme.colorScheme.error
+            ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.outline
+        },
+        label = "connectionColor"
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "M5Chat",
-                            style = MaterialTheme.typography.titleMedium
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Connection status indicator
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(connectionColor)
                         )
-                        Text(
-                            text = when (uiState.connectionState) {
-                                ConnectionState.CONNECTED -> stringResource(R.string.connected)
-                                ConnectionState.CONNECTING -> "Connexion..."
-                                ConnectionState.RECONNECTING -> stringResource(R.string.reconnecting)
-                                ConnectionState.DISCONNECTED -> stringResource(R.string.disconnected)
-                                ConnectionState.ERROR -> stringResource(R.string.error_connection)
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = when (uiState.connectionState) {
-                                ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
-                                ConnectionState.ERROR -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "M5Chat",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                // Current branch badge
+                                uiState.branches?.current?.let { branch ->
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = MaterialTheme.shapes.small
+                                    ) {
+                                        Text(
+                                            text = branch,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
                             }
-                        )
+                            Text(
+                                text = when (uiState.connectionState) {
+                                    ConnectionState.CONNECTED -> stringResource(R.string.connected)
+                                    ConnectionState.CONNECTING -> "Connexion..."
+                                    ConnectionState.RECONNECTING -> stringResource(R.string.reconnecting)
+                                    ConnectionState.DISCONNECTED -> stringResource(R.string.disconnected)
+                                    ConnectionState.ERROR -> stringResource(R.string.error_connection)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = when (uiState.connectionState) {
+                                    ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
+                                    ConnectionState.ERROR -> MaterialTheme.colorScheme.error
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -127,12 +176,33 @@ fun ChatScreen(
                         )
                     }
 
-                    // Diff button
-                    IconButton(onClick = viewModel::showDiffSheet) {
-                        Icon(
-                            imageVector = Icons.Default.CompareArrows,
-                            contentDescription = stringResource(R.string.diff)
-                        )
+                    // Diff button with badge for modified files
+                    BadgedBox(
+                        badge = {
+                            if (uiState.hasUncommittedChanges) {
+                                Badge {
+                                    Text(
+                                        text = if (uiState.modifiedFilesCount > 0)
+                                            uiState.modifiedFilesCount.toString()
+                                        else "!"
+                                    )
+                                }
+                            }
+                        }
+                    ) {
+                        IconButton(onClick = {
+                            viewModel.loadDiff()
+                            viewModel.showDiffSheet()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.CompareArrows,
+                                contentDescription = stringResource(R.string.diff),
+                                tint = if (uiState.hasUncommittedChanges)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    LocalContentColor.current
+                            )
+                        }
                     }
 
                     // Logs button (debug)
@@ -304,9 +374,32 @@ fun ChatScreen(
         ModalBottomSheet(onDismissRequest = viewModel::hideBranchesSheet) {
             BranchesSheetContent(
                 branchInfo = uiState.branches,
-                onBranchSelect = viewModel::switchBranch
+                onBranchSelect = viewModel::requestSwitchBranch,
+                onFetch = viewModel::fetchBranches,
+                isFetching = uiState.fetchingBranches
             )
         }
+    }
+
+    // Branch Switch Confirmation Dialog
+    if (uiState.showBranchConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelSwitchBranch,
+            title = { Text("Changer de branche") },
+            text = {
+                Text("Voulez-vous changer vers la branche \"${uiState.pendingBranchSwitch}\" ? Les modifications non commit\u00e9es pourraient \u00eatre perdues.")
+            },
+            confirmButton = {
+                Button(onClick = viewModel::confirmSwitchBranch) {
+                    Text("Confirmer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelSwitchBranch) {
+                    Text("Annuler")
+                }
+            }
+        )
     }
 
     // Diff Sheet
@@ -404,47 +497,118 @@ private fun getFileSize(context: android.content.Context, uri: Uri): Long {
 @Composable
 private fun BranchesSheetContent(
     branchInfo: app.m5chat.shared.models.BranchInfo?,
-    onBranchSelect: (String) -> Unit
+    onBranchSelect: (String) -> Unit,
+    onFetch: () -> Unit,
+    isFetching: Boolean
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        Text(
-            text = stringResource(R.string.branches),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.branches),
+                style = MaterialTheme.typography.titleLarge
+            )
+            // Fetch button
+            FilledTonalButton(
+                onClick = onFetch,
+                enabled = !isFetching
+            ) {
+                if (isFetching) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Fetch")
+            }
+        }
 
         if (branchInfo == null) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
         } else {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Code,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Column {
+                        Text(
+                            text = "Branche actuelle",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = branchInfo.current,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+
             Text(
-                text = "Branche actuelle: ${branchInfo.current}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
+                text = "Branches disponibles",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             branchInfo.branches.forEach { branch ->
-                ListItem(
-                    headlineContent = { Text(branch) },
-                    modifier = Modifier.fillMaxWidth(),
-                    trailingContent = if (branch == branchInfo.current) {
-                        { Badge { Text("actuelle") } }
-                    } else null,
-                    colors = ListItemDefaults.colors(
-                        containerColor = if (branch == branchInfo.current) {
+                val isCurrent = branch == branchInfo.current
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isCurrent)
                             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                        } else {
-                            MaterialTheme.colorScheme.surface
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    onClick = { if (!isCurrent) onBranchSelect(branch) }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = branch,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        if (isCurrent) {
+                            Badge { Text("actuelle") }
                         }
-                    )
-                )
-                if (branch != branchInfo.current) {
-                    TextButton(onClick = { onBranchSelect(branch) }) {
-                        Text("Changer")
                     }
                 }
             }

@@ -90,6 +90,18 @@ class ApiClient(
     }
 
     /**
+     * Fetch latest branches from remote
+     */
+    suspend fun fetchBranches(sessionId: String): Result<BranchInfo> {
+        return runCatching {
+            httpClient.post("$baseUrl/api/branches/fetch") {
+                contentType(ContentType.Application.Json)
+                setBody(mapOf("session" to sessionId))
+            }.body()
+        }
+    }
+
+    /**
      * Switch to a different branch
      */
     suspend fun switchBranch(sessionId: String, branch: String): Result<BranchSwitchResponse> {

@@ -149,9 +149,9 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [x] Bottom sheet branches
 - [x] Affichage branche courante (badge)
 - [x] Liste branches remote
-- [ ] Bouton Fetch
+- [x] Bouton Fetch
 - [x] Action switch branche
-- [ ] Confirmation changement
+- [x] Confirmation changement
 
 #### 4.2 DiffSheet Simplifié
 - [x] Bottom sheet diff
@@ -162,20 +162,22 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [x] Scroll horizontal pour lignes longues
 
 #### 4.3 Status Repository
-- [ ] Indicateur changements non commités
-- [ ] Badge nombre fichiers modifiés
-- [ ] Refresh automatique après action LLM
+- [x] Indicateur changements non commités
+- [x] Badge nombre fichiers modifiés
+- [x] Refresh automatique après action LLM
 
 #### 4.4 TopBar Enrichie
-- [ ] Affichage nom branche
-- [ ] Bouton accès branches
-- [ ] Bouton accès diff
-- [ ] Indicateur status connexion
+- [x] Affichage nom branche
+- [x] Bouton accès branches
+- [x] Bouton accès diff
+- [x] Indicateur status connexion
 
 **Livrables v0.4** :
 - Navigation branches
 - Visualisation diff basique
 - Status repo visible
+
+**Phase 4 : COMPLÉTÉE**
 
 ---
 
@@ -447,7 +449,7 @@ mobile/
 
 ---
 
-*Dernière mise à jour : 2026-01-25*
+*Dernière mise à jour : 2026-01-26*
 
 ---
 
@@ -551,3 +553,26 @@ mobile/
   - Numéros de ligne (ancien/nouveau)
   - Scroll horizontal pour lignes longues
   - État vide élégant
+
+### 2026-01-26 - Phase 4 Complétée
+
+**BranchesSheet amélioré :**
+- `ChatScreen.kt` - Bouton Fetch pour récupérer les branches du remote
+- `ChatScreen.kt` - Dialog de confirmation avant changement de branche
+- `ChatScreen.kt` - UI améliorée avec carte branche courante et liste cliquable
+- `ChatViewModel.kt` - Nouvelles méthodes: `fetchBranches()`, `requestSwitchBranch()`, `confirmSwitchBranch()`, `cancelSwitchBranch()`
+
+**TopBar enrichie :**
+- `ChatScreen.kt` - Indicateur de connexion (point coloré animé)
+- `ChatScreen.kt` - Badge branche courante à côté du titre
+- `ChatScreen.kt` - Badge nombre fichiers modifiés sur bouton diff
+- `ChatScreen.kt` - Coloration du bouton diff si changements non commités
+
+**Status Repository :**
+- `ChatUiState` - Propriétés calculées `modifiedFilesCount` et `hasUncommittedChanges`
+- `SessionRepository.kt` - Méthode `loadDiff()` pour charger le diff à la demande
+- `SessionRepository.kt` - Refresh automatique du diff après `turn_completed`
+- `SessionRepository.kt` - Méthode `fetchBranches()` pour récupérer les branches
+
+**API :**
+- `ApiClient.kt` - Nouvelle méthode `fetchBranches()` pour POST /api/branches/fetch

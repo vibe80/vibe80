@@ -86,6 +86,10 @@ class SessionRepository(
             is TurnCompletedMessage -> {
                 _processing.value = false
                 _currentStreamingMessage.value = null
+                // Refresh diff after LLM action
+                scope.launch {
+                    loadDiff()
+                }
             }
 
             is TurnErrorMessage -> {
@@ -210,10 +214,33 @@ class SessionRepository(
         }
     }
 
+    suspend fun fetchBranches(): Result<BranchInfo> {
+        val sessionId = _sessionState.value?.sessionId
+            ?: return Result.failure(IllegalStateException("No active session"))
+        return apiClient.fetchBranches(sessionId).onSuccess { branchInfo ->
+            _branches.value = branchInfo
+        }
+    }
+
     suspend fun switchBranch(branch: String): Result<BranchSwitchResponse> {
         val sessionId = _sessionState.value?.sessionId
             ?: return Result.failure(IllegalStateException("No active session"))
-        return apiClient.switchBranch(sessionId, branch)
+        return apiClient.switchBranch(sessionId, branch).onSuccess {
+            // Reload branches after switch to update current
+            loadBranches()
+            // Reload diff after branch switch
+            loadDiff()
+        }
+    }
+
+    suspend fun loadDiff() {
+        val sessionId = _sessionState.value?.sessionId ?: return
+        apiClient.getWorktreeDiff(sessionId).onSuccess { response ->
+            _repoDiff.value = RepoDiff(
+                status = response.status,
+                diff = response.diff
+            )
+        }
     }
 
     /**
