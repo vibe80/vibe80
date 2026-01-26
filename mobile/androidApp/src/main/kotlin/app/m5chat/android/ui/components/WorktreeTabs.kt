@@ -211,6 +211,7 @@ private fun WorktreeStatusIndicator(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun WorktreeMenuSheet(
     worktree: Worktree,
     onDismiss: () -> Unit,
