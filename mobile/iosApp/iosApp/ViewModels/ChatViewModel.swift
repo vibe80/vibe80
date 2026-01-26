@@ -30,6 +30,11 @@ class ChatViewModel: ObservableObject {
     @Published var worktrees: [Worktree] = []
     @Published var activeWorktreeId: String = "main"
 
+    // Worktree-specific state
+    @Published var worktreeMessages: [String: [ChatMessage]] = [:]
+    @Published var worktreeStreamingMessages: [String: String] = [:]
+    @Published var worktreeProcessing: [String: Bool] = [:]
+
     // Computed properties
     var hasUncommittedChanges: Bool {
         guard let diff = repoDiff else { return false }
@@ -44,33 +49,164 @@ class ChatViewModel: ObservableObject {
         }
     }
 
+    /// Get messages for current active worktree
+    var activeWorktreeMessages: [ChatMessage] {
+        if activeWorktreeId == "main" {
+            return messages
+        }
+        return worktreeMessages[activeWorktreeId] ?? []
+    }
+
+    /// Get streaming message for current active worktree
+    var activeStreamingMessage: String? {
+        if activeWorktreeId == "main" {
+            return currentStreamingMessage
+        }
+        return worktreeStreamingMessages[activeWorktreeId]
+    }
+
+    /// Check if current worktree is processing
+    var isActiveWorktreeProcessing: Bool {
+        if activeWorktreeId == "main" {
+            return isProcessing
+        }
+        return worktreeProcessing[activeWorktreeId] ?? false
+    }
+
     // Private
     private var sessionId: String?
-    private var cancellables = Set<AnyCancellable>()
+    private weak var appState: AppState?
+
+    // Flow subscriptions
+    private var messagesWrapper: FlowWrapper<NSArray>?
+    private var streamingMessageWrapper: FlowWrapper<NSString?>?
+    private var processingWrapper: FlowWrapper<KotlinBoolean>?
+    private var connectionStateWrapper: FlowWrapper<ConnectionState>?
+    private var sessionStateWrapper: FlowWrapper<SessionState?>?
+    private var branchesWrapper: FlowWrapper<BranchInfo?>?
+    private var repoDiffWrapper: FlowWrapper<RepoDiff?>?
+    private var worktreesWrapper: FlowWrapper<NSDictionary>?
+    private var worktreeMessagesWrapper: FlowWrapper<NSDictionary>?
+    private var worktreeStreamingWrapper: FlowWrapper<NSDictionary>?
+    private var worktreeProcessingWrapper: FlowWrapper<NSDictionary>?
+
+    // MARK: - Initialization
+
+    func setup(appState: AppState) {
+        self.appState = appState
+        subscribeToFlows()
+    }
+
+    private func subscribeToFlows() {
+        guard let repository = appState?.sessionRepository else { return }
+
+        // Subscribe to messages
+        messagesWrapper = FlowWrapper(flow: repository.messages)
+        messagesWrapper?.subscribe { [weak self] messages in
+            self?.messages = (messages as? [ChatMessage]) ?? []
+        }
+
+        // Subscribe to streaming message
+        streamingMessageWrapper = FlowWrapper(flow: repository.currentStreamingMessage)
+        streamingMessageWrapper?.subscribe { [weak self] message in
+            self?.currentStreamingMessage = message as String?
+        }
+
+        // Subscribe to processing state
+        processingWrapper = FlowWrapper(flow: repository.processing)
+        processingWrapper?.subscribe { [weak self] processing in
+            self?.isProcessing = processing.boolValue
+        }
+
+        // Subscribe to connection state
+        connectionStateWrapper = FlowWrapper(flow: repository.connectionState)
+        connectionStateWrapper?.subscribe { [weak self] state in
+            self?.connectionState = state
+        }
+
+        // Subscribe to session state for provider
+        sessionStateWrapper = FlowWrapper(flow: repository.sessionState)
+        sessionStateWrapper?.subscribe { [weak self] state in
+            if let activeProvider = state?.activeProvider {
+                self?.activeProvider = activeProvider
+            }
+        }
+
+        // Subscribe to branches
+        branchesWrapper = FlowWrapper(flow: repository.branches)
+        branchesWrapper?.subscribe { [weak self] branchInfo in
+            if let info = branchInfo {
+                self?.branches = info.branches
+                self?.currentBranch = info.current
+            }
+        }
+
+        // Subscribe to repo diff
+        repoDiffWrapper = FlowWrapper(flow: repository.repoDiff)
+        repoDiffWrapper?.subscribe { [weak self] diff in
+            self?.repoDiff = diff
+        }
+
+        // Subscribe to worktrees
+        worktreesWrapper = FlowWrapper(flow: repository.worktrees)
+        worktreesWrapper?.subscribe { [weak self] worktreesDict in
+            if let dict = worktreesDict as? [String: Worktree] {
+                self?.worktrees = Array(dict.values)
+            }
+        }
+
+        // Subscribe to worktree messages
+        worktreeMessagesWrapper = FlowWrapper(flow: repository.worktreeMessages)
+        worktreeMessagesWrapper?.subscribe { [weak self] messagesDict in
+            if let dict = messagesDict as? [String: [ChatMessage]] {
+                self?.worktreeMessages = dict
+            }
+        }
+
+        // Subscribe to worktree streaming
+        worktreeStreamingWrapper = FlowWrapper(flow: repository.worktreeStreamingMessages)
+        worktreeStreamingWrapper?.subscribe { [weak self] streamingDict in
+            if let dict = streamingDict as? [String: String] {
+                self?.worktreeStreamingMessages = dict
+            }
+        }
+
+        // Subscribe to worktree processing
+        worktreeProcessingWrapper = FlowWrapper(flow: repository.worktreeProcessing)
+        worktreeProcessingWrapper?.subscribe { [weak self] processingDict in
+            if let dict = processingDict as? [String: Bool] {
+                self?.worktreeProcessing = dict
+            }
+        }
+    }
 
     // MARK: - Connection
 
     func connect(sessionId: String) {
         self.sessionId = sessionId
-        connectionState = .connecting
-
-        // TODO: Integrate with KMP WebSocketManager
-        // webSocketManager.connect(sessionId: sessionId)
-
-        // Simulate connection for now
-        Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            connectionState = .connected
-
-            // Load initial data
-            await loadBranches()
-            await loadDiff()
-        }
+        // WebSocket connection is handled by SessionRepository.createSession/reconnectSession
+        // Just load initial data
+        loadBranches()
+        loadDiff()
     }
 
     func disconnect() {
-        connectionState = .disconnected
-        // TODO: webSocketManager.disconnect()
+        appState?.sessionRepository?.disconnect()
+        closeAllSubscriptions()
+    }
+
+    private func closeAllSubscriptions() {
+        messagesWrapper?.close()
+        streamingMessageWrapper?.close()
+        processingWrapper?.close()
+        connectionStateWrapper?.close()
+        sessionStateWrapper?.close()
+        branchesWrapper?.close()
+        repoDiffWrapper?.close()
+        worktreesWrapper?.close()
+        worktreeMessagesWrapper?.close()
+        worktreeStreamingWrapper?.close()
+        worktreeProcessingWrapper?.close()
     }
 
     // MARK: - Messages
@@ -78,82 +214,121 @@ class ChatViewModel: ObservableObject {
     func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        guard let repository = appState?.sessionRepository else { return }
 
         inputText = ""
-        isProcessing = true
 
-        // Add user message locally
-        let userMessage = ChatMessage(
-            id: "msg_\(Date().timeIntervalSince1970)",
-            role: .user,
-            text: text,
-            attachments: [],
-            timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+        // Send via repository (which handles local message addition and WebSocket)
+        Coroutines.shared.launch(
+            block: { [activeWorktreeId] in
+                if activeWorktreeId == "main" {
+                    try await repository.sendMessage(text: text, attachments: [])
+                } else {
+                    try await repository.sendWorktreeMessage(
+                        worktreeId: activeWorktreeId,
+                        text: text,
+                        attachments: []
+                    )
+                }
+            },
+            onError: { error in
+                print("Error sending message: \(error)")
+            }
         )
-        messages.append(userMessage)
+    }
 
-        // TODO: Send via WebSocket
-        // if activeWorktreeId == "main" {
-        //     webSocketManager.sendMessage(text: text)
-        // } else {
-        //     webSocketManager.sendWorktreeMessage(worktreeId: activeWorktreeId, text: text)
-        // }
+    func sendMessageWithAttachments(_ attachments: [Attachment]) {
+        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let repository = appState?.sessionRepository else { return }
 
-        // Simulate response
-        Task {
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        inputText = ""
 
-            currentStreamingMessage = "Je réfléchis à votre question..."
-
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-
-            let response = ChatMessage(
-                id: "msg_\(Date().timeIntervalSince1970)",
-                role: .assistant,
-                text: "Ceci est une réponse de démonstration. L'intégration KMP permettra d'avoir de vraies réponses.",
-                attachments: [],
-                timestamp: Int64(Date().timeIntervalSince1970 * 1000)
-            )
-            messages.append(response)
-            currentStreamingMessage = nil
-            isProcessing = false
-        }
+        Coroutines.shared.launch(
+            block: { [activeWorktreeId] in
+                if activeWorktreeId == "main" {
+                    try await repository.sendMessage(text: text, attachments: attachments)
+                } else {
+                    try await repository.sendWorktreeMessage(
+                        worktreeId: activeWorktreeId,
+                        text: text,
+                        attachments: attachments
+                    )
+                }
+            },
+            onError: { error in
+                print("Error sending message with attachments: \(error)")
+            }
+        )
     }
 
     // MARK: - Provider
 
     func switchProvider(_ provider: LLMProvider) {
-        activeProvider = provider
-        // TODO: webSocketManager.switchProvider(provider: provider.name.lowercased())
+        guard let repository = appState?.sessionRepository else { return }
+
+        Coroutines.shared.launch(
+            block: {
+                try await repository.switchProvider(provider: provider)
+            },
+            onError: { error in
+                print("Error switching provider: \(error)")
+            }
+        )
     }
 
     // MARK: - Branches
 
-    func loadBranches() async {
-        // TODO: Call API via shared module
-        branches = ["main", "develop", "feature/auth", "feature/ui"]
-        currentBranch = "main"
+    func loadBranches() {
+        guard let repository = appState?.sessionRepository else { return }
+
+        Coroutines.shared.launch(
+            block: {
+                try await repository.loadBranches()
+            },
+            onError: { error in
+                print("Error loading branches: \(error)")
+            }
+        )
     }
 
     func fetchBranches() {
-        Task {
-            // TODO: apiClient.fetchBranches(sessionId: sessionId)
-            await loadBranches()
-        }
+        guard let repository = appState?.sessionRepository else { return }
+
+        Coroutines.shared.launch(
+            block: {
+                _ = try await repository.fetchBranches()
+            },
+            onError: { error in
+                print("Error fetching branches: \(error)")
+            }
+        )
     }
 
     func switchBranch(_ branch: String) {
-        currentBranch = branch
-        // TODO: apiClient.switchBranch(sessionId: sessionId, branch: branch)
+        guard let repository = appState?.sessionRepository else { return }
+
+        Coroutines.shared.launch(
+            block: {
+                _ = try await repository.switchBranch(branch: branch)
+            },
+            onError: { error in
+                print("Error switching branch: \(error)")
+            }
+        )
     }
 
     // MARK: - Diff
 
-    func loadDiff() async {
-        // TODO: Call API via shared module
-        repoDiff = RepoDiff(
-            status: "",
-            diff: ""
+    func loadDiff() {
+        guard let repository = appState?.sessionRepository else { return }
+
+        Coroutines.shared.launch(
+            block: {
+                try await repository.loadDiff()
+            },
+            onError: { error in
+                print("Error loading diff: \(error)")
+            }
         )
     }
 
@@ -161,53 +336,62 @@ class ChatViewModel: ObservableObject {
 
     func selectWorktree(_ worktreeId: String) {
         activeWorktreeId = worktreeId
-        // TODO: Load messages for this worktree
+        appState?.sessionRepository?.setActiveWorktree(worktreeId: worktreeId)
     }
 
     func createWorktree(name: String, provider: LLMProvider, branchName: String?) {
-        // TODO: webSocketManager.createWorktree(...)
-        let newWorktree = Worktree(
-            id: "wt_\(UUID().uuidString.prefix(8))",
-            name: name,
-            branchName: branchName ?? currentBranch ?? "main",
-            provider: provider,
-            status: .creating,
-            color: Worktree.companion.COLORS.randomElement() ?? "#4CAF50",
-            parentId: activeWorktreeId,
-            createdAt: Int64(Date().timeIntervalSince1970 * 1000)
-        )
-        worktrees.append(newWorktree)
+        guard let repository = appState?.sessionRepository else { return }
 
-        // Simulate creation complete
-        Task {
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            if let index = worktrees.firstIndex(where: { $0.id == newWorktree.id }) {
-                worktrees[index] = Worktree(
-                    id: newWorktree.id,
-                    name: newWorktree.name,
-                    branchName: newWorktree.branchName,
-                    provider: newWorktree.provider,
-                    status: .ready,
-                    color: newWorktree.color,
-                    parentId: newWorktree.parentId,
-                    createdAt: newWorktree.createdAt
+        Coroutines.shared.launch(
+            block: {
+                try await repository.createWorktree(
+                    name: name,
+                    provider: provider,
+                    branchName: branchName
                 )
+            },
+            onError: { error in
+                print("Error creating worktree: \(error)")
             }
-        }
+        )
     }
 
     func mergeWorktree(_ worktreeId: String) {
-        // TODO: webSocketManager.mergeWorktree(worktreeId: worktreeId)
+        guard let repository = appState?.sessionRepository else { return }
+
+        Coroutines.shared.launch(
+            block: {
+                try await repository.mergeWorktree(worktreeId: worktreeId)
+            },
+            onError: { error in
+                print("Error merging worktree: \(error)")
+            }
+        )
     }
 
     func closeWorktree(_ worktreeId: String) {
         guard worktreeId != "main" else { return }
-        worktrees.removeAll { $0.id == worktreeId }
+        guard let repository = appState?.sessionRepository else { return }
 
+        // Switch to main if closing active worktree
         if activeWorktreeId == worktreeId {
             activeWorktreeId = "main"
         }
-        // TODO: webSocketManager.closeWorktree(worktreeId: worktreeId)
+
+        Coroutines.shared.launch(
+            block: {
+                try await repository.closeWorktree(worktreeId: worktreeId)
+            },
+            onError: { error in
+                print("Error closing worktree: \(error)")
+            }
+        )
+    }
+
+    // MARK: - Cleanup
+
+    deinit {
+        // Subscriptions will be closed when wrappers are deallocated
     }
 }
 

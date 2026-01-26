@@ -257,10 +257,13 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [x] `ProviderSheetView` (sélection provider)
 
 #### 6.4 Intégration Module Shared
+- [x] KoinHelper pour initialisation Koin depuis Swift
+- [x] SharedDependencies pour accès aux dépendances
+- [x] FlowWrapper pour binding StateFlow → SwiftUI @Published
+- [x] SuspendWrapper pour bridge async Kotlin → Swift callbacks
+- [x] Coroutines helper pour fire-and-forget
 - [ ] Appels Ktor depuis iOS (requiert Mac pour test)
-- [ ] WebSocket manager
-- [ ] Mapping types Kotlin → Swift
-- [ ] Gestion async/await
+- [ ] Compilation XCFramework (requiert Mac)
 
 #### 6.5 Spécificités iOS
 - [x] Keyboard avoidance (via SwiftUI natif)
@@ -270,12 +273,13 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 
 **Livrables v0.6** :
 - [x] Structure UI SwiftUI complète
-- [ ] Intégration KMP (requiert Mac)
-- [ ] Parité fonctionnelle avec Android
+- [x] Wrappers Swift/Kotlin pour intégration
+- [ ] Compilation XCFramework (requiert Mac)
+- [ ] Test intégration complète (requiert Mac)
 
-**Note** : L'intégration complète avec le module KMP shared nécessite un Mac avec Xcode.
+**Note** : Les wrappers d'intégration sont prêts. La compilation et les tests nécessitent un Mac avec Xcode.
 
-**Phase 6 : UI COMPLÉTÉE (intégration KMP en attente)**
+**Phase 6 : WRAPPERS PRÊTS (compilation XCFramework en attente)**
 
 ---
 
@@ -658,3 +662,37 @@ mobile/
 - Extension `Color(hex:)` pour couleurs worktrees
 - Animation `PulseAnimation` pour indicateur streaming
 - Models `DiffFile`, `DiffLine`, `PendingAttachment`
+
+### 2026-01-26 - Phase 6 Wrappers KMP/Swift
+
+**Nouveaux fichiers Kotlin (iosMain) :**
+- `shared/src/iosMain/kotlin/app/m5chat/shared/KoinHelper.kt`
+  - `KoinHelper.start(baseUrl)` - Initialise Koin depuis Swift
+  - `KoinHelper.stop()` - Arrête Koin
+  - `SharedDependencies` - Classe pour accéder aux dépendances injectées
+
+- `shared/src/iosMain/kotlin/app/m5chat/shared/FlowWrapper.kt`
+  - `FlowWrapper<T>` - Wrapper pour observer StateFlow depuis Swift
+  - `SharedFlowWrapper<T>` - Wrapper pour Flow régulier
+  - Méthodes: `subscribe(onEach)`, `close()`, `value`
+
+- `shared/src/iosMain/kotlin/app/m5chat/shared/SuspendWrapper.kt`
+  - `SuspendWrapper<T>` - Execute suspend functions avec callbacks
+  - `Coroutines.launch()` - Fire-and-forget pour suspend functions
+  - `AsyncCall<T>` - Alternative callback-based
+
+**Fichiers Swift mis à jour :**
+- `M5ChatApp.swift`
+  - Initialisation Koin via `KoinHelper.shared.start(baseUrl)`
+  - `SharedDependencies` pour accéder au `SessionRepository`
+  - Configuration URL serveur (env, UserDefaults, défaut)
+
+- `ViewModels/SessionViewModel.swift`
+  - Utilise `SuspendWrapper` pour `createSession()` et `reconnectSession()`
+  - Appelle réellement `SessionRepository` au lieu de mocks
+
+- `ViewModels/ChatViewModel.swift`
+  - `setup(appState)` pour initialiser les subscriptions
+  - `subscribeToFlows()` - Abonnement à tous les StateFlow du repository
+  - Toutes les méthodes utilisent `Coroutines.launch()` pour appeler le repository
+  - Support complet des worktrees avec state séparé

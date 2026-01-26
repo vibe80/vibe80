@@ -19,8 +19,9 @@ class SessionViewModel: ObservableObject {
     @Published var errorMessage: String = ""
     @Published var previousSessionId: String?
 
-    // Shared module references
-    private var sessionRepository: SessionRepository?
+    // Async operation handles
+    private var createSessionCall: SuspendWrapper<SessionState>?
+    private var reconnectSessionCall: SuspendWrapper<SessionState>?
 
     init() {
         loadPreviousSession()
@@ -29,7 +30,6 @@ class SessionViewModel: ObservableObject {
     // MARK: - Previous Session
 
     private func loadPreviousSession() {
-        // Load from UserDefaults
         previousSessionId = UserDefaults.standard.string(forKey: "lastSessionId")
     }
 
@@ -41,80 +41,106 @@ class SessionViewModel: ObservableObject {
     // MARK: - Session Creation
 
     func createSession(appState: AppState) {
-        guard !repoUrl.isEmpty else { return }
+        guard !repoUrl.isEmpty else {
+            errorMessage = "L'URL du repository est requise"
+            showError = true
+            return
+        }
+
+        guard let repository = appState.sessionRepository else {
+            errorMessage = "Module partagé non initialisé"
+            showError = true
+            return
+        }
 
         isLoading = true
 
-        Task {
-            do {
-                // Call shared module to create session
-                // This will be implemented when KMP framework is integrated
-                let sessionId = try await createSessionAsync()
+        // Build auth parameters
+        let sshKeyParam: String? = authMethod == .ssh ? sshKey : nil
+        let httpUserParam: String? = authMethod == .http ? httpUser : nil
+        let httpPasswordParam: String? = authMethod == .http ? httpPassword : nil
+
+        // Cancel any previous call
+        createSessionCall?.cancel()
+        createSessionCall = SuspendWrapper<SessionState>()
+
+        createSessionCall?.execute(
+            suspendBlock: { [repoUrl, selectedProvider, sshKeyParam, httpUserParam, httpPasswordParam] in
+                try await repository.createSession(
+                    repoUrl: repoUrl,
+                    provider: selectedProvider,
+                    sshKey: sshKeyParam,
+                    httpUser: httpUserParam,
+                    httpPassword: httpPasswordParam
+                )
+            },
+            onSuccess: { [weak self] state in
+                guard let self = self else { return }
 
                 // Save session ID
-                UserDefaults.standard.set(sessionId, forKey: "lastSessionId")
+                UserDefaults.standard.set(state.sessionId, forKey: "lastSessionId")
 
                 // Update app state
-                appState.setSession(sessionId: sessionId)
-            } catch {
-                errorMessage = error.localizedDescription
-                showError = true
-            }
+                appState.setSession(sessionId: state.sessionId)
 
-            isLoading = false
-        }
+                self.isLoading = false
+            },
+            onError: { [weak self] error in
+                guard let self = self else { return }
+
+                self.errorMessage = error.localizedDescription
+                self.showError = true
+                self.isLoading = false
+            }
+        )
     }
 
     func resumeSession(sessionId: String, appState: AppState) {
+        guard let repository = appState.sessionRepository else {
+            errorMessage = "Module partagé non initialisé"
+            showError = true
+            return
+        }
+
         isLoading = true
 
-        Task {
-            do {
-                // Call shared module to reconnect
-                try await reconnectSessionAsync(sessionId: sessionId)
+        // Cancel any previous call
+        reconnectSessionCall?.cancel()
+        reconnectSessionCall = SuspendWrapper<SessionState>()
+
+        reconnectSessionCall?.execute(
+            suspendBlock: {
+                try await repository.reconnectSession(sessionId: sessionId)
+            },
+            onSuccess: { [weak self] _ in
+                guard let self = self else { return }
 
                 // Update app state
                 appState.setSession(sessionId: sessionId)
-            } catch {
-                errorMessage = "Session expirée ou invalide"
-                showError = true
-                forgetSession()
+
+                self.isLoading = false
+            },
+            onError: { [weak self] error in
+                guard let self = self else { return }
+
+                self.errorMessage = "Session expirée ou invalide: \(error.localizedDescription)"
+                self.showError = true
+                self.forgetSession()
+                self.isLoading = false
             }
-
-            isLoading = false
-        }
+        )
     }
 
-    // MARK: - Async Wrappers for KMP
+    // MARK: - Cleanup
 
-    /// Wrapper for KMP session creation
-    /// When integrated with KMP, this will call sessionRepository.createSession()
-    private func createSessionAsync() async throws -> String {
-        // TODO: Integrate with KMP shared module
-        // For now, simulate API call
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-        // This would be replaced with actual KMP call:
-        // let request = SessionCreateRequest(
-        //     repoUrl: repoUrl,
-        //     provider: selectedProvider.name.lowercased(),
-        //     sshKey: authMethod == .ssh ? sshKey : nil,
-        //     httpUser: authMethod == .http ? httpUser : nil,
-        //     httpPassword: authMethod == .http ? httpPassword : nil
-        // )
-        // let result = try await sessionRepository?.createSession(request: request)
-        // return result.sessionId
-
-        return "mock-session-\(UUID().uuidString.prefix(8))"
+    func cancelOperations() {
+        createSessionCall?.cancel()
+        reconnectSessionCall?.cancel()
     }
 
-    /// Wrapper for KMP session reconnection
-    private func reconnectSessionAsync(sessionId: String) async throws {
-        // TODO: Integrate with KMP shared module
-        try await Task.sleep(nanoseconds: 500_000_000)
-
-        // This would be replaced with actual KMP call:
-        // try await sessionRepository?.reconnectSession(sessionId: sessionId)
+    deinit {
+        // Note: deinit won't be called on MainActor, so we need to handle cleanup differently
+        // The SuspendWrapper will be deallocated and its scope cancelled automatically
     }
 }
 
