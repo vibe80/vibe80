@@ -88,6 +88,15 @@ private data class SessionSnapshot(
     val activeWorktreeId: String
 )
 
+private data class PartialSessionSnapshot(
+    val messages: List<ChatMessage>,
+    val streaming: String?,
+    val connection: ConnectionState,
+    val processing: Boolean,
+    val branches: BranchInfo?,
+    val worktrees: Map<String, Worktree> = emptyMap()
+)
+
 class ChatViewModel(
     private val sessionRepository: SessionRepository,
     private val sessionPreferences: SessionPreferences,
@@ -109,20 +118,30 @@ class ChatViewModel(
                 sessionRepository.currentStreamingMessage,
                 sessionRepository.connectionState,
                 sessionRepository.processing,
-                sessionRepository.branches,
-                sessionRepository.worktrees,
-                sessionRepository.activeWorktreeId
-            ) { messages, streaming, connection, processing, branches, worktrees, activeWorktreeId ->
-                SessionSnapshot(
+                sessionRepository.branches
+            ) { messages, streaming, connection, processing, branches ->
+                PartialSessionSnapshot(
                     messages = messages,
                     streaming = streaming,
                     connection = connection,
                     processing = processing,
-                    branches = branches,
-                    worktrees = worktrees,
-                    activeWorktreeId = activeWorktreeId
+                    branches = branches
                 )
             }
+                .combine(sessionRepository.worktrees) { snapshot, worktrees ->
+                    snapshot.copy(worktrees = worktrees)
+                }
+                .combine(sessionRepository.activeWorktreeId) { snapshot, activeWorktreeId ->
+                    SessionSnapshot(
+                        messages = snapshot.messages,
+                        streaming = snapshot.streaming,
+                        connection = snapshot.connection,
+                        processing = snapshot.processing,
+                        branches = snapshot.branches,
+                        worktrees = snapshot.worktrees,
+                        activeWorktreeId = activeWorktreeId
+                    )
+                }
                 .combine(sessionRepository.repoDiff) { snapshot, diff ->
                     snapshot to diff
                 }
