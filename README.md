@@ -58,6 +58,8 @@ Variables utiles au runtime:
 - `GIT_COMMIT_USER_NAME` / `GIT_COMMIT_USER_EMAIL`: identite Git.
 - `HOME_DIR`: base pour `.codex` et `.claude` (defaut HOME).
 - `SYSTEM_PROMPT`: prompt systeme injecte aux providers.
+- `DEBUG_API_WS_LOG`: active le log des requetes/reponses API et des messages WebSocket (ex: `1`, `true`).
+- `DEBUG_API_WS_LOG_MAX_BODY`: taille max (en caracteres) des bodies logges (defaut 2000).
 
 ## Notes de fonctionnement
 

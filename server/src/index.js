@@ -49,8 +49,121 @@ const codexConfigDir = path.join(homeDir, ".codex");
 const codexAuthPath = path.join(codexConfigDir, "auth.json");
 const claudeConfigDir = path.join(homeDir, ".claude");
 const claudeCredPath = path.join(claudeConfigDir, ".credentials.json");
+const debugApiWsLog = /^(1|true|yes|on)$/i.test(
+  process.env.DEBUG_API_WS_LOG || ""
+);
+const debugLogMaxBody = Number.isFinite(Number(process.env.DEBUG_API_WS_LOG_MAX_BODY))
+  ? Number(process.env.DEBUG_API_WS_LOG_MAX_BODY)
+  : 2000;
+
+const createDebugId = () =>
+  typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : crypto.randomBytes(8).toString("hex");
+
+const formatDebugPayload = (payload) => {
+  if (payload == null) return null;
+  if (Buffer.isBuffer(payload)) {
+    const text = payload.toString("utf8");
+    if (text.length > debugLogMaxBody) {
+      return `${text.slice(0, debugLogMaxBody)}…(truncated)`;
+    }
+    return text;
+  }
+  if (typeof payload === "string") {
+    if (payload.length > debugLogMaxBody) {
+      return `${payload.slice(0, debugLogMaxBody)}…(truncated)`;
+    }
+    return payload;
+  }
+  if (typeof payload === "object") {
+    try {
+      const json = JSON.stringify(payload);
+      if (json.length > debugLogMaxBody) {
+        return `${json.slice(0, debugLogMaxBody)}…(truncated)`;
+      }
+      return json;
+    } catch {
+      return "[Unserializable object]";
+    }
+  }
+  return String(payload);
+};
+
+const attachWebSocketDebug = (socket, req, label) => {
+  if (!debugApiWsLog) return;
+  const connectionId = createDebugId();
+  const url = req?.url || "";
+  console.log("[debug] ws connected", { id: connectionId, label, url });
+
+  socket.on("message", (data) => {
+    console.log("[debug] ws recv", {
+      id: connectionId,
+      label,
+      data: formatDebugPayload(data),
+    });
+  });
+
+  const originalSend = socket.send.bind(socket);
+  socket.send = (data, ...args) => {
+    console.log("[debug] ws send", {
+      id: connectionId,
+      label,
+      data: formatDebugPayload(data),
+    });
+    return originalSend(data, ...args);
+  };
+
+  socket.on("close", (code, reason) => {
+    console.log("[debug] ws closed", {
+      id: connectionId,
+      label,
+      code,
+      reason: formatDebugPayload(reason),
+    });
+  });
+};
 
 app.use(express.json());
+app.use((req, res, next) => {
+  if (!debugApiWsLog || !req.path.startsWith("/api")) {
+    next();
+    return;
+  }
+  const requestId = createDebugId();
+  const startedAt = Date.now();
+
+  console.log("[debug] api request", {
+    id: requestId,
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    body: formatDebugPayload(req.body),
+  });
+
+  let responseBody;
+  const originalSend = res.send.bind(res);
+  res.send = (body) => {
+    responseBody = body;
+    return originalSend(body);
+  };
+
+  res.on("finish", () => {
+    const durationMs = Date.now() - startedAt;
+    const formattedBody =
+      responseBody === undefined && res.statusCode !== 204
+        ? "<streamed or empty>"
+        : formatDebugPayload(responseBody);
+    console.log("[debug] api response", {
+      id: requestId,
+      status: res.statusCode,
+      durationMs,
+      body: formattedBody,
+    });
+  });
+
+  next();
+});
 
 const runCommand = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
@@ -1100,6 +1213,7 @@ function attachClaudeEvents(sessionId, client, provider) {
 }
 
 wss.on("connection", (socket, req) => {
+  attachWebSocketDebug(socket, req, "chat");
   const url = new URL(req.url, `http://${req.headers.host}`);
   const sessionId = url.searchParams.get("session");
   const session = getSession(sessionId);
@@ -1726,6 +1840,7 @@ wss.on("connection", (socket, req) => {
 });
 
 terminalWss.on("connection", (socket, req) => {
+  attachWebSocketDebug(socket, req, "terminal");
   const session = getSessionFromRequest(req);
   if (!session) {
     socket.close();
