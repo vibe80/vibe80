@@ -539,6 +539,7 @@ body {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 18px;
+  padding-left: calc(18px + var(--chat-toolbar-offset));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -572,8 +573,8 @@ main.chat {
 
 .chat-toolbar {
   position: absolute;
-  top: 18px;
-  left: 18px;
+  top: var(--chat-toolbar-inset);
+  left: var(--chat-toolbar-inset);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -731,7 +732,8 @@ main.chat {
   position: relative;
   --chat-toolbar-width: 64px;
   --chat-toolbar-gap: 16px;
-  padding-left: calc(var(--chat-toolbar-width) + var(--chat-toolbar-gap));
+  --chat-toolbar-offset: calc(var(--chat-toolbar-width) + var(--chat-toolbar-gap));
+  --chat-toolbar-inset: 18px;
 }
 
 .layout:not(.is-mobile).is-side-collapsed {
@@ -859,6 +861,7 @@ main.chat {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 20px;
+  padding-left: calc(20px + var(--chat-toolbar-offset));
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -872,6 +875,7 @@ main.chat {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 20px;
+  padding-left: calc(20px + var(--chat-toolbar-offset));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -920,6 +924,7 @@ main.chat {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 20px;
+  padding-left: calc(20px + var(--chat-toolbar-offset));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -933,6 +938,7 @@ main.chat {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 20px;
+  padding-left: calc(20px + var(--chat-toolbar-offset));
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -2484,7 +2490,8 @@ main.chat {
   }
 
   .layout.is-mobile .pane-stack {
-    padding-left: 0;
+    --chat-toolbar-offset: 0px;
+    --chat-toolbar-inset: 0px;
   }
 
   .layout.is-mobile .chat-toolbar {
