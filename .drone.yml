@@ -15,6 +15,8 @@ steps:
         - main
       event:
         - push
+      paths:
+        - mobile/**
     environment:
       REGISTRY_USERNAME:
         from_secret: registry_username
