@@ -235,38 +235,47 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 > **Objectif** : Application iOS fonctionnelle
 
 #### 6.1 Setup iOS
-- [ ] Configuration Xcode projet
-- [ ] Intégration XCFramework KMP
+- [x] Configuration Xcode projet (project.pbxproj)
+- [ ] Intégration XCFramework KMP (requiert Mac)
 - [ ] Podfile ou SPM setup
 - [ ] Signing & capabilities
 
 #### 6.2 UI SwiftUI - Écrans Principaux
-- [ ] `SessionView` (création session)
-- [ ] `ChatView` (conversation)
-- [ ] `MessageRow` (bulle message)
-- [ ] `ComposerView` (input)
+- [x] `M5ChatApp` (point d'entrée + AppState)
+- [x] `ContentView` (navigation conditionnelle)
+- [x] `SessionView` (création session avec auth SSH/HTTP)
+- [x] `ChatView` (conversation avec toolbar)
+- [x] `MessageRow` (bulle message avec Markdown, attachments)
+- [x] `ComposerView` (input avec PhotosPicker)
 
 #### 6.3 UI SwiftUI - Features
-- [ ] `BranchesSheet`
-- [ ] `DiffSheet`
-- [ ] `WorktreeTabs`
-- [ ] Provider switcher
+- [x] `BranchesSheetView` (liste branches, fetch, switch)
+- [x] `DiffSheetView` (parsing diff, coloration, expand/collapse)
+- [x] `WorktreeTabsView` (tabs scrollables avec status)
+- [x] `CreateWorktreeSheetView` (nom, provider, couleur, branche)
+- [x] `WorktreeMenuView` (merge, close)
+- [x] `ProviderSheetView` (sélection provider)
 
 #### 6.4 Intégration Module Shared
-- [ ] Appels Ktor depuis iOS
+- [ ] Appels Ktor depuis iOS (requiert Mac pour test)
 - [ ] WebSocket manager
 - [ ] Mapping types Kotlin → Swift
 - [ ] Gestion async/await
 
 #### 6.5 Spécificités iOS
-- [ ] Haptic feedback
-- [ ] Keyboard avoidance
-- [ ] Safe area handling
-- [ ] Dark mode support
+- [x] Keyboard avoidance (via SwiftUI natif)
+- [x] Safe area handling (via SwiftUI natif)
+- [x] Dark mode support (via SwiftUI natif)
+- [ ] Haptic feedback (à implémenter)
 
 **Livrables v0.6** :
-- App iOS feature-complete
-- Parité fonctionnelle avec Android
+- [x] Structure UI SwiftUI complète
+- [ ] Intégration KMP (requiert Mac)
+- [ ] Parité fonctionnelle avec Android
+
+**Note** : L'intégration complète avec le module KMP shared nécessite un Mac avec Xcode.
+
+**Phase 6 : UI COMPLÉTÉE (intégration KMP en attente)**
 
 ---
 
@@ -619,3 +628,33 @@ mobile/
 **ChatScreen :**
 - Intégration WorktreeTabs sous la TopBar
 - Dialogs: création worktree, menu worktree, confirmation fermeture
+
+### 2026-01-26 - Phase 6 UI Complétée
+
+**Structure projet iOS :**
+- `iosApp/iosApp.xcodeproj/project.pbxproj` - Configuration Xcode
+- `iosApp/iosApp/Info.plist` - Configuration app iOS
+
+**SwiftUI - App et Navigation :**
+- `M5ChatApp.swift` - Point d'entrée avec AppState
+- `ContentView.swift` - Navigation conditionnelle session/chat
+
+**SwiftUI - Views :**
+- `Views/SessionView.swift` - Création session (URL, auth SSH/HTTP, provider)
+- `Views/ChatView.swift` - Écran chat avec toolbar, sheets, worktree tabs
+
+**SwiftUI - ViewModels :**
+- `ViewModels/SessionViewModel.swift` - Gestion création/reprise session
+- `ViewModels/ChatViewModel.swift` - État chat, messages, worktrees
+
+**SwiftUI - Components :**
+- `Components/MessageRow.swift` - Bulle message (user/assistant, streaming, attachments)
+- `Components/ComposerView.swift` - Input texte + PhotosPicker pour attachments
+- `Components/BranchesSheetView.swift` - Liste branches avec fetch
+- `Components/DiffSheetView.swift` - Parsing et affichage diff git
+- `Components/WorktreeViews.swift` - Tabs, menu, création worktree, provider sheet
+
+**Helpers :**
+- Extension `Color(hex:)` pour couleurs worktrees
+- Animation `PulseAnimation` pour indicateur streaming
+- Models `DiffFile`, `DiffLine`, `PendingAttachment`
