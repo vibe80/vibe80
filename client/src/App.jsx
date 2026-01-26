@@ -544,12 +544,14 @@ function App() {
   };
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [toolbarExportOpen, setToolbarExportOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const moreMenuRef = useRef(null);
+  const toolbarExportRef = useRef(null);
   const conversationRef = useRef(null);
   const composerRef = useRef(null);
   const initialBranchRef = useRef("");
@@ -800,6 +802,21 @@ function App() {
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [moreMenuOpen]);
+
+  useEffect(() => {
+    if (!toolbarExportOpen) {
+      return;
+    }
+    const handlePointerDown = (event) => {
+      const target = event.target;
+      if (toolbarExportRef.current?.contains(target)) {
+        return;
+      }
+      setToolbarExportOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [toolbarExportOpen]);
 
   useEffect(() => {
     if (!choicesKey) {
@@ -2942,6 +2959,7 @@ function App() {
 
   // Get current messages based on active tab
   const currentMessages = activeWorktree ? activeWorktree.messages : messages;
+  const hasMessages = Array.isArray(currentMessages) && currentMessages.length > 0;
 
   // Combined list for tabs: "main" + all worktrees
   const allTabs = useMemo(() => {
@@ -3147,6 +3165,7 @@ function App() {
       [key]: nextPane,
     }));
     setMoreMenuOpen(false);
+    setToolbarExportOpen(false);
   }, [activeWorktreeId]);
 
   const handleClearRpcLogs = useCallback(() => {
@@ -3178,6 +3197,7 @@ function App() {
         return;
       }
       setMoreMenuOpen(false);
+      setToolbarExportOpen(false);
       const baseName = extractRepoName(
         attachmentSession?.repoUrl || repoUrl || ""
       );
@@ -3326,6 +3346,7 @@ function App() {
   };
 
   const handleClearChat = async () => {
+    setToolbarExportOpen(false);
     if (activeWorktreeId !== "main") {
       setWorktrees((current) => {
         const next = new Map(current);
@@ -3783,15 +3804,6 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  className={`menu-item ${
-                    activePane === "settings" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("settings")}
-                >
-                  Paramètres
-                </button>
-                <button
-                  type="button"
                   className="menu-item"
                   onClick={() => handleExportChat("markdown")}
                   disabled={messages.length === 0}
@@ -3903,6 +3915,123 @@ function App() {
           ref={conversationRef}
         >
           <div className="pane-stack">
+            <div className="chat-toolbar" role="toolbar" aria-label="Outils du chat">
+              <div className="chat-toolbar-group">
+                <button
+                  type="button"
+                  className={`chat-toolbar-button ${
+                    activePane === "chat" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("chat")}
+                  aria-pressed={activePane === "chat"}
+                  aria-label="Messages"
+                  title="Messages"
+                >
+                  <span className="chat-toolbar-icon" aria-hidden="true">
+                    💬
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`chat-toolbar-button ${
+                    activePane === "diff" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("diff")}
+                  aria-pressed={activePane === "diff"}
+                  aria-label="Diff"
+                  title="Diff"
+                >
+                  <span className="chat-toolbar-icon" aria-hidden="true">
+                    Δ
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`chat-toolbar-button ${
+                    activePane === "terminal" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("terminal")}
+                  aria-pressed={activePane === "terminal"}
+                  aria-label="Terminal"
+                  title="Terminal"
+                >
+                  <span className="chat-toolbar-icon" aria-hidden="true">
+                    ⌨
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`chat-toolbar-button ${
+                    activePane === "logs" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("logs")}
+                  aria-pressed={activePane === "logs"}
+                  aria-label="Logs"
+                  title="Logs"
+                >
+                  <span className="chat-toolbar-icon" aria-hidden="true">
+                    🧾
+                  </span>
+                </button>
+              </div>
+              <div className="chat-toolbar-divider" />
+              <div className="chat-toolbar-group">
+                <div className="chat-toolbar-item" ref={toolbarExportRef}>
+                  <button
+                    type="button"
+                    className={`chat-toolbar-button ${
+                      toolbarExportOpen ? "is-open" : ""
+                    }`}
+                    onClick={() => {
+                      if (!hasMessages) {
+                        return;
+                      }
+                      setToolbarExportOpen((current) => !current);
+                    }}
+                    aria-expanded={toolbarExportOpen}
+                    aria-label="Export"
+                    title="Export"
+                    disabled={!hasMessages}
+                  >
+                    <span className="chat-toolbar-icon" aria-hidden="true">
+                      ⤓
+                    </span>
+                  </button>
+                  {toolbarExportOpen && (
+                    <div className="chat-toolbar-menu">
+                      <button
+                        type="button"
+                        className="chat-toolbar-menu-item"
+                        onClick={() => handleExportChat("markdown")}
+                        disabled={!hasMessages}
+                      >
+                        Markdown
+                      </button>
+                      <button
+                        type="button"
+                        className="chat-toolbar-menu-item"
+                        onClick={() => handleExportChat("json")}
+                        disabled={!hasMessages}
+                      >
+                        JSON
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="chat-toolbar-button is-danger"
+                  onClick={() => handleClearChat()}
+                  aria-label="Clear chat"
+                  title="Clear chat"
+                  disabled={!hasMessages}
+                >
+                  <span className="chat-toolbar-icon" aria-hidden="true">
+                    🧹
+                  </span>
+                </button>
+              </div>
+            </div>
             <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
               <div className="chat-scroll" ref={listRef}>
                 <div className="chat-scroll-inner">
