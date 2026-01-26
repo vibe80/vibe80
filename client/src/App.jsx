@@ -161,6 +161,7 @@ const OPENAI_AUTH_MODE_KEY = "openAiAuthMode";
 const LLM_PROVIDER_KEY = "llmProvider";
 const LLM_PROVIDERS_KEY = "llmProviders";
 const CHAT_COMMANDS_VISIBLE_KEY = "chatCommandsVisible";
+const TOOL_RESULTS_VISIBLE_KEY = "toolResultsVisible";
 const CHAT_FULL_WIDTH_KEY = "chatFullWidth";
 const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const THEME_MODE_KEY = "themeMode";
@@ -315,6 +316,18 @@ const readChatCommandsVisible = () => {
     // Ignore storage errors (private mode, quota).
   }
   return true;
+};
+
+const readToolResultsVisible = () => {
+  try {
+    const stored = localStorage.getItem(TOOL_RESULTS_VISIBLE_KEY);
+    if (stored === "true" || stored === "false") {
+      return stored === "true";
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return false;
 };
 
 const readChatFullWidth = () => {
@@ -482,6 +495,9 @@ function App() {
   const [showChatCommands, setShowChatCommands] = useState(
     readChatCommandsVisible
   );
+  const [showToolResults, setShowToolResults] = useState(
+    readToolResultsVisible
+  );
   const [chatFullWidth, setChatFullWidth] = useState(readChatFullWidth);
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     readNotificationsEnabled
@@ -543,6 +559,7 @@ function App() {
     return "";
   };
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
+  const [toolResultPanelOpen, setToolResultPanelOpen] = useState({});
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [toolbarExportOpen, setToolbarExportOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
@@ -903,6 +920,17 @@ function App() {
   useEffect(() => {
     try {
       localStorage.setItem(
+        TOOL_RESULTS_VISIBLE_KEY,
+        showToolResults ? "true" : "false"
+      );
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [showToolResults]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
         CHAT_FULL_WIDTH_KEY,
         chatFullWidth ? "true" : "false"
       );
@@ -1048,6 +1076,7 @@ function App() {
         id: item.id || `history-${index}`,
         role: item.role,
         text: item.text,
+        toolResult: item.toolResult,
         attachments: normalizeAttachments(item.attachments || []),
       }));
       messageIndex.clear();
@@ -1059,6 +1088,7 @@ function App() {
       });
       setMessages(normalized);
       setCommandPanelOpen({});
+      setToolResultPanelOpen({});
     },
     [messageIndex, commandIndex]
   );
@@ -1954,6 +1984,7 @@ function App() {
                   ...message,
                   id: message?.id || `history-${index}`,
                   attachments: normalizeAttachments(message?.attachments || []),
+                  toolResult: message?.toolResult,
                 })
               );
               next.set(payload.worktreeId, {
@@ -2996,10 +3027,26 @@ function App() {
         }
         return;
       }
+      if (message?.role === "tool_result") {
+        if (!showToolResults) {
+          return;
+        }
+        const last = grouped[grouped.length - 1];
+        if (last?.groupType === "toolResult") {
+          last.items.push(message);
+        } else {
+          grouped.push({
+            groupType: "toolResult",
+            id: `tool-result-group-${message.id}`,
+            items: [message],
+          });
+        }
+        return;
+      }
       grouped.push(message);
     });
     return grouped;
-  }, [currentMessages, showChatCommands]);
+  }, [currentMessages, showChatCommands, showToolResults]);
 
   const isWorktreeProcessing = activeWorktree?.status === "processing";
   const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
@@ -3225,6 +3272,20 @@ function App() {
             lines.push("");
             return;
           }
+          if (message.role === "tool_result") {
+            const toolName =
+              message.toolResult?.name || message.toolResult?.tool || "Tool";
+            const toolOutput = message.toolResult?.output || message.text || "";
+            lines.push("## Tool result");
+            lines.push(`\`${toolName}\``);
+            if (toolOutput) {
+              lines.push("```");
+              lines.push(toolOutput);
+              lines.push("```");
+            }
+            lines.push("");
+            return;
+          }
           const roleLabel = message.role === "user" ? "Utilisateur" : "Assistant";
           lines.push(`## ${roleLabel}`);
           lines.push(message.text || "");
@@ -3263,6 +3324,14 @@ function App() {
               command: message.command || "",
               output: message.output || "",
               status: message.status || "",
+            };
+          }
+          if (message.role === "tool_result") {
+            return {
+              id: message.id,
+              role: message.role,
+              text: message.text || "",
+              toolResult: message.toolResult || null,
             };
           }
           return {
@@ -3384,6 +3453,7 @@ function App() {
       localStorage.removeItem(choicesKey);
     }
     setCommandPanelOpen({});
+    setToolResultPanelOpen({});
     lastNotifiedIdRef.current = null;
     if (attachmentSession?.sessionId) {
       try {
@@ -4103,6 +4173,59 @@ function App() {
                       </div>
                     );
                   }
+                  if (message?.groupType === "toolResult") {
+                    return (
+                      <div
+                        key={message.id}
+                        className="bubble command-execution"
+                      >
+                        {message.items.map((item) => {
+                          const toolTitle = `Outil : ${
+                            item.toolResult?.name ||
+                            item.toolResult?.tool ||
+                            "Tool"
+                          }`;
+                          const output =
+                            item.toolResult?.output || item.text || "";
+                          const isExpandable = Boolean(output);
+                          const summaryContent = (
+                            <span className="command-execution-title">
+                              {toolTitle}
+                            </span>
+                          );
+                          const panelKey = `tool-${item.id}`;
+                          return (
+                            <div key={item.id}>
+                              {isExpandable ? (
+                                <details
+                                  className="command-execution-panel"
+                                  open={Boolean(toolResultPanelOpen[panelKey])}
+                                  onToggle={(event) => {
+                                    const isOpen = event.currentTarget.open;
+                                    setToolResultPanelOpen((prev) => ({
+                                      ...prev,
+                                      [panelKey]: isOpen,
+                                    }));
+                                  }}
+                                >
+                                  <summary className="command-execution-summary">
+                                    {summaryContent}
+                                  </summary>
+                                  <pre className="command-execution-output">
+                                    {output}
+                                  </pre>
+                                </details>
+                              ) : (
+                                <div className="command-execution-summary is-static">
+                                  {summaryContent}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
                   const isLongUserMessage =
                     message.role === "user" &&
                     (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
@@ -4510,6 +4633,24 @@ function App() {
                   checked={showChatCommands}
                   onChange={(event) =>
                     setShowChatCommands(event.target.checked)
+                  }
+                />
+              </label>
+              <label className="settings-item">
+                <span className="settings-text">
+                  <span className="settings-name">
+                    Afficher les tool results dans le chat
+                  </span>
+                  <span className="settings-hint">
+                    Affiche les blocs tool_result dans la conversation.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="settings-toggle"
+                  checked={showToolResults}
+                  onChange={(event) =>
+                    setShowToolResults(event.target.checked)
                   }
                 />
               </label>
