@@ -220,7 +220,7 @@ data class PingMessage(
 
 @Serializable
 data class SendMessageRequest(
-    override val type: String = "send_message",
+    override val type: String = "user_message",
     val text: String,
     val attachments: List<Attachment> = emptyList()
 ) : ClientMessage()

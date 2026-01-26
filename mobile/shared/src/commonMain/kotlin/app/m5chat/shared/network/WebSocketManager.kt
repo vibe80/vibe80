@@ -89,7 +89,7 @@ class WebSocketManager(
                         val jsonString = json.encodeToString(ClientMessage.serializer(), message)
                         val messageType = when (message) {
                             is PingMessage -> "ping"
-                            is SendMessageRequest -> "send_message"
+                            is SendMessageRequest -> "user_message"
                             is SwitchProviderRequest -> "switch_provider"
                             is WorktreeMessageRequest -> "worktree_message"
                             is CreateWorktreeRequest -> "create_worktree"
