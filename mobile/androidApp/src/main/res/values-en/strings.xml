@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">M5Chat</string>
+    <string name="session_title">New Session</string>
+    <string name="repo_url_hint">Repository URL (e.g. github.com/user/repo)</string>
+    <string name="ssh_key_hint">SSH Key (optional)</string>
+    <string name="http_user_hint">HTTP User</string>
+    <string name="http_password_hint">HTTP Password</string>
+    <string name="provider_label">Provider</string>
+    <string name="create_session">Create Session</string>
+    <string name="loading">Loading...</string>
+    <string name="cloning_repo">Cloning repository...</string>
+    <string name="send_message">Send</string>
+    <string name="message_hint">Type your message...</string>
+    <string name="branches">Branches</string>
+    <string name="diff">Diff</string>
+    <string name="connected">Connected</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="reconnecting">Reconnecting...</string>
+    <string name="error_connection">Connection error</string>
+
+    <!-- Error messages -->
+    <string name="error_title">Error</string>
+    <string name="error_dismiss">Dismiss</string>
+    <string name="error_retry">Retry</string>
+    <string name="error_send_message">Failed to send message</string>
+    <string name="error_upload_attachment">Failed to upload file</string>
+    <string name="error_websocket">WebSocket connection error</string>
+    <string name="error_turn">Error processing request</string>
+    <string name="error_switch_provider">Failed to switch provider</string>
+    <string name="error_load_branches">Failed to load branches</string>
+    <string name="error_switch_branch">Failed to switch branch</string>
+    <string name="error_load_diff">Failed to load diff</string>
+    <string name="error_create_worktree">Failed to create worktree</string>
+    <string name="error_merge_worktree">Failed to merge worktree</string>
+    <string name="error_connection_lost">Connection lost. Attempting to reconnect...</string>
+    <string name="error_network">Network error. Check your connection.</string>
+    <string name="error_unknown">An unexpected error occurred</string>
+</resources>

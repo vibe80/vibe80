@@ -288,9 +288,16 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 > **Objectif** : Application prête pour production
 
 #### 7.1 Gestion Erreurs
-- [ ] Écrans d'erreur dédiés
+- [x] Modèle `AppError` avec types d'erreurs catégorisées
+- [x] `SessionRepository` observe les erreurs WebSocket
+- [x] `SessionRepository` expose `lastError` StateFlow
+- [x] `TurnErrorMessage` propagé à l'UI
+- [x] `ChatViewModel` observe et expose les erreurs
+- [x] Snackbar d'erreur dans `ChatScreen`
+- [x] Messages d'erreur localisés (FR/EN)
+- [x] Erreurs d'upload d'attachments affichées
+- [ ] Écrans d'erreur dédiés (erreurs critiques)
 - [ ] Retry automatique intelligent
-- [ ] Messages d'erreur user-friendly
 - [ ] Logging Crashlytics/Sentry
 
 #### 7.2 Performance
@@ -696,3 +703,33 @@ mobile/
   - `subscribeToFlows()` - Abonnement à tous les StateFlow du repository
   - Toutes les méthodes utilisent `Coroutines.launch()` pour appeler le repository
   - Support complet des worktrees avec state séparé
+
+### 2026-01-26 - Phase 7.1 Gestion Erreurs
+
+**Nouveau modèle (commonMain) :**
+- `shared/src/commonMain/kotlin/app/m5chat/shared/models/AppError.kt`
+  - `ErrorType` enum: WEBSOCKET, NETWORK, TURN_ERROR, UPLOAD, SEND_MESSAGE, etc.
+  - `AppError` data class avec message, details, timestamp, canRetry
+  - Factory methods: `websocket()`, `network()`, `turnError()`, `upload()`, etc.
+
+**SessionRepository :**
+- Nouveau StateFlow `lastError: StateFlow<AppError?>`
+- `observeWebSocketErrors()` - Observe `webSocketManager.errors` et les expose
+- `clearError()` - Permet à l'UI de dismisser l'erreur
+- `reportError()` - Permet aux ViewModels de signaler des erreurs
+- `TurnErrorMessage` handler mis à jour pour propager l'erreur
+
+**ChatViewModel :**
+- `ChatUiState` a maintenant `error: AppError?`
+- Observe `sessionRepository.lastError` et le propage à l'UI
+- `dismissError()` - Permet de fermer le snackbar d'erreur
+- Gestion erreurs upload attachments avec notification utilisateur
+
+**ChatScreen :**
+- `SnackbarHost` avec style erreur (fond rouge)
+- `LaunchedEffect` pour afficher snackbar quand erreur arrive
+- Messages d'erreur localisés selon `ErrorType`
+
+**Ressources localisées :**
+- `values/strings.xml` - Messages d'erreur en français
+- `values-en/strings.xml` - Messages d'erreur en anglais

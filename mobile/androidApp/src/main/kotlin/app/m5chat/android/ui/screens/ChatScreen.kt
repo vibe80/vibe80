@@ -47,6 +47,7 @@ import app.m5chat.android.ui.components.WorktreeMenuSheet
 import app.m5chat.android.ui.components.WorktreeTabs
 import app.m5chat.android.viewmodel.ChatViewModel
 import app.m5chat.android.viewmodel.PendingAttachment
+import app.m5chat.shared.models.ErrorType
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.models.Worktree
 import app.m5chat.shared.network.ConnectionState
@@ -62,6 +63,32 @@ fun ChatScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show error snackbar when error occurs
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            val message = when (error.type) {
+                ErrorType.WEBSOCKET -> context.getString(R.string.error_websocket)
+                ErrorType.NETWORK -> context.getString(R.string.error_network)
+                ErrorType.TURN_ERROR -> context.getString(R.string.error_turn)
+                ErrorType.UPLOAD -> context.getString(R.string.error_upload_attachment)
+                ErrorType.SEND_MESSAGE -> context.getString(R.string.error_send_message)
+                ErrorType.PROVIDER_SWITCH -> context.getString(R.string.error_switch_provider)
+                ErrorType.BRANCH -> context.getString(R.string.error_load_branches)
+                ErrorType.WORKTREE -> context.getString(R.string.error_create_worktree)
+                ErrorType.UNKNOWN -> context.getString(R.string.error_unknown)
+            }
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = context.getString(R.string.error_dismiss),
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed || result == SnackbarResult.Dismissed) {
+                viewModel.dismissError()
+            }
+        }
+    }
 
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -101,6 +128,16 @@ fun ChatScreen(
     )
 
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    actionColor = MaterialTheme.colorScheme.error
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {

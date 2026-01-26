@@ -53,10 +53,38 @@ class SessionRepository(
     private val _currentStreamingMessage = MutableStateFlow<String?>(null)
     val currentStreamingMessage: StateFlow<String?> = _currentStreamingMessage.asStateFlow()
 
+    /** Last error that occurred - null if no error or cleared */
+    private val _lastError = MutableStateFlow<AppError?>(null)
+    val lastError: StateFlow<AppError?> = _lastError.asStateFlow()
+
     val connectionState: StateFlow<ConnectionState> = webSocketManager.connectionState
 
     init {
         observeWebSocketMessages()
+        observeWebSocketErrors()
+    }
+
+    private fun observeWebSocketErrors() {
+        scope.launch {
+            webSocketManager.errors.collect { throwable ->
+                AppLogger.error(LogSource.WEBSOCKET, "WebSocket error received", throwable.message)
+                _lastError.value = AppError.websocket(
+                    message = throwable.message ?: "Unknown WebSocket error",
+                    details = throwable.toString()
+                )
+            }
+        }
+    }
+
+    /** Clear the current error */
+    fun clearError() {
+        _lastError.value = null
+    }
+
+    /** Report an error */
+    fun reportError(error: AppError) {
+        AppLogger.error(LogSource.APP, "Error reported: ${error.type}", error.message)
+        _lastError.value = error
     }
 
     private fun observeWebSocketMessages() {
@@ -110,6 +138,11 @@ class SessionRepository(
             is TurnErrorMessage -> {
                 _processing.value = false
                 _currentStreamingMessage.value = null
+                // Report the error to the UI
+                _lastError.value = AppError.turnError(
+                    message = message.error ?: "An error occurred during processing",
+                    details = message.details
+                )
             }
 
             is ProviderSwitchedMessage -> {

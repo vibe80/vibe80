@@ -7,7 +7,9 @@ import app.m5chat.android.data.AttachmentUploader
 import app.m5chat.android.data.SessionPreferences
 import app.m5chat.shared.logging.AppLogger
 import app.m5chat.shared.logging.LogSource
+import app.m5chat.shared.models.AppError
 import app.m5chat.shared.models.ChatMessage
+import app.m5chat.shared.models.ErrorType
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.models.RepoDiff
 import app.m5chat.shared.models.BranchInfo
@@ -55,7 +57,9 @@ data class ChatUiState(
     val activeWorktreeId: String = Worktree.MAIN_WORKTREE_ID,
     val showCreateWorktreeSheet: Boolean = false,
     val showWorktreeMenuFor: String? = null,
-    val showCloseWorktreeConfirm: String? = null
+    val showCloseWorktreeConfirm: String? = null,
+    // Error handling
+    val error: AppError? = null
 ) {
     /** Number of modified files based on diff status */
     val modifiedFilesCount: Int
@@ -176,6 +180,18 @@ class ChatViewModel(
                 }
             }
         }
+
+        // Observe errors from repository
+        viewModelScope.launch {
+            sessionRepository.lastError.collect { error ->
+                _uiState.update { it.copy(error = error) }
+            }
+        }
+    }
+
+    /** Dismiss the current error */
+    fun dismissError() {
+        sessionRepository.clearError()
     }
 
     fun updateInputText(text: String) {
@@ -319,6 +335,14 @@ class ChatViewModel(
                 } catch (e: Exception) {
                     AppLogger.error(LogSource.APP, "Failed to upload attachments", e.message)
                     _uiState.update { it.copy(uploadingAttachments = false) }
+                    // Report error to user
+                    sessionRepository.reportError(
+                        AppError.upload(
+                            message = "Failed to upload attachments",
+                            details = e.message,
+                            canRetry = true
+                        )
+                    )
                     emptyList()
                 }
             } else {
