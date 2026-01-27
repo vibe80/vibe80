@@ -581,36 +581,11 @@ main.chat {
   gap: calc(14px * var(--chat-toolbar-scale, 1));
   padding: calc(16px * var(--chat-toolbar-scale, 1))
     calc(12px * var(--chat-toolbar-scale, 1));
-  background: var(--bg-strong);
-  border: 1px solid rgba(20, 19, 17, 0.08);
+  background: transparent;
+  border: none;
   border-radius: calc(28px * var(--chat-toolbar-scale, 1));
-  box-shadow: 0 20px 50px rgba(20, 19, 17, 0.14);
+  box-shadow: none;
   z-index: 5;
-}
-
-.chat-toolbar-brand {
-  width: calc(64px * var(--chat-toolbar-scale, 1));
-  height: calc(40px * var(--chat-toolbar-scale, 1));
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid rgba(20, 19, 17, 0.1);
-  display: grid;
-  place-items: center;
-  box-shadow: 0 10px 18px rgba(20, 19, 17, 0.12);
-}
-
-.chat-toolbar-brand-dots {
-  display: grid;
-  grid-template-columns: repeat(3, calc(6px * var(--chat-toolbar-scale, 1)));
-  gap: calc(4px * var(--chat-toolbar-scale, 1));
-}
-
-.chat-toolbar-brand-dot {
-  width: calc(6px * var(--chat-toolbar-scale, 1));
-  height: calc(6px * var(--chat-toolbar-scale, 1));
-  border-radius: 50%;
-  background: var(--ink);
-  opacity: 0.7;
 }
 
 .chat-toolbar-group {
@@ -641,6 +616,7 @@ main.chat {
     calc(4px * var(--chat-toolbar-scale, 1));
   font-size: calc(12px * var(--chat-toolbar-scale, 1));
   font-weight: 600;
+  font-family: "Space Grotesk", system-ui, sans-serif;
   cursor: pointer;
   transition: transform 0.2s ease, color 0.2s ease;
 }
@@ -661,6 +637,9 @@ main.chat {
 .chat-toolbar-label {
   text-align: center;
   line-height: 1.1;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .chat-toolbar-button.is-active,

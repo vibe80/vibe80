@@ -166,6 +166,7 @@ const CHAT_FULL_WIDTH_KEY = "chatFullWidth";
 const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const THEME_MODE_KEY = "themeMode";
 const COMPOSER_INPUT_MODE_KEY = "composerInputMode";
+const DEBUG_MODE_KEY = "debugMode";
 const MAX_REPO_HISTORY = 10;
 const SOCKET_PING_INTERVAL_MS = 25000;
 const SOCKET_PONG_GRACE_MS = 8000;
@@ -376,6 +377,18 @@ const readComposerInputMode = () => {
     // Ignore storage errors (private mode, quota).
   }
   return "multi";
+};
+
+const readDebugMode = () => {
+  try {
+    const stored = localStorage.getItem(DEBUG_MODE_KEY);
+    if (stored === "true" || stored === "false") {
+      return stored === "true";
+    }
+  } catch (error) {
+    // Ignore storage errors (private mode, quota).
+  }
+  return false;
 };
 
 const readLlmProvider = () => {
@@ -625,6 +638,7 @@ function App() {
   const [toolbarExportOpen, setToolbarExportOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
+  const [debugMode, setDebugMode] = useState(() => readDebugMode());
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
@@ -1012,6 +1026,14 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [composerInputMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DEBUG_MODE_KEY, debugMode ? "true" : "false");
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [debugMode]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
@@ -3253,13 +3275,22 @@ function App() {
   }, [attachmentSession, attachmentsLoading]);
 
   const handleViewSelect = useCallback((nextPane) => {
+    if (!debugMode && nextPane === "logs") {
+      return;
+    }
     const key = activeWorktreeId || "main";
     setPaneByTab((current) => ({
       ...current,
       [key]: nextPane,
     }));
     setToolbarExportOpen(false);
-  }, [activeWorktreeId]);
+  }, [activeWorktreeId, debugMode]);
+
+  useEffect(() => {
+    if (!debugMode && activePane === "logs") {
+      handleViewSelect("chat");
+    }
+  }, [debugMode, activePane, handleViewSelect]);
 
   const updateExplorerState = useCallback((tabId, patch) => {
     setExplorerByTab((current) => {
@@ -4417,19 +4448,6 @@ function App() {
                 role="toolbar"
                 aria-label="Outils du chat"
               >
-              <div className="chat-toolbar-brand" aria-hidden="true">
-                <span className="chat-toolbar-brand-dots">
-                  <span className="chat-toolbar-brand-dot" />
-                  <span className="chat-toolbar-brand-dot" />
-                  <span className="chat-toolbar-brand-dot" />
-                  <span className="chat-toolbar-brand-dot" />
-                  <span className="chat-toolbar-brand-dot" />
-                  <span className="chat-toolbar-brand-dot" />
-                  <span className="chat-toolbar-brand-dot" />
-                  <span className="chat-toolbar-brand-dot" />
-                  <span className="chat-toolbar-brand-dot" />
-                </span>
-              </div>
               <div className="chat-toolbar-group">
                 <button
                   type="button"
@@ -4491,67 +4509,74 @@ function App() {
                   </span>
                   <span className="chat-toolbar-label">Terminal</span>
                 </button>
-                <button
-                  type="button"
-                  className={`chat-toolbar-button ${
-                    activePane === "logs" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("logs")}
-                  aria-pressed={activePane === "logs"}
-                  aria-label="Logs"
-                  title="Logs"
-                >
-                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon">🧾</span>
-                  </span>
-                  <span className="chat-toolbar-label">Logs</span>
-                </button>
-              </div>
-              <div className="chat-toolbar-divider" />
-              <div className="chat-toolbar-group">
-                <div className="chat-toolbar-item" ref={toolbarExportRef}>
+                {debugMode && (
                   <button
                     type="button"
                     className={`chat-toolbar-button ${
-                      toolbarExportOpen ? "is-open" : ""
+                      activePane === "logs" ? "is-active" : ""
                     }`}
-                    onClick={() => {
-                      if (!hasMessages) {
-                        return;
-                      }
-                      setToolbarExportOpen((current) => !current);
-                    }}
-                    aria-expanded={toolbarExportOpen}
-                    aria-label="Export"
-                    title="Export"
-                    disabled={!hasMessages}
+                    onClick={() => handleViewSelect("logs")}
+                    aria-pressed={activePane === "logs"}
+                    aria-label="Logs"
+                    title="Logs"
                   >
                     <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                      <span className="chat-toolbar-icon">⤓</span>
+                      <span className="chat-toolbar-icon">🧾</span>
                     </span>
-                    <span className="chat-toolbar-label">Exporter</span>
+                    <span className="chat-toolbar-label">Logs</span>
                   </button>
-                  {toolbarExportOpen && (
-                    <div className="chat-toolbar-menu">
-                      <button
-                        type="button"
-                        className="chat-toolbar-menu-item"
-                        onClick={() => handleExportChat("markdown")}
-                        disabled={!hasMessages}
+                )}
+              </div>
+              <div className="chat-toolbar-divider" />
+              <div className="chat-toolbar-group">
+                {debugMode && (
+                  <div className="chat-toolbar-item" ref={toolbarExportRef}>
+                    <button
+                      type="button"
+                      className={`chat-toolbar-button ${
+                        toolbarExportOpen ? "is-open" : ""
+                      }`}
+                      onClick={() => {
+                        if (!hasMessages) {
+                          return;
+                        }
+                        setToolbarExportOpen((current) => !current);
+                      }}
+                      aria-expanded={toolbarExportOpen}
+                      aria-label="Export"
+                      title="Export"
+                      disabled={!hasMessages}
+                    >
+                      <span
+                        className="chat-toolbar-icon-wrap"
+                        aria-hidden="true"
                       >
-                        Markdown
-                      </button>
-                      <button
-                        type="button"
-                        className="chat-toolbar-menu-item"
-                        onClick={() => handleExportChat("json")}
-                        disabled={!hasMessages}
-                      >
-                        JSON
-                      </button>
-                    </div>
-                  )}
-                </div>
+                        <span className="chat-toolbar-icon">⤓</span>
+                      </span>
+                      <span className="chat-toolbar-label">Exporter</span>
+                    </button>
+                    {toolbarExportOpen && (
+                      <div className="chat-toolbar-menu">
+                        <button
+                          type="button"
+                          className="chat-toolbar-menu-item"
+                          onClick={() => handleExportChat("markdown")}
+                          disabled={!hasMessages}
+                        >
+                          Markdown
+                        </button>
+                        <button
+                          type="button"
+                          className="chat-toolbar-menu-item"
+                          onClick={() => handleExportChat("json")}
+                          disabled={!hasMessages}
+                        >
+                          JSON
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button
                   type="button"
                   className="chat-toolbar-button is-danger"
@@ -5335,6 +5360,20 @@ function App() {
                   <option value="single">Monoligne</option>
                   <option value="multi">Multiligne</option>
                 </select>
+              </label>
+              <label className="settings-item">
+                <span className="settings-text">
+                  <span className="settings-name">Mode débug</span>
+                  <span className="settings-hint">
+                    Active l'accès aux logs et à l'export Markdown/JSON.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="settings-toggle"
+                  checked={debugMode}
+                  onChange={(event) => setDebugMode(event.target.checked)}
+                />
               </label>
             </div>
           </div>
