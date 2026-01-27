@@ -54,6 +54,56 @@
       "title": "Item/fileChange/requestApprovalRequest"
     },
     {
+      "description": "EXPERIMENTAL - Request input from the user for a tool call.",
+      "type": "object",
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "item/tool/requestUserInput"
+          ],
+          "title": "Item/tool/requestUserInputRequestMethod"
+        },
+        "params": {
+          "$ref": "#/definitions/ToolRequestUserInputParams"
+        }
+      },
+      "title": "Item/tool/requestUserInputRequest"
+    },
+    {
+      "description": "Execute a dynamic tool call on the client.",
+      "type": "object",
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "item/tool/call"
+          ],
+          "title": "Item/tool/callRequestMethod"
+        },
+        "params": {
+          "$ref": "#/definitions/DynamicToolCallParams"
+        }
+      },
+      "title": "Item/tool/callRequest"
+    },
+    {
       "description": "DEPRECATED APIs below Request to approve a patch. This request is used for Turns started via the legacy APIs (i.e. SendUserTurn, SendUserMessage).",
       "type": "object",
       "required": [
@@ -142,6 +192,116 @@
         }
       }
     },
+    "CommandAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "name",
+            "path",
+            "type"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "read"
+              ],
+              "title": "ReadCommandActionType"
+            }
+          },
+          "title": "ReadCommandAction"
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "type"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "listFiles"
+              ],
+              "title": "ListFilesCommandActionType"
+            }
+          },
+          "title": "ListFilesCommandAction"
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "type"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "query": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "search"
+              ],
+              "title": "SearchCommandActionType"
+            }
+          },
+          "title": "SearchCommandAction"
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "type"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "unknown"
+              ],
+              "title": "UnknownCommandActionType"
+            }
+          },
+          "title": "UnknownCommandAction"
+        }
+      ]
+    },
     "CommandExecutionRequestApprovalParams": {
       "type": "object",
       "required": [
@@ -150,6 +310,30 @@
         "turnId"
       ],
       "properties": {
+        "command": {
+          "description": "The command to be executed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "commandActions": {
+          "description": "Best-effort parsed command actions for friendly display.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/CommandAction"
+          }
+        },
+        "cwd": {
+          "description": "The command's working directory.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "itemId": {
           "type": "string"
         },
@@ -171,6 +355,31 @@
           ]
         },
         "threadId": {
+          "type": "string"
+        },
+        "turnId": {
+          "type": "string"
+        }
+      }
+    },
+    "DynamicToolCallParams": {
+      "type": "object",
+      "required": [
+        "arguments",
+        "callId",
+        "threadId",
+        "tool",
+        "turnId"
+      ],
+      "properties": {
+        "arguments": true,
+        "callId": {
+          "type": "string"
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "tool": {
           "type": "string"
         },
         "turnId": {
@@ -445,6 +654,82 @@
     },
     "ThreadId": {
       "type": "string"
+    },
+    "ToolRequestUserInputOption": {
+      "description": "EXPERIMENTAL. Defines a single selectable option for request_user_input.",
+      "type": "object",
+      "required": [
+        "description",
+        "label"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "ToolRequestUserInputParams": {
+      "description": "EXPERIMENTAL. Params sent with a request_user_input event.",
+      "type": "object",
+      "required": [
+        "itemId",
+        "questions",
+        "threadId",
+        "turnId"
+      ],
+      "properties": {
+        "itemId": {
+          "type": "string"
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ToolRequestUserInputQuestion"
+          }
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "turnId": {
+          "type": "string"
+        }
+      }
+    },
+    "ToolRequestUserInputQuestion": {
+      "description": "EXPERIMENTAL. Represents one request_user_input question and its optional options.",
+      "type": "object",
+      "required": [
+        "header",
+        "id",
+        "question"
+      ],
+      "properties": {
+        "header": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "isOther": {
+          "default": false,
+          "type": "boolean"
+        },
+        "options": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/ToolRequestUserInputOption"
+          }
+        },
+        "question": {
+          "type": "string"
+        }
+      }
     }
   }
 }

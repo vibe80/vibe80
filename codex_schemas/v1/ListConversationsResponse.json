@@ -91,6 +91,12 @@
             "string",
             "null"
           ]
+        },
+        "updatedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
@@ -129,6 +135,32 @@
             "review",
             "compact"
           ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "thread_spawn"
+          ],
+          "properties": {
+            "thread_spawn": {
+              "type": "object",
+              "required": [
+                "depth",
+                "parent_thread_id"
+              ],
+              "properties": {
+                "depth": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "parent_thread_id": {
+                  "$ref": "#/definitions/ThreadId"
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "title": "ThreadSpawnSubAgentSource"
         },
         {
           "type": "object",

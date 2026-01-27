@@ -35,6 +35,14 @@
               "properties": {
                 "text": {
                   "type": "string"
+                },
+                "text_elements": {
+                  "description": "UI-defined spans within `text` used to render or persist special elements.",
+                  "default": [],
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/V1TextElement"
+                  }
                 }
               }
             },
@@ -108,6 +116,50 @@
     },
     "ThreadId": {
       "type": "string"
+    },
+    "V1ByteRange": {
+      "type": "object",
+      "required": [
+        "end",
+        "start"
+      ],
+      "properties": {
+        "end": {
+          "description": "End byte offset (exclusive) within the UTF-8 text buffer.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "start": {
+          "description": "Start byte offset (inclusive) within the UTF-8 text buffer.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        }
+      }
+    },
+    "V1TextElement": {
+      "type": "object",
+      "required": [
+        "byteRange"
+      ],
+      "properties": {
+        "byteRange": {
+          "description": "Byte range in the parent `text` buffer that this element occupies.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/V1ByteRange"
+            }
+          ]
+        },
+        "placeholder": {
+          "description": "Optional human-readable placeholder for the element, displayed in the UI.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     }
   }
 }

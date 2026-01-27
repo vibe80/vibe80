@@ -8,6 +8,30 @@
     "turnId"
   ],
   "properties": {
+    "command": {
+      "description": "The command to be executed.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "commandActions": {
+      "description": "Best-effort parsed command actions for friendly display.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/CommandAction"
+      }
+    },
+    "cwd": {
+      "description": "The command's working directory.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "itemId": {
       "type": "string"
     },
@@ -33,6 +57,118 @@
     },
     "turnId": {
       "type": "string"
+    }
+  },
+  "definitions": {
+    "CommandAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "name",
+            "path",
+            "type"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "read"
+              ],
+              "title": "ReadCommandActionType"
+            }
+          },
+          "title": "ReadCommandAction"
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "type"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "listFiles"
+              ],
+              "title": "ListFilesCommandActionType"
+            }
+          },
+          "title": "ListFilesCommandAction"
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "type"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "query": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "search"
+              ],
+              "title": "SearchCommandActionType"
+            }
+          },
+          "title": "SearchCommandAction"
+        },
+        {
+          "type": "object",
+          "required": [
+            "command",
+            "type"
+          ],
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "unknown"
+              ],
+              "title": "UnknownCommandActionType"
+            }
+          },
+          "title": "UnknownCommandAction"
+        }
+      ]
     }
   }
 }

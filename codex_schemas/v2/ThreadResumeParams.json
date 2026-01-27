@@ -72,6 +72,16 @@
         "null"
       ]
     },
+    "personality": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Personality"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "sandbox": {
       "anyOf": [
         {
@@ -328,6 +338,13 @@
         "incomplete"
       ]
     },
+    "Personality": {
+      "type": "string",
+      "enum": [
+        "friendly",
+        "pragmatic"
+      ]
+    },
     "ReasoningItemContent": {
       "oneOf": [
         {
@@ -411,6 +428,12 @@
               "items": {
                 "$ref": "#/definitions/ContentItem"
               }
+            },
+            "end_turn": {
+              "type": [
+                "boolean",
+                "null"
+              ]
             },
             "id": {
               "writeOnly": true,
@@ -642,12 +665,18 @@
         {
           "type": "object",
           "required": [
-            "action",
             "type"
           ],
           "properties": {
             "action": {
-              "$ref": "#/definitions/WebSearchAction"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/WebSearchAction"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "id": {
               "writeOnly": true,

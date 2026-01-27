@@ -213,6 +213,16 @@
               "type": "null"
             }
           ]
+        },
+        "web_search": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/WebSearchMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": true
@@ -226,6 +236,12 @@
       ],
       "properties": {
         "config": true,
+        "disabledReason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "name": {
           "$ref": "#/definitions/ConfigLayerSource"
         },
@@ -472,6 +488,16 @@
               "type": "null"
             }
           ]
+        },
+        "web_search": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/WebSearchMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": true
@@ -564,6 +590,14 @@
         "low",
         "medium",
         "high"
+      ]
+    },
+    "WebSearchMode": {
+      "type": "string",
+      "enum": [
+        "disabled",
+        "cached",
+        "live"
       ]
     }
   }

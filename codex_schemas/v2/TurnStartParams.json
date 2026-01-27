@@ -18,6 +18,17 @@
         }
       ]
     },
+    "collaborationMode": {
+      "description": "EXPERIMENTAL - set a pre-set collaboration mode. Takes precedence over model, reasoning_effort, and developer instructions if set.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CollaborationMode"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "cwd": {
       "description": "Override the working directory for this turn and subsequent turns.",
       "type": [
@@ -51,6 +62,17 @@
     },
     "outputSchema": {
       "description": "Optional JSON Schema used to constrain the final assistant message for this turn."
+    },
+    "personality": {
+      "description": "Override the personality for this turn and subsequent turns.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Personality"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "sandboxPolicy": {
       "description": "Override the sandbox policy for this turn and subsequent turns.",
@@ -92,11 +114,64 @@
         "never"
       ]
     },
+    "ByteRange": {
+      "type": "object",
+      "required": [
+        "end",
+        "start"
+      ],
+      "properties": {
+        "end": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        }
+      }
+    },
+    "CollaborationMode": {
+      "description": "Collaboration mode for a Codex session.",
+      "type": "object",
+      "required": [
+        "mode",
+        "settings"
+      ],
+      "properties": {
+        "mode": {
+          "$ref": "#/definitions/ModeKind"
+        },
+        "settings": {
+          "$ref": "#/definitions/Settings"
+        }
+      }
+    },
+    "ModeKind": {
+      "description": "Initial collaboration mode to use when the TUI starts.",
+      "type": "string",
+      "enum": [
+        "plan",
+        "code",
+        "pair_programming",
+        "execute",
+        "custom"
+      ]
+    },
     "NetworkAccess": {
       "type": "string",
       "enum": [
         "restricted",
         "enabled"
+      ]
+    },
+    "Personality": {
+      "type": "string",
+      "enum": [
+        "friendly",
+        "pragmatic"
       ]
     },
     "ReasoningEffort": {
@@ -226,6 +301,57 @@
         }
       ]
     },
+    "Settings": {
+      "description": "Settings for a collaboration mode.",
+      "type": "object",
+      "required": [
+        "model"
+      ],
+      "properties": {
+        "developer_instructions": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ReasoningEffort"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "TextElement": {
+      "type": "object",
+      "required": [
+        "byteRange"
+      ],
+      "properties": {
+        "byteRange": {
+          "description": "Byte range in the parent `text` buffer that this element occupies.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ByteRange"
+            }
+          ]
+        },
+        "placeholder": {
+          "description": "Optional human-readable placeholder for the element, displayed in the UI.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
     "UserInput": {
       "oneOf": [
         {
@@ -237,6 +363,14 @@
           "properties": {
             "text": {
               "type": "string"
+            },
+            "text_elements": {
+              "description": "UI-defined spans within `text` used to render or persist special elements.",
+              "default": [],
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/TextElement"
+              }
             },
             "type": {
               "type": "string",

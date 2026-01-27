@@ -3,6 +3,13 @@
   "title": "ThreadListParams",
   "type": "object",
   "properties": {
+    "archived": {
+      "description": "Optional archived filter; when set to true, only archived threads are returned. If false or null, only non-archived threads are returned.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
     "cursor": {
       "description": "Opaque pagination cursor returned by a previous call.",
       "type": [
@@ -28,6 +35,51 @@
       "items": {
         "type": "string"
       }
+    },
+    "sortKey": {
+      "description": "Optional sort key; defaults to created_at.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ThreadSortKey"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sourceKinds": {
+      "description": "Optional source filter; when set, only sessions from these source kinds are returned. When omitted or empty, defaults to interactive sources.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/ThreadSourceKind"
+      }
+    }
+  },
+  "definitions": {
+    "ThreadSortKey": {
+      "type": "string",
+      "enum": [
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "ThreadSourceKind": {
+      "type": "string",
+      "enum": [
+        "cli",
+        "vscode",
+        "exec",
+        "appServer",
+        "subAgent",
+        "subAgentReview",
+        "subAgentCompact",
+        "subAgentThreadSpawn",
+        "subAgentOther",
+        "unknown"
+      ]
     }
   }
 }

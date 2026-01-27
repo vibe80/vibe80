@@ -335,6 +335,12 @@
                 "$ref": "#/definitions/ContentItem"
               }
             },
+            "end_turn": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
             "id": {
               "writeOnly": true,
               "type": [
@@ -565,12 +571,18 @@
         {
           "type": "object",
           "required": [
-            "action",
             "type"
           ],
           "properties": {
             "action": {
-              "$ref": "#/definitions/WebSearchAction"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/WebSearchAction"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "id": {
               "writeOnly": true,

@@ -38,6 +38,21 @@
         "null"
       ]
     },
+    "dynamicTools": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/DynamicToolSpec"
+      }
+    },
+    "ephemeral": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
     "experimentalRawEvents": {
       "description": "If true, opt into emitting raw response items on the event stream.\n\nThis is for internal use only (e.g. Codex Cloud). (TODO): Figure out a better way to categorize internal / experimental events & protocols.",
       "default": false,
@@ -53,6 +68,16 @@
       "type": [
         "string",
         "null"
+      ]
+    },
+    "personality": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Personality"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "sandbox": {
@@ -74,6 +99,30 @@
         "on-failure",
         "on-request",
         "never"
+      ]
+    },
+    "DynamicToolSpec": {
+      "type": "object",
+      "required": [
+        "description",
+        "inputSchema",
+        "name"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "inputSchema": true,
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "Personality": {
+      "type": "string",
+      "enum": [
+        "friendly",
+        "pragmatic"
       ]
     },
     "SandboxMode": {

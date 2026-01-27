@@ -138,6 +138,30 @@
         "method": {
           "type": "string",
           "enum": [
+            "thread/unarchive"
+          ],
+          "title": "Thread/unarchiveRequestMethod"
+        },
+        "params": {
+          "$ref": "#/definitions/ThreadUnarchiveParams"
+        }
+      },
+      "title": "Thread/unarchiveRequest"
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
             "thread/rollback"
           ],
           "title": "Thread/rollbackRequestMethod"
@@ -210,6 +234,30 @@
         "method": {
           "type": "string",
           "enum": [
+            "thread/read"
+          ],
+          "title": "Thread/readRequestMethod"
+        },
+        "params": {
+          "$ref": "#/definitions/ThreadReadParams"
+        }
+      },
+      "title": "Thread/readRequest"
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
             "skills/list"
           ],
           "title": "Skills/listRequestMethod"
@@ -219,6 +267,54 @@
         }
       },
       "title": "Skills/listRequest"
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "app/list"
+          ],
+          "title": "App/listRequestMethod"
+        },
+        "params": {
+          "$ref": "#/definitions/AppsListParams"
+        }
+      },
+      "title": "App/listRequest"
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "skills/config/write"
+          ],
+          "title": "Skills/config/writeRequestMethod"
+        },
+        "params": {
+          "$ref": "#/definitions/SkillsConfigWriteParams"
+        }
+      },
+      "title": "Skills/config/writeRequest"
     },
     {
       "type": "object",
@@ -317,6 +413,31 @@
       "title": "Model/listRequest"
     },
     {
+      "description": "EXPERIMENTAL - list collaboration mode presets.",
+      "type": "object",
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "collaborationMode/list"
+          ],
+          "title": "CollaborationMode/listRequestMethod"
+        },
+        "params": {
+          "$ref": "#/definitions/CollaborationModeListParams"
+        }
+      },
+      "title": "CollaborationMode/listRequest"
+    },
+    {
       "type": "object",
       "required": [
         "id",
@@ -339,6 +460,29 @@
         }
       },
       "title": "McpServer/oauth/loginRequest"
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "method"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "config/mcpServer/reload"
+          ],
+          "title": "Config/mcpServer/reloadRequestMethod"
+        },
+        "params": {
+          "type": "null"
+        }
+      },
+      "title": "Config/mcpServer/reloadRequest"
     },
     {
       "type": "object",
@@ -1200,6 +1344,27 @@
         }
       }
     },
+    "AppsListParams": {
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "description": "Opaque pagination cursor returned by a previous call.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "description": "Optional page size; defaults to a reasonable server-side value.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    },
     "ArchiveConversationParams": {
       "type": "object",
       "required": [
@@ -1257,6 +1422,25 @@
         }
       ]
     },
+    "ByteRange": {
+      "type": "object",
+      "required": [
+        "end",
+        "start"
+      ],
+      "properties": {
+        "end": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        }
+      }
+    },
     "CancelLoginAccountParams": {
       "type": "object",
       "required": [
@@ -1299,6 +1483,26 @@
           "type": "string"
         }
       }
+    },
+    "CollaborationMode": {
+      "description": "Collaboration mode for a Codex session.",
+      "type": "object",
+      "required": [
+        "mode",
+        "settings"
+      ],
+      "properties": {
+        "mode": {
+          "$ref": "#/definitions/ModeKind"
+        },
+        "settings": {
+          "$ref": "#/definitions/Settings"
+        }
+      }
+    },
+    "CollaborationModeListParams": {
+      "description": "EXPERIMENTAL - list collaboration mode presets.",
+      "type": "object"
     },
     "CommandExecParams": {
       "type": "object",
@@ -1384,6 +1588,13 @@
     "ConfigReadParams": {
       "type": "object",
       "properties": {
+        "cwd": {
+          "description": "Optional working directory to resolve project config layers. If specified, return the effective config as seen from that directory (i.e., including any project layers between `cwd` and the project/repo root).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "includeLayers": {
           "default": false,
           "type": "boolean"
@@ -1483,6 +1694,23 @@
           "title": "OutputTextContentItem"
         }
       ]
+    },
+    "DynamicToolSpec": {
+      "type": "object",
+      "required": [
+        "description",
+        "inputSchema",
+        "name"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "inputSchema": true,
+        "name": {
+          "type": "string"
+        }
+      }
     },
     "ExecOneOffCommandParams": {
       "type": "object",
@@ -1801,6 +2029,14 @@
               "properties": {
                 "text": {
                   "type": "string"
+                },
+                "text_elements": {
+                  "description": "UI-defined spans within `text` used to render or persist special elements.",
+                  "default": [],
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/V1TextElement"
+                  }
                 }
               }
             },
@@ -2081,6 +2317,17 @@
         "upsert"
       ]
     },
+    "ModeKind": {
+      "description": "Initial collaboration mode to use when the TUI starts.",
+      "type": "string",
+      "enum": [
+        "plan",
+        "code",
+        "pair_programming",
+        "execute",
+        "custom"
+      ]
+    },
     "ModelListParams": {
       "type": "object",
       "properties": {
@@ -2196,6 +2443,13 @@
           ]
         }
       }
+    },
+    "Personality": {
+      "type": "string",
+      "enum": [
+        "friendly",
+        "pragmatic"
+      ]
     },
     "ReasoningEffort": {
       "description": "See https://platform.openai.com/docs/guides/reasoning?api-mode=responses#get-started-with-reasoning",
@@ -2334,6 +2588,12 @@
               "items": {
                 "$ref": "#/definitions/ContentItem"
               }
+            },
+            "end_turn": {
+              "type": [
+                "boolean",
+                "null"
+              ]
             },
             "id": {
               "writeOnly": true,
@@ -2565,12 +2825,18 @@
         {
           "type": "object",
           "required": [
-            "action",
             "type"
           ],
           "properties": {
             "action": {
-              "$ref": "#/definitions/WebSearchAction"
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/WebSearchAction"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "id": {
               "writeOnly": true,
@@ -3123,6 +3389,49 @@
         }
       }
     },
+    "Settings": {
+      "description": "Settings for a collaboration mode.",
+      "type": "object",
+      "required": [
+        "model"
+      ],
+      "properties": {
+        "developer_instructions": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ReasoningEffort"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "SkillsConfigWriteParams": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "path"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
     "SkillsListParams": {
       "type": "object",
       "properties": {
@@ -3136,6 +3445,29 @@
         "forceReload": {
           "description": "When true, bypass the skills cache and re-scan skills from disk.",
           "type": "boolean"
+        }
+      }
+    },
+    "TextElement": {
+      "type": "object",
+      "required": [
+        "byteRange"
+      ],
+      "properties": {
+        "byteRange": {
+          "description": "Byte range in the parent `text` buffer that this element occupies.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ByteRange"
+            }
+          ]
+        },
+        "placeholder": {
+          "description": "Optional human-readable placeholder for the element, displayed in the UI.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
@@ -3233,6 +3565,13 @@
     "ThreadListParams": {
       "type": "object",
       "properties": {
+        "archived": {
+          "description": "Optional archived filter; when set to true, only archived threads are returned. If false or null, only non-archived threads are returned.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "cursor": {
           "description": "Opaque pagination cursor returned by a previous call.",
           "type": [
@@ -3258,6 +3597,27 @@
           "items": {
             "type": "string"
           }
+        },
+        "sortKey": {
+          "description": "Optional sort key; defaults to created_at.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ThreadSortKey"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceKinds": {
+          "description": "Optional source filter; when set, only sessions from these source kinds are returned. When omitted or empty, defaults to interactive sources.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/ThreadSourceKind"
+          }
         }
       }
     },
@@ -3279,6 +3639,22 @@
           ],
           "format": "uint32",
           "minimum": 0.0
+        }
+      }
+    },
+    "ThreadReadParams": {
+      "type": "object",
+      "required": [
+        "threadId"
+      ],
+      "properties": {
+        "includeTurns": {
+          "description": "When true, include turns and their items from rollout history.",
+          "default": false,
+          "type": "boolean"
+        },
+        "threadId": {
+          "type": "string"
         }
       }
     },
@@ -3354,6 +3730,16 @@
             "null"
           ]
         },
+        "personality": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Personality"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "sandbox": {
           "anyOf": [
             {
@@ -3386,6 +3772,28 @@
           "type": "string"
         }
       }
+    },
+    "ThreadSortKey": {
+      "type": "string",
+      "enum": [
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "ThreadSourceKind": {
+      "type": "string",
+      "enum": [
+        "cli",
+        "vscode",
+        "exec",
+        "appServer",
+        "subAgent",
+        "subAgentReview",
+        "subAgentCompact",
+        "subAgentThreadSpawn",
+        "subAgentOther",
+        "unknown"
+      ]
     },
     "ThreadStartParams": {
       "type": "object",
@@ -3425,6 +3833,21 @@
             "null"
           ]
         },
+        "dynamicTools": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/DynamicToolSpec"
+          }
+        },
+        "ephemeral": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "experimentalRawEvents": {
           "description": "If true, opt into emitting raw response items on the event stream.\n\nThis is for internal use only (e.g. Codex Cloud). (TODO): Figure out a better way to categorize internal / experimental events & protocols.",
           "default": false,
@@ -3442,6 +3865,16 @@
             "null"
           ]
         },
+        "personality": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Personality"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "sandbox": {
           "anyOf": [
             {
@@ -3451,6 +3884,17 @@
               "type": "null"
             }
           ]
+        }
+      }
+    },
+    "ThreadUnarchiveParams": {
+      "type": "object",
+      "required": [
+        "threadId"
+      ],
+      "properties": {
+        "threadId": {
+          "type": "string"
         }
       }
     },
@@ -3481,6 +3925,17 @@
           "anyOf": [
             {
               "$ref": "#/definitions/AskForApproval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "collaborationMode": {
+          "description": "EXPERIMENTAL - set a pre-set collaboration mode. Takes precedence over model, reasoning_effort, and developer instructions if set.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CollaborationMode"
             },
             {
               "type": "null"
@@ -3521,6 +3976,17 @@
         "outputSchema": {
           "description": "Optional JSON Schema used to constrain the final assistant message for this turn."
         },
+        "personality": {
+          "description": "Override the personality for this turn and subsequent turns.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Personality"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "sandboxPolicy": {
           "description": "Override the sandbox policy for this turn and subsequent turns.",
           "anyOf": [
@@ -3559,6 +4025,14 @@
           "properties": {
             "text": {
               "type": "string"
+            },
+            "text_elements": {
+              "description": "UI-defined spans within `text` used to render or persist special elements.",
+              "default": [],
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/TextElement"
+              }
             },
             "type": {
               "type": "string",
@@ -3635,6 +4109,50 @@
           "title": "SkillUserInput"
         }
       ]
+    },
+    "V1ByteRange": {
+      "type": "object",
+      "required": [
+        "end",
+        "start"
+      ],
+      "properties": {
+        "end": {
+          "description": "End byte offset (exclusive) within the UTF-8 text buffer.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "start": {
+          "description": "Start byte offset (inclusive) within the UTF-8 text buffer.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        }
+      }
+    },
+    "V1TextElement": {
+      "type": "object",
+      "required": [
+        "byteRange"
+      ],
+      "properties": {
+        "byteRange": {
+          "description": "Byte range in the parent `text` buffer that this element occupies.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/V1ByteRange"
+            }
+          ]
+        },
+        "placeholder": {
+          "description": "Optional human-readable placeholder for the element, displayed in the UI.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     },
     "WebSearchAction": {
       "oneOf": [

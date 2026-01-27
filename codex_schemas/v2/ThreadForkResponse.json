@@ -133,6 +133,25 @@
         }
       }
     },
+    "ByteRange": {
+      "type": "object",
+      "required": [
+        "end",
+        "start"
+      ],
+      "properties": {
+        "end": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        }
+      }
+    },
     "CodexErrorInfo": {
       "description": "This translation layer make sure that we expose codex error code in camel case.\n\nWhen an upstream HTTP status is available (for example, from the Responses API or a provider), it is forwarded in `httpStatusCode` on the relevant `codexErrorInfo` variant.",
       "oneOf": [
@@ -244,6 +263,51 @@
           "additionalProperties": false,
           "title": "ResponseTooManyFailedAttemptsCodexErrorInfo"
         }
+      ]
+    },
+    "CollabAgentState": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "$ref": "#/definitions/CollabAgentStatus"
+        }
+      }
+    },
+    "CollabAgentStatus": {
+      "type": "string",
+      "enum": [
+        "pendingInit",
+        "running",
+        "completed",
+        "errored",
+        "shutdown",
+        "notFound"
+      ]
+    },
+    "CollabAgentTool": {
+      "type": "string",
+      "enum": [
+        "spawnAgent",
+        "sendInput",
+        "wait",
+        "closeAgent"
+      ]
+    },
+    "CollabAgentToolCallStatus": {
+      "type": "string",
+      "enum": [
+        "inProgress",
+        "completed",
+        "failed"
       ]
     },
     "CommandAction": {
@@ -771,13 +835,80 @@
       ]
     },
     "SessionSource": {
-      "type": "string",
-      "enum": [
-        "cli",
-        "vscode",
-        "exec",
-        "appServer",
-        "unknown"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "cli",
+            "vscode",
+            "exec",
+            "appServer",
+            "unknown"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "subAgent"
+          ],
+          "properties": {
+            "subAgent": {
+              "$ref": "#/definitions/SubAgentSource"
+            }
+          },
+          "additionalProperties": false,
+          "title": "SubAgentSessionSource"
+        }
+      ]
+    },
+    "SubAgentSource": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "review",
+            "compact"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "thread_spawn"
+          ],
+          "properties": {
+            "thread_spawn": {
+              "type": "object",
+              "required": [
+                "depth",
+                "parent_thread_id"
+              ],
+              "properties": {
+                "depth": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "parent_thread_id": {
+                  "$ref": "#/definitions/ThreadId"
+                }
+              }
+            }
+          },
+          "additionalProperties": false,
+          "title": "ThreadSpawnSubAgentSource"
+        },
+        {
+          "type": "object",
+          "required": [
+            "other"
+          ],
+          "properties": {
+            "other": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "title": "OtherSubAgentSource"
+        }
       ]
     },
     "TextContent": {
@@ -803,6 +934,29 @@
         },
         "type": {
           "type": "string"
+        }
+      }
+    },
+    "TextElement": {
+      "type": "object",
+      "required": [
+        "byteRange"
+      ],
+      "properties": {
+        "byteRange": {
+          "description": "Byte range in the parent `text` buffer that this element occupies.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ByteRange"
+            }
+          ]
+        },
+        "placeholder": {
+          "description": "Optional human-readable placeholder for the element, displayed in the UI.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
@@ -835,10 +989,10 @@
         "cwd",
         "id",
         "modelProvider",
-        "path",
         "preview",
         "source",
-        "turns"
+        "turns",
+        "updatedAt"
       ],
       "properties": {
         "cliVersion": {
@@ -874,7 +1028,10 @@
         },
         "path": {
           "description": "[UNSTABLE] Path to the thread on disk.",
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "preview": {
           "description": "Usually the first user message in the thread, if available.",
@@ -889,13 +1046,21 @@
           ]
         },
         "turns": {
-          "description": "Only populated on `thread/resume`, `thread/rollback`, `thread/fork` responses. For all other responses and notifications returning a Thread, the turns field will be an empty list.",
+          "description": "Only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read` (when `includeTurns` is true) responses. For all other responses and notifications returning a Thread, the turns field will be an empty list.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Turn"
           }
+        },
+        "updatedAt": {
+          "description": "Unix timestamp (in seconds) when the thread was last updated.",
+          "type": "integer",
+          "format": "int64"
         }
       }
+    },
+    "ThreadId": {
+      "type": "string"
     },
     "ThreadItem": {
       "oneOf": [
@@ -1152,6 +1317,73 @@
         {
           "type": "object",
           "required": [
+            "agentsStates",
+            "id",
+            "receiverThreadIds",
+            "senderThreadId",
+            "status",
+            "tool",
+            "type"
+          ],
+          "properties": {
+            "agentsStates": {
+              "description": "Last known status of the target agents, when available.",
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/CollabAgentState"
+              }
+            },
+            "id": {
+              "description": "Unique identifier for this collab tool call.",
+              "type": "string"
+            },
+            "prompt": {
+              "description": "Prompt text sent as part of the collab tool call, when available.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "receiverThreadIds": {
+              "description": "Thread ID of the receiving agent, when applicable. In case of spawn operation, this corresponds to the newly spawned agent.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "senderThreadId": {
+              "description": "Thread ID of the agent issuing the collab request.",
+              "type": "string"
+            },
+            "status": {
+              "description": "Current status of the collab tool call.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/CollabAgentToolCallStatus"
+                }
+              ]
+            },
+            "tool": {
+              "description": "Name of the collab tool that was invoked.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/CollabAgentTool"
+                }
+              ]
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "collabAgentToolCall"
+              ],
+              "title": "CollabAgentToolCallThreadItemType"
+            }
+          },
+          "title": "CollabAgentToolCallThreadItem"
+        },
+        {
+          "type": "object",
+          "required": [
             "id",
             "query",
             "type"
@@ -1329,6 +1561,14 @@
           "properties": {
             "text": {
               "type": "string"
+            },
+            "text_elements": {
+              "description": "UI-defined spans within `text` used to render or persist special elements.",
+              "default": [],
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/TextElement"
+              }
             },
             "type": {
               "type": "string",
