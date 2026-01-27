@@ -4415,6 +4415,19 @@ function App() {
                 role="toolbar"
                 aria-label="Outils du chat"
               >
+              <div className="chat-toolbar-brand" aria-hidden="true">
+                <span className="chat-toolbar-brand-dots">
+                  <span className="chat-toolbar-brand-dot" />
+                  <span className="chat-toolbar-brand-dot" />
+                  <span className="chat-toolbar-brand-dot" />
+                  <span className="chat-toolbar-brand-dot" />
+                  <span className="chat-toolbar-brand-dot" />
+                  <span className="chat-toolbar-brand-dot" />
+                  <span className="chat-toolbar-brand-dot" />
+                  <span className="chat-toolbar-brand-dot" />
+                  <span className="chat-toolbar-brand-dot" />
+                </span>
+              </div>
               <div className="chat-toolbar-group">
                 <button
                   type="button"
@@ -4426,9 +4439,10 @@ function App() {
                   aria-label="Messages"
                   title="Messages"
                 >
-                  <span className="chat-toolbar-icon" aria-hidden="true">
-                    💬
+                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
+                    <span className="chat-toolbar-icon">💬</span>
                   </span>
+                  <span className="chat-toolbar-label">Messages</span>
                 </button>
                 <button
                   type="button"
@@ -4440,9 +4454,10 @@ function App() {
                   aria-label="Diff"
                   title="Diff"
                 >
-                  <span className="chat-toolbar-icon" aria-hidden="true">
-                    Δ
+                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
+                    <span className="chat-toolbar-icon">Δ</span>
                   </span>
+                  <span className="chat-toolbar-label">Diff</span>
                 </button>
                 <button
                   type="button"
@@ -4454,9 +4469,10 @@ function App() {
                   aria-label="Explorateur"
                   title="Explorateur"
                 >
-                  <span className="chat-toolbar-icon" aria-hidden="true">
-                    🗂
+                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
+                    <span className="chat-toolbar-icon">🗂</span>
                   </span>
+                  <span className="chat-toolbar-label">Explorateur</span>
                 </button>
                 <button
                   type="button"
@@ -4468,9 +4484,10 @@ function App() {
                   aria-label="Terminal"
                   title="Terminal"
                 >
-                  <span className="chat-toolbar-icon" aria-hidden="true">
-                    ⌨
+                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
+                    <span className="chat-toolbar-icon">⌨</span>
                   </span>
+                  <span className="chat-toolbar-label">Terminal</span>
                 </button>
                 <button
                   type="button"
@@ -4482,9 +4499,10 @@ function App() {
                   aria-label="Logs"
                   title="Logs"
                 >
-                  <span className="chat-toolbar-icon" aria-hidden="true">
-                    🧾
+                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
+                    <span className="chat-toolbar-icon">🧾</span>
                   </span>
+                  <span className="chat-toolbar-label">Logs</span>
                 </button>
               </div>
               <div className="chat-toolbar-divider" />
@@ -4506,9 +4524,10 @@ function App() {
                     title="Export"
                     disabled={!hasMessages}
                   >
-                    <span className="chat-toolbar-icon" aria-hidden="true">
-                      ⤓
+                    <span className="chat-toolbar-icon-wrap" aria-hidden="true">
+                      <span className="chat-toolbar-icon">⤓</span>
                     </span>
+                    <span className="chat-toolbar-label">Exporter</span>
                   </button>
                   {toolbarExportOpen && (
                     <div className="chat-toolbar-menu">
@@ -4539,9 +4558,10 @@ function App() {
                   title="Clear chat"
                   disabled={!hasMessages}
                 >
-                  <span className="chat-toolbar-icon" aria-hidden="true">
-                    🧹
+                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
+                    <span className="chat-toolbar-icon">🧹</span>
                   </span>
+                  <span className="chat-toolbar-label">Effacer</span>
                 </button>
               </div>
             </div>

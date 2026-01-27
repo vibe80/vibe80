@@ -577,19 +577,46 @@ main.chat {
   left: var(--chat-toolbar-inset);
   display: flex;
   flex-direction: column;
-  gap: calc(12px * var(--chat-toolbar-scale, 1));
-  padding: calc(12px * var(--chat-toolbar-scale, 1)) calc(10px * var(--chat-toolbar-scale, 1));
+  align-items: center;
+  gap: calc(14px * var(--chat-toolbar-scale, 1));
+  padding: calc(16px * var(--chat-toolbar-scale, 1))
+    calc(12px * var(--chat-toolbar-scale, 1));
   background: var(--bg-strong);
-  border: 1px solid rgba(20, 19, 17, 0.12);
-  border-radius: calc(22px * var(--chat-toolbar-scale, 1));
-  box-shadow: 0 16px 32px rgba(20, 19, 17, 0.12);
+  border: 1px solid rgba(20, 19, 17, 0.08);
+  border-radius: calc(28px * var(--chat-toolbar-scale, 1));
+  box-shadow: 0 20px 50px rgba(20, 19, 17, 0.14);
   z-index: 5;
+}
+
+.chat-toolbar-brand {
+  width: calc(64px * var(--chat-toolbar-scale, 1));
+  height: calc(40px * var(--chat-toolbar-scale, 1));
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid rgba(20, 19, 17, 0.1);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 18px rgba(20, 19, 17, 0.12);
+}
+
+.chat-toolbar-brand-dots {
+  display: grid;
+  grid-template-columns: repeat(3, calc(6px * var(--chat-toolbar-scale, 1)));
+  gap: calc(4px * var(--chat-toolbar-scale, 1));
+}
+
+.chat-toolbar-brand-dot {
+  width: calc(6px * var(--chat-toolbar-scale, 1));
+  height: calc(6px * var(--chat-toolbar-scale, 1));
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: 0.7;
 }
 
 .chat-toolbar-group {
   display: flex;
   flex-direction: column;
-  gap: calc(10px * var(--chat-toolbar-scale, 1));
+  gap: calc(12px * var(--chat-toolbar-scale, 1));
   align-items: center;
 }
 
@@ -601,40 +628,74 @@ main.chat {
 }
 
 .chat-toolbar-button {
+  width: calc(84px * var(--chat-toolbar-scale, 1));
+  border-radius: calc(18px * var(--chat-toolbar-scale, 1));
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(8px * var(--chat-toolbar-scale, 1));
+  padding: calc(6px * var(--chat-toolbar-scale, 1))
+    calc(4px * var(--chat-toolbar-scale, 1));
+  font-size: calc(12px * var(--chat-toolbar-scale, 1));
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.chat-toolbar-icon-wrap {
   width: calc(40px * var(--chat-toolbar-scale, 1));
   height: calc(40px * var(--chat-toolbar-scale, 1));
-  border-radius: 999px;
-  border: 1px solid rgba(20, 19, 17, 0.16);
+  border-radius: calc(14px * var(--chat-toolbar-scale, 1));
+  border: 1px solid rgba(20, 19, 17, 0.12);
   background: var(--surface);
   color: var(--ink);
   display: grid;
   place-items: center;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.chat-toolbar-label {
+  text-align: center;
+  line-height: 1.1;
 }
 
 .chat-toolbar-button.is-active,
 .chat-toolbar-button.is-open {
-  border-color: rgba(238, 93, 59, 0.5);
   color: var(--accent-dark);
+}
+
+.chat-toolbar-button.is-active .chat-toolbar-icon-wrap,
+.chat-toolbar-button.is-open .chat-toolbar-icon-wrap {
+  border-color: rgba(238, 93, 59, 0.5);
   background: rgba(238, 93, 59, 0.12);
 }
 
 .chat-toolbar-button.is-danger {
   color: var(--accent-dark);
-  background: rgba(238, 93, 59, 0.1);
+}
+
+.chat-toolbar-button.is-danger .chat-toolbar-icon-wrap {
+  background: rgba(238, 93, 59, 0.12);
+  border-color: rgba(238, 93, 59, 0.35);
 }
 
 .chat-toolbar-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: none;
   transform: none;
 }
 
 .chat-toolbar-button:not(:disabled):hover {
   transform: translateY(-1px);
+}
+
+.chat-toolbar-button:not(:disabled):hover .chat-toolbar-icon-wrap {
   box-shadow: 0 10px 18px rgba(20, 19, 17, 0.12);
+  transform: translateY(-1px);
 }
 
 .chat-toolbar-icon {
@@ -644,7 +705,7 @@ main.chat {
 
 .chat-toolbar-divider {
   height: 1px;
-  width: 100%;
+  width: calc(56px * var(--chat-toolbar-scale, 1));
   background: rgba(20, 19, 17, 0.12);
 }
 
@@ -730,9 +791,9 @@ main.chat {
   min-height: 0;
   height: 100%;
   position: relative;
-  --chat-toolbar-scale: 0.6;
-  --chat-toolbar-width: calc(64px * var(--chat-toolbar-scale));
-  --chat-toolbar-gap: calc(16px * var(--chat-toolbar-scale));
+  --chat-toolbar-scale: 0.8;
+  --chat-toolbar-width: calc(108px * var(--chat-toolbar-scale));
+  --chat-toolbar-gap: calc(18px * var(--chat-toolbar-scale));
   --chat-toolbar-offset: calc(var(--chat-toolbar-width) + var(--chat-toolbar-gap));
   --chat-toolbar-inset: calc(18px * var(--chat-toolbar-scale));
 }
