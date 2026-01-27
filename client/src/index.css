@@ -1273,6 +1273,28 @@ main.chat {
   gap: 6px;
 }
 
+.settings-back {
+  align-self: flex-start;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  background: rgba(20, 19, 17, 0.04);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease,
+    border-color 0.2s ease, background 0.2s ease;
+}
+
+.settings-back:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 19, 17, 0.24);
+  box-shadow: 0 10px 20px rgba(20, 19, 17, 0.08);
+}
+
 .settings-title {
   font-weight: 800;
   font-size: 16px;

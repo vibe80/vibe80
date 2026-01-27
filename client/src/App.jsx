@@ -524,6 +524,7 @@ function App() {
   const [activeForm, setActiveForm] = useState(null);
   const [activeFormValues, setActiveFormValues] = useState({});
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
+  const [lastNonSettingsPaneByTab, setLastNonSettingsPaneByTab] = useState({});
   const explorerDefaultState = useMemo(
     () => ({
       tree: null,
@@ -573,6 +574,8 @@ function App() {
   const [worktrees, setWorktrees] = useState(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
   const activePane = paneByTab[activeWorktreeId] || "chat";
+  const lastNonSettingsPane =
+    lastNonSettingsPaneByTab[activeWorktreeId || "main"] || "chat";
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
@@ -3278,6 +3281,12 @@ function App() {
       return;
     }
     const key = activeWorktreeId || "main";
+    if (nextPane !== "settings") {
+      setLastNonSettingsPaneByTab((current) => ({
+        ...current,
+        [key]: nextPane,
+      }));
+    }
     setPaneByTab((current) => ({
       ...current,
       [key]: nextPane,
@@ -5176,6 +5185,13 @@ function App() {
             }`}
           >
             <div className="settings-header">
+              <button
+                type="button"
+                className="settings-back"
+                onClick={() => handleViewSelect(lastNonSettingsPane)}
+              >
+                ← Go Back
+              </button>
               <div className="settings-title">Paramètres utilisateur</div>
               <div className="settings-subtitle">
                 Ces réglages sont stockés dans votre navigateur.
