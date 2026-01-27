@@ -3,6 +3,7 @@ package app.m5chat.android.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.m5chat.android.M5ChatApplication
+import app.m5chat.android.data.AuthConfigUploader
 import app.m5chat.android.data.SessionPreferences
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.repository.SessionRepository
@@ -40,6 +41,8 @@ class SessionViewModel(
 
     private val _uiState = MutableStateFlow(SessionUiState())
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
+
+    private val authConfigUploader = AuthConfigUploader(M5ChatApplication.BASE_URL)
 
     init {
         checkExistingSession()
@@ -190,6 +193,15 @@ class SessionViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
+            // Upload auth configs to server before creating session
+            val authUploadError = uploadAuthConfigsToServer()
+            if (authUploadError != null) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = authUploadError)
+                }
+                return@launch
+            }
+
             val result = sessionRepository.createSession(
                 repoUrl = state.repoUrl,
                 provider = state.selectedProvider,
@@ -225,6 +237,33 @@ class SessionViewModel(
                 }
             )
         }
+    }
+
+    /**
+     * Upload stored auth configurations to the server.
+     * This must be done before session creation so that the LLM providers can authenticate.
+     * @return Error message if upload failed, null if successful
+     */
+    private suspend fun uploadAuthConfigsToServer(): String? {
+        // Upload Codex config if available
+        val codexConfig = sessionPreferences.getCodexConfig()
+        if (codexConfig != null) {
+            val result = authConfigUploader.uploadCodexConfig(codexConfig)
+            if (result.isFailure) {
+                return "Erreur lors de l'envoi de la configuration Codex: ${result.exceptionOrNull()?.message}"
+            }
+        }
+
+        // Upload Claude config if available
+        val claudeConfig = sessionPreferences.getClaudeConfig()
+        if (claudeConfig != null) {
+            val result = authConfigUploader.uploadClaudeConfig(claudeConfig)
+            if (result.isFailure) {
+                return "Erreur lors de l'envoi de la configuration Claude: ${result.exceptionOrNull()?.message}"
+            }
+        }
+
+        return null
     }
 
     fun clearSavedSession() {

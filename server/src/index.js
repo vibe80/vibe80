@@ -751,17 +751,32 @@ function attachClientEvents(sessionId, client, provider) {
     }
   });
 
+  // Track authentication errors from Codex stderr logs
+  let lastAuthError = null;
+
   client.on("log", (message) => {
     if (message) {
       console.log(`[codex:${sessionId}] ${message}`);
+      // Detect authentication errors and send to client
+      if (message.includes("401 Unauthorized") || message.includes("Unauthorized")) {
+        lastAuthError = "Erreur d'authentification Codex: vérifiez votre fichier auth.json";
+        if (session?.activeProvider === provider) {
+          broadcastToSession(sessionId, {
+            type: "error",
+            message: lastAuthError,
+            details: message,
+          });
+        }
+      }
     }
   });
 
   client.on("exit", ({ code, signal }) => {
     if (session?.activeProvider === provider) {
+      const errorMessage = lastAuthError || "Codex app-server stopped.";
       broadcastToSession(sessionId, {
         type: "error",
-        message: "Codex app-server stopped.",
+        message: errorMessage,
       });
     }
     console.error("Codex app-server stopped.", { code, signal, sessionId });
@@ -961,9 +976,16 @@ function attachClientEventsForWorktree(sessionId, worktree) {
     });
   });
 
+  // Track authentication errors from Codex stderr logs for worktree
+  let lastAuthError = null;
+
   client.on("log", (message) => {
     if (message) {
       console.log(`[codex:${sessionId}:wt-${worktreeId}] ${message}`);
+      // Detect authentication errors
+      if (message.includes("401 Unauthorized") || message.includes("Unauthorized")) {
+        lastAuthError = "Erreur d'authentification Codex: vérifiez votre fichier auth.json";
+      }
     }
   });
 
@@ -973,7 +995,7 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       type: "worktree_status",
       worktreeId,
       status: "error",
-      error: "Codex app-server stopped.",
+      error: lastAuthError || "Codex app-server stopped.",
     });
     console.error("Worktree Codex app-server stopped.", { code, signal, sessionId, worktreeId });
   });

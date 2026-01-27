@@ -73,11 +73,28 @@ data class TurnCompletedMessage(
 @SerialName("turn_error")
 data class TurnErrorMessage(
     override val type: String = "turn_error",
-    val threadId: String,
-    val turnId: String,
-    val willRetry: Boolean,
-    val message: String,
+    val threadId: String? = null,
+    val turnId: String? = null,
+    val willRetry: Boolean = false,
+    val message: String? = null,
+    val error: String? = null,
     val provider: String? = null
+) : ServerMessage() {
+    /** Returns the error message from either 'message' or 'error' field */
+    val errorMessage: String?
+        get() = message ?: error
+}
+
+/**
+ * Generic error message sent by server (e.g., when app-server fails to start)
+ */
+@Serializable
+@SerialName("error")
+data class ErrorMessage(
+    override val type: String = "error",
+    val message: String,
+    val provider: String? = null,
+    val details: String? = null
 ) : ServerMessage()
 
 @Serializable

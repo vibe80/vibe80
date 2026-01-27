@@ -140,7 +140,17 @@ class SessionRepository(
                 _currentStreamingMessage.value = null
                 // Report the error to the UI
                 _lastError.value = AppError.turnError(
-                    message = message.error ?: "An error occurred during processing",
+                    message = message.errorMessage ?: "An error occurred during processing",
+                    details = null
+                )
+            }
+
+            is ErrorMessage -> {
+                // Generic error from server (e.g., provider failed to start, authentication error)
+                _processing.value = false
+                _currentStreamingMessage.value = null
+                _lastError.value = AppError.turnError(
+                    message = message.message,
                     details = message.details
                 )
             }

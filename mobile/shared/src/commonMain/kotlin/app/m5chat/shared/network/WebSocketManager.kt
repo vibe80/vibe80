@@ -150,6 +150,7 @@ class WebSocketManager(
                 "turn_started" -> json.decodeFromString<TurnStartedMessage>(text)
                 "turn_completed" -> json.decodeFromString<TurnCompletedMessage>(text)
                 "turn_error" -> json.decodeFromString<TurnErrorMessage>(text)
+                "error" -> json.decodeFromString<ErrorMessage>(text)
                 "provider_switched" -> json.decodeFromString<ProviderSwitchedMessage>(text)
                 "messages_sync" -> json.decodeFromString<MessagesSyncMessage>(text)
                 "worktree_created" -> json.decodeFromString<WorktreeCreatedMessage>(text)
