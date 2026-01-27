@@ -27,9 +27,15 @@ data class SessionCreateRequest(
     val repoUrl: String,
     val provider: String = "codex",
     val providers: List<String> = listOf("codex", "claude"),
-    val sshKey: String? = null,
-    val httpUser: String? = null,
-    val httpPassword: String? = null
+    val auth: SessionAuth? = null
+)
+
+@Serializable
+data class SessionAuth(
+    val type: String,
+    val key: String? = null,       // for SSH
+    val username: String? = null,  // for HTTP
+    val password: String? = null   // for HTTP
 )
 
 @Serializable

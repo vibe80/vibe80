@@ -264,13 +264,22 @@ class SessionRepository(
         httpUser: String? = null,
         httpPassword: String? = null
     ): Result<SessionState> {
+        // Build auth object based on provided credentials
+        val auth = when {
+            sshKey != null -> SessionAuth(type = "ssh", key = sshKey)
+            httpUser != null && httpPassword != null -> SessionAuth(
+                type = "http",
+                username = httpUser,
+                password = httpPassword
+            )
+            else -> null
+        }
+
         val request = SessionCreateRequest(
             repoUrl = repoUrl,
             provider = provider.name.lowercase(),
             providers = listOf("codex", "claude"),
-            sshKey = sshKey,
-            httpUser = httpUser,
-            httpPassword = httpPassword
+            auth = auth
         )
 
         return apiClient.createSession(request).map { response ->
