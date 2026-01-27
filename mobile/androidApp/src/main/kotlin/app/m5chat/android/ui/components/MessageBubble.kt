@@ -39,7 +39,8 @@ fun MessageBubble(
     message: ChatMessage?,
     streamingText: String? = null,
     isStreaming: Boolean = false,
-    onChoiceSelected: ((String) -> Unit)? = null
+    onChoiceSelected: ((String) -> Unit)? = null,
+    onFormSubmit: ((Map<String, String>, List<VibecoderFormField>) -> Unit)? = null
 ) {
     val isUser = message?.role == MessageRole.USER
     val rawText = streamingText ?: message?.text ?: ""
@@ -48,8 +49,17 @@ fun MessageBubble(
     val choicesBlocks = remember(rawText, isUser) {
         if (!isUser && !isStreaming) parseVibecoderChoices(rawText) else emptyList()
     }
-    val text = remember(rawText, choicesBlocks) {
-        if (choicesBlocks.isNotEmpty()) removeVibecoderChoices(rawText) else rawText
+
+    // Parse vibecoder:form blocks for assistant messages
+    val formBlocks = remember(rawText, isUser) {
+        if (!isUser && !isStreaming) parseVibecoderForms(rawText) else emptyList()
+    }
+
+    val text = remember(rawText, choicesBlocks, formBlocks) {
+        var result = rawText
+        if (choicesBlocks.isNotEmpty()) result = removeVibecoderChoices(result)
+        if (formBlocks.isNotEmpty()) result = removeVibecoderForms(result)
+        result
     }
 
     Row(
@@ -127,6 +137,18 @@ fun MessageBubble(
                         VibecoderChoicesView(
                             block = block,
                             onOptionSelected = onChoiceSelected,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // Vibecoder form
+                if (formBlocks.isNotEmpty() && onFormSubmit != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    formBlocks.forEach { block ->
+                        VibecoderFormView(
+                            block = block,
+                            onFormSubmit = { formData -> onFormSubmit(formData, block.fields) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

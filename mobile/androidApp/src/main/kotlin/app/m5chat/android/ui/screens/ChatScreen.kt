@@ -43,8 +43,10 @@ import app.m5chat.android.ui.components.DiffSheetContent
 import app.m5chat.android.ui.components.LogsSheetContent
 import app.m5chat.android.ui.components.MessageBubble
 import app.m5chat.android.ui.components.ProviderSelectionDialog
+import app.m5chat.android.ui.components.VibecoderFormField
 import app.m5chat.android.ui.components.WorktreeMenuSheet
 import app.m5chat.android.ui.components.WorktreeTabs
+import app.m5chat.android.ui.components.formatFormResponse
 import app.m5chat.android.viewmodel.ChatViewModel
 import app.m5chat.android.viewmodel.PendingAttachment
 import app.m5chat.shared.models.ErrorType
@@ -391,6 +393,13 @@ fun ChatScreen(
                     onChoiceSelected = { choice ->
                         viewModel.updateInputText(choice)
                         viewModel.sendMessage()
+                    },
+                    onFormSubmit = { formData, fields ->
+                        val formattedResponse = formatFormResponse(formData, fields)
+                        if (formattedResponse.isNotBlank()) {
+                            viewModel.updateInputText(formattedResponse)
+                            viewModel.sendMessage()
+                        }
                     }
                 )
             }
