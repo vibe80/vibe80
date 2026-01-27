@@ -38,10 +38,19 @@ import io.noties.markwon.linkify.LinkifyPlugin
 fun MessageBubble(
     message: ChatMessage?,
     streamingText: String? = null,
-    isStreaming: Boolean = false
+    isStreaming: Boolean = false,
+    onChoiceSelected: ((String) -> Unit)? = null
 ) {
     val isUser = message?.role == MessageRole.USER
-    val text = streamingText ?: message?.text ?: ""
+    val rawText = streamingText ?: message?.text ?: ""
+
+    // Parse vibecoder:choices blocks for assistant messages
+    val choicesBlocks = remember(rawText, isUser) {
+        if (!isUser && !isStreaming) parseVibecoderChoices(rawText) else emptyList()
+    }
+    val text = remember(rawText, choicesBlocks) {
+        if (choicesBlocks.isNotEmpty()) removeVibecoderChoices(rawText) else rawText
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -106,6 +115,18 @@ fun MessageBubble(
                         // Markdown for assistant messages
                         MarkdownText(
                             markdown = text,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // Vibecoder choices buttons
+                if (choicesBlocks.isNotEmpty() && onChoiceSelected != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    choicesBlocks.forEach { block ->
+                        VibecoderChoicesView(
+                            block = block,
+                            onOptionSelected = onChoiceSelected,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

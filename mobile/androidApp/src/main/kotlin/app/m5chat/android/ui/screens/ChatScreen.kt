@@ -386,7 +386,13 @@ fun ChatScreen(
                 items = uiState.messages,
                 key = { it.id }
             ) { message ->
-                MessageBubble(message = message)
+                MessageBubble(
+                    message = message,
+                    onChoiceSelected = { choice ->
+                        viewModel.updateInputText(choice)
+                        viewModel.sendMessage()
+                    }
+                )
             }
 
             // Streaming message
