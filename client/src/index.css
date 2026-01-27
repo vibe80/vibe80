@@ -2315,13 +2315,15 @@ main.chat {
   box-shadow: var(--shadow);
   align-items: stretch;
   position: relative;
+  width: max-content;
+  max-width: calc(100% - 24px);
 }
 
 .composer-inner {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 100%;
+  width: auto;
 }
 
 .composer-attach-button {
@@ -2353,15 +2355,15 @@ main.chat {
 
 .composer--sticky {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 50%;
   bottom: 12px;
   z-index: 20;
-  margin: 0 12px;
+  transform: translateX(-50%);
+  margin: 0;
 }
 
 .composer-input {
-  width: 100%;
+  width: clamp(240px, 36vw, 520px);
   min-height: var(--composer-control-height);
   border-radius: 16px;
   border: none;
@@ -2391,7 +2393,7 @@ main.chat {
 
 .composer-main {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto auto;
   gap: 10px;
   align-items: flex-end;
 }
@@ -2818,8 +2820,10 @@ main.chat {
   }
 
   .layout.is-mobile .composer--sticky {
+    left: 50%;
+    transform: translateX(-50%);
     bottom: calc(8px + env(safe-area-inset-bottom));
-    margin: 0 8px;
+    margin: 0;
   }
 
   .layout.is-mobile .side {
@@ -2839,7 +2843,7 @@ main.chat {
   }
 
   .layout.is-mobile .composer-main {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto auto auto;
     gap: 8px;
     align-items: center;
   }
@@ -2854,6 +2858,7 @@ main.chat {
 
   .layout.is-mobile .composer-input {
     min-height: var(--composer-control-height);
+    width: clamp(200px, 60vw, 420px);
     padding: 10px 12px;
     overflow: auto;
   }
