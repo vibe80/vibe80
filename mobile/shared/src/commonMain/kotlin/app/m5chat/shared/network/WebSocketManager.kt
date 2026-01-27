@@ -112,22 +112,34 @@ class WebSocketManager(
                 // Handle incoming messages
                 try {
                     for (frame in incoming) {
-                        when (frame) {
-                            is Frame.Text -> {
-                                val text = frame.readText()
-                                parseAndEmitMessage(text)
+                        try {
+                            when (frame) {
+                                is Frame.Text -> {
+                                    val text = frame.readText()
+                                    parseAndEmitMessage(text)
+                                }
+                                is Frame.Close -> {
+                                    AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Received close frame")
+                                    break
+                                }
+                                else -> {}
                             }
-                            is Frame.Close -> {
-                                break
-                            }
-                            else -> {}
+                        } catch (e: Exception) {
+                            AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Error processing frame: ${e.message}")
+                            // Continue processing other frames
                         }
                     }
+                } catch (e: Exception) {
+                    AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "WebSocket receive loop error: ${e.message}")
                 } finally {
                     outgoingJob.cancel()
                     pingJob?.cancel()
                 }
             }
+            // WebSocket closed normally, attempt to reconnect
+            AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "WebSocket connection closed, scheduling reconnect")
+            _connectionState.value = ConnectionState.DISCONNECTED
+            scheduleReconnect()
         } catch (e: Exception) {
             AppLogger.wsError(e)
             _connectionState.value = ConnectionState.ERROR
