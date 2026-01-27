@@ -1182,6 +1182,7 @@ main.chat {
 }
 
 .explorer-tree-name {
+  font-family: "Space Grotesk", system-ui, sans-serif !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
