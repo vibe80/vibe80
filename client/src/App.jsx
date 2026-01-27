@@ -4539,11 +4539,11 @@ function App() {
                   {currentMessages.length === 0 && (
                     <div className="chat-empty-state">
                       <div className="chat-empty-hero">
-                        <p className="eyebrow">M5CHAT — Assistant</p>
-                        <h1>Quel est votre objectif&nbsp;?</h1>
+                        <p className="eyebrow">M5CHAT</p>
+                        <h1>Comment puis-je vous aider&nbsp;?</h1>
                         <p className="chat-empty-subtitle">
-                          Décrivez votre tâche, ajoutez un fichier ou collez du
-                          code pour commencer.
+                          Posez une question, partagez un fichier ou décrivez un
+                          problème.
                         </p>
                         <div className="chat-empty-chips">
                           {emptySuggestions.map((suggestion) => (

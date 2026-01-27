@@ -765,11 +765,6 @@ main.chat {
   --composer-space: 160px;
   --chat-max-width: 72ch;
   --empty-hero-shift: 0px;
-  --chat-toolbar-scale: 0.8;
-  --chat-toolbar-width: calc(108px * var(--chat-toolbar-scale));
-  --chat-toolbar-gap: calc(18px * var(--chat-toolbar-scale));
-  --chat-toolbar-offset: calc(var(--chat-toolbar-width) + var(--chat-toolbar-gap));
-  --chat-toolbar-inset: calc(18px * var(--chat-toolbar-scale));
   transition: background 0.4s ease;
 }
 
@@ -781,15 +776,13 @@ main.chat {
 }
 
 .conversation.is-chat-narrow .composer {
-  width: min(100%, var(--chat-max-width));
-  max-width: var(--chat-max-width);
+  max-width: min(var(--chat-max-width), calc(100% - 24px));
   margin: 0 auto;
 }
 
 .conversation.is-chat-empty {
-  --composer-space: 220px;
-  --empty-hero-shift: 26px;
-  --empty-composer-offset: 90px;
+  --composer-space: 120px;
+  --empty-hero-shift: 12px;
 }
 
 .pane-stack {
@@ -797,6 +790,11 @@ main.chat {
   min-height: 0;
   height: 100%;
   position: relative;
+  --chat-toolbar-scale: 0.8;
+  --chat-toolbar-width: calc(108px * var(--chat-toolbar-scale));
+  --chat-toolbar-gap: calc(18px * var(--chat-toolbar-scale));
+  --chat-toolbar-offset: calc(var(--chat-toolbar-width) + var(--chat-toolbar-gap));
+  --chat-toolbar-inset: calc(18px * var(--chat-toolbar-scale));
 }
 
 .layout:not(.is-mobile).is-side-collapsed {
@@ -1725,13 +1723,6 @@ main.chat {
   text-align: center;
 }
 
-.chat-empty-hero .eyebrow {
-  letter-spacing: 0.26em;
-  font-weight: 700;
-  font-size: 11px;
-  color: rgba(20, 19, 17, 0.6);
-}
-
 .chat-empty-hero h1 {
   font-size: clamp(28px, 3.6vw, 44px);
   font-weight: 700;
@@ -2433,7 +2424,7 @@ main.chat {
   align-items: stretch;
   position: relative;
   width: 100%;
-  max-width: 100%;
+  max-width: calc(100% - 24px);
 }
 
 .composer-inner {
@@ -2472,7 +2463,7 @@ main.chat {
 
 .composer--sticky {
   position: absolute;
-  left: calc(50% + (var(--chat-toolbar-offset) / 2));
+  left: 50%;
   bottom: 12px;
   z-index: 20;
   transform: translateX(-50%);
@@ -2482,8 +2473,7 @@ main.chat {
 .conversation.is-chat-empty .composer--sticky {
   top: 50%;
   bottom: auto;
-  transform: translate(-50%, -50%);
-  top: calc(50% + var(--empty-composer-offset));
+  transform: translate(-50%, calc(-50% + var(--empty-hero-shift)));
   transition: transform 0.6s ease;
 }
 
@@ -2923,8 +2913,6 @@ main.chat {
 
   .layout.is-mobile .conversation {
     gap: 8px;
-    --chat-toolbar-offset: 0px;
-    --chat-toolbar-inset: 0px;
   }
 
   .layout.is-mobile .pane-stack {
@@ -2951,7 +2939,7 @@ main.chat {
   }
 
   .layout.is-mobile .composer--sticky {
-    left: calc(50% + (var(--chat-toolbar-offset) / 2));
+    left: 50%;
     transform: translateX(-50%);
     bottom: calc(8px + env(safe-area-inset-bottom));
     margin: 0;
@@ -2960,8 +2948,7 @@ main.chat {
   .layout.is-mobile .conversation.is-chat-empty .composer--sticky {
     top: 50%;
     bottom: auto;
-    transform: translate(-50%, -50%);
-    top: calc(50% + var(--empty-composer-offset));
+    transform: translate(-50%, calc(-50% + var(--empty-hero-shift)));
     transition: transform 0.6s ease;
   }
 
