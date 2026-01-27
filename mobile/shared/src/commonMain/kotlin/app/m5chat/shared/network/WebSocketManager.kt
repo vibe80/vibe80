@@ -100,18 +100,17 @@ class WebSocketManager(
                     AppLogger.debug(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Outgoing message handler started")
                     try {
                         for (message in outgoingMessages) {
-                            val jsonString = json.encodeToString(ClientMessage.serializer(), message)
-                            val messageType = when (message) {
-                                is PingMessage -> "ping"
-                                is SendMessageRequest -> "user_message"
-                                is SwitchProviderRequest -> "switch_provider"
-                                is WorktreeMessageRequest -> "worktree_message"
-                                is CreateWorktreeRequest -> "create_worktree"
-                                is ListWorktreesRequest -> "list_worktrees"
-                                is CloseWorktreeRequest -> "close_worktree"
-                                is MergeWorktreeRequest -> "merge_worktree"
-                                is SyncMessagesRequest -> "sync_messages"
-                                else -> "unknown"
+                            // Encode each message type with its specific serializer to avoid sealed class issues
+                            val (messageType, jsonString) = when (message) {
+                                is PingMessage -> "ping" to json.encodeToString(PingMessage.serializer(), message)
+                                is SendMessageRequest -> "user_message" to json.encodeToString(SendMessageRequest.serializer(), message)
+                                is SwitchProviderRequest -> "switch_provider" to json.encodeToString(SwitchProviderRequest.serializer(), message)
+                                is WorktreeMessageRequest -> "worktree_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
+                                is CreateWorktreeRequest -> "create_worktree" to json.encodeToString(CreateWorktreeRequest.serializer(), message)
+                                is ListWorktreesRequest -> "list_worktrees" to json.encodeToString(ListWorktreesRequest.serializer(), message)
+                                is CloseWorktreeRequest -> "close_worktree" to json.encodeToString(CloseWorktreeRequest.serializer(), message)
+                                is MergeWorktreeRequest -> "merge_worktree" to json.encodeToString(MergeWorktreeRequest.serializer(), message)
+                                is SyncMessagesRequest -> "sync_messages" to json.encodeToString(SyncMessagesRequest.serializer(), message)
                             }
                             AppLogger.wsSend(messageType, jsonString)
                             send(Frame.Text(jsonString))
