@@ -1061,6 +1061,18 @@ main.chat {
   color: var(--accent-dark);
 }
 
+.explorer-tree-item.is-modified:not(.is-selected) .explorer-tree-name,
+.explorer-tree-item.is-modified:not(.is-selected) .explorer-tree-icon,
+.explorer-tree-item.is-modified:not(.is-selected) .explorer-tree-toggle {
+  color: #1d5fd3;
+}
+
+.explorer-tree-item.is-untracked:not(.is-selected) .explorer-tree-name,
+.explorer-tree-item.is-untracked:not(.is-selected) .explorer-tree-icon,
+.explorer-tree-item.is-untracked:not(.is-selected) .explorer-tree-toggle {
+  color: #1f8c4a;
+}
+
 .explorer-tree-caret {
   font-size: 12px;
   color: var(--ink-muted);

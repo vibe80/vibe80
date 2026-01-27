@@ -529,6 +529,10 @@ function App() {
       fileBinary: false,
       editMode: false,
       isDirty: false,
+      statusByPath: {},
+      statusLoading: false,
+      statusError: "",
+      statusLoaded: false,
       expandedPaths: [],
     }),
     []
@@ -560,6 +564,40 @@ function App() {
     window.matchMedia("(max-width: 1024px)").matches
   );
   const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
+  const explorerStatusByPath = activeExplorer.statusByPath || {};
+  const explorerDirStatus = useMemo(() => {
+    const dirStatus = {};
+    const setStatus = (dirPath, type) => {
+      if (!dirPath) {
+        return;
+      }
+      const existing = dirStatus[dirPath];
+      if (existing === "untracked") {
+        return;
+      }
+      if (type === "untracked") {
+        dirStatus[dirPath] = "untracked";
+        return;
+      }
+      if (!existing) {
+        dirStatus[dirPath] = type;
+      }
+    };
+    Object.entries(explorerStatusByPath).forEach(([path, type]) => {
+      if (!path) {
+        return;
+      }
+      const parts = path.split("/").filter(Boolean);
+      if (parts.length <= 1) {
+        return;
+      }
+      for (let i = 0; i < parts.length - 1; i += 1) {
+        const dirPath = parts.slice(0, i + 1).join("/");
+        setStatus(dirPath, type);
+      }
+    });
+    return dirStatus;
+  }, [explorerStatusByPath]);
   const getItemActivityLabel = (item) => {
     if (!item?.type) {
       return "";
@@ -3297,6 +3335,56 @@ function App() {
     ]
   );
 
+  const requestExplorerStatus = useCallback(
+    async (tabId, force = false) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId) {
+        return;
+      }
+      const existing = explorerByTab[tabId];
+      if (!force && existing?.statusLoaded && !existing?.statusError) {
+        return;
+      }
+      updateExplorerState(tabId, { statusLoading: true, statusError: "" });
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            tabId
+          )}/status?session=${encodeURIComponent(sessionId)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to load status");
+        }
+        const payload = await response.json();
+        const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+        const statusByPath = {};
+        entries.forEach((entry) => {
+          if (!entry?.path || !entry?.type) {
+            return;
+          }
+          statusByPath[entry.path] = entry.type;
+        });
+        updateExplorerState(tabId, {
+          statusByPath,
+          statusLoading: false,
+          statusError: "",
+          statusLoaded: true,
+        });
+      } catch (error) {
+        updateExplorerState(tabId, {
+          statusLoading: false,
+          statusError: "Impossible de charger le statut Git.",
+          statusLoaded: false,
+        });
+      }
+    },
+    [
+      attachmentSession?.sessionId,
+      explorerByTab,
+      updateExplorerState,
+    ]
+  );
+
   const loadExplorerFile = useCallback(
     async (tabId, filePath) => {
       const sessionId = attachmentSession?.sessionId;
@@ -3443,6 +3531,7 @@ function App() {
           fileSaveError: "",
           isDirty: false,
         });
+        requestExplorerStatus(tabId, true);
       } catch (error) {
         updateExplorerState(tabId, {
           fileSaving: false,
@@ -3450,7 +3539,12 @@ function App() {
         });
       }
     },
-    [attachmentSession?.sessionId, explorerByTab, updateExplorerState]
+    [
+      attachmentSession?.sessionId,
+      explorerByTab,
+      updateExplorerState,
+      requestExplorerStatus,
+    ]
   );
 
   const handleClearRpcLogs = useCallback(() => {
@@ -3479,7 +3573,13 @@ function App() {
     }
     const tabId = activeWorktreeId || "main";
     requestExplorerTree(tabId);
-  }, [activePane, activeWorktreeId, requestExplorerTree]);
+    requestExplorerStatus(tabId);
+  }, [
+    activePane,
+    activeWorktreeId,
+    requestExplorerTree,
+    requestExplorerStatus,
+  ]);
 
   const handleExportChat = useCallback(
     (format) => {
@@ -4023,7 +4123,14 @@ function App() {
     );
   }
 
-  const renderExplorerNodes = (nodes, tabId, expandedSet, selectedPath) => {
+  const renderExplorerNodes = (
+    nodes,
+    tabId,
+    expandedSet,
+    selectedPath,
+    statusByPath,
+    dirStatus
+  ) => {
     if (!Array.isArray(nodes) || nodes.length === 0) {
       return null;
     }
@@ -4032,8 +4139,14 @@ function App() {
         {nodes.map((node) => {
           if (node.type === "dir") {
             const isExpanded = expandedSet.has(node.path);
+            const statusType = dirStatus?.[node.path] || "";
             return (
-              <li key={node.path} className="explorer-tree-item is-dir">
+              <li
+                key={node.path}
+                className={`explorer-tree-item is-dir ${
+                  statusType ? `is-${statusType}` : ""
+                }`}
+              >
                 <button
                   type="button"
                   className="explorer-tree-toggle"
@@ -4049,19 +4162,22 @@ function App() {
                       node.children,
                       tabId,
                       expandedSet,
-                      selectedPath
+                      selectedPath,
+                      statusByPath,
+                      dirStatus
                     )
                   : null}
               </li>
             );
           }
           const isSelected = selectedPath === node.path;
+          const statusType = statusByPath?.[node.path] || "";
           return (
             <li
               key={node.path}
               className={`explorer-tree-item is-file ${
                 isSelected ? "is-selected" : ""
-              }`}
+              } ${statusType ? `is-${statusType}` : ""}`}
             >
               <button
                 type="button"
@@ -4856,7 +4972,11 @@ function App() {
                   type="button"
                   className="explorer-refresh"
                   onClick={() =>
-                    requestExplorerTree(activeWorktreeId || "main", true)
+                    (() => {
+                      const tabId = activeWorktreeId || "main";
+                      requestExplorerTree(tabId, true);
+                      requestExplorerStatus(tabId, true);
+                    })()
                   }
                   disabled={!attachmentSession?.sessionId}
                 >
@@ -4878,7 +4998,9 @@ function App() {
                         activeExplorer.tree,
                         activeWorktreeId || "main",
                         new Set(activeExplorer.expandedPaths || []),
-                        activeExplorer.selectedPath
+                        activeExplorer.selectedPath,
+                        explorerStatusByPath,
+                        explorerDirStatus
                       )}
                       {activeExplorer.treeTruncated && (
                         <div className="explorer-truncated">

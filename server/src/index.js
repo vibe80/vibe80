@@ -2527,6 +2527,54 @@ app.post("/api/worktree/:worktreeId/file", async (req, res) => {
   }
 });
 
+app.get("/api/worktree/:worktreeId/status", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  if (!rootPath) {
+    res.status(404).json({ error: "Worktree not found." });
+    return;
+  }
+  try {
+    const output = await runCommandOutput("git", ["status", "--porcelain"], {
+      cwd: rootPath,
+    });
+    const entries = output
+      .split(/\r?\n/)
+      .map((line) => line.trimEnd())
+      .filter(Boolean)
+      .map((line) => {
+        const isUntracked = line.startsWith("??");
+        let rawPath = line.slice(3);
+        if (rawPath.includes(" -> ")) {
+          rawPath = rawPath.split(" -> ").pop();
+        }
+        if (rawPath.startsWith("\"") && rawPath.endsWith("\"")) {
+          rawPath = rawPath
+            .slice(1, -1)
+            .replace(/\\"/g, "\"")
+            .replace(/\\\\/g, "\\");
+        }
+        return {
+          path: rawPath,
+          type: isUntracked ? "untracked" : "modified",
+        };
+      });
+    res.json({ entries });
+  } catch (error) {
+    console.error("Failed to read worktree status:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to read worktree status." });
+  }
+});
+
 app.delete("/api/worktree/:worktreeId", async (req, res) => {
   const sessionId = req.query.session;
   const session = getSession(sessionId);
