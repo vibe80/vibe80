@@ -623,12 +623,14 @@ function App() {
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
   const [toolResultPanelOpen, setToolResultPanelOpen] = useState({});
   const [toolbarExportOpen, setToolbarExportOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
   const socketRef = useRef(null);
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const toolbarExportRef = useRef(null);
+  const moreMenuRef = useRef(null);
   const conversationRef = useRef(null);
   const composerRef = useRef(null);
   const initialBranchRef = useRef("");
