@@ -28,6 +28,7 @@ class WebSocketManager(
     private var session: DefaultClientWebSocketSession? = null
     private var pingJob: Job? = null
     private var reconnectJob: Job? = null
+    private var connectionJob: Job? = null
     private var sessionId: String? = null
 
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
@@ -46,10 +47,14 @@ class WebSocketManager(
     private val initialReconnectDelay = 1000L
     private val maxReconnectDelay = 30000L
 
-    suspend fun connect(sessionId: String) {
+    fun connect(sessionId: String) {
         this.sessionId = sessionId
         reconnectAttempt = 0
-        doConnect()
+        // Launch connection in a separate coroutine to avoid blocking the caller
+        connectionJob?.cancel()
+        connectionJob = CoroutineScope(Dispatchers.Default).launch {
+            doConnect()
+        }
     }
 
     private suspend fun doConnect() {
@@ -248,6 +253,7 @@ class WebSocketManager(
 
     fun disconnect() {
         AppLogger.wsDisconnected("Client initiated disconnect")
+        connectionJob?.cancel()
         reconnectJob?.cancel()
         pingJob?.cancel()
         session?.let {
