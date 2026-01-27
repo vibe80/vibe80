@@ -3058,6 +3058,7 @@ function App() {
   // Get current messages based on active tab
   const currentMessages = activeWorktree ? activeWorktree.messages : messages;
   const hasMessages = Array.isArray(currentMessages) && currentMessages.length > 0;
+  const isChatEmpty = activePane === "chat" && !hasMessages;
 
   // Combined list for tabs: "main" + all worktrees
   const allTabs = useMemo(() => {
@@ -4346,6 +4347,8 @@ function App() {
         <section
           className={`conversation ${
             chatFullWidth ? "is-chat-full" : "is-chat-narrow"
+          } ${
+            isChatEmpty ? "is-chat-empty" : ""
           }`}
           ref={conversationRef}
         >
@@ -4503,10 +4506,19 @@ function App() {
             )}
             <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
               <div className="chat-scroll" ref={listRef}>
-                <div className="chat-scroll-inner">
+                <div
+                  className={`chat-scroll-inner ${
+                    isChatEmpty ? "is-empty" : ""
+                  }`}
+                >
                   {currentMessages.length === 0 && (
-                    <div className="empty">
-                      <p>Envoyez un message pour demarrer une session.</p>
+                    <div className="empty chat-empty-state">
+                      <p className="eyebrow">m5chat</p>
+                      <h1>Comment puis-je vous aider&nbsp;?</h1>
+                      <p className="chat-empty-subtitle">
+                        Posez une question, partagez un fichier ou décrivez un
+                        problème pour commencer.
+                      </p>
                     </div>
                   )}
                   {displayedGroupedMessages.map((message) => {
