@@ -73,43 +73,56 @@ class WebSocketManager(
 
             val fullWsUrl = "$wsUrl/ws?session=$currentSessionId"
             AppLogger.wsConnecting(fullWsUrl)
+            AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Starting WebSocket connection", "url=$fullWsUrl")
 
             httpClient.webSocket(fullWsUrl) {
                 session = this
                 _connectionState.value = ConnectionState.CONNECTED
                 reconnectAttempt = 0
                 AppLogger.wsConnected(fullWsUrl)
+                AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "WebSocket session established", "session=${this::class.simpleName}")
 
                 // Start ping job
                 pingJob = launch {
-                    while (isActive) {
-                        delay(25_000)
-                        send(PingMessage())
+                    AppLogger.debug(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Ping job started")
+                    try {
+                        while (isActive) {
+                            delay(25_000)
+                            send(PingMessage())
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Ping job error: ${e::class.simpleName}", e.message ?: e.toString())
                     }
                 }
 
                 // Start outgoing message handler
                 val outgoingJob = launch {
-                    for (message in outgoingMessages) {
-                        val jsonString = json.encodeToString(ClientMessage.serializer(), message)
-                        val messageType = when (message) {
-                            is PingMessage -> "ping"
-                            is SendMessageRequest -> "user_message"
-                            is SwitchProviderRequest -> "switch_provider"
-                            is WorktreeMessageRequest -> "worktree_message"
-                            is CreateWorktreeRequest -> "create_worktree"
-                            is ListWorktreesRequest -> "list_worktrees"
-                            is CloseWorktreeRequest -> "close_worktree"
-                            is MergeWorktreeRequest -> "merge_worktree"
-                            is SyncMessagesRequest -> "sync_messages"
-                            else -> "unknown"
+                    AppLogger.debug(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Outgoing message handler started")
+                    try {
+                        for (message in outgoingMessages) {
+                            val jsonString = json.encodeToString(ClientMessage.serializer(), message)
+                            val messageType = when (message) {
+                                is PingMessage -> "ping"
+                                is SendMessageRequest -> "user_message"
+                                is SwitchProviderRequest -> "switch_provider"
+                                is WorktreeMessageRequest -> "worktree_message"
+                                is CreateWorktreeRequest -> "create_worktree"
+                                is ListWorktreesRequest -> "list_worktrees"
+                                is CloseWorktreeRequest -> "close_worktree"
+                                is MergeWorktreeRequest -> "merge_worktree"
+                                is SyncMessagesRequest -> "sync_messages"
+                                else -> "unknown"
+                            }
+                            AppLogger.wsSend(messageType, jsonString)
+                            send(Frame.Text(jsonString))
                         }
-                        AppLogger.wsSend(messageType, jsonString)
-                        send(Frame.Text(jsonString))
+                    } catch (e: Exception) {
+                        AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Outgoing handler error: ${e::class.simpleName}", e.message ?: e.toString())
                     }
                 }
 
                 // Handle incoming messages
+                AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Starting incoming message loop")
                 try {
                     for (frame in incoming) {
                         try {
@@ -119,29 +132,40 @@ class WebSocketManager(
                                     parseAndEmitMessage(text)
                                 }
                                 is Frame.Close -> {
-                                    AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Received close frame")
+                                    val reason = closeReason.await()
+                                    AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Received close frame", "code=${reason?.code}, reason=${reason?.message}")
                                     break
                                 }
-                                else -> {}
+                                is Frame.Ping -> {
+                                    AppLogger.debug(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Received ping frame")
+                                }
+                                is Frame.Pong -> {
+                                    AppLogger.debug(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Received pong frame")
+                                }
+                                else -> {
+                                    AppLogger.warning(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Unknown frame type", frame::class.simpleName ?: "unknown")
+                                }
                             }
                         } catch (e: Exception) {
-                            AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Error processing frame: ${e.message}")
+                            AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Error processing frame: ${e::class.simpleName}", e.message ?: e.toString())
                             // Continue processing other frames
                         }
                     }
+                    AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Incoming message loop ended normally")
                 } catch (e: Exception) {
-                    AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "WebSocket receive loop error: ${e.message}")
+                    AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "WebSocket receive loop error: ${e::class.simpleName}", e.message ?: e.toString())
                 } finally {
+                    AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Cleaning up WebSocket jobs")
                     outgoingJob.cancel()
                     pingJob?.cancel()
                 }
             }
             // WebSocket closed normally, attempt to reconnect
-            AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "WebSocket connection closed, scheduling reconnect")
+            AppLogger.info(app.m5chat.shared.logging.LogSource.WEBSOCKET, "WebSocket block exited, scheduling reconnect")
             _connectionState.value = ConnectionState.DISCONNECTED
             scheduleReconnect()
         } catch (e: Exception) {
-            AppLogger.wsError(e)
+            AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "WebSocket connection error: ${e::class.simpleName}", e.stackTraceToString())
             _connectionState.value = ConnectionState.ERROR
             _errors.emit(e)
             scheduleReconnect()
