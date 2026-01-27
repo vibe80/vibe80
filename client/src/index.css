@@ -1914,6 +1914,10 @@ main.chat {
   gap: 8px;
 }
 
+.choices.is-inline {
+  align-items: center;
+}
+
 .choices-question {
   font-size: 12px;
   font-weight: 600;
@@ -1923,6 +1927,18 @@ main.chat {
 .choices-list {
   display: grid;
   gap: 8px;
+}
+
+.choices-list.is-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.choices.is-inline .choice-button {
+  width: auto;
+  min-width: 84px;
+  text-align: center;
 }
 
 .choice-button {

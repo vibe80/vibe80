@@ -93,7 +93,7 @@ const parseFormFields = (blockBody) => {
 
 const extractVibecoderBlocks = (text) => {
   const pattern =
-    /<!--\s*vibecoder:(choices|form)\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:\1\s*-->/g;
+    /<!--\s*vibecoder:(choices|form)\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:\1\s*-->|<!--\s*vibecoder:yesno\s*([^>]*)-->/g;
   const blocks = [];
   let cleaned = "";
   let lastIndex = 0;
@@ -103,8 +103,17 @@ const extractVibecoderBlocks = (text) => {
     cleaned += text.slice(lastIndex, match.index);
     lastIndex = match.index + match[0].length;
     const blockType = match[1];
-    const question = normalizeVibecoderQuestion(match[2]);
+    const question = normalizeVibecoderQuestion(match[2] || match[4]);
     const body = match[3] || "";
+
+    if (!blockType) {
+      blocks.push({
+        type: "yesno",
+        question,
+        choices: ["Oui", "Non"],
+      });
+      continue;
+    }
 
     if (blockType === "choices") {
       const choices = body
@@ -4745,8 +4754,14 @@ function App() {
                                       ),
                                     ].filter(Boolean);
 
+                              const isInline = block.type === "yesno";
                               return (
-                                <div className="choices" key={blockKey}>
+                                <div
+                                  className={`choices ${
+                                    isInline ? "is-inline" : ""
+                                  }`}
+                                  key={blockKey}
+                                >
                                   {block.question && (
                                     <div className="choices-question">
                                       {block.question}
@@ -4757,7 +4772,7 @@ function App() {
                                       selectedIndex !== undefined
                                         ? "is-selected"
                                         : ""
-                                    }`}
+                                    } ${isInline ? "is-inline" : ""}`}
                                   >
                                     {orderedChoices.map(
                                       ({ choice, choiceIndex }) => {
