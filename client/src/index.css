@@ -576,7 +576,6 @@ main.chat {
   justify-content: center;
   align-items: center;
   text-align: center;
-  padding-bottom: var(--composer-space, 160px);
 }
 
 .chat-toolbar {
@@ -776,8 +775,8 @@ main.chat {
 }
 
 .conversation.is-chat-empty {
-  --composer-space: 120px;
-  --empty-hero-shift: 12px;
+  --composer-space: 0px;
+  --empty-hero-shift: 26px;
 }
 
 .pane-stack {
@@ -2364,7 +2363,7 @@ main.chat {
   box-shadow: var(--shadow);
   align-items: stretch;
   position: relative;
-  width: 100%;
+  width: max-content;
   max-width: calc(100% - 24px);
 }
 
@@ -2372,7 +2371,7 @@ main.chat {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 100%;
+  width: auto;
 }
 
 .composer-attach-button {
@@ -2423,7 +2422,7 @@ main.chat {
 }
 
 .composer-input {
-  width: 100%;
+  width: clamp(240px, 36vw, 520px);
   min-height: var(--composer-control-height);
   border-radius: 16px;
   border: none;
@@ -2925,7 +2924,7 @@ main.chat {
 
   .layout.is-mobile .composer-input {
     min-height: var(--composer-control-height);
-    width: 100%;
+    width: clamp(200px, 60vw, 420px);
     padding: 10px 12px;
     overflow: auto;
   }
