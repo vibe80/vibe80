@@ -3303,6 +3303,19 @@ function App() {
       if (!sessionId || !tabId || !filePath) {
         return;
       }
+      const currentState = explorerByTab[tabId];
+      if (
+        currentState?.isDirty &&
+        currentState?.selectedPath &&
+        currentState.selectedPath !== filePath
+      ) {
+        const shouldContinue = window.confirm(
+          "Vous avez des modifications non sauvegardees. Continuer sans sauvegarder ?"
+        );
+        if (!shouldContinue) {
+          return;
+        }
+      }
       updateExplorerState(tabId, {
         selectedPath: filePath,
         fileLoading: true,
