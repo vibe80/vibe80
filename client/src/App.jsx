@@ -511,6 +511,33 @@ function App() {
   const [activeForm, setActiveForm] = useState(null);
   const [activeFormValues, setActiveFormValues] = useState({});
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
+  const explorerDefaultState = useMemo(
+    () => ({
+      tree: null,
+      loading: false,
+      error: "",
+      treeTruncated: false,
+      treeTotal: 0,
+      selectedPath: null,
+      fileContent: "",
+      draftContent: "",
+      fileLoading: false,
+      fileSaving: false,
+      fileError: "",
+      fileSaveError: "",
+      fileTruncated: false,
+      fileBinary: false,
+      editMode: false,
+      isDirty: false,
+      statusByPath: {},
+      statusLoading: false,
+      statusError: "",
+      statusLoaded: false,
+      expandedPaths: [],
+    }),
+    []
+  );
+  const [explorerByTab, setExplorerByTab] = useState({});
   const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
   const [backlog, setBacklog] = useState([]);
   const [currentTurnId, setCurrentTurnId] = useState(null);
@@ -536,6 +563,41 @@ function App() {
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
+  const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
+  const explorerStatusByPath = activeExplorer.statusByPath || {};
+  const explorerDirStatus = useMemo(() => {
+    const dirStatus = {};
+    const setStatus = (dirPath, type) => {
+      if (!dirPath) {
+        return;
+      }
+      const existing = dirStatus[dirPath];
+      if (existing === "untracked") {
+        return;
+      }
+      if (type === "untracked") {
+        dirStatus[dirPath] = "untracked";
+        return;
+      }
+      if (!existing) {
+        dirStatus[dirPath] = type;
+      }
+    };
+    Object.entries(explorerStatusByPath).forEach(([path, type]) => {
+      if (!path) {
+        return;
+      }
+      const parts = path.split("/").filter(Boolean);
+      if (parts.length <= 1) {
+        return;
+      }
+      for (let i = 0; i < parts.length - 1; i += 1) {
+        const dirPath = parts.slice(0, i + 1).join("/");
+        setStatus(dirPath, type);
+      }
+    });
+    return dirStatus;
+  }, [explorerStatusByPath]);
   const getItemActivityLabel = (item) => {
     if (!item?.type) {
       return "";
@@ -3197,6 +3259,276 @@ function App() {
     setToolbarExportOpen(false);
   }, [activeWorktreeId]);
 
+  const updateExplorerState = useCallback((tabId, patch) => {
+    setExplorerByTab((current) => {
+      const prev = current[tabId] || explorerDefaultState;
+      return {
+        ...current,
+        [tabId]: {
+          ...explorerDefaultState,
+          ...prev,
+          ...patch,
+        },
+      };
+    });
+  }, [explorerDefaultState]);
+
+  const requestExplorerTree = useCallback(
+    async (tabId, force = false) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId) {
+        return;
+      }
+      const existing = explorerByTab[tabId];
+      if (!force && existing?.tree && !existing?.error) {
+        return;
+      }
+      updateExplorerState(tabId, { loading: true, error: "" });
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            tabId
+          )}/tree?session=${encodeURIComponent(sessionId)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to load tree");
+        }
+        const payload = await response.json();
+        updateExplorerState(tabId, {
+          tree: Array.isArray(payload?.tree) ? payload.tree : [],
+          loading: false,
+          error: "",
+          treeTruncated: Boolean(payload?.truncated),
+          treeTotal: Number.isFinite(Number(payload?.total))
+            ? Number(payload.total)
+            : 0,
+        });
+      } catch (error) {
+        updateExplorerState(tabId, {
+          loading: false,
+          error: "Impossible de charger l'explorateur.",
+        });
+      }
+    },
+    [
+      attachmentSession?.sessionId,
+      explorerByTab,
+      updateExplorerState,
+    ]
+  );
+
+  const requestExplorerStatus = useCallback(
+    async (tabId, force = false) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId) {
+        return;
+      }
+      const existing = explorerByTab[tabId];
+      if (!force && existing?.statusLoaded && !existing?.statusError) {
+        return;
+      }
+      updateExplorerState(tabId, { statusLoading: true, statusError: "" });
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            tabId
+          )}/status?session=${encodeURIComponent(sessionId)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to load status");
+        }
+        const payload = await response.json();
+        const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+        const statusByPath = {};
+        entries.forEach((entry) => {
+          if (!entry?.path || !entry?.type) {
+            return;
+          }
+          statusByPath[entry.path] = entry.type;
+        });
+        updateExplorerState(tabId, {
+          statusByPath,
+          statusLoading: false,
+          statusError: "",
+          statusLoaded: true,
+        });
+      } catch (error) {
+        updateExplorerState(tabId, {
+          statusLoading: false,
+          statusError: "Impossible de charger le statut Git.",
+          statusLoaded: false,
+        });
+      }
+    },
+    [
+      attachmentSession?.sessionId,
+      explorerByTab,
+      updateExplorerState,
+    ]
+  );
+
+  const loadExplorerFile = useCallback(
+    async (tabId, filePath) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId || !filePath) {
+        return;
+      }
+      const currentState = explorerByTab[tabId];
+      if (
+        currentState?.isDirty &&
+        currentState?.selectedPath &&
+        currentState.selectedPath !== filePath
+      ) {
+        const shouldContinue = window.confirm(
+          "Vous avez des modifications non sauvegardees. Continuer sans sauvegarder ?"
+        );
+        if (!shouldContinue) {
+          return;
+        }
+      }
+      updateExplorerState(tabId, {
+        selectedPath: filePath,
+        fileLoading: true,
+        fileError: "",
+        fileBinary: false,
+        fileSaveError: "",
+        fileSaving: false,
+        editMode: false,
+        isDirty: false,
+      });
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            tabId
+          )}/file?session=${encodeURIComponent(
+            sessionId
+          )}&path=${encodeURIComponent(filePath)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to load file");
+        }
+        const payload = await response.json();
+        const content = payload?.content || "";
+        updateExplorerState(tabId, {
+          fileContent: content,
+          draftContent: content,
+          fileLoading: false,
+          fileError: "",
+          fileTruncated: Boolean(payload?.truncated),
+          fileBinary: Boolean(payload?.binary),
+        });
+      } catch (error) {
+        updateExplorerState(tabId, {
+          fileLoading: false,
+          fileError: "Impossible de charger le fichier.",
+        });
+      }
+    },
+    [attachmentSession?.sessionId, updateExplorerState]
+  );
+
+  const toggleExplorerDir = useCallback(
+    (tabId, dirPath) => {
+      if (!tabId || !dirPath) {
+        return;
+      }
+      setExplorerByTab((current) => {
+        const prev = current[tabId] || explorerDefaultState;
+        const expanded = new Set(prev.expandedPaths || []);
+        if (expanded.has(dirPath)) {
+          expanded.delete(dirPath);
+        } else {
+          expanded.add(dirPath);
+        }
+        return {
+          ...current,
+          [tabId]: {
+            ...explorerDefaultState,
+            ...prev,
+            expandedPaths: Array.from(expanded),
+          },
+        };
+      });
+    },
+    [explorerDefaultState]
+  );
+
+  const toggleExplorerEditMode = useCallback(
+    (tabId, nextMode) => {
+      if (!tabId) {
+        return;
+      }
+      updateExplorerState(tabId, {
+        editMode: nextMode,
+        fileSaveError: "",
+      });
+    },
+    [updateExplorerState]
+  );
+
+  const updateExplorerDraft = useCallback(
+    (tabId, value) => {
+      if (!tabId) {
+        return;
+      }
+      updateExplorerState(tabId, {
+        draftContent: value,
+        isDirty: true,
+      });
+    },
+    [updateExplorerState]
+  );
+
+  const saveExplorerFile = useCallback(
+    async (tabId) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId) {
+        return;
+      }
+      const state = explorerByTab[tabId];
+      if (!state?.selectedPath || state?.fileBinary) {
+        return;
+      }
+      updateExplorerState(tabId, { fileSaving: true, fileSaveError: "" });
+      try {
+        const response = await fetch(
+          `/api/worktree/${encodeURIComponent(
+            tabId
+          )}/file?session=${encodeURIComponent(sessionId)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path: state.selectedPath,
+              content: state.draftContent || "",
+            }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to save file");
+        }
+        updateExplorerState(tabId, {
+          fileContent: state.draftContent || "",
+          fileSaving: false,
+          fileSaveError: "",
+          isDirty: false,
+        });
+        requestExplorerStatus(tabId, true);
+      } catch (error) {
+        updateExplorerState(tabId, {
+          fileSaving: false,
+          fileSaveError: "Impossible d'enregistrer le fichier.",
+        });
+      }
+    },
+    [
+      attachmentSession?.sessionId,
+      explorerByTab,
+      updateExplorerState,
+      requestExplorerStatus,
+    ]
+  );
+
   const handleClearRpcLogs = useCallback(() => {
     setRpcLogs((current) => {
       if (activeWorktreeId && activeWorktreeId !== "main") {
@@ -3216,6 +3548,20 @@ function App() {
       requestWorktreeDiff(activeWorktreeId);
     }
   }, [activePane, activeWorktreeId, requestWorktreeDiff]);
+
+  useEffect(() => {
+    if (activePane !== "explorer") {
+      return;
+    }
+    const tabId = activeWorktreeId || "main";
+    requestExplorerTree(tabId);
+    requestExplorerStatus(tabId);
+  }, [
+    activePane,
+    activeWorktreeId,
+    requestExplorerTree,
+    requestExplorerStatus,
+  ]);
 
   const handleExportChat = useCallback(
     (format) => {
@@ -3758,6 +4104,79 @@ function App() {
     );
   }
 
+  const renderExplorerNodes = (
+    nodes,
+    tabId,
+    expandedSet,
+    selectedPath,
+    statusByPath,
+    dirStatus
+  ) => {
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return null;
+    }
+    return (
+      <ul className="explorer-tree-list">
+        {nodes.map((node) => {
+          if (node.type === "dir") {
+            const isExpanded = expandedSet.has(node.path);
+            const statusType = dirStatus?.[node.path] || "";
+            return (
+              <li
+                key={node.path}
+                className={`explorer-tree-item is-dir ${
+                  statusType ? `is-${statusType}` : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  className="explorer-tree-toggle"
+                  onClick={() => toggleExplorerDir(tabId, node.path)}
+                >
+                  <span className="explorer-tree-caret">
+                    {isExpanded ? "▾" : "▸"}
+                  </span>
+                  <span className="explorer-tree-name">{node.name}</span>
+                </button>
+                {isExpanded
+                  ? renderExplorerNodes(
+                      node.children,
+                      tabId,
+                      expandedSet,
+                      selectedPath,
+                      statusByPath,
+                      dirStatus
+                    )
+                  : null}
+              </li>
+            );
+          }
+          const isSelected = selectedPath === node.path;
+          const statusType = statusByPath?.[node.path] || "";
+          return (
+            <li
+              key={node.path}
+              className={`explorer-tree-item is-file ${
+                isSelected ? "is-selected" : ""
+              } ${statusType ? `is-${statusType}` : ""}`}
+            >
+              <button
+                type="button"
+                className="explorer-tree-file"
+                onClick={() => loadExplorerFile(tabId, node.path)}
+              >
+                <span className="explorer-tree-icon" aria-hidden="true">
+                  📄
+                </span>
+                <span className="explorer-tree-name">{node.name}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -3803,6 +4222,97 @@ function App() {
           </div>
         </div>
 
+        <div className="topbar-right">
+          <div className="dropdown more-menu" ref={moreMenuRef}>
+            <button
+              type="button"
+              className="pill-button"
+              onClick={() => {
+                setMoreMenuOpen((current) => !current);
+              }}
+            >
+              ⋯
+            </button>
+            {moreMenuOpen && (
+              <div className="dropdown-menu">
+                <div className="dropdown-title">Vue</div>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "chat" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("chat")}
+                >
+                  Messages
+                </button>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "diff" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("diff")}
+                >
+                  Diff
+                </button>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "explorer" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("explorer")}
+                >
+                  Explorateur
+                </button>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "terminal" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("terminal")}
+                >
+                  Terminal
+                </button>
+                <button
+                  type="button"
+                  className={`menu-item ${
+                    activePane === "logs" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("logs")}
+                >
+                  Logs
+                </button>
+                <button
+                  type="button"
+                  className="menu-item"
+                  onClick={() => handleExportChat("markdown")}
+                  disabled={messages.length === 0}
+                >
+                  Export markdown
+                </button>
+                <button
+                  type="button"
+                  className="menu-item"
+                  onClick={() => handleExportChat("json")}
+                  disabled={messages.length === 0}
+                >
+                  Export JSON
+                </button>
+                <div className="dropdown-divider" />
+                <button
+                  type="button"
+                  className="menu-item danger"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    handleClearChat();
+                  }}
+                  disabled={messages.length === 0}
+                >
+                  Clear chat
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
       <div
@@ -3932,6 +4442,20 @@ function App() {
                 >
                   <span className="chat-toolbar-icon" aria-hidden="true">
                     Δ
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`chat-toolbar-button ${
+                    activePane === "explorer" ? "is-active" : ""
+                  }`}
+                  onClick={() => handleViewSelect("explorer")}
+                  aria-pressed={activePane === "explorer"}
+                  aria-label="Explorateur"
+                  title="Explorateur"
+                >
+                  <span className="chat-toolbar-icon" aria-hidden="true">
+                    🗂
                   </span>
                 </button>
                 <button
@@ -4427,6 +4951,159 @@ function App() {
               ) : (
                 <div className="diff-empty">Aucun changement detecte.</div>
               )}
+            </div>
+            <div
+              className={`explorer-panel ${
+                activePane === "explorer" ? "" : "is-hidden"
+              }`}
+            >
+              <div className="explorer-header">
+                <div>
+                  <div className="explorer-title">Explorateur</div>
+                  {(repoName ||
+                    activeWorktree?.branchName ||
+                    activeWorktree?.name) && (
+                    <div className="explorer-subtitle">
+                      {isInWorktree
+                        ? activeWorktree?.branchName || activeWorktree?.name
+                        : repoName}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="explorer-refresh"
+                  onClick={() =>
+                    (() => {
+                      const tabId = activeWorktreeId || "main";
+                      requestExplorerTree(tabId, true);
+                      requestExplorerStatus(tabId, true);
+                    })()
+                  }
+                  disabled={!attachmentSession?.sessionId}
+                >
+                  Rafraichir
+                </button>
+              </div>
+              <div className="explorer-body">
+                <div className="explorer-tree">
+                  {activeExplorer.loading ? (
+                    <div className="explorer-empty">Chargement...</div>
+                  ) : activeExplorer.error ? (
+                    <div className="explorer-empty">
+                      {activeExplorer.error}
+                    </div>
+                  ) : Array.isArray(activeExplorer.tree) &&
+                    activeExplorer.tree.length > 0 ? (
+                    <>
+                      {renderExplorerNodes(
+                        activeExplorer.tree,
+                        activeWorktreeId || "main",
+                        new Set(activeExplorer.expandedPaths || []),
+                        activeExplorer.selectedPath,
+                        explorerStatusByPath,
+                        explorerDirStatus
+                      )}
+                      {activeExplorer.treeTruncated && (
+                        <div className="explorer-truncated">
+                          Liste tronquee apres {activeExplorer.treeTotal} entrees.
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="explorer-empty">
+                      Aucun fichier trouve.
+                    </div>
+                  )}
+                </div>
+                <div className="explorer-editor">
+                  <div className="explorer-editor-header">
+                    <span className="explorer-editor-path">
+                      {activeExplorer.selectedPath ||
+                        "Aucun fichier selectionne"}
+                    </span>
+                    <div className="explorer-editor-actions">
+                      {activeExplorer.selectedPath && !activeExplorer.fileBinary && (
+                        <button
+                          type="button"
+                          className="explorer-action"
+                          onClick={() =>
+                            toggleExplorerEditMode(
+                              activeWorktreeId || "main",
+                              !activeExplorer.editMode
+                            )
+                          }
+                          disabled={activeExplorer.fileLoading}
+                        >
+                          {activeExplorer.editMode ? "Lecture" : "Editer"}
+                        </button>
+                      )}
+                      {activeExplorer.editMode && (
+                        <button
+                          type="button"
+                          className="explorer-action primary"
+                          onClick={() =>
+                            saveExplorerFile(activeWorktreeId || "main")
+                          }
+                          disabled={
+                            activeExplorer.fileSaving ||
+                            !activeExplorer.isDirty
+                          }
+                        >
+                          {activeExplorer.fileSaving ? "Sauvegarde..." : "Sauver"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {activeExplorer.fileLoading ? (
+                    <div className="explorer-editor-empty">
+                      Chargement...
+                    </div>
+                  ) : activeExplorer.fileError ? (
+                    <div className="explorer-editor-empty">
+                      {activeExplorer.fileError}
+                    </div>
+                  ) : activeExplorer.fileBinary ? (
+                    <div className="explorer-editor-empty">
+                      Fichier binaire non affiche.
+                    </div>
+                  ) : activeExplorer.selectedPath ? (
+                    <>
+                      {activeExplorer.editMode ? (
+                        <textarea
+                          className="explorer-editor-input"
+                          value={activeExplorer.draftContent}
+                          onChange={(event) =>
+                            updateExplorerDraft(
+                              activeWorktreeId || "main",
+                              event.target.value
+                            )
+                          }
+                          spellCheck={false}
+                        />
+                      ) : (
+                        <pre className="explorer-editor-content">
+                          {activeExplorer.fileContent}
+                        </pre>
+                      )}
+                      {activeExplorer.fileSaveError && (
+                        <div className="explorer-truncated">
+                          {activeExplorer.fileSaveError}
+                        </div>
+                      )}
+                      {activeExplorer.fileTruncated && (
+                        <div className="explorer-truncated">
+                          Fichier tronque pour l'affichage.
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="explorer-editor-empty">
+                      Selectionnez un fichier dans l'arborescence.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <div
               className={`terminal-panel ${

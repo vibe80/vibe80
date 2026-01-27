@@ -467,6 +467,106 @@ const getSessionFromRequest = (req) => {
 const sanitizeFilename = (originalName) =>
   path.basename(originalName || "attachment");
 
+const TREE_IGNORED_NAMES = new Set([
+  ".git",
+  "node_modules",
+  ".next",
+  "dist",
+  "build",
+  "coverage",
+  "out",
+  "worktrees",
+  "attachments",
+  ".cache",
+  ".turbo",
+  ".idea",
+  ".vscode",
+  "venv",
+  ".venv",
+]);
+const MAX_TREE_ENTRIES = 3000;
+const MAX_TREE_DEPTH = 8;
+const MAX_FILE_BYTES = 200 * 1024;
+const MAX_WRITE_BYTES = 500 * 1024;
+
+const resolveWorktreeRoot = (session, worktreeId) => {
+  if (!session) {
+    return { rootPath: null, worktree: null };
+  }
+  if (!worktreeId || worktreeId === "main") {
+    return { rootPath: session.repoDir, worktree: null };
+  }
+  const worktree = getWorktree(session, worktreeId);
+  if (!worktree) {
+    return { rootPath: null, worktree: null };
+  }
+  return { rootPath: worktree.path, worktree };
+};
+
+const buildDirectoryTree = async (rootPath, options = {}) => {
+  const maxDepth = Number.isFinite(Number(options.maxDepth))
+    ? Math.min(Number(options.maxDepth), MAX_TREE_DEPTH)
+    : MAX_TREE_DEPTH;
+  const maxEntries = Number.isFinite(Number(options.maxEntries))
+    ? Math.min(Number(options.maxEntries), MAX_TREE_ENTRIES)
+    : MAX_TREE_ENTRIES;
+  let count = 0;
+  let truncated = false;
+
+  const walk = async (absPath, relPath, depth) => {
+    if (count >= maxEntries) {
+      truncated = true;
+      return [];
+    }
+    let entries = [];
+    try {
+      entries = await fs.promises.readdir(absPath, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    const visible = entries.filter((entry) => !TREE_IGNORED_NAMES.has(entry.name));
+    visible.sort((a, b) => {
+      if (a.isDirectory() && !b.isDirectory()) return -1;
+      if (!a.isDirectory() && b.isDirectory()) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    const nodes = [];
+    for (const entry of visible) {
+      if (count >= maxEntries) {
+        truncated = true;
+        break;
+      }
+      const entryPath = relPath ? `${relPath}/${entry.name}` : entry.name;
+      const absEntryPath = path.join(absPath, entry.name);
+      if (entry.isDirectory()) {
+        count += 1;
+        const node = {
+          name: entry.name,
+          path: entryPath,
+          type: "dir",
+          children: [],
+        };
+        if (depth < maxDepth) {
+          node.children = await walk(absEntryPath, entryPath, depth + 1);
+        }
+        nodes.push(node);
+      } else {
+        count += 1;
+        nodes.push({
+          name: entry.name,
+          path: entryPath,
+          type: "file",
+        });
+      }
+    }
+    return nodes;
+  };
+
+  const tree = await walk(rootPath, "", 0);
+  return { tree, total: count, truncated };
+};
+
 const appendSessionMessage = (sessionId, message) => {
   const session = getSession(sessionId);
   if (!session) {
@@ -2286,6 +2386,192 @@ app.get("/api/worktree/:worktreeId", async (req, res) => {
       error: error?.message || error,
     });
     res.status(500).json({ error: "Failed to get worktree." });
+  }
+});
+
+app.get("/api/worktree/:worktreeId/tree", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  if (!rootPath) {
+    res.status(404).json({ error: "Worktree not found." });
+    return;
+  }
+  try {
+    const payload = await buildDirectoryTree(rootPath, {
+      maxDepth: req.query?.depth,
+      maxEntries: req.query?.limit,
+    });
+    res.json(payload);
+  } catch (error) {
+    console.error("Failed to read worktree tree:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to read worktree tree." });
+  }
+});
+
+app.get("/api/worktree/:worktreeId/file", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  if (!rootPath) {
+    res.status(404).json({ error: "Worktree not found." });
+    return;
+  }
+  const requestedPath = req.query?.path;
+  if (!requestedPath || typeof requestedPath !== "string") {
+    res.status(400).json({ error: "Path is required." });
+    return;
+  }
+  const absPath = path.resolve(rootPath, requestedPath);
+  const relative = path.relative(rootPath, absPath);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    res.status(400).json({ error: "Invalid path." });
+    return;
+  }
+  try {
+    const stats = await fs.promises.stat(absPath);
+    if (!stats.isFile()) {
+      res.status(400).json({ error: "Path is not a file." });
+      return;
+    }
+    let content = "";
+    let truncated = false;
+    let binary = false;
+    if (stats.size > MAX_FILE_BYTES) {
+      truncated = true;
+      const handle = await fs.promises.open(absPath, "r");
+      const buffer = Buffer.alloc(MAX_FILE_BYTES);
+      const result = await handle.read(buffer, 0, MAX_FILE_BYTES, 0);
+      await handle.close();
+      const slice = buffer.subarray(0, result.bytesRead);
+      binary = slice.includes(0);
+      content = binary ? "" : slice.toString("utf8");
+    } else {
+      const data = await fs.promises.readFile(absPath);
+      binary = data.includes(0);
+      content = binary ? "" : data.toString("utf8");
+    }
+    res.json({ path: requestedPath, content, truncated, binary });
+  } catch (error) {
+    console.error("Failed to read file:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      path: requestedPath,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to read file." });
+  }
+});
+
+app.post("/api/worktree/:worktreeId/file", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  if (!rootPath) {
+    res.status(404).json({ error: "Worktree not found." });
+    return;
+  }
+  const requestedPath = req.body?.path;
+  const content = req.body?.content;
+  if (!requestedPath || typeof requestedPath !== "string") {
+    res.status(400).json({ error: "Path is required." });
+    return;
+  }
+  if (typeof content !== "string") {
+    res.status(400).json({ error: "Content must be a string." });
+    return;
+  }
+  const bytes = Buffer.byteLength(content, "utf8");
+  if (bytes > MAX_WRITE_BYTES) {
+    res.status(400).json({ error: "File too large to write." });
+    return;
+  }
+  const absPath = path.resolve(rootPath, requestedPath);
+  const relative = path.relative(rootPath, absPath);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    res.status(400).json({ error: "Invalid path." });
+    return;
+  }
+  try {
+    const stats = await fs.promises.stat(absPath);
+    if (!stats.isFile()) {
+      res.status(400).json({ error: "Path is not a file." });
+      return;
+    }
+    await fs.promises.writeFile(absPath, content, "utf8");
+    res.json({ ok: true, path: requestedPath });
+  } catch (error) {
+    console.error("Failed to write file:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      path: requestedPath,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to write file." });
+  }
+});
+
+app.get("/api/worktree/:worktreeId/status", async (req, res) => {
+  const sessionId = req.query.session;
+  const session = getSession(sessionId);
+  if (!session) {
+    res.status(400).json({ error: "Invalid session." });
+    return;
+  }
+  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  if (!rootPath) {
+    res.status(404).json({ error: "Worktree not found." });
+    return;
+  }
+  try {
+    const output = await runCommandOutput("git", ["status", "--porcelain"], {
+      cwd: rootPath,
+    });
+    const entries = output
+      .split(/\r?\n/)
+      .map((line) => line.trimEnd())
+      .filter(Boolean)
+      .map((line) => {
+        const isUntracked = line.startsWith("??");
+        let rawPath = line.slice(3);
+        if (rawPath.includes(" -> ")) {
+          rawPath = rawPath.split(" -> ").pop();
+        }
+        if (rawPath.startsWith("\"") && rawPath.endsWith("\"")) {
+          rawPath = rawPath
+            .slice(1, -1)
+            .replace(/\\"/g, "\"")
+            .replace(/\\\\/g, "\\");
+        }
+        return {
+          path: rawPath,
+          type: isUntracked ? "untracked" : "modified",
+        };
+      });
+    res.json({ entries });
+  } catch (error) {
+    console.error("Failed to read worktree status:", {
+      sessionId,
+      worktreeId: req.params.worktreeId,
+      error: error?.message || error,
+    });
+    res.status(500).json({ error: "Failed to read worktree status." });
   }
 });
 
