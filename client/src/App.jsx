@@ -664,15 +664,6 @@ function App() {
   const pingIntervalRef = useRef(null);
   const lastPongRef = useRef(0);
   const messagesRef = useRef([]);
-  const emptySuggestions = useMemo(
-    () => [
-      "Résumer un fichier",
-      "Analyser un bug",
-      "Générer un plan",
-      "Créer un draft",
-    ],
-    []
-  );
 
   const messageIndex = useMemo(() => new Map(), []);
   const commandIndex = useMemo(() => new Map(), []);
@@ -773,13 +764,6 @@ function App() {
     },
     [getAttachmentUrl]
   );
-
-  const handleEmptySuggestion = useCallback((text) => {
-    setInput(text);
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-  }, []);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -4537,27 +4521,13 @@ function App() {
                   }`}
                 >
                   {currentMessages.length === 0 && (
-                    <div className="chat-empty-state">
-                      <div className="chat-empty-hero">
-                        <p className="eyebrow">M5CHAT</p>
-                        <h1>Comment puis-je vous aider&nbsp;?</h1>
-                        <p className="chat-empty-subtitle">
-                          Posez une question, partagez un fichier ou décrivez un
-                          problème.
-                        </p>
-                        <div className="chat-empty-chips">
-                          {emptySuggestions.map((suggestion) => (
-                            <button
-                              type="button"
-                              className="chat-empty-chip"
-                              key={suggestion}
-                              onClick={() => handleEmptySuggestion(suggestion)}
-                            >
-                              {suggestion}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                    <div className="empty chat-empty-state">
+                      <p className="eyebrow">m5chat</p>
+                      <h1>Comment puis-je vous aider&nbsp;?</h1>
+                      <p className="chat-empty-subtitle">
+                        Posez une question, partagez un fichier ou décrivez un
+                        problème pour commencer.
+                      </p>
                     </div>
                   )}
                   {displayedGroupedMessages.map((message) => {
