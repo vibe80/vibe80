@@ -636,7 +636,6 @@ function App() {
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
   const [toolResultPanelOpen, setToolResultPanelOpen] = useState({});
   const [toolbarExportOpen, setToolbarExportOpen] = useState(false);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
   const [debugMode, setDebugMode] = useState(() => readDebugMode());
   const socketRef = useRef(null);
@@ -644,7 +643,6 @@ function App() {
   const inputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const toolbarExportRef = useRef(null);
-  const moreMenuRef = useRef(null);
   const conversationRef = useRef(null);
   const composerRef = useRef(null);
   const initialBranchRef = useRef("");
@@ -4255,97 +4253,7 @@ function App() {
           </div>
         </div>
 
-        <div className="topbar-right">
-          <div className="dropdown more-menu" ref={moreMenuRef}>
-            <button
-              type="button"
-              className="pill-button"
-              onClick={() => {
-                setMoreMenuOpen((current) => !current);
-              }}
-            >
-              ⋯
-            </button>
-            {moreMenuOpen && (
-              <div className="dropdown-menu">
-                <div className="dropdown-title">Vue</div>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "chat" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("chat")}
-                >
-                  Messages
-                </button>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "diff" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("diff")}
-                >
-                  Diff
-                </button>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "explorer" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("explorer")}
-                >
-                  Explorateur
-                </button>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "terminal" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("terminal")}
-                >
-                  Terminal
-                </button>
-                <button
-                  type="button"
-                  className={`menu-item ${
-                    activePane === "logs" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("logs")}
-                >
-                  Logs
-                </button>
-                <button
-                  type="button"
-                  className="menu-item"
-                  onClick={() => handleExportChat("markdown")}
-                  disabled={messages.length === 0}
-                >
-                  Export markdown
-                </button>
-                <button
-                  type="button"
-                  className="menu-item"
-                  onClick={() => handleExportChat("json")}
-                  disabled={messages.length === 0}
-                >
-                  Export JSON
-                </button>
-                <div className="dropdown-divider" />
-                <button
-                  type="button"
-                  className="menu-item danger"
-                  onClick={() => {
-                    setMoreMenuOpen(false);
-                    handleClearChat();
-                  }}
-                  disabled={messages.length === 0}
-                >
-                  Clear chat
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        <div className="topbar-right" />
       </header>
 
       <div
