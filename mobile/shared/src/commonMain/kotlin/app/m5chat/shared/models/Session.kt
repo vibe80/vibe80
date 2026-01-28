@@ -2,6 +2,7 @@ package app.m5chat.shared.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class SessionState(
@@ -59,7 +60,7 @@ data class SessionGetResponse(
 data class RpcLogEntry(
     val direction: String,
     val timestamp: Long,
-    val payload: String
+    val payload: JsonElement
 )
 
 @Serializable

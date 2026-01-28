@@ -22,6 +22,7 @@ data class SessionUiState(
     val selectedProvider: LLMProvider = LLMProvider.CODEX,
     val authMethod: AuthMethod = AuthMethod.NONE,
     val isLoading: Boolean = false,
+    val loadingState: LoadingState = LoadingState.NONE,
     val isCheckingExistingSession: Boolean = true,
     val error: String? = null,
     val sessionId: String? = null,
@@ -32,6 +33,12 @@ data class SessionUiState(
 
 enum class AuthMethod {
     NONE, SSH, HTTP
+}
+
+enum class LoadingState {
+    NONE,
+    CLONING,
+    RESUMING
 }
 
 class SessionViewModel(
@@ -117,13 +124,20 @@ class SessionViewModel(
 
     fun resumeExistingSession() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    loadingState = LoadingState.RESUMING,
+                    error = null
+                )
+            }
 
             val savedSession = sessionPreferences.savedSession.first()
             if (savedSession == null) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        loadingState = LoadingState.NONE,
                         error = "Aucune session sauvegardée",
                         hasSavedSession = false
                     )
@@ -139,6 +153,7 @@ class SessionViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            loadingState = LoadingState.NONE,
                             sessionId = savedSession.sessionId
                         )
                     }
@@ -152,6 +167,7 @@ class SessionViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            loadingState = LoadingState.NONE,
                             error = if (shouldClear) {
                                 "Session expirée. Veuillez créer une nouvelle session."
                             } else {
@@ -198,13 +214,23 @@ class SessionViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    loadingState = LoadingState.CLONING,
+                    error = null
+                )
+            }
 
             // Upload auth configs to server before creating session
             val authUploadError = uploadAuthConfigsToServer()
             if (authUploadError != null) {
                 _uiState.update {
-                    it.copy(isLoading = false, error = authUploadError)
+                    it.copy(
+                        isLoading = false,
+                        loadingState = LoadingState.NONE,
+                        error = authUploadError
+                    )
                 }
                 return@launch
             }
@@ -230,6 +256,7 @@ class SessionViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            loadingState = LoadingState.NONE,
                             sessionId = sessionState.sessionId
                         )
                     }
@@ -238,6 +265,7 @@ class SessionViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            loadingState = LoadingState.NONE,
                             error = exception.message ?: "Erreur lors de la création de la session"
                         )
                     }

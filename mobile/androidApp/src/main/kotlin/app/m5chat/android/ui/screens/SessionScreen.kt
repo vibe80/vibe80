@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import app.m5chat.android.R
 import app.m5chat.android.viewmodel.AuthMethod
+import app.m5chat.android.viewmodel.LoadingState
 import app.m5chat.android.viewmodel.SessionViewModel
 import app.m5chat.shared.models.LLMProvider
 import org.koin.androidx.compose.koinViewModel
@@ -41,6 +42,11 @@ fun SessionScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showPassword by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val loadingText = when (uiState.loadingState) {
+        LoadingState.RESUMING -> stringResource(R.string.resuming_session)
+        LoadingState.CLONING -> stringResource(R.string.cloning_repo)
+        LoadingState.NONE -> stringResource(R.string.cloning_repo)
+    }
 
     // File picker for Claude config (~/.claude/config.json)
     val claudeConfigPicker = rememberLauncherForActivityResult(
@@ -436,7 +442,7 @@ fun SessionScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.cloning_repo))
+                            Text(loadingText)
                         } else {
                             Text(stringResource(R.string.create_session))
                         }
@@ -458,7 +464,7 @@ fun SessionScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 CircularProgressIndicator()
-                                Text(stringResource(R.string.cloning_repo))
+                                Text(loadingText)
                             }
                         }
                     }

@@ -10,6 +10,7 @@
     <string name="create_session">Create Session</string>
     <string name="loading">Loading...</string>
     <string name="cloning_repo">Cloning repository...</string>
+    <string name="resuming_session">Reconnecting to session...</string>
     <string name="send_message">Send</string>
     <string name="message_hint">Type your message...</string>
     <string name="branches">Branches</string>
