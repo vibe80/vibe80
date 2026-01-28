@@ -1254,8 +1254,21 @@ main.chat {
 
 .settings-header {
   display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.settings-heading {
+  display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.settings-back {
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
 }
 
 .settings-title {

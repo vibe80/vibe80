@@ -582,6 +582,7 @@ function App() {
   const [worktrees, setWorktrees] = useState(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
   const activePane = paneByTab[activeWorktreeId] || "chat";
+  const lastPaneByTabRef = useRef(new Map());
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
@@ -3293,6 +3294,22 @@ function App() {
     setToolbarExportOpen(false);
   }, [activeWorktreeId, debugMode]);
 
+  const handleOpenSettings = useCallback(() => {
+    if (activePane !== "settings") {
+      const key = activeWorktreeId || "main";
+      lastPaneByTabRef.current.set(key, activePane);
+    }
+    handleViewSelect("settings");
+  }, [activePane, activeWorktreeId, handleViewSelect]);
+
+  const handleSettingsBack = useCallback(() => {
+    const key = activeWorktreeId || "main";
+    const previousPane = lastPaneByTabRef.current.get(key);
+    const fallbackPane =
+      previousPane && previousPane !== "settings" ? previousPane : "chat";
+    handleViewSelect(fallbackPane);
+  }, [activeWorktreeId, handleViewSelect]);
+
   useEffect(() => {
     if (!debugMode && activePane === "logs") {
       handleViewSelect("chat");
@@ -4341,7 +4358,7 @@ function App() {
               className={`side-footer-button ${
                 activePane === "settings" ? "is-active" : ""
               }`}
-              onClick={() => handleViewSelect("settings")}
+              onClick={handleOpenSettings}
               aria-pressed={activePane === "settings"}
             >
               <span className="side-footer-icon" aria-hidden="true">
@@ -5179,9 +5196,20 @@ function App() {
             }`}
           >
             <div className="settings-header">
-              <div className="settings-title">Paramètres utilisateur</div>
-              <div className="settings-subtitle">
-                Ces réglages sont stockés dans votre navigateur.
+              <button
+                type="button"
+                className="settings-back icon-button"
+                onClick={handleSettingsBack}
+                aria-label="Revenir à la vue précédente"
+                title="Revenir"
+              >
+                <span aria-hidden="true">←</span>
+              </button>
+              <div className="settings-heading">
+                <div className="settings-title">Paramètres utilisateur</div>
+                <div className="settings-subtitle">
+                  Ces réglages sont stockés dans votre navigateur.
+                </div>
               </div>
             </div>
             <div className="settings-group">
