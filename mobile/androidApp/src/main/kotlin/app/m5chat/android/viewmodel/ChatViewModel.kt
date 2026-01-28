@@ -353,8 +353,11 @@ class ChatViewModel(
 
             if (text.isNotBlank() || uploadedAttachments.isNotEmpty()) {
                 AppLogger.info(LogSource.APP, "Calling sessionRepository.sendMessage...")
+                val paths = uploadedAttachments.map { it.path }.filter { it.isNotBlank() }
+                val suffix = buildAttachmentsSuffix(paths)
+                val textWithSuffix = "${text}${suffix}"
                 sessionRepository.sendMessage(
-                    text = text,
+                    text = textWithSuffix,
                     attachments = uploadedAttachments.map {
                         app.m5chat.shared.models.Attachment(
                             name = it.name,
@@ -366,6 +369,30 @@ class ChatViewModel(
                 AppLogger.info(LogSource.APP, "sessionRepository.sendMessage completed")
             } else {
                 AppLogger.warning(LogSource.APP, "Nothing to send - text is blank and no attachments")
+            }
+        }
+    }
+
+    private fun buildAttachmentsSuffix(paths: List<String>): String {
+        if (paths.isEmpty()) return ""
+        val json = paths.joinToString(
+            prefix = ";; attachments: [",
+            postfix = "]"
+        ) { "\"${escapeJson(it)}\"" }
+        return json
+    }
+
+    private fun escapeJson(value: String): String {
+        return buildString {
+            value.forEach { ch ->
+                when (ch) {
+                    '\\' -> append("\\\\")
+                    '"' -> append("\\\"")
+                    '\n' -> append("\\n")
+                    '\r' -> append("\\r")
+                    '\t' -> append("\\t")
+                    else -> append(ch)
+                }
             }
         }
     }

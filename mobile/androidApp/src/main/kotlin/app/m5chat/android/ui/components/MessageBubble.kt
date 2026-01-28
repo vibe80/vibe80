@@ -55,19 +55,20 @@ fun MessageBubble(
 ) {
     val isUser = message?.role == MessageRole.USER
     val rawText = streamingText ?: message?.text ?: ""
+    val displayText = remember(rawText) { stripAttachmentSuffix(rawText) }
 
     // Parse vibecoder:choices blocks for assistant messages
-    val choicesBlocks = remember(rawText, isUser) {
-        if (!isUser && !isStreaming) parseVibecoderChoices(rawText) else emptyList()
+    val choicesBlocks = remember(displayText, isUser) {
+        if (!isUser && !isStreaming) parseVibecoderChoices(displayText) else emptyList()
     }
 
     // Parse vibecoder:form blocks for assistant messages
-    val formBlocks = remember(rawText, isUser) {
-        if (!isUser && !isStreaming) parseVibecoderForms(rawText) else emptyList()
+    val formBlocks = remember(displayText, isUser) {
+        if (!isUser && !isStreaming) parseVibecoderForms(displayText) else emptyList()
     }
 
-    val text = remember(rawText, choicesBlocks, formBlocks) {
-        var result = rawText
+    val text = remember(displayText, choicesBlocks, formBlocks) {
+        var result = displayText
         if (choicesBlocks.isNotEmpty()) result = removeVibecoderChoices(result)
         if (formBlocks.isNotEmpty()) result = removeVibecoderForms(result)
         result
@@ -303,6 +304,15 @@ private fun resolveAttachmentPath(path: String, sessionId: String?): String? {
         .build()
         .toString()
 }
+
+private fun stripAttachmentSuffix(text: String): String {
+    val match = ATTACHMENTS_SUFFIX_REGEX.find(text) ?: return text
+    return match.groupValues.getOrNull(1)?.trimEnd() ?: text
+}
+
+private val ATTACHMENTS_SUFFIX_REGEX = Regex(
+    pattern = """(?s)^(.*?)(?:\n?\s*;;\s*attachments:\s*\[[^\]]*])\s*$"""
+)
 
 private fun formatFileSize(bytes: Long): String {
     return when {
