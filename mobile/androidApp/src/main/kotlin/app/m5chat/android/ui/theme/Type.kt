@@ -13,22 +13,22 @@ val SpaceGrotesk = FontFamily(
     Font(R.font.space_grotesk_wght, weight = FontWeight.Bold)
 )
 
-private val BaseTypography = Typography()
+private val BaseTypography = Typography(defaultFontFamily = SpaceGrotesk)
 
 val AppTypography = Typography(
-    displayLarge = BaseTypography.displayLarge.copy(fontFamily = SpaceGrotesk),
-    displayMedium = BaseTypography.displayMedium.copy(fontFamily = SpaceGrotesk),
-    displaySmall = BaseTypography.displaySmall.copy(fontFamily = SpaceGrotesk),
-    headlineLarge = BaseTypography.headlineLarge.copy(fontFamily = SpaceGrotesk),
-    headlineMedium = BaseTypography.headlineMedium.copy(fontFamily = SpaceGrotesk),
-    headlineSmall = BaseTypography.headlineSmall.copy(fontFamily = SpaceGrotesk),
-    titleLarge = BaseTypography.titleLarge.copy(fontFamily = SpaceGrotesk),
-    titleMedium = BaseTypography.titleMedium.copy(fontFamily = SpaceGrotesk),
-    titleSmall = BaseTypography.titleSmall.copy(fontFamily = SpaceGrotesk),
-    bodyLarge = BaseTypography.bodyLarge.copy(fontFamily = SpaceGrotesk),
-    bodyMedium = BaseTypography.bodyMedium.copy(fontFamily = SpaceGrotesk),
-    bodySmall = BaseTypography.bodySmall.copy(fontFamily = SpaceGrotesk),
-    labelLarge = BaseTypography.labelLarge.copy(fontFamily = SpaceGrotesk),
-    labelMedium = BaseTypography.labelMedium.copy(fontFamily = SpaceGrotesk),
-    labelSmall = BaseTypography.labelSmall.copy(fontFamily = SpaceGrotesk)
+    displayLarge = BaseTypography.displayLarge,
+    displayMedium = BaseTypography.displayMedium,
+    displaySmall = BaseTypography.displaySmall,
+    headlineLarge = BaseTypography.headlineLarge,
+    headlineMedium = BaseTypography.headlineMedium,
+    headlineSmall = BaseTypography.headlineSmall,
+    titleLarge = BaseTypography.titleLarge,
+    titleMedium = BaseTypography.titleMedium,
+    titleSmall = BaseTypography.titleSmall,
+    bodyLarge = BaseTypography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+    bodyMedium = BaseTypography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+    bodySmall = BaseTypography.bodySmall.copy(fontWeight = FontWeight.Medium),
+    labelLarge = BaseTypography.labelLarge.copy(fontWeight = FontWeight.Medium),
+    labelMedium = BaseTypography.labelMedium.copy(fontWeight = FontWeight.Medium),
+    labelSmall = BaseTypography.labelSmall.copy(fontWeight = FontWeight.Medium)
 )
