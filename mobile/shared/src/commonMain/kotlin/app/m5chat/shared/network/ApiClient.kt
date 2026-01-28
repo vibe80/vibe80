@@ -149,9 +149,11 @@ class ApiClient(
     /**
      * Get worktree diff
      */
-    suspend fun getWorktreeDiff(worktreeId: String): Result<WorktreeDiffResponse> {
+    suspend fun getWorktreeDiff(sessionId: String, worktreeId: String): Result<WorktreeDiffResponse> {
         return runCatching {
-            httpClient.get("$baseUrl/api/worktree/$worktreeId/diff").body()
+            httpClient.get("$baseUrl/api/worktree/$worktreeId/diff") {
+                parameter("session", sessionId)
+            }.body()
         }
     }
 

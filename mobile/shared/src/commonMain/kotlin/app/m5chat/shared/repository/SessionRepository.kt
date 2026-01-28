@@ -364,7 +364,8 @@ class SessionRepository(
 
     suspend fun loadDiff() {
         val sessionId = _sessionState.value?.sessionId ?: return
-        apiClient.getWorktreeDiff(sessionId).onSuccess { response ->
+        val worktreeId = _activeWorktreeId.value
+        apiClient.getWorktreeDiff(sessionId, worktreeId).onSuccess { response ->
             _repoDiff.value = RepoDiff(
                 status = response.status,
                 diff = response.diff
