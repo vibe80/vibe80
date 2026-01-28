@@ -18,17 +18,18 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.koin.core.context.startKoin
-import org.koin.core.context.GlobalContext
 
-class M5ChatApplication : Application(), DefaultLifecycleObserver {
+class M5ChatApplication : Application(), DefaultLifecycleObserver, KoinComponent {
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     @Volatile private var isInForeground = false
     private lateinit var notifier: MessageNotifier
 
     override fun onCreate() {
-        super.onCreate()
+        super<Application>.onCreate()
 
         startKoin {
             androidLogger()
@@ -48,9 +49,8 @@ class M5ChatApplication : Application(), DefaultLifecycleObserver {
 
     override fun onStart(owner: LifecycleOwner) {
         isInForeground = true
-        val koin = GlobalContext.get().koin
-        val sessionPreferences: SessionPreferences = koin.get()
-        val sessionRepository: SessionRepository = koin.get()
+        val sessionPreferences: SessionPreferences = get()
+        val sessionRepository: SessionRepository = get()
 
         appScope.launch {
             val savedSession = sessionPreferences.savedSession.first()
@@ -70,7 +70,7 @@ class M5ChatApplication : Application(), DefaultLifecycleObserver {
     }
 
     private fun startNotificationObservers() {
-        val sessionRepository: SessionRepository = GlobalContext.get().koin.get()
+        val sessionRepository: SessionRepository = get()
 
         appScope.launch {
             var lastNotifiedId: String? = null

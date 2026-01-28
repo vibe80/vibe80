@@ -156,6 +156,7 @@ fun removeVibecoderForms(text: String): String {
 /**
  * Composable to display vibecoder:form as interactive form fields
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VibecoderFormView(
     block: VibecoderFormBlock,
