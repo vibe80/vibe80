@@ -55,6 +55,7 @@ class WebSocketManager(
         ) {
             return
         }
+        reconnectJob?.cancel()
         this.sessionId = sessionId
         reconnectAttempt = 0
         // Launch connection in a separate coroutine to avoid blocking the caller

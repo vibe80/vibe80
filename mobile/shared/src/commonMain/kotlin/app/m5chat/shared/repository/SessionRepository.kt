@@ -167,7 +167,9 @@ class SessionRepository(
             }
 
             is MessagesSyncMessage -> {
-                _messages.value = message.messages
+                if (message.messages.isNotEmpty()) {
+                    _messages.value = message.messages
+                }
             }
 
             is WorktreeCreatedMessage -> {
