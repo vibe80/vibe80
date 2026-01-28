@@ -5,14 +5,23 @@ import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -286,6 +295,16 @@ fun MarkdownText(
     markdown: String,
     modifier: Modifier = Modifier
 ) {
+    val codeFence = remember(markdown) { extractSingleCodeFence(markdown) }
+    if (codeFence != null && shouldCollapseCodeBlock(codeFence.code)) {
+        CollapsibleCodeBlock(
+            code = codeFence.code,
+            language = codeFence.language,
+            modifier = modifier
+        )
+        return
+    }
+
     val context = LocalContext.current
     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
     val linkColor = MaterialTheme.colorScheme.primary
@@ -334,4 +353,103 @@ fun MarkdownText(
             markwon.setMarkdown(textView, markdown)
         }
     )
+}
+
+private data class CodeFence(
+    val language: String?,
+    val code: String
+)
+
+private fun extractSingleCodeFence(markdown: String): CodeFence? {
+    val fenceRegex = Regex(
+        pattern = """^\s*```([A-Za-z0-9_-]+)?\s*\n([\s\S]*?)\n```\s*$"""
+    )
+    val match = fenceRegex.find(markdown) ?: return null
+    val language = match.groupValues.getOrNull(1)?.ifBlank { null }
+    val code = match.groupValues.getOrNull(2)?.trimEnd() ?: return null
+    return CodeFence(language = language, code = code)
+}
+
+private fun shouldCollapseCodeBlock(code: String): Boolean {
+    val lines = code.lines().size
+    return lines >= 8 || code.length >= 400
+}
+
+@Composable
+private fun CollapsibleCodeBlock(
+    code: String,
+    language: String?,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember(code) { mutableStateOf(false) }
+    val background = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val lineCount = remember(code) { code.lines().size }
+
+    Column(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(background)
+            .padding(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Code,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (language.isNullOrBlank()) "Code" else "Code ($language)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "$lineCount lignes",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        if (expanded) {
+            Text(
+                text = code,
+                color = textColor,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 240.dp)
+                    .verticalScroll(rememberScrollState())
+                    .horizontalScroll(rememberScrollState())
+                    .padding(8.dp)
+            )
+        } else {
+            Text(
+                text = code,
+                color = textColor,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            )
+        }
+    }
 }
