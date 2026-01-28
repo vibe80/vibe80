@@ -8,6 +8,7 @@ import app.m5chat.shared.network.ConnectionState
 import app.m5chat.shared.network.WebSocketManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -16,6 +17,7 @@ class SessionRepository(
     private val webSocketManager: WebSocketManager
 ) {
     private val scope = CoroutineScope(Dispatchers.Default)
+    private var syncOnConnectJob: Job? = null
 
     private val _sessionState = MutableStateFlow<SessionState?>(null)
     val sessionState: StateFlow<SessionState?> = _sessionState.asStateFlow()
@@ -487,6 +489,42 @@ class SessionRepository(
         _worktreeStreamingMessages.value = emptyMap()
         _worktreeProcessing.value = emptyMap()
         _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
+        syncOnConnectJob?.cancel()
+    }
+
+    fun ensureWebSocketConnected(sessionId: String, provider: LLMProvider? = null) {
+        when (connectionState.value) {
+            ConnectionState.CONNECTED,
+            ConnectionState.CONNECTING,
+            ConnectionState.RECONNECTING -> {
+                scheduleSyncOnConnected(provider)
+                return
+            }
+            ConnectionState.DISCONNECTED,
+            ConnectionState.ERROR -> {
+                webSocketManager.connect(sessionId)
+                scheduleSyncOnConnected(provider)
+            }
+        }
+    }
+
+    private fun scheduleSyncOnConnected(provider: LLMProvider?) {
+        syncOnConnectJob?.cancel()
+        syncOnConnectJob = scope.launch {
+            connectionState.filter { it == ConnectionState.CONNECTED }.first()
+            syncMessages(provider)
+        }
+    }
+
+    fun syncMessages(providerOverride: LLMProvider? = null) {
+        val provider = providerOverride ?: _sessionState.value?.activeProvider ?: LLMProvider.CODEX
+        val lastSeenMessageId = _messages.value.lastOrNull()?.id
+        scope.launch {
+            webSocketManager.send(SyncMessagesRequest(
+                provider = provider.name.lowercase(),
+                lastSeenMessageId = lastSeenMessageId
+            ))
+        }
     }
 
     private fun generateMessageId(): String {
