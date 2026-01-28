@@ -144,13 +144,20 @@ class SessionViewModel(
                     }
                 },
                 onFailure = { exception ->
-                    // Session expired or invalid, clear it
-                    sessionPreferences.clearSession()
+                    val shouldClear = (exception as? app.m5chat.shared.network.SessionGetException)
+                        ?.statusCode == 404
+                    if (shouldClear) {
+                        sessionPreferences.clearSession()
+                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "Session expirée. Veuillez créer une nouvelle session.",
-                            hasSavedSession = false
+                            error = if (shouldClear) {
+                                "Session expirée. Veuillez créer une nouvelle session."
+                            } else {
+                                "Impossible de reprendre la session. Vérifiez la connexion."
+                            },
+                            hasSavedSession = if (shouldClear) false else it.hasSavedSession
                         )
                     }
                 }

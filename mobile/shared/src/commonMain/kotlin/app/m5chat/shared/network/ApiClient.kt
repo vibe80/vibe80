@@ -61,8 +61,29 @@ class ApiClient(
      * Get session state including messages and diff
      */
     suspend fun getSession(sessionId: String): Result<SessionGetResponse> {
-        return runCatching {
-            httpClient.get("$baseUrl/api/session/$sessionId").body()
+        val url = "$baseUrl/api/session/$sessionId"
+        AppLogger.apiRequest("GET", url)
+
+        return try {
+            val response = httpClient.get(url)
+            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            AppLogger.apiResponse("GET", url, response.status.value, responseBody)
+
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(
+                    SessionGetException(
+                        statusCode = response.status.value,
+                        statusDescription = response.status.description,
+                        errorBody = responseBody,
+                        url = url
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("GET", url, e)
+            Result.failure(SessionGetException(cause = e, url = url))
         }
     }
 
@@ -204,6 +225,45 @@ class SessionCreationException(
         ): String {
             return buildString {
                 append("Échec création session\n")
+                append("URL: $url\n")
+                if (statusCode != null) {
+                    append("Status: $statusCode")
+                    if (statusDescription != null) {
+                        append(" ($statusDescription)")
+                    }
+                    append("\n")
+                }
+                if (!errorBody.isNullOrBlank()) {
+                    append("Réponse: ${errorBody.take(500)}\n")
+                }
+                if (cause != null) {
+                    append("Cause: ${cause::class.simpleName}: ${cause.message}")
+                }
+            }.trim()
+        }
+    }
+}
+
+/**
+ * Exception thrown when session fetch fails with detailed debug info
+ */
+class SessionGetException(
+    val statusCode: Int? = null,
+    val statusDescription: String? = null,
+    val errorBody: String? = null,
+    val url: String,
+    cause: Throwable? = null
+) : Exception(buildMessage(statusCode, statusDescription, errorBody, url, cause), cause) {
+    companion object {
+        private fun buildMessage(
+            statusCode: Int?,
+            statusDescription: String?,
+            errorBody: String?,
+            url: String,
+            cause: Throwable?
+        ): String {
+            return buildString {
+                append("Échec récupération session\n")
                 append("URL: $url\n")
                 if (statusCode != null) {
                     append("Status: $statusCode")
