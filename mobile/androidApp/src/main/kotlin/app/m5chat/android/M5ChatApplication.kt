@@ -6,8 +6,10 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import app.m5chat.android.di.appModule
 import app.m5chat.android.data.SessionPreferences
+import app.m5chat.android.notifications.MessageNotifier
 import app.m5chat.shared.di.sharedModule
 import app.m5chat.shared.models.LLMProvider
+import app.m5chat.shared.models.MessageRole
 import app.m5chat.shared.repository.SessionRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +24,8 @@ import org.koin.core.context.GlobalContext
 class M5ChatApplication : Application(), DefaultLifecycleObserver {
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @Volatile private var isInForeground = false
+    private lateinit var notifier: MessageNotifier
 
     override fun onCreate() {
         super.onCreate()
@@ -35,10 +39,15 @@ class M5ChatApplication : Application(), DefaultLifecycleObserver {
             )
         }
 
+        notifier = MessageNotifier(this)
+        notifier.createChannel()
+
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        startNotificationObservers()
     }
 
     override fun onStart(owner: LifecycleOwner) {
+        isInForeground = true
         val koin = GlobalContext.get().koin
         val sessionPreferences: SessionPreferences = koin.get()
         val sessionRepository: SessionRepository = koin.get()
@@ -54,6 +63,50 @@ class M5ChatApplication : Application(), DefaultLifecycleObserver {
                 sessionRepository.ensureWebSocketConnected(savedSession.sessionId, provider)
             }
         }
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        isInForeground = false
+    }
+
+    private fun startNotificationObservers() {
+        val sessionRepository: SessionRepository = GlobalContext.get().koin.get()
+
+        appScope.launch {
+            var lastNotifiedId: String? = null
+            sessionRepository.messages.collect { messages ->
+                val assistant = messages.lastOrNull { it.role == MessageRole.ASSISTANT }
+                if (assistant != null && assistant.id != lastNotifiedId) {
+                    lastNotifiedId = assistant.id
+                    maybeNotify("Nouveau message", assistant.text)
+                }
+            }
+        }
+
+        appScope.launch {
+            val lastNotifiedByWorktree = mutableMapOf<String, String?>()
+            sessionRepository.worktreeMessages.collect { worktreeMessages ->
+                worktreeMessages.forEach { (worktreeId, messages) ->
+                    val assistant = messages.lastOrNull { it.role == MessageRole.ASSISTANT }
+                    val lastNotified = lastNotifiedByWorktree[worktreeId]
+                    if (assistant != null && assistant.id != lastNotified) {
+                        lastNotifiedByWorktree[worktreeId] = assistant.id
+                        val worktreeName = sessionRepository.worktrees.value[worktreeId]?.name
+                        val title = if (worktreeName.isNullOrBlank()) {
+                            "Nouveau message (worktree)"
+                        } else {
+                            "Nouveau message ($worktreeName)"
+                        }
+                        maybeNotify(title, assistant.text)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun maybeNotify(title: String, body: String) {
+        if (isInForeground) return
+        notifier.notifyMessage(title, body)
     }
 
     companion object {
