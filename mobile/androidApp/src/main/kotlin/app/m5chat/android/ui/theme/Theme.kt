@@ -68,6 +68,7 @@ fun M5ChatTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = AppTypography,
         content = content
     )
 }
