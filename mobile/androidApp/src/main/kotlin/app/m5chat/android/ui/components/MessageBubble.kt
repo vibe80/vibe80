@@ -1,6 +1,7 @@
 package app.m5chat.android.ui.components
 
 import android.graphics.Typeface
+import android.net.Uri
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import androidx.compose.foundation.background
@@ -48,6 +49,7 @@ fun MessageBubble(
     message: ChatMessage?,
     streamingText: String? = null,
     isStreaming: Boolean = false,
+    sessionId: String? = null,
     onChoiceSelected: ((String) -> Unit)? = null,
     onFormSubmit: ((Map<String, String>, List<VibecoderFormField>) -> Unit)? = null
 ) {
@@ -184,7 +186,8 @@ fun MessageBubble(
                         message?.attachments?.forEach { attachment ->
                             AttachmentItem(
                                 attachment = attachment,
-                                isUser = isUser
+                                isUser = isUser,
+                                sessionId = sessionId
                             )
                         }
                     }
@@ -197,8 +200,12 @@ fun MessageBubble(
 @Composable
 private fun AttachmentItem(
     attachment: Attachment,
-    isUser: Boolean
+    isUser: Boolean,
+    sessionId: String?
 ) {
+    val resolvedPath = remember(attachment.path, sessionId) {
+        resolveAttachmentPath(attachment.path, sessionId)
+    }
     val isImage = attachment.mimeType?.startsWith("image/") == true ||
             attachment.name.lowercase().let {
                 it.endsWith(".png") || it.endsWith(".jpg") ||
@@ -210,7 +217,7 @@ private fun AttachmentItem(
         // Image preview
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(attachment.path)
+                .data(resolvedPath ?: attachment.path)
                 .crossfade(true)
                 .build(),
             contentDescription = attachment.name,
@@ -279,6 +286,22 @@ private fun AttachmentItem(
             }
         }
     }
+}
+
+private fun resolveAttachmentPath(path: String, sessionId: String?): String? {
+    if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("content://") || path.startsWith("file://")) {
+        return path
+    }
+    if (sessionId.isNullOrBlank()) {
+        return null
+    }
+    val base = Uri.parse(app.m5chat.android.M5ChatApplication.BASE_URL)
+    return base.buildUpon()
+        .appendEncodedPath("api/attachments/file")
+        .appendQueryParameter("session", sessionId)
+        .appendQueryParameter("path", path)
+        .build()
+        .toString()
 }
 
 private fun formatFileSize(bytes: Long): String {

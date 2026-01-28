@@ -390,6 +390,7 @@ fun ChatScreen(
             ) { message ->
                 MessageBubble(
                     message = message,
+                    sessionId = uiState.sessionId,
                     onChoiceSelected = { choice ->
                         viewModel.updateInputText(choice)
                         viewModel.sendMessage()
@@ -410,7 +411,8 @@ fun ChatScreen(
                     MessageBubble(
                         message = null,
                         streamingText = streamingText,
-                        isStreaming = true
+                        isStreaming = true,
+                        sessionId = uiState.sessionId
                     )
                 }
             }
@@ -749,4 +751,3 @@ private fun BranchesSheetContent(
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
-
