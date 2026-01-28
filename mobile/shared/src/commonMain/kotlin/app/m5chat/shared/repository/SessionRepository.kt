@@ -387,7 +387,7 @@ class SessionRepository(
             _messages.value = response.messages
 
             // Connect WebSocket
-            webSocketManager.connect(sessionId)
+            ensureWebSocketConnected(sessionId)
 
             state
         }

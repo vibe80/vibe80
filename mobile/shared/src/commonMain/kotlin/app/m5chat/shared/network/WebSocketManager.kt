@@ -48,6 +48,13 @@ class WebSocketManager(
     private val maxReconnectDelay = 30000L
 
     fun connect(sessionId: String) {
+        if (this.sessionId == sessionId &&
+            (connectionState.value == ConnectionState.CONNECTED ||
+                connectionState.value == ConnectionState.CONNECTING ||
+                connectionState.value == ConnectionState.RECONNECTING)
+        ) {
+            return
+        }
         this.sessionId = sessionId
         reconnectAttempt = 0
         // Launch connection in a separate coroutine to avoid blocking the caller
