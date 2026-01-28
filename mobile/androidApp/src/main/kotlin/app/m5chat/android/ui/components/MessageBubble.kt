@@ -291,8 +291,11 @@ fun MarkdownText(
     val linkColor = MaterialTheme.colorScheme.primary
     val codeBackgroundColor = MaterialTheme.colorScheme.surface
     val codeTextColor = MaterialTheme.colorScheme.onSurface
+    val codeTextSizePx = remember {
+        14f * context.resources.displayMetrics.scaledDensity
+    }
 
-    val markwon = remember(textColor, linkColor, codeBackgroundColor) {
+    val markwon = remember(textColor, linkColor, codeBackgroundColor, codeTextSizePx) {
         Markwon.builder(context)
             .usePlugin(StrikethroughPlugin.create())
             .usePlugin(TablePlugin.create(context))
@@ -306,8 +309,8 @@ fun MarkdownText(
                         .codeBlockBackgroundColor(codeBackgroundColor.toArgb())
                         .codeTypeface(Typeface.MONOSPACE)
                         .codeBlockTypeface(Typeface.MONOSPACE)
-                        .codeTextSize(14)
-                        .codeBlockTextSize(13)
+                        .codeTextSize(codeTextSizePx.toInt())
+                        .codeBlockTextSize(codeTextSizePx.toInt())
                         .codeBlockMargin(16)
                         .linkColor(linkColor.toArgb())
                         .isLinkUnderlined(true)
