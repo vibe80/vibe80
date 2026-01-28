@@ -22,12 +22,9 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,7 +39,6 @@ import app.m5chat.android.ui.components.CreateWorktreeSheet
 import app.m5chat.android.ui.components.DiffSheetContent
 import app.m5chat.android.ui.components.LogsSheetContent
 import app.m5chat.android.ui.components.MessageBubble
-import app.m5chat.android.ui.components.ProviderSelectionDialog
 import app.m5chat.android.ui.components.VibecoderFormField
 import app.m5chat.android.ui.components.WorktreeMenuSheet
 import app.m5chat.android.ui.components.WorktreeTabs
@@ -198,27 +194,6 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    // Provider chip - opens dialog on click
-                    AssistChip(
-                        onClick = viewModel::showProviderDialog,
-                        label = { Text(uiState.activeProvider.name) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Code,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    )
-
-                    // Branches button
-                    IconButton(onClick = viewModel::showBranchesSheet) {
-                        Icon(
-                            imageVector = Icons.Default.Code,
-                            contentDescription = stringResource(R.string.branches)
-                        )
-                    }
-
                     // Diff button with badge for modified files
                     BadgedBox(
                         badge = {
@@ -451,39 +426,6 @@ fun ChatScreen(
         }
     }
 
-    // Branches Sheet
-    if (uiState.showBranchesSheet) {
-        ModalBottomSheet(onDismissRequest = viewModel::hideBranchesSheet) {
-            BranchesSheetContent(
-                branchInfo = uiState.branches,
-                onBranchSelect = viewModel::requestSwitchBranch,
-                onFetch = viewModel::fetchBranches,
-                isFetching = uiState.fetchingBranches
-            )
-        }
-    }
-
-    // Branch Switch Confirmation Dialog
-    if (uiState.showBranchConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::cancelSwitchBranch,
-            title = { Text("Changer de branche") },
-            text = {
-                Text("Voulez-vous changer vers la branche \"${uiState.pendingBranchSwitch}\" ? Les modifications non commit\u00e9es pourraient \u00eatre perdues.")
-            },
-            confirmButton = {
-                Button(onClick = viewModel::confirmSwitchBranch) {
-                    Text("Confirmer")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::cancelSwitchBranch) {
-                    Text("Annuler")
-                }
-            }
-        )
-    }
-
     // Diff Sheet
     if (uiState.showDiffSheet) {
         ModalBottomSheet(
@@ -492,17 +434,6 @@ fun ChatScreen(
         ) {
             DiffSheetContent(repoDiff = uiState.repoDiff)
         }
-    }
-
-    // Provider Selection Dialog
-    if (uiState.showProviderDialog) {
-        ProviderSelectionDialog(
-            currentProvider = uiState.activeProvider,
-            onProviderSelected = { provider ->
-                viewModel.switchProvider(provider)
-            },
-            onDismiss = viewModel::hideProviderDialog
-        )
     }
 
     // Logs Sheet
@@ -520,9 +451,11 @@ fun ChatScreen(
         CreateWorktreeSheet(
             branches = uiState.branches,
             currentProvider = uiState.activeProvider,
+            providerModelState = uiState.providerModelState,
             onDismiss = viewModel::hideCreateWorktreeSheet,
-            onCreate = { name, provider, branchName ->
-                viewModel.createWorktree(name, provider, branchName)
+            onRequestModels = viewModel::loadProviderModels,
+            onCreate = { name, provider, branchName, model, reasoningEffort ->
+                viewModel.createWorktree(name, provider, branchName, model, reasoningEffort)
             }
         )
     }
@@ -626,128 +559,4 @@ private fun getFileSize(context: android.content.Context, uri: Uri): Long {
             cursor.getLong(sizeIndex)
         } else 0L
     } ?: 0L
-}
-
-@Composable
-private fun BranchesSheetContent(
-    branchInfo: app.m5chat.shared.models.BranchInfo?,
-    onBranchSelect: (String) -> Unit,
-    onFetch: () -> Unit,
-    isFetching: Boolean
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.branches),
-                style = MaterialTheme.typography.titleLarge
-            )
-            // Fetch button
-            FilledTonalButton(
-                onClick = onFetch,
-                enabled = !isFetching
-            ) {
-                if (isFetching) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Sync,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Fetch")
-            }
-        }
-
-        if (branchInfo == null) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-        } else {
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Code,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Column {
-                        Text(
-                            text = "Branche actuelle",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                        Text(
-                            text = branchInfo.current,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-            }
-
-            Text(
-                text = "Branches disponibles",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            branchInfo.branches.forEach { branch ->
-                val isCurrent = branch == branchInfo.current
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isCurrent)
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    onClick = { if (!isCurrent) onBranchSelect(branch) }
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = branch,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        if (isCurrent) {
-                            Badge { Text("actuelle") }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-    }
 }

@@ -270,15 +270,19 @@ class WebSocketManager(
 
     suspend fun createWorktree(
         provider: String,
-        name: String,
+        name: String? = null,
         parentWorktreeId: String? = null,
-        branchName: String? = null
+        branchName: String? = null,
+        model: String? = null,
+        reasoningEffort: String? = null
     ) {
         send(CreateWorktreeRequest(
             provider = provider,
             name = name,
             parentWorktreeId = parentWorktreeId,
-            branchName = branchName
+            startingBranch = branchName,
+            model = model,
+            reasoningEffort = reasoningEffort
         ))
     }
 

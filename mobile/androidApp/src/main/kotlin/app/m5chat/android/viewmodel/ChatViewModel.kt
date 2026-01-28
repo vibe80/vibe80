@@ -13,6 +13,7 @@ import app.m5chat.shared.models.ErrorType
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.models.RepoDiff
 import app.m5chat.shared.models.BranchInfo
+import app.m5chat.shared.models.ProviderModelState
 import app.m5chat.shared.models.Worktree
 import app.m5chat.shared.models.WorktreeStatus
 import app.m5chat.shared.network.ConnectionState
@@ -43,21 +44,18 @@ data class ChatUiState(
     val branches: BranchInfo? = null,
     val repoDiff: RepoDiff? = null,
     val inputText: String = "",
-    val showBranchesSheet: Boolean = false,
     val showDiffSheet: Boolean = false,
-    val showProviderDialog: Boolean = false,
     val showLogsSheet: Boolean = false,
-    val showBranchConfirmDialog: Boolean = false,
-    val pendingBranchSwitch: String? = null,
     val pendingAttachments: List<PendingAttachment> = emptyList(),
     val uploadingAttachments: Boolean = false,
-    val fetchingBranches: Boolean = false,
     // Worktrees
     val worktrees: Map<String, Worktree> = emptyMap(),
     val activeWorktreeId: String = Worktree.MAIN_WORKTREE_ID,
     val showCreateWorktreeSheet: Boolean = false,
     val showWorktreeMenuFor: String? = null,
     val showCloseWorktreeConfirm: String? = null,
+    // Provider models
+    val providerModelState: Map<String, ProviderModelState> = emptyMap(),
     // Error handling
     val error: AppError? = null
 ) {
@@ -208,56 +206,10 @@ class ChatViewModel(
         }
     }
 
-    fun switchProvider(provider: LLMProvider) {
-        viewModelScope.launch {
-            sessionRepository.switchProvider(provider)
-        }
-    }
-
     fun loadBranches() {
         viewModelScope.launch {
             sessionRepository.loadBranches()
         }
-    }
-
-    fun fetchBranches() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(fetchingBranches = true) }
-            sessionRepository.fetchBranches()
-            _uiState.update { it.copy(fetchingBranches = false) }
-        }
-    }
-
-    fun requestSwitchBranch(branch: String) {
-        _uiState.update { it.copy(showBranchConfirmDialog = true, pendingBranchSwitch = branch) }
-    }
-
-    fun confirmSwitchBranch() {
-        val branch = _uiState.value.pendingBranchSwitch ?: return
-        viewModelScope.launch {
-            sessionRepository.switchBranch(branch)
-            _uiState.update { it.copy(showBranchesSheet = false, showBranchConfirmDialog = false, pendingBranchSwitch = null) }
-        }
-    }
-
-    fun cancelSwitchBranch() {
-        _uiState.update { it.copy(showBranchConfirmDialog = false, pendingBranchSwitch = null) }
-    }
-
-    fun switchBranch(branch: String) {
-        viewModelScope.launch {
-            sessionRepository.switchBranch(branch)
-            _uiState.update { it.copy(showBranchesSheet = false) }
-        }
-    }
-
-    fun showBranchesSheet() {
-        loadBranches()
-        _uiState.update { it.copy(showBranchesSheet = true) }
-    }
-
-    fun hideBranchesSheet() {
-        _uiState.update { it.copy(showBranchesSheet = false) }
     }
 
     fun loadDiff() {
@@ -272,14 +224,6 @@ class ChatViewModel(
 
     fun hideDiffSheet() {
         _uiState.update { it.copy(showDiffSheet = false) }
-    }
-
-    fun showProviderDialog() {
-        _uiState.update { it.copy(showProviderDialog = true) }
-    }
-
-    fun hideProviderDialog() {
-        _uiState.update { it.copy(showProviderDialog = false) }
     }
 
     fun showLogsSheet() {
@@ -418,10 +362,52 @@ class ChatViewModel(
         _uiState.update { it.copy(showCreateWorktreeSheet = false) }
     }
 
-    fun createWorktree(name: String, provider: LLMProvider, branchName: String? = null) {
+    fun createWorktree(
+        name: String?,
+        provider: LLMProvider,
+        branchName: String? = null,
+        model: String? = null,
+        reasoningEffort: String? = null
+    ) {
         viewModelScope.launch {
-            sessionRepository.createWorktree(name, provider, branchName)
+            sessionRepository.createWorktree(name, provider, branchName, model, reasoningEffort)
             _uiState.update { it.copy(showCreateWorktreeSheet = false) }
+        }
+    }
+
+    fun loadProviderModels(provider: String) {
+        viewModelScope.launch {
+            // Set loading state
+            _uiState.update { state ->
+                val currentState = state.providerModelState[provider] ?: ProviderModelState()
+                state.copy(
+                    providerModelState = state.providerModelState + (provider to currentState.copy(loading = true, error = null))
+                )
+            }
+
+            sessionRepository.loadProviderModels(provider)
+                .onSuccess { models ->
+                    _uiState.update { state ->
+                        state.copy(
+                            providerModelState = state.providerModelState + (provider to ProviderModelState(
+                                models = models,
+                                loading = false,
+                                error = null
+                            ))
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update { state ->
+                        state.copy(
+                            providerModelState = state.providerModelState + (provider to ProviderModelState(
+                                models = emptyList(),
+                                loading = false,
+                                error = error.message ?: "Impossible de charger les modèles"
+                            ))
+                        )
+                    }
+                }
         }
     }
 

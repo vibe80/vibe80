@@ -137,7 +137,7 @@ class ApiClient(
     /**
      * Get available models for a provider
      */
-    suspend fun getModels(sessionId: String, provider: String): Result<List<String>> {
+    suspend fun getModels(sessionId: String, provider: String): Result<ModelsResponse> {
         return runCatching {
             httpClient.get("$baseUrl/api/models") {
                 parameter("session", sessionId)

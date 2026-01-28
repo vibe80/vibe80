@@ -403,16 +403,28 @@ class SessionRepository(
     }
 
     suspend fun createWorktree(
-        name: String,
+        name: String?,
         provider: LLMProvider,
-        branchName: String? = null
+        branchName: String? = null,
+        model: String? = null,
+        reasoningEffort: String? = null
     ) {
         webSocketManager.createWorktree(
             provider = provider.name.lowercase(),
             name = name,
             parentWorktreeId = _activeWorktreeId.value,
-            branchName = branchName
+            branchName = branchName,
+            model = model,
+            reasoningEffort = reasoningEffort
         )
+    }
+
+    suspend fun loadProviderModels(provider: String): Result<List<ProviderModel>> {
+        val sessionId = _sessionState.value?.sessionId
+            ?: return Result.failure(IllegalStateException("No active session"))
+        return apiClient.getModels(sessionId, provider).map { response ->
+            response.models
+        }
     }
 
     suspend fun sendWorktreeMessage(

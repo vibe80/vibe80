@@ -253,8 +253,10 @@ data class CreateWorktreeRequest(
     override val type: String = "create_parallel_request",
     val provider: String,
     val parentWorktreeId: String? = null,
-    val name: String,
-    val branchName: String? = null
+    val name: String? = null,
+    val startingBranch: String? = null,
+    val model: String? = null,
+    val reasoningEffort: String? = null
 ) : ClientMessage()
 
 @Serializable
