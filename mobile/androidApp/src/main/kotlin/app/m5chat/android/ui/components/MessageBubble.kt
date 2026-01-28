@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.res.ResourcesCompat
+import app.m5chat.android.R
 import app.m5chat.shared.models.Attachment
 import app.m5chat.shared.models.ChatMessage
 import app.m5chat.shared.models.MessageRole
@@ -349,6 +351,9 @@ fun MarkdownText(
     val codeTextSizePx = remember {
         14f * context.resources.displayMetrics.scaledDensity
     }
+    val bodyTypeface = remember {
+        ResourcesCompat.getFont(context, R.font.space_grotesk_wght)
+    }
 
     val markwon = remember(textColor, linkColor, codeBackgroundColor, codeTextSizePx) {
         Markwon.builder(context)
@@ -383,6 +388,7 @@ fun MarkdownText(
                 setLinkTextColor(linkColor.toArgb())
                 movementMethod = LinkMovementMethod.getInstance()
                 textSize = 14f
+                bodyTypeface?.let { typeface = it }
             }
         },
         update = { textView ->
