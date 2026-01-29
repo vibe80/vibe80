@@ -1139,15 +1139,21 @@ main.chat {
   color: var(--accent-dark);
 }
 
-.explorer-tree-item.is-modified:not(.is-selected) .explorer-tree-name,
-.explorer-tree-item.is-modified:not(.is-selected) .explorer-tree-icon,
-.explorer-tree-item.is-modified:not(.is-selected) .explorer-tree-toggle {
+.explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-toggle,
+.explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-file,
+.explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-toggle .explorer-tree-name,
+.explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-toggle .explorer-tree-icon,
+.explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-file .explorer-tree-name,
+.explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-file .explorer-tree-icon {
   color: #1d5fd3;
 }
 
-.explorer-tree-item.is-untracked:not(.is-selected) .explorer-tree-name,
-.explorer-tree-item.is-untracked:not(.is-selected) .explorer-tree-icon,
-.explorer-tree-item.is-untracked:not(.is-selected) .explorer-tree-toggle {
+.explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-toggle,
+.explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-file,
+.explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-toggle .explorer-tree-name,
+.explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-toggle .explorer-tree-icon,
+.explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-file .explorer-tree-name,
+.explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-file .explorer-tree-icon {
   color: #1f8c4a;
 }
 
