@@ -3,7 +3,7 @@
   "info": {
     "title": "m5chat WebSocket API",
     "version": "1.0.0",
-    "description": "Spec extracted from server/src/index.js"
+    "description": "Spec (workspace auth via JWT token in query)"
   },
   "servers": {
     "chat": {
@@ -22,79 +22,150 @@
       "parameters": {
         "session": {
           "description": "Session ID",
-          "schema": { "type": "string" }
+          "schema": {
+            "type": "string"
+          }
+        },
+        "token": {
+          "description": "Workspace JWT token (24h)",
+          "schema": {
+            "type": "string"
+          }
         }
       },
       "publish": {
         "summary": "Client -> Server",
-        "message": { "$ref": "#/components/messages/ClientToServer" }
+        "message": {
+          "$ref": "#/components/messages/ClientToServer"
+        }
       },
       "subscribe": {
         "summary": "Server -> Client",
-        "message": { "$ref": "#/components/messages/ServerToClient" }
+        "message": {
+          "$ref": "#/components/messages/ServerToClient"
+        }
       }
     },
     "/terminal": {
       "parameters": {
         "session": {
           "description": "Session ID",
-          "schema": { "type": "string" }
+          "schema": {
+            "type": "string"
+          }
         },
         "worktreeId": {
           "description": "Optional worktree id",
-          "schema": { "type": "string" }
+          "schema": {
+            "type": "string"
+          }
+        },
+        "token": {
+          "description": "Workspace JWT token (24h)",
+          "schema": {
+            "type": "string"
+          }
         }
       },
       "publish": {
         "summary": "Client -> Server",
-        "message": { "$ref": "#/components/messages/TerminalClientToServer" }
+        "message": {
+          "$ref": "#/components/messages/TerminalClientToServer"
+        }
       },
       "subscribe": {
         "summary": "Server -> Client",
-        "message": { "$ref": "#/components/messages/TerminalServerToClient" }
+        "message": {
+          "$ref": "#/components/messages/TerminalServerToClient"
+        }
       }
     }
   },
   "components": {
     "schemas": {
-      "Provider": { "type": "string", "enum": ["codex", "claude"] },
+      "Provider": {
+        "type": "string",
+        "enum": [
+          "codex",
+          "claude"
+        ]
+      },
       "AttachmentRef": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "path": { "type": "string" },
-          "size": { "type": "integer" }
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          }
         },
         "additionalProperties": true
       },
       "Message": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "role": { "type": "string" },
-          "text": { "type": "string" },
-          "attachments": { "type": "array", "items": { "$ref": "#/components/schemas/AttachmentRef" } },
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "toolResult": { "type": "object" }
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentRef"
+            }
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "toolResult": {
+            "type": "object"
+          }
         },
         "additionalProperties": true
       },
       "RepoDiff": {
         "type": "object",
         "properties": {
-          "status": { "type": "string" },
-          "diff": { "type": "string" }
+          "status": {
+            "type": "string"
+          },
+          "diff": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       },
       "RpcLogEntry": {
         "type": "object",
         "properties": {
-          "direction": { "type": "string", "enum": ["stdin", "stdout"] },
-          "timestamp": { "type": "number" },
-          "payload": { "type": "object" },
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "worktreeId": { "type": "string" }
+          "direction": {
+            "type": "string",
+            "enum": [
+              "stdin",
+              "stdout"
+            ]
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "payload": {
+            "type": "object"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "worktreeId": {
+            "type": "string"
+          }
         },
         "additionalProperties": true
       }
@@ -102,73 +173,188 @@
     "messages": {
       "ClientToServer": {
         "oneOf": [
-          { "$ref": "#/components/messages/Ping" },
-          { "$ref": "#/components/messages/SyncMessages" },
-          { "$ref": "#/components/messages/UserMessage" },
-          { "$ref": "#/components/messages/WorktreeMessage" },
-          { "$ref": "#/components/messages/CreateParallelRequest" },
-          { "$ref": "#/components/messages/WorktreeTurnInterrupt" },
-          { "$ref": "#/components/messages/SyncWorktreeMessages" },
-          { "$ref": "#/components/messages/ListWorktrees" },
-          { "$ref": "#/components/messages/TurnInterrupt" },
-          { "$ref": "#/components/messages/ModelListRequest" },
-          { "$ref": "#/components/messages/ModelSetRequest" },
-          { "$ref": "#/components/messages/AccountLoginStart" },
-          { "$ref": "#/components/messages/SwitchProvider" }
+          {
+            "$ref": "#/components/messages/Ping"
+          },
+          {
+            "$ref": "#/components/messages/SyncMessages"
+          },
+          {
+            "$ref": "#/components/messages/UserMessage"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeMessage"
+          },
+          {
+            "$ref": "#/components/messages/CreateParallelRequest"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeTurnInterrupt"
+          },
+          {
+            "$ref": "#/components/messages/SyncWorktreeMessages"
+          },
+          {
+            "$ref": "#/components/messages/ListWorktrees"
+          },
+          {
+            "$ref": "#/components/messages/TurnInterrupt"
+          },
+          {
+            "$ref": "#/components/messages/ModelListRequest"
+          },
+          {
+            "$ref": "#/components/messages/ModelSetRequest"
+          },
+          {
+            "$ref": "#/components/messages/AccountLoginStart"
+          },
+          {
+            "$ref": "#/components/messages/SwitchProvider"
+          }
         ]
       },
       "ServerToClient": {
         "oneOf": [
-          { "$ref": "#/components/messages/Pong" },
-          { "$ref": "#/components/messages/Error" },
-          { "$ref": "#/components/messages/Status" },
-          { "$ref": "#/components/messages/Ready" },
-          { "$ref": "#/components/messages/MessagesSync" },
-          { "$ref": "#/components/messages/TurnStarted" },
-          { "$ref": "#/components/messages/TurnCompleted" },
-          { "$ref": "#/components/messages/TurnError" },
-          { "$ref": "#/components/messages/TurnInterruptSent" },
-          { "$ref": "#/components/messages/AssistantDelta" },
-          { "$ref": "#/components/messages/AssistantMessage" },
-          { "$ref": "#/components/messages/CommandExecutionDelta" },
-          { "$ref": "#/components/messages/CommandExecutionCompleted" },
-          { "$ref": "#/components/messages/ItemStarted" },
-          { "$ref": "#/components/messages/RepoDiff" },
-          { "$ref": "#/components/messages/WorktreeReady" },
-          { "$ref": "#/components/messages/WorktreeStatus" },
-          { "$ref": "#/components/messages/WorktreeDiff" },
-          { "$ref": "#/components/messages/WorktreeCreated" },
-          { "$ref": "#/components/messages/WorktreeRemoved" },
-          { "$ref": "#/components/messages/WorktreeRenamed" },
-          { "$ref": "#/components/messages/WorktreeMessagesSync" },
-          { "$ref": "#/components/messages/WorktreesList" },
-          { "$ref": "#/components/messages/ProviderSwitched" },
-          { "$ref": "#/components/messages/ModelListResponse" },
-          { "$ref": "#/components/messages/ModelSetResponse" },
-          { "$ref": "#/components/messages/AccountLoginStarted" },
-          { "$ref": "#/components/messages/AccountLoginError" },
-          { "$ref": "#/components/messages/AccountLoginCompleted" },
-          { "$ref": "#/components/messages/RpcLog" }
+          {
+            "$ref": "#/components/messages/Pong"
+          },
+          {
+            "$ref": "#/components/messages/Error"
+          },
+          {
+            "$ref": "#/components/messages/Status"
+          },
+          {
+            "$ref": "#/components/messages/Ready"
+          },
+          {
+            "$ref": "#/components/messages/MessagesSync"
+          },
+          {
+            "$ref": "#/components/messages/TurnStarted"
+          },
+          {
+            "$ref": "#/components/messages/TurnCompleted"
+          },
+          {
+            "$ref": "#/components/messages/TurnError"
+          },
+          {
+            "$ref": "#/components/messages/TurnInterruptSent"
+          },
+          {
+            "$ref": "#/components/messages/AssistantDelta"
+          },
+          {
+            "$ref": "#/components/messages/AssistantMessage"
+          },
+          {
+            "$ref": "#/components/messages/CommandExecutionDelta"
+          },
+          {
+            "$ref": "#/components/messages/CommandExecutionCompleted"
+          },
+          {
+            "$ref": "#/components/messages/ItemStarted"
+          },
+          {
+            "$ref": "#/components/messages/RepoDiff"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeReady"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeStatus"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeDiff"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeCreated"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeRemoved"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeRenamed"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeMessagesSync"
+          },
+          {
+            "$ref": "#/components/messages/WorktreesList"
+          },
+          {
+            "$ref": "#/components/messages/ProviderSwitched"
+          },
+          {
+            "$ref": "#/components/messages/ModelListResponse"
+          },
+          {
+            "$ref": "#/components/messages/ModelSetResponse"
+          },
+          {
+            "$ref": "#/components/messages/AccountLoginStarted"
+          },
+          {
+            "$ref": "#/components/messages/AccountLoginError"
+          },
+          {
+            "$ref": "#/components/messages/AccountLoginCompleted"
+          },
+          {
+            "$ref": "#/components/messages/RpcLog"
+          }
         ]
       },
       "Ping": {
         "name": "ping",
-        "payload": { "type": "object", "properties": { "type": { "const": "ping" } }, "required": ["type"] }
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "ping"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
       },
       "Pong": {
         "name": "pong",
-        "payload": { "type": "object", "properties": { "type": { "const": "pong" } }, "required": ["type"] }
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "pong"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
       },
       "Error": {
         "name": "error",
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "error" },
-            "message": { "type": "string" },
-            "worktreeId": { "type": "string" }
+            "type": {
+              "const": "error"
+            },
+            "message": {
+              "type": "string"
+            },
+            "worktreeId": {
+              "type": "string"
+            }
           },
-          "required": ["type", "message"],
+          "required": [
+            "type",
+            "message"
+          ],
           "additionalProperties": true
         }
       },
@@ -177,11 +363,20 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "status" },
-            "message": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "status"
+            },
+            "message": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "message"],
+          "required": [
+            "type",
+            "message"
+          ],
           "additionalProperties": true
         }
       },
@@ -190,11 +385,20 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "ready" },
-            "threadId": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "ready"
+            },
+            "threadId": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "threadId"],
+          "required": [
+            "type",
+            "threadId"
+          ],
           "additionalProperties": true
         }
       },
@@ -203,11 +407,19 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "sync_messages" },
-            "provider": { "$ref": "#/components/schemas/Provider" },
-            "lastSeenMessageId": { "type": "string" }
+            "type": {
+              "const": "sync_messages"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            },
+            "lastSeenMessageId": {
+              "type": "string"
+            }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": true
         }
       },
@@ -216,11 +428,23 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "messages_sync" },
-            "provider": { "$ref": "#/components/schemas/Provider" },
-            "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } }
+            "type": {
+              "const": "messages_sync"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Message"
+              }
+            }
           },
-          "required": ["type", "messages"],
+          "required": [
+            "type",
+            "messages"
+          ],
           "additionalProperties": true
         }
       },
@@ -229,12 +453,26 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "user_message" },
-            "text": { "type": "string" },
-            "displayText": { "type": "string" },
-            "attachments": { "type": "array", "items": { "$ref": "#/components/schemas/AttachmentRef" } }
+            "type": {
+              "const": "user_message"
+            },
+            "text": {
+              "type": "string"
+            },
+            "displayText": {
+              "type": "string"
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AttachmentRef"
+              }
+            }
           },
-          "required": ["type", "text"],
+          "required": [
+            "type",
+            "text"
+          ],
           "additionalProperties": true
         }
       },
@@ -243,13 +481,30 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_message" },
-            "worktreeId": { "type": "string" },
-            "text": { "type": "string" },
-            "displayText": { "type": "string" },
-            "attachments": { "type": "array", "items": { "$ref": "#/components/schemas/AttachmentRef" } }
+            "type": {
+              "const": "worktree_message"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "displayText": {
+              "type": "string"
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AttachmentRef"
+              }
+            }
           },
-          "required": ["type", "worktreeId", "text"],
+          "required": [
+            "type",
+            "worktreeId",
+            "text"
+          ],
           "additionalProperties": true
         }
       },
@@ -258,17 +513,38 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "create_parallel_request" },
-            "provider": { "$ref": "#/components/schemas/Provider" },
-            "name": { "type": "string" },
-            "parentWorktreeId": { "type": "string" },
-            "startingBranch": { "type": "string" },
-            "text": { "type": "string" },
-            "displayText": { "type": "string" },
-            "model": { "type": "string" },
-            "reasoningEffort": { "type": "string" }
+            "type": {
+              "const": "create_parallel_request"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            },
+            "name": {
+              "type": "string"
+            },
+            "parentWorktreeId": {
+              "type": "string"
+            },
+            "startingBranch": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "displayText": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "reasoningEffort": {
+              "type": "string"
+            }
           },
-          "required": ["type", "provider"],
+          "required": [
+            "type",
+            "provider"
+          ],
           "additionalProperties": true
         }
       },
@@ -277,11 +553,20 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_turn_interrupt" },
-            "worktreeId": { "type": "string" },
-            "turnId": { "type": "string" }
+            "type": {
+              "const": "worktree_turn_interrupt"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            }
           },
-          "required": ["type", "worktreeId"],
+          "required": [
+            "type",
+            "worktreeId"
+          ],
           "additionalProperties": true
         }
       },
@@ -290,10 +575,17 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "sync_worktree_messages" },
-            "worktreeId": { "type": "string" }
+            "type": {
+              "const": "sync_worktree_messages"
+            },
+            "worktreeId": {
+              "type": "string"
+            }
           },
-          "required": ["type", "worktreeId"],
+          "required": [
+            "type",
+            "worktreeId"
+          ],
           "additionalProperties": true
         }
       },
@@ -302,12 +594,27 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_messages_sync" },
-            "worktreeId": { "type": "string" },
-            "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
-            "status": { "type": "string" }
+            "type": {
+              "const": "worktree_messages_sync"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "status": {
+              "type": "string"
+            }
           },
-          "required": ["type", "worktreeId", "messages"],
+          "required": [
+            "type",
+            "worktreeId",
+            "messages"
+          ],
           "additionalProperties": true
         }
       },
@@ -315,8 +622,14 @@
         "name": "list_worktrees",
         "payload": {
           "type": "object",
-          "properties": { "type": { "const": "list_worktrees" } },
-          "required": ["type"]
+          "properties": {
+            "type": {
+              "const": "list_worktrees"
+            }
+          },
+          "required": [
+            "type"
+          ]
         }
       },
       "WorktreesList": {
@@ -324,10 +637,20 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktrees_list" },
-            "worktrees": { "type": "array", "items": { "type": "object" } }
+            "type": {
+              "const": "worktrees_list"
+            },
+            "worktrees": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
           },
-          "required": ["type", "worktrees"],
+          "required": [
+            "type",
+            "worktrees"
+          ],
           "additionalProperties": true
         }
       },
@@ -336,10 +659,16 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "turn_interrupt" },
-            "turnId": { "type": "string" }
+            "type": {
+              "const": "turn_interrupt"
+            },
+            "turnId": {
+              "type": "string"
+            }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": true
         }
       },
@@ -348,10 +677,16 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "turn_interrupt_sent" },
-            "worktreeId": { "type": "string" }
+            "type": {
+              "const": "turn_interrupt_sent"
+            },
+            "worktreeId": {
+              "type": "string"
+            }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": true
         }
       },
@@ -360,14 +695,29 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "turn_started" },
-            "worktreeId": { "type": "string" },
-            "turnId": { "type": "string" },
-            "threadId": { "type": "string" },
-            "status": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "turn_started"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "threadId": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "turnId"],
+          "required": [
+            "type",
+            "turnId"
+          ],
           "additionalProperties": true
         }
       },
@@ -376,15 +726,35 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "turn_completed" },
-            "worktreeId": { "type": "string" },
-            "turnId": { "type": "string" },
-            "threadId": { "type": "string" },
-            "status": { "type": "string" },
-            "error": { "type": ["string", "null"] },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "turn_completed"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "threadId": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "error": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "turnId"],
+          "required": [
+            "type",
+            "turnId"
+          ],
           "additionalProperties": true
         }
       },
@@ -393,15 +763,32 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "turn_error" },
-            "worktreeId": { "type": "string" },
-            "turnId": { "type": "string" },
-            "threadId": { "type": "string" },
-            "message": { "type": "string" },
-            "willRetry": { "type": "boolean" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "turn_error"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "threadId": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "willRetry": {
+              "type": "boolean"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "message"],
+          "required": [
+            "type",
+            "message"
+          ],
           "additionalProperties": true
         }
       },
@@ -410,14 +797,29 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "assistant_delta" },
-            "worktreeId": { "type": "string" },
-            "delta": { "type": "string" },
-            "itemId": { "type": "string" },
-            "turnId": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "assistant_delta"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "delta": {
+              "type": "string"
+            },
+            "itemId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "delta"],
+          "required": [
+            "type",
+            "delta"
+          ],
           "additionalProperties": true
         }
       },
@@ -426,14 +828,29 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "assistant_message" },
-            "worktreeId": { "type": "string" },
-            "text": { "type": "string" },
-            "itemId": { "type": "string" },
-            "turnId": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "assistant_message"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "itemId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "text"],
+          "required": [
+            "type",
+            "text"
+          ],
           "additionalProperties": true
         }
       },
@@ -442,15 +859,32 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "command_execution_delta" },
-            "worktreeId": { "type": "string" },
-            "delta": { "type": "string" },
-            "itemId": { "type": "string" },
-            "turnId": { "type": "string" },
-            "threadId": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "command_execution_delta"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "delta": {
+              "type": "string"
+            },
+            "itemId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "threadId": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "delta"],
+          "required": [
+            "type",
+            "delta"
+          ],
           "additionalProperties": true
         }
       },
@@ -459,14 +893,29 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "command_execution_completed" },
-            "worktreeId": { "type": "string" },
-            "item": { "type": "object" },
-            "itemId": { "type": "string" },
-            "turnId": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "command_execution_completed"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "item": {
+              "type": "object"
+            },
+            "itemId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "itemId"],
+          "required": [
+            "type",
+            "itemId"
+          ],
           "additionalProperties": true
         }
       },
@@ -475,14 +924,29 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "item_started" },
-            "worktreeId": { "type": "string" },
-            "threadId": { "type": "string" },
-            "turnId": { "type": "string" },
-            "item": { "type": "object" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "item_started"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "threadId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "item": {
+              "type": "object"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "item"],
+          "required": [
+            "type",
+            "item"
+          ],
           "additionalProperties": true
         }
       },
@@ -491,11 +955,21 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "repo_diff" },
-            "status": { "type": "string" },
-            "diff": { "type": "string" }
+            "type": {
+              "const": "repo_diff"
+            },
+            "status": {
+              "type": "string"
+            },
+            "diff": {
+              "type": "string"
+            }
           },
-          "required": ["type", "status", "diff"],
+          "required": [
+            "type",
+            "status",
+            "diff"
+          ],
           "additionalProperties": false
         }
       },
@@ -504,12 +978,23 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_ready" },
-            "worktreeId": { "type": "string" },
-            "threadId": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "worktree_ready"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "threadId": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "worktreeId"],
+          "required": [
+            "type",
+            "worktreeId"
+          ],
           "additionalProperties": true
         }
       },
@@ -518,12 +1003,24 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_status" },
-            "worktreeId": { "type": "string" },
-            "status": { "type": "string" },
-            "error": { "type": "string" }
+            "type": {
+              "const": "worktree_status"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            }
           },
-          "required": ["type", "worktreeId", "status"],
+          "required": [
+            "type",
+            "worktreeId",
+            "status"
+          ],
           "additionalProperties": true
         }
       },
@@ -532,12 +1029,25 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_diff" },
-            "worktreeId": { "type": "string" },
-            "status": { "type": "string" },
-            "diff": { "type": "string" }
+            "type": {
+              "const": "worktree_diff"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "diff": {
+              "type": "string"
+            }
           },
-          "required": ["type", "worktreeId", "status", "diff"],
+          "required": [
+            "type",
+            "worktreeId",
+            "status",
+            "diff"
+          ],
           "additionalProperties": false
         }
       },
@@ -546,15 +1056,32 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_created" },
-            "worktreeId": { "type": "string" },
-            "name": { "type": "string" },
-            "branchName": { "type": "string" },
-            "provider": { "$ref": "#/components/schemas/Provider" },
-            "status": { "type": "string" },
-            "color": { "type": "string" }
+            "type": {
+              "const": "worktree_created"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "branchName": {
+              "type": "string"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            },
+            "status": {
+              "type": "string"
+            },
+            "color": {
+              "type": "string"
+            }
           },
-          "required": ["type", "worktreeId"],
+          "required": [
+            "type",
+            "worktreeId"
+          ],
           "additionalProperties": true
         }
       },
@@ -563,10 +1090,17 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_removed" },
-            "worktreeId": { "type": "string" }
+            "type": {
+              "const": "worktree_removed"
+            },
+            "worktreeId": {
+              "type": "string"
+            }
           },
-          "required": ["type", "worktreeId"],
+          "required": [
+            "type",
+            "worktreeId"
+          ],
           "additionalProperties": false
         }
       },
@@ -575,11 +1109,21 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "worktree_renamed" },
-            "worktreeId": { "type": "string" },
-            "name": { "type": "string" }
+            "type": {
+              "const": "worktree_renamed"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
           },
-          "required": ["type", "worktreeId", "name"],
+          "required": [
+            "type",
+            "worktreeId",
+            "name"
+          ],
           "additionalProperties": false
         }
       },
@@ -588,13 +1132,32 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "provider_switched" },
-            "provider": { "$ref": "#/components/schemas/Provider" },
-            "models": { "type": "array", "items": { "type": "object" } },
-            "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
-            "threadId": { "type": "string" }
+            "type": {
+              "const": "provider_switched"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Message"
+              }
+            },
+            "threadId": {
+              "type": "string"
+            }
           },
-          "required": ["type", "provider"],
+          "required": [
+            "type",
+            "provider"
+          ],
           "additionalProperties": true
         }
       },
@@ -602,8 +1165,14 @@
         "name": "model_list",
         "payload": {
           "type": "object",
-          "properties": { "type": { "const": "model_list" } },
-          "required": ["type"]
+          "properties": {
+            "type": {
+              "const": "model_list"
+            }
+          },
+          "required": [
+            "type"
+          ]
         }
       },
       "ModelListResponse": {
@@ -611,11 +1180,23 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "model_list" },
-            "models": { "type": "array", "items": { "type": "object" } },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "model_list"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "models"],
+          "required": [
+            "type",
+            "models"
+          ],
           "additionalProperties": true
         }
       },
@@ -624,11 +1205,25 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "model_set" },
-            "model": { "type": ["string", "null"] },
-            "reasoningEffort": { "type": ["string", "null"] }
+            "type": {
+              "const": "model_set"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reasoningEffort": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": true
         }
       },
@@ -637,12 +1232,28 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "model_set" },
-            "model": { "type": ["string", "null"] },
-            "reasoningEffort": { "type": ["string", "null"] },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "model_set"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reasoningEffort": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": true
         }
       },
@@ -651,11 +1262,19 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "account_login_start" },
-            "provider": { "$ref": "#/components/schemas/Provider" },
-            "params": { "type": "object" }
+            "type": {
+              "const": "account_login_start"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            },
+            "params": {
+              "type": "object"
+            }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": true
         }
       },
@@ -664,11 +1283,20 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "account_login_started" },
-            "result": { "type": "object" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "account_login_started"
+            },
+            "result": {
+              "type": "object"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "result"],
+          "required": [
+            "type",
+            "result"
+          ],
           "additionalProperties": true
         }
       },
@@ -677,10 +1305,17 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "account_login_error" },
-            "message": { "type": "string" }
+            "type": {
+              "const": "account_login_error"
+            },
+            "message": {
+              "type": "string"
+            }
           },
-          "required": ["type", "message"],
+          "required": [
+            "type",
+            "message"
+          ],
           "additionalProperties": true
         }
       },
@@ -689,13 +1324,32 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "account_login_completed" },
-            "success": { "type": "boolean" },
-            "error": { "type": ["string", "null"] },
-            "loginId": { "type": ["string", "null"] },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "account_login_completed"
+            },
+            "success": {
+              "type": "boolean"
+            },
+            "error": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "loginId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "success"],
+          "required": [
+            "type",
+            "success"
+          ],
           "additionalProperties": true
         }
       },
@@ -704,10 +1358,17 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "switch_provider" },
-            "provider": { "$ref": "#/components/schemas/Provider" }
+            "type": {
+              "const": "switch_provider"
+            },
+            "provider": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "required": ["type", "provider"],
+          "required": [
+            "type",
+            "provider"
+          ],
           "additionalProperties": true
         }
       },
@@ -716,24 +1377,41 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "rpc_log" },
-            "entry": { "$ref": "#/components/schemas/RpcLogEntry" }
+            "type": {
+              "const": "rpc_log"
+            },
+            "entry": {
+              "$ref": "#/components/schemas/RpcLogEntry"
+            }
           },
-          "required": ["type", "entry"],
+          "required": [
+            "type",
+            "entry"
+          ],
           "additionalProperties": true
         }
       },
       "TerminalClientToServer": {
         "oneOf": [
-          { "$ref": "#/components/messages/TerminalInit" },
-          { "$ref": "#/components/messages/TerminalResize" },
-          { "$ref": "#/components/messages/TerminalInput" }
+          {
+            "$ref": "#/components/messages/TerminalInit"
+          },
+          {
+            "$ref": "#/components/messages/TerminalResize"
+          },
+          {
+            "$ref": "#/components/messages/TerminalInput"
+          }
         ]
       },
       "TerminalServerToClient": {
         "oneOf": [
-          { "$ref": "#/components/messages/TerminalOutput" },
-          { "$ref": "#/components/messages/TerminalExit" }
+          {
+            "$ref": "#/components/messages/TerminalOutput"
+          },
+          {
+            "$ref": "#/components/messages/TerminalExit"
+          }
         ]
       },
       "TerminalInit": {
@@ -741,11 +1419,19 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "init" },
-            "cols": { "type": "integer" },
-            "rows": { "type": "integer" }
+            "type": {
+              "const": "init"
+            },
+            "cols": {
+              "type": "integer"
+            },
+            "rows": {
+              "type": "integer"
+            }
           },
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": true
         }
       },
@@ -754,11 +1440,21 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "resize" },
-            "cols": { "type": "integer" },
-            "rows": { "type": "integer" }
+            "type": {
+              "const": "resize"
+            },
+            "cols": {
+              "type": "integer"
+            },
+            "rows": {
+              "type": "integer"
+            }
           },
-          "required": ["type", "cols", "rows"],
+          "required": [
+            "type",
+            "cols",
+            "rows"
+          ],
           "additionalProperties": true
         }
       },
@@ -767,10 +1463,17 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "input" },
-            "data": { "type": "string" }
+            "type": {
+              "const": "input"
+            },
+            "data": {
+              "type": "string"
+            }
           },
-          "required": ["type", "data"],
+          "required": [
+            "type",
+            "data"
+          ],
           "additionalProperties": false
         }
       },
@@ -779,10 +1482,17 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "output" },
-            "data": { "type": "string" }
+            "type": {
+              "const": "output"
+            },
+            "data": {
+              "type": "string"
+            }
           },
-          "required": ["type", "data"],
+          "required": [
+            "type",
+            "data"
+          ],
           "additionalProperties": false
         }
       },
@@ -791,13 +1501,32 @@
         "payload": {
           "type": "object",
           "properties": {
-            "type": { "const": "exit" },
-            "code": { "type": "integer" }
+            "type": {
+              "const": "exit"
+            },
+            "code": {
+              "type": "integer"
+            }
           },
-          "required": ["type", "code"],
+          "required": [
+            "type",
+            "code"
+          ],
           "additionalProperties": false
         }
       }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
 }

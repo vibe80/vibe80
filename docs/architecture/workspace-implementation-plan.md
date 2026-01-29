@@ -13,6 +13,8 @@
   - Create home + workspace root
   - Persist workspaceSecret in home
   - Persist providers/auth config in home
+- PATCH /api/workspaces/{workspaceId}
+  - Update providers/auth config for the workspace
 - POST /api/workspaces/login
   - Validate workspaceId + workspaceSecret
   - Issue JWT (24h)

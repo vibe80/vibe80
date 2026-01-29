@@ -3,24 +3,30 @@
   "info": {
     "title": "m5chat REST API",
     "version": "1.0.0",
-    "description": "Spec extracted from server/src/index.js"
+    "description": "Spec (workspace auth, providers at workspace level)"
   },
   "servers": [
-    { "url": "http://localhost:5179" }
+    {
+      "url": "http://localhost:5179"
+    }
   ],
   "paths": {
     "/api/health": {
       "get": {
         "summary": "Health check",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Health response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             }
           }
@@ -31,18 +37,24 @@
       "get": {
         "summary": "Get session",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionId" }
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
         ],
         "responses": {
           "200": {
             "description": "Session state",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SessionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -50,18 +62,24 @@
       "get": {
         "summary": "Get repo diff for session",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionId" }
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
         ],
         "responses": {
           "200": {
             "description": "Repo diff",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RepoDiff" }
+                "schema": {
+                  "$ref": "#/components/schemas/RepoDiff"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -69,13 +87,17 @@
       "post": {
         "summary": "Clear messages for provider or worktree",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionId" }
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
         ],
         "requestBody": {
           "required": false,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SessionClearRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SessionClearRequest"
+              }
             }
           }
         },
@@ -84,11 +106,15 @@
             "description": "Cleared",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OkResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -99,7 +125,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateSessionRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionRequest"
+              }
             }
           }
         },
@@ -108,12 +136,18 @@
             "description": "Session created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CreateSessionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
@@ -121,18 +155,24 @@
       "get": {
         "summary": "List branches",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Branch info",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/BranchInfo" }
+                "schema": {
+                  "$ref": "#/components/schemas/BranchInfo"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -140,21 +180,33 @@
       "get": {
         "summary": "List models",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionQuery" },
-          { "$ref": "#/components/parameters/ProviderQuery" }
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          },
+          {
+            "$ref": "#/components/parameters/ProviderQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Model list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ModelListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ModelListResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -165,7 +217,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SwitchBranchRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SwitchBranchRequest"
+              }
             }
           }
         },
@@ -174,14 +228,24 @@
             "description": "Branch info",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/BranchInfo" }
+                "schema": {
+                  "$ref": "#/components/schemas/BranchInfo"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
@@ -189,18 +253,24 @@
       "get": {
         "summary": "List worktrees",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Worktree list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/WorktreeListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/WorktreeListResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -211,7 +281,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateWorktreeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorktreeRequest"
+              }
             }
           }
         },
@@ -220,12 +292,18 @@
             "description": "Worktree created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CreateWorktreeResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CreateWorktreeResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
@@ -233,52 +311,78 @@
       "get": {
         "summary": "Get worktree",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Worktree detail",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/WorktreeDetail" }
+                "schema": {
+                  "$ref": "#/components/schemas/WorktreeDetail"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "delete": {
         "summary": "Delete worktree",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Worktree removed",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OkResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       },
       "patch": {
         "summary": "Rename worktree",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RenameWorktreeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RenameWorktreeRequest"
+              }
             }
           }
         },
@@ -287,12 +391,18 @@
             "description": "Worktree updated",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/WorktreeRenameResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/WorktreeRenameResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -300,22 +410,36 @@
       "get": {
         "summary": "Get directory tree",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" },
-          { "$ref": "#/components/parameters/TreeDepth" },
-          { "$ref": "#/components/parameters/TreeLimit" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          },
+          {
+            "$ref": "#/components/parameters/TreeDepth"
+          },
+          {
+            "$ref": "#/components/parameters/TreeLimit"
+          }
         ],
         "responses": {
           "200": {
             "description": "Directory tree",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DirectoryTree" }
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryTree"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -323,34 +447,52 @@
       "get": {
         "summary": "Read file",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" },
-          { "$ref": "#/components/parameters/FilePath" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          },
+          {
+            "$ref": "#/components/parameters/FilePath"
+          }
         ],
         "responses": {
           "200": {
             "description": "File content",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FileReadResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FileReadResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       },
       "post": {
         "summary": "Write file",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/FileWriteRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/FileWriteRequest"
+              }
             }
           }
         },
@@ -359,12 +501,18 @@
             "description": "Write ok",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FileWriteResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/FileWriteResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -372,20 +520,30 @@
       "get": {
         "summary": "Worktree git status",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Status entries",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/WorktreeStatusResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/WorktreeStatusResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -393,19 +551,27 @@
       "get": {
         "summary": "Worktree diff",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Worktree diff",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RepoDiff" }
+                "schema": {
+                  "$ref": "#/components/schemas/RepoDiff"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -413,20 +579,30 @@
       "get": {
         "summary": "Worktree commits",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" },
-          { "$ref": "#/components/parameters/SessionQuery" },
-          { "$ref": "#/components/parameters/CommitsLimit" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          },
+          {
+            "$ref": "#/components/parameters/CommitsLimit"
+          }
         ],
         "responses": {
           "200": {
             "description": "Commit list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CommitListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CommitListResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -434,13 +610,17 @@
       "post": {
         "summary": "Merge worktree into target worktree",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/MergeWorktreeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/MergeWorktreeRequest"
+              }
             }
           }
         },
@@ -449,12 +629,18 @@
             "description": "Merge result",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MergeWorktreeResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MergeWorktreeResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
@@ -462,13 +648,17 @@
       "post": {
         "summary": "Abort merge",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SessionOnlyRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SessionOnlyRequest"
+              }
             }
           }
         },
@@ -477,12 +667,18 @@
             "description": "Aborted",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OkResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
@@ -490,13 +686,17 @@
       "post": {
         "summary": "Cherry-pick commit",
         "parameters": [
-          { "$ref": "#/components/parameters/WorktreeId" }
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CherryPickRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CherryPickRequest"
+              }
             }
           }
         },
@@ -505,12 +705,18 @@
             "description": "Cherry-pick result",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MergeWorktreeResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MergeWorktreeResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
@@ -518,18 +724,24 @@
       "get": {
         "summary": "List attachments",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "responses": {
           "200": {
             "description": "Attachment list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AttachmentListResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentListResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -537,16 +749,26 @@
       "get": {
         "summary": "Download attachment",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionQuery" },
-          { "$ref": "#/components/parameters/AttachmentPath" },
-          { "$ref": "#/components/parameters/AttachmentName" }
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          },
+          {
+            "$ref": "#/components/parameters/AttachmentPath"
+          },
+          {
+            "$ref": "#/components/parameters/AttachmentName"
+          }
         ],
         "responses": {
           "200": {
             "description": "Attachment file"
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
         }
       }
     },
@@ -554,7 +776,9 @@
       "post": {
         "summary": "Upload attachments",
         "parameters": [
-          { "$ref": "#/components/parameters/SessionQuery" }
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -565,10 +789,15 @@
                 "properties": {
                   "files": {
                     "type": "array",
-                    "items": { "type": "string", "format": "binary" }
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
                   }
                 },
-                "required": ["files"]
+                "required": [
+                  "files"
+                ]
               }
             }
           }
@@ -578,73 +807,151 @@
             "description": "Uploaded",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AttachmentUploadResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentUploadResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
-    "/api/auth-file": {
+    "/api/workspaces": {
       "post": {
-        "summary": "Upload Codex auth.json",
+        "summary": "Create workspace",
         "requestBody": {
           "required": true,
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "file": { "type": "string", "format": "binary" }
-                },
-                "required": ["file"]
+                "$ref": "#/components/schemas/WorkspaceCreateRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Workspace created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OkResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceCreateResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     },
-    "/api/claude-auth-file": {
+    "/api/workspaces/login": {
       "post": {
-        "summary": "Upload Claude credentials.json",
+        "summary": "Login workspace (exchange secret for token)",
         "requestBody": {
           "required": true,
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "file": { "type": "string", "format": "binary" }
-                },
-                "required": ["file"]
+                "$ref": "#/components/schemas/WorkspaceLoginRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Workspace token",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/OkResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceLoginResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/ServerError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/workspaces/{workspaceId}": {
+      "delete": {
+        "summary": "Delete workspace (policy TBD)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update workspace providers/auth",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workspace updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
         }
       }
     }
@@ -655,61 +962,92 @@
         "name": "session",
         "in": "query",
         "required": false,
-        "schema": { "type": "string" }
+        "schema": {
+          "type": "string"
+        }
       },
       "SessionId": {
         "name": "sessionId",
         "in": "path",
         "required": true,
-        "schema": { "type": "string" }
+        "schema": {
+          "type": "string"
+        }
       },
       "WorktreeId": {
         "name": "worktreeId",
         "in": "path",
         "required": true,
-        "schema": { "type": "string" }
+        "schema": {
+          "type": "string"
+        }
       },
       "ProviderQuery": {
         "name": "provider",
         "in": "query",
         "required": true,
-        "schema": { "$ref": "#/components/schemas/Provider" }
+        "schema": {
+          "$ref": "#/components/schemas/Provider"
+        }
       },
       "TreeDepth": {
         "name": "depth",
         "in": "query",
         "required": false,
-        "schema": { "type": "integer", "minimum": 0 }
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
       "TreeLimit": {
         "name": "limit",
         "in": "query",
         "required": false,
-        "schema": { "type": "integer", "minimum": 1 }
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
       },
       "FilePath": {
         "name": "path",
         "in": "query",
         "required": true,
-        "schema": { "type": "string" }
+        "schema": {
+          "type": "string"
+        }
       },
       "CommitsLimit": {
         "name": "limit",
         "in": "query",
         "required": false,
-        "schema": { "type": "integer", "minimum": 1 }
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
       },
       "AttachmentPath": {
         "name": "path",
         "in": "query",
         "required": false,
-        "schema": { "type": "string" }
+        "schema": {
+          "type": "string"
+        }
       },
       "AttachmentName": {
         "name": "name",
         "in": "query",
         "required": false,
-        "schema": { "type": "string" }
+        "schema": {
+          "type": "string"
+        }
+      },
+      "WorkspaceId": {
+        "name": "workspaceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
       }
     },
     "responses": {
@@ -717,7 +1055,9 @@
         "description": "Bad request",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       },
@@ -725,7 +1065,9 @@
         "description": "Not found",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       },
@@ -733,7 +1075,9 @@
         "description": "Forbidden",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       },
@@ -741,7 +1085,9 @@
         "description": "Conflict",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       },
@@ -749,7 +1095,9 @@
         "description": "Server error",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
           }
         }
       }
@@ -757,390 +1105,934 @@
     "schemas": {
       "Provider": {
         "type": "string",
-        "enum": ["codex", "claude"]
+        "enum": [
+          "codex",
+          "claude"
+        ]
       },
       "OkResponse": {
         "type": "object",
         "properties": {
-          "ok": { "type": "boolean" }
+          "ok": {
+            "type": "boolean"
+          }
         },
-        "required": ["ok"],
+        "required": [
+          "ok"
+        ],
         "additionalProperties": true
       },
       "ErrorResponse": {
         "type": "object",
         "properties": {
-          "error": { "type": "string" }
+          "error": {
+            "type": "string"
+          }
         },
-        "required": ["error"],
+        "required": [
+          "error"
+        ],
         "additionalProperties": true
       },
       "HealthResponse": {
         "type": "object",
         "properties": {
-          "ok": { "type": "boolean" },
-          "ready": { "type": "boolean" },
-          "threadId": { "type": ["string", "null"] },
-          "provider": { "$ref": "#/components/schemas/Provider" }
+          "ok": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "threadId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          }
         },
-        "required": ["ok", "ready", "threadId"],
+        "required": [
+          "ok",
+          "ready",
+          "threadId"
+        ],
         "additionalProperties": true
       },
       "Message": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "role": { "type": "string" },
-          "text": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
           "attachments": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/AttachmentRef" }
+            "items": {
+              "$ref": "#/components/schemas/AttachmentRef"
+            }
           },
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "toolResult": { "$ref": "#/components/schemas/ToolResult" }
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "toolResult": {
+            "$ref": "#/components/schemas/ToolResult"
+          }
         },
-        "required": ["id", "role", "text"],
+        "required": [
+          "id",
+          "role",
+          "text"
+        ],
         "additionalProperties": true
       },
       "ToolResult": {
         "type": "object",
         "properties": {
-          "callId": { "type": "string" },
-          "name": { "type": "string" },
-          "output": { "type": "string" },
-          "success": { "type": "boolean" }
+          "callId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
         },
-        "required": ["callId", "name", "output", "success"],
+        "required": [
+          "callId",
+          "name",
+          "output",
+          "success"
+        ],
         "additionalProperties": true
       },
       "AttachmentRef": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "path": { "type": "string" },
-          "size": { "type": "integer" }
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          }
         },
         "additionalProperties": true
       },
       "RepoDiff": {
         "type": "object",
         "properties": {
-          "status": { "type": "string" },
-          "diff": { "type": "string" }
+          "status": {
+            "type": "string"
+          },
+          "diff": {
+            "type": "string"
+          }
         },
-        "required": ["status", "diff"],
+        "required": [
+          "status",
+          "diff"
+        ],
         "additionalProperties": false
       },
       "SessionResponse": {
         "type": "object",
         "properties": {
-          "sessionId": { "type": "string" },
-          "path": { "type": "string" },
-          "repoUrl": { "type": "string" },
-          "provider": { "$ref": "#/components/schemas/Provider" },
+          "sessionId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "repoUrl": {
+            "type": "string"
+          },
           "providers": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Provider" }
+            "items": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
           "messages": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Message" }
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
           },
-          "repoDiff": { "$ref": "#/components/schemas/RepoDiff" },
-          "rpcLogs": { "type": "array", "items": { "type": "object" } },
-          "terminalEnabled": { "type": "boolean" }
+          "repoDiff": {
+            "$ref": "#/components/schemas/RepoDiff"
+          },
+          "rpcLogs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "terminalEnabled": {
+            "type": "boolean"
+          },
+          "default_provider": {
+            "$ref": "#/components/schemas/Provider"
+          }
         },
-        "required": ["sessionId", "path", "repoUrl", "provider", "messages", "repoDiff"],
+        "required": [
+          "sessionId",
+          "path",
+          "repoUrl",
+          "default_provider",
+          "messages",
+          "repoDiff"
+        ],
         "additionalProperties": true
       },
       "CreateSessionRequest": {
         "type": "object",
         "properties": {
-          "repoUrl": { "type": "string" },
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "providers": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/Provider" }
+          "repoUrl": {
+            "type": "string"
           },
-          "auth": { "type": "object" }
+          "auth": {
+            "type": "object"
+          }
         },
-        "required": ["repoUrl"],
+        "required": [
+          "repoUrl"
+        ],
         "additionalProperties": true
       },
       "CreateSessionResponse": {
         "type": "object",
         "properties": {
-          "sessionId": { "type": "string" },
-          "path": { "type": "string" },
-          "repoUrl": { "type": "string" },
-          "provider": { "$ref": "#/components/schemas/Provider" },
+          "sessionId": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "repoUrl": {
+            "type": "string"
+          },
           "providers": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Provider" }
+            "items": {
+              "$ref": "#/components/schemas/Provider"
+            }
           },
-          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
-          "terminalEnabled": { "type": "boolean" }
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "terminalEnabled": {
+            "type": "boolean"
+          },
+          "default_provider": {
+            "$ref": "#/components/schemas/Provider"
+          }
         },
-        "required": ["sessionId", "path", "repoUrl", "provider", "messages"],
+        "required": [
+          "sessionId",
+          "path",
+          "repoUrl",
+          "default_provider",
+          "messages"
+        ],
         "additionalProperties": true
       },
       "SessionClearRequest": {
         "type": "object",
         "properties": {
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "worktreeId": { "type": "string" }
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "worktreeId": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       },
       "BranchInfo": {
         "type": "object",
         "properties": {
-          "current": { "type": "string" },
-          "remote": { "type": "string" },
-          "branches": { "type": "array", "items": { "type": "string" } }
+          "current": {
+            "type": "string"
+          },
+          "remote": {
+            "type": "string"
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         },
-        "required": ["current", "remote", "branches"],
+        "required": [
+          "current",
+          "remote",
+          "branches"
+        ],
         "additionalProperties": false
       },
       "ModelListResponse": {
         "type": "object",
         "properties": {
-          "models": { "type": "array", "items": { "type": "object" } },
-          "provider": { "$ref": "#/components/schemas/Provider" }
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          }
         },
-        "required": ["models", "provider"],
+        "required": [
+          "models",
+          "provider"
+        ],
         "additionalProperties": true
       },
       "SwitchBranchRequest": {
         "type": "object",
         "properties": {
-          "session": { "type": "string" },
-          "branch": { "type": "string" }
+          "session": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          }
         },
-        "required": ["session", "branch"],
+        "required": [
+          "session",
+          "branch"
+        ],
         "additionalProperties": false
       },
       "WorktreeSummary": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "branchName": { "type": "string" },
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "status": { "type": "string" },
-          "messageCount": { "type": "integer" },
-          "parentWorktreeId": { "type": ["string", "null"] },
-          "createdAt": { "type": ["string", "number", "null"] },
-          "lastActivityAt": { "type": ["string", "number", "null"] },
-          "color": { "type": "string" }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "branchName": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "status": {
+            "type": "string"
+          },
+          "messageCount": {
+            "type": "integer"
+          },
+          "parentWorktreeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ]
+          },
+          "lastActivityAt": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ]
+          },
+          "color": {
+            "type": "string"
+          }
         },
-        "required": ["id", "name", "branchName", "provider", "status"],
+        "required": [
+          "id",
+          "name",
+          "branchName",
+          "provider",
+          "status"
+        ],
         "additionalProperties": true
       },
       "WorktreeListResponse": {
         "type": "object",
         "properties": {
-          "worktrees": { "type": "array", "items": { "$ref": "#/components/schemas/WorktreeSummary" } }
+          "worktrees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorktreeSummary"
+            }
+          }
         },
-        "required": ["worktrees"],
+        "required": [
+          "worktrees"
+        ],
         "additionalProperties": false
       },
       "CreateWorktreeRequest": {
         "type": "object",
         "properties": {
-          "session": { "type": "string" },
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "name": { "type": ["string", "null"] },
-          "parentWorktreeId": { "type": ["string", "null"] },
-          "startingBranch": { "type": ["string", "null"] }
+          "session": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parentWorktreeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startingBranch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         },
-        "required": ["session", "provider"],
+        "required": [
+          "session",
+          "provider"
+        ],
         "additionalProperties": false
       },
       "CreateWorktreeResponse": {
         "type": "object",
         "properties": {
-          "worktreeId": { "type": "string" },
-          "name": { "type": "string" },
-          "branchName": { "type": "string" },
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "status": { "type": "string" },
-          "color": { "type": "string" }
+          "worktreeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "branchName": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "status": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          }
         },
-        "required": ["worktreeId", "name", "branchName", "provider", "status"],
+        "required": [
+          "worktreeId",
+          "name",
+          "branchName",
+          "provider",
+          "status"
+        ],
         "additionalProperties": true
       },
       "WorktreeDetail": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "branchName": { "type": "string" },
-          "provider": { "$ref": "#/components/schemas/Provider" },
-          "status": { "type": "string" },
-          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
-          "color": { "type": "string" },
-          "createdAt": { "type": ["string", "number", "null"] },
-          "diff": { "$ref": "#/components/schemas/RepoDiff" }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "branchName": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "status": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "color": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ]
+          },
+          "diff": {
+            "$ref": "#/components/schemas/RepoDiff"
+          }
         },
-        "required": ["id", "name", "branchName", "provider", "status", "messages", "diff"],
+        "required": [
+          "id",
+          "name",
+          "branchName",
+          "provider",
+          "status",
+          "messages",
+          "diff"
+        ],
         "additionalProperties": true
       },
       "DirectoryTree": {
         "type": "object",
         "properties": {
-          "tree": { "type": "array", "items": { "$ref": "#/components/schemas/DirectoryNode" } },
-          "total": { "type": "integer" },
-          "truncated": { "type": "boolean" }
+          "tree": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryNode"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
         },
-        "required": ["tree", "total", "truncated"],
+        "required": [
+          "tree",
+          "total",
+          "truncated"
+        ],
         "additionalProperties": false
       },
       "DirectoryNode": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "path": { "type": "string" },
-          "type": { "type": "string", "enum": ["dir", "file"] },
-          "children": { "type": "array", "items": { "$ref": "#/components/schemas/DirectoryNode" } }
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "dir",
+              "file"
+            ]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryNode"
+            }
+          }
         },
-        "required": ["name", "path", "type"],
+        "required": [
+          "name",
+          "path",
+          "type"
+        ],
         "additionalProperties": true
       },
       "FileReadResponse": {
         "type": "object",
         "properties": {
-          "path": { "type": "string" },
-          "content": { "type": "string" },
-          "truncated": { "type": "boolean" },
-          "binary": { "type": "boolean" }
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "binary": {
+            "type": "boolean"
+          }
         },
-        "required": ["path", "content", "truncated", "binary"],
+        "required": [
+          "path",
+          "content",
+          "truncated",
+          "binary"
+        ],
         "additionalProperties": false
       },
       "FileWriteRequest": {
         "type": "object",
         "properties": {
-          "path": { "type": "string" },
-          "content": { "type": "string" }
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
         },
-        "required": ["path", "content"],
+        "required": [
+          "path",
+          "content"
+        ],
         "additionalProperties": false
       },
       "FileWriteResponse": {
         "type": "object",
         "properties": {
-          "ok": { "type": "boolean" },
-          "path": { "type": "string" }
+          "ok": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          }
         },
-        "required": ["ok", "path"],
+        "required": [
+          "ok",
+          "path"
+        ],
         "additionalProperties": false
       },
       "WorktreeStatusResponse": {
         "type": "object",
         "properties": {
-          "entries": { "type": "array", "items": { "$ref": "#/components/schemas/WorktreeStatusEntry" } }
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorktreeStatusEntry"
+            }
+          }
         },
-        "required": ["entries"],
+        "required": [
+          "entries"
+        ],
         "additionalProperties": false
       },
       "WorktreeStatusEntry": {
         "type": "object",
         "properties": {
-          "path": { "type": "string" },
-          "type": { "type": "string", "enum": ["modified", "untracked"] }
+          "path": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "modified",
+              "untracked"
+            ]
+          }
         },
-        "required": ["path", "type"],
+        "required": [
+          "path",
+          "type"
+        ],
         "additionalProperties": false
       },
       "RenameWorktreeRequest": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" }
+          "name": {
+            "type": "string"
+          }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "additionalProperties": false
       },
       "WorktreeRenameResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "branchName": { "type": "string" },
-          "status": { "type": "string" }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "branchName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
         },
-        "required": ["id", "name", "branchName", "status"],
+        "required": [
+          "id",
+          "name",
+          "branchName",
+          "status"
+        ],
         "additionalProperties": true
       },
       "Commit": {
         "type": "object",
         "properties": {
-          "sha": { "type": "string" },
-          "message": { "type": "string" },
-          "date": { "type": "string" }
+          "sha": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          }
         },
-        "required": ["sha", "message", "date"],
+        "required": [
+          "sha",
+          "message",
+          "date"
+        ],
         "additionalProperties": false
       },
       "CommitListResponse": {
         "type": "object",
         "properties": {
-          "commits": { "type": "array", "items": { "$ref": "#/components/schemas/Commit" } }
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Commit"
+            }
+          }
         },
-        "required": ["commits"],
+        "required": [
+          "commits"
+        ],
         "additionalProperties": false
       },
       "MergeWorktreeRequest": {
         "type": "object",
         "properties": {
-          "session": { "type": "string" },
-          "targetWorktreeId": { "type": "string" }
+          "session": {
+            "type": "string"
+          },
+          "targetWorktreeId": {
+            "type": "string"
+          }
         },
-        "required": ["session", "targetWorktreeId"],
+        "required": [
+          "session",
+          "targetWorktreeId"
+        ],
         "additionalProperties": false
       },
       "SessionOnlyRequest": {
         "type": "object",
         "properties": {
-          "session": { "type": "string" }
+          "session": {
+            "type": "string"
+          }
         },
-        "required": ["session"],
+        "required": [
+          "session"
+        ],
         "additionalProperties": false
       },
       "CherryPickRequest": {
         "type": "object",
         "properties": {
-          "session": { "type": "string" },
-          "commitSha": { "type": "string" }
+          "session": {
+            "type": "string"
+          },
+          "commitSha": {
+            "type": "string"
+          }
         },
-        "required": ["session", "commitSha"],
+        "required": [
+          "session",
+          "commitSha"
+        ],
         "additionalProperties": false
       },
       "MergeWorktreeResponse": {
         "type": "object",
         "properties": {
-          "success": { "type": "boolean" },
-          "conflicts": { "type": "array", "items": { "type": "string" } }
+          "success": {
+            "type": "boolean"
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         },
-        "required": ["success"],
+        "required": [
+          "success"
+        ],
         "additionalProperties": false
       },
       "AttachmentListResponse": {
         "type": "object",
         "properties": {
-          "files": { "type": "array", "items": { "$ref": "#/components/schemas/AttachmentRef" } }
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentRef"
+            }
+          }
         },
-        "required": ["files"],
+        "required": [
+          "files"
+        ],
         "additionalProperties": false
       },
       "AttachmentUploadResponse": {
         "type": "object",
         "properties": {
-          "files": { "type": "array", "items": { "$ref": "#/components/schemas/AttachmentRef" } }
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentRef"
+            }
+          }
         },
-        "required": ["files"],
+        "required": [
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "WorkspaceProviderConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "auth": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      },
+      "WorkspaceCreateRequest": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WorkspaceProviderConfig"
+            }
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "additionalProperties": false
+      },
+      "WorkspaceCreateResponse": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceSecret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "workspaceSecret"
+        ],
+        "additionalProperties": false
+      },
+      "WorkspaceLoginRequest": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceSecret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "workspaceSecret"
+        ],
+        "additionalProperties": false
+      },
+      "WorkspaceLoginResponse": {
+        "type": "object",
+        "properties": {
+          "workspaceToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "description": "Seconds until expiration (24h)"
+          }
+        },
+        "required": [
+          "workspaceToken"
+        ],
+        "additionalProperties": true
+      },
+      "WorkspaceUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WorkspaceProviderConfig"
+            }
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "additionalProperties": false
+      },
+      "WorkspaceUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string"
+          },
+          "providers": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WorkspaceProviderConfig"
+            }
+          }
+        },
+        "required": [
+          "workspaceId",
+          "providers"
+        ],
         "additionalProperties": false
       }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
 }
