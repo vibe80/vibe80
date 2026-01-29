@@ -37,7 +37,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
-const terminalWss = new WebSocketServer({ noServer: true });
+const terminalEnabled = !/^(0|false|no|off)$/i.test(
+  process.env.TERMINAL_ENABLED || ""
+);
+const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : null;
 
 const cwd = process.cwd();
 const sessions = new Map();
@@ -1961,7 +1964,8 @@ wss.on("connection", (socket, req) => {
   });
 });
 
-terminalWss.on("connection", (socket, req) => {
+if (terminalWss) {
+  terminalWss.on("connection", (socket, req) => {
   attachWebSocketDebug(socket, req, "terminal");
   const session = getSessionFromRequest(req);
   if (!session) {
@@ -2050,7 +2054,8 @@ terminalWss.on("connection", (socket, req) => {
       term = null;
     }
   });
-});
+  });
+}
 
 app.get("/api/health", (req, res) => {
   const session = getSession(req.query.session);
@@ -2086,6 +2091,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
     messages,
     repoDiff,
     rpcLogs: session.rpcLogs || [],
+    terminalEnabled,
   });
 });
 
@@ -2153,6 +2159,7 @@ app.post("/api/session", async (req, res) => {
       provider,
       providers: session.providers || [provider],
       messages: [],
+      terminalEnabled,
     });
   } catch (error) {
     console.error("Failed to create session for repo:", {
@@ -2961,6 +2968,10 @@ server.on("upgrade", (req, socket, head) => {
     return;
   }
   if (url.pathname === "/terminal") {
+    if (!terminalEnabled || !terminalWss) {
+      socket.destroy();
+      return;
+    }
     terminalWss.handleUpgrade(req, socket, head, (ws) => {
       terminalWss.emit("connection", ws, req);
     });

@@ -578,6 +578,7 @@ function App() {
   const [branchError, setBranchError] = useState("");
   const [sideOpen, setSideOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
+  const [terminalEnabled, setTerminalEnabled] = useState(true);
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
@@ -1232,6 +1233,9 @@ function App() {
       if (Array.isArray(data?.rpcLogs)) {
         setRpcLogs(data.rpcLogs);
       }
+      if (typeof data?.terminalEnabled === "boolean") {
+        setTerminalEnabled(data.terminalEnabled);
+      }
     } catch (error) {
       // Ignore resync failures; reconnect loop will retry.
     }
@@ -1348,6 +1352,9 @@ function App() {
   }, [attachmentSession?.sessionId]);
 
   const connectTerminal = useCallback(() => {
+    if (!terminalEnabled) {
+      return;
+    }
     const sessionId = attachmentSession?.sessionId;
     if (!sessionId) {
       return;
@@ -1416,7 +1423,7 @@ function App() {
         term.write("\r\n[terminal disconnected]\r\n");
       }
     });
-  }, [attachmentSession?.sessionId, activeWorktreeId]);
+  }, [attachmentSession?.sessionId, activeWorktreeId, terminalEnabled]);
 
   const ensureNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
@@ -2324,6 +2331,9 @@ function App() {
   ]);
 
   useEffect(() => {
+    if (!terminalEnabled) {
+      return;
+    }
     if (activePane !== "terminal") {
       return;
     }
@@ -2354,7 +2364,7 @@ function App() {
         socket.send(JSON.stringify({ type: "input", data }));
       }
     });
-  }, [activePane]);
+  }, [activePane, terminalEnabled]);
 
   useEffect(() => {
     return () => {
@@ -2372,6 +2382,9 @@ function App() {
 
   useEffect(() => {
     if (activePane !== "terminal") {
+      return;
+    }
+    if (!terminalEnabled) {
       return;
     }
     if (terminalFitRef.current) {
@@ -2392,7 +2405,7 @@ function App() {
       });
     }
     connectTerminal();
-  }, [activePane, connectTerminal]);
+  }, [activePane, connectTerminal, terminalEnabled]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -2421,6 +2434,27 @@ function App() {
       terminalWorktreeRef.current = null;
     }
   }, [attachmentSession?.sessionId]);
+
+  useEffect(() => {
+    if (terminalEnabled) {
+      return;
+    }
+    if (terminalSocketRef.current) {
+      terminalSocketRef.current.close();
+      terminalSocketRef.current = null;
+    }
+    terminalSessionRef.current = null;
+    terminalWorktreeRef.current = null;
+    if (terminalDisposableRef.current) {
+      terminalDisposableRef.current.dispose();
+      terminalDisposableRef.current = null;
+    }
+    if (terminalRef.current) {
+      terminalRef.current.dispose();
+      terminalRef.current = null;
+    }
+    terminalFitRef.current = null;
+  }, [terminalEnabled]);
 
   useEffect(() => {
     const sessionId = getSessionIdFromUrl();
@@ -2517,6 +2551,12 @@ function App() {
     url.searchParams.set("session", attachmentSession.sessionId);
     window.history.replaceState({}, "", url);
   }, [attachmentSession?.sessionId]);
+
+  useEffect(() => {
+    if (typeof attachmentSession?.terminalEnabled === "boolean") {
+      setTerminalEnabled(attachmentSession.terminalEnabled);
+    }
+  }, [attachmentSession?.terminalEnabled]);
 
   useEffect(() => {
     setAppServerReady(false);
@@ -3311,13 +3351,16 @@ function App() {
     if (!debugMode && nextPane === "logs") {
       return;
     }
+    if (!terminalEnabled && nextPane === "terminal") {
+      return;
+    }
     const key = activeWorktreeId || "main";
     setPaneByTab((current) => ({
       ...current,
       [key]: nextPane,
     }));
     setToolbarExportOpen(false);
-  }, [activeWorktreeId, debugMode]);
+  }, [activeWorktreeId, debugMode, terminalEnabled]);
 
   const handleDiffSelect = useCallback(() => {
     handleViewSelect("diff");
@@ -3354,6 +3397,12 @@ function App() {
       handleViewSelect("chat");
     }
   }, [debugMode, activePane, handleViewSelect]);
+
+  useEffect(() => {
+    if (!terminalEnabled && activePane === "terminal") {
+      handleViewSelect("chat");
+    }
+  }, [terminalEnabled, activePane, handleViewSelect]);
 
   const updateExplorerState = useCallback((tabId, patch) => {
     setExplorerByTab((current) => {
@@ -4469,21 +4518,23 @@ function App() {
                   </span>
                   <span className="chat-toolbar-label">Explorateur</span>
                 </button>
-                <button
-                  type="button"
-                  className={`chat-toolbar-button ${
-                    activePane === "terminal" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("terminal")}
-                  aria-pressed={activePane === "terminal"}
-                  aria-label="Terminal"
-                  title="Terminal"
-                >
-                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon">⌨</span>
-                  </span>
-                  <span className="chat-toolbar-label">Terminal</span>
-                </button>
+                {terminalEnabled && (
+                  <button
+                    type="button"
+                    className={`chat-toolbar-button ${
+                      activePane === "terminal" ? "is-active" : ""
+                    }`}
+                    onClick={() => handleViewSelect("terminal")}
+                    aria-pressed={activePane === "terminal"}
+                    aria-label="Terminal"
+                    title="Terminal"
+                  >
+                    <span className="chat-toolbar-icon-wrap" aria-hidden="true">
+                      <span className="chat-toolbar-icon">⌨</span>
+                    </span>
+                    <span className="chat-toolbar-label">Terminal</span>
+                  </button>
+                )}
                 {debugMode && (
                   <button
                     type="button"
@@ -5133,28 +5184,30 @@ function App() {
                 </div>
               </div>
             </div>
-            <div
-              className={`terminal-panel ${
-                activePane === "terminal" ? "" : "is-hidden"
-              }`}
-            >
-            <div className="terminal-header">
-              <div className="terminal-title">Terminal</div>
-              {(repoName || activeWorktree?.branchName || activeWorktree?.name) && (
-                <div className="terminal-meta">
-                  {isInWorktree
-                    ? activeWorktree?.branchName || activeWorktree?.name
-                    : repoName}
+            {terminalEnabled && (
+              <div
+                className={`terminal-panel ${
+                  activePane === "terminal" ? "" : "is-hidden"
+                }`}
+              >
+                <div className="terminal-header">
+                  <div className="terminal-title">Terminal</div>
+                  {(repoName || activeWorktree?.branchName || activeWorktree?.name) && (
+                    <div className="terminal-meta">
+                      {isInWorktree
+                        ? activeWorktree?.branchName || activeWorktree?.name
+                        : repoName}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="terminal-body" ref={terminalContainerRef} />
-            {!attachmentSession?.sessionId && (
-              <div className="terminal-empty">
-                Demarrez une session pour ouvrir le terminal.
+                <div className="terminal-body" ref={terminalContainerRef} />
+                {!attachmentSession?.sessionId && (
+                  <div className="terminal-empty">
+                    Demarrez une session pour ouvrir le terminal.
+                  </div>
+                )}
               </div>
             )}
-          </div>
             <div
               className={`logs-panel ${
                 activePane === "logs" ? "" : "is-hidden"
