@@ -1,12 +1,17 @@
 package app.vibe80.android.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -15,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -38,6 +44,7 @@ fun SessionScreen(
     var showHttpPassword by remember { mutableStateOf(false) }
     var showWorkspaceSecret by remember { mutableStateOf(false) }
     var showProviderSecrets by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val loadingText = when (uiState.loadingState) {
         LoadingState.RESUMING -> stringResource(R.string.resuming_session)
         LoadingState.CLONING -> stringResource(R.string.cloning_repo)
@@ -45,6 +52,23 @@ fun SessionScreen(
     }
     val showWorkspaceStep1 = uiState.workspaceStep == 1
     val showWorkspaceStep2 = uiState.workspaceStep == 2
+
+    val codexAuthPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val inputStream = context.contentResolver.openInputStream(it)
+                val configJson = inputStream?.bufferedReader()?.readText()
+                inputStream?.close()
+                if (!configJson.isNullOrBlank()) {
+                    viewModel.updateProviderAuthValue("codex", configJson)
+                }
+            } catch (_: Exception) {
+                // Ignore file read errors
+            }
+        }
+    }
 
     LaunchedEffect(uiState.sessionId) {
         uiState.sessionId?.let { sessionId ->
@@ -174,21 +198,58 @@ fun SessionScreen(
                                             enabled = !uiState.workspaceBusy
                                         )
                                     }
-                                    OutlinedTextField(
-                                        value = codexConfig.authValue,
-                                        onValueChange = { viewModel.updateProviderAuthValue("codex", it) },
-                                        label = { Text(if (codexConfig.authType == ProviderAuthType.AUTH_JSON_B64) "auth.json" else "API key") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        minLines = if (codexConfig.authType == ProviderAuthType.AUTH_JSON_B64) 4 else 1,
-                                        maxLines = if (codexConfig.authType == ProviderAuthType.AUTH_JSON_B64) 6 else 1,
-                                        singleLine = codexConfig.authType != ProviderAuthType.AUTH_JSON_B64,
-                                        visualTransformation = if (codexConfig.authType == ProviderAuthType.AUTH_JSON_B64 || showProviderSecrets) {
-                                            VisualTransformation.None
-                                        } else {
-                                            PasswordVisualTransformation()
-                                        },
-                                        enabled = !uiState.workspaceBusy
-                                    )
+                                    if (codexConfig.authType == ProviderAuthType.AUTH_JSON_B64) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = { codexAuthPicker.launch(arrayOf("application/json", "*/*")) },
+                                                modifier = Modifier.weight(1f),
+                                                enabled = !uiState.workspaceBusy
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.FileOpen,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("Importer auth.json")
+                                            }
+                                            if (codexConfig.authValue.isNotBlank()) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CheckCircle,
+                                                    contentDescription = "Chargé",
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                IconButton(
+                                                    onClick = { viewModel.updateProviderAuthValue("codex", "") },
+                                                    enabled = !uiState.workspaceBusy
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Clear,
+                                                        contentDescription = "Supprimer",
+                                                        tint = MaterialTheme.colorScheme.error
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        OutlinedTextField(
+                                            value = codexConfig.authValue,
+                                            onValueChange = { viewModel.updateProviderAuthValue("codex", it) },
+                                            label = { Text("API key") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            singleLine = true,
+                                            visualTransformation = if (showProviderSecrets) {
+                                                VisualTransformation.None
+                                            } else {
+                                                PasswordVisualTransformation()
+                                            },
+                                            enabled = !uiState.workspaceBusy
+                                        )
+                                    }
                                 }
 
                                 // Claude
