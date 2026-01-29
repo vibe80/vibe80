@@ -2089,6 +2089,16 @@ app.get("/api/session/:sessionId", async (req, res) => {
   });
 });
 
+app.get("/api/session/:sessionId/diff", async (req, res) => {
+  const session = getSession(req.params.sessionId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  const repoDiff = await getRepoDiff(session);
+  res.json(repoDiff);
+});
+
 app.post("/api/session/:sessionId/clear", async (req, res) => {
   const session = getSession(req.params.sessionId);
   if (!session) {

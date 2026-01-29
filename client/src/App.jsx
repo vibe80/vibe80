@@ -1322,6 +1322,31 @@ function App() {
     [attachmentSession?.sessionId]
   );
 
+  const requestRepoDiff = useCallback(async () => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/session/${encodeURIComponent(sessionId)}/diff`
+      );
+      if (!response.ok) {
+        return;
+      }
+      const payload = await response.json();
+      if (!payload) {
+        return;
+      }
+      setRepoDiff({
+        status: payload.status || "",
+        diff: payload.diff || "",
+      });
+    } catch (error) {
+      // Ignore diff refresh failures.
+    }
+  }, [attachmentSession?.sessionId]);
+
   const connectTerminal = useCallback(() => {
     const sessionId = attachmentSession?.sessionId;
     if (!sessionId) {
@@ -3294,6 +3319,20 @@ function App() {
     setToolbarExportOpen(false);
   }, [activeWorktreeId, debugMode]);
 
+  const handleDiffSelect = useCallback(() => {
+    handleViewSelect("diff");
+    if (activeWorktreeId && activeWorktreeId !== "main") {
+      requestWorktreeDiff(activeWorktreeId);
+    } else {
+      requestRepoDiff();
+    }
+  }, [
+    activeWorktreeId,
+    handleViewSelect,
+    requestRepoDiff,
+    requestWorktreeDiff,
+  ]);
+
   const handleOpenSettings = useCallback(() => {
     if (activePane !== "settings") {
       const key = activeWorktreeId || "main";
@@ -3603,8 +3642,10 @@ function App() {
     }
     if (activeWorktreeId && activeWorktreeId !== "main") {
       requestWorktreeDiff(activeWorktreeId);
+    } else {
+      requestRepoDiff();
     }
-  }, [activePane, activeWorktreeId, requestWorktreeDiff]);
+  }, [activePane, activeWorktreeId, requestRepoDiff, requestWorktreeDiff]);
 
   useEffect(() => {
     if (activePane !== "explorer") {
@@ -4403,7 +4444,7 @@ function App() {
                   className={`chat-toolbar-button ${
                     activePane === "diff" ? "is-active" : ""
                   }`}
-                  onClick={() => handleViewSelect("diff")}
+                  onClick={handleDiffSelect}
                   aria-pressed={activePane === "diff"}
                   aria-label="Diff"
                   title="Diff"
