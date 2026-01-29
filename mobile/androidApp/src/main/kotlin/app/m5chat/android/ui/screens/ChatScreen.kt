@@ -29,8 +29,10 @@ import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -256,14 +258,19 @@ fun ChatScreen(
             )
         },
         bottomBar = {
+            val density = LocalDensity.current
+            val imeBottom = WindowInsets.ime.getBottom(density)
             Surface(
                 tonalElevation = 3.dp,
-                shadowElevation = 8.dp
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Move the input bar above the keyboard without inflating its height.
+                    .offset { IntOffset(0, -imeBottom) }
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .imePadding()
                 ) {
                     // Pending attachments preview
                     AnimatedVisibility(
