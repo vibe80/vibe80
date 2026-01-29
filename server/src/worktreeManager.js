@@ -239,6 +239,9 @@ export async function createWorktree(session, options) {
   };
 
   session.worktrees.set(worktreeId, worktree);
+  if (typeof session.lastActivityAt === "number") {
+    session.lastActivityAt = Date.now();
+  }
 
   // Créer et démarrer le client LLM
   try {
@@ -318,6 +321,9 @@ export async function removeWorktree(session, worktreeId, deleteBranch = true) {
 
   // Supprimer de la Map
   session.worktrees.delete(worktreeId);
+  if (typeof session.lastActivityAt === "number") {
+    session.lastActivityAt = Date.now();
+  }
 }
 
 /**

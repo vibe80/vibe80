@@ -57,6 +57,13 @@ export class CodexAppServerClient extends EventEmitter {
     this.emit("ready", { threadId: this.threadId });
   }
 
+  async stop() {
+    if (this.proc) {
+      this.proc.kill();
+      this.proc = null;
+    }
+  }
+
   async sendTurn(text) {
     if (!this.threadId) {
       throw new Error("Thread not ready yet.");

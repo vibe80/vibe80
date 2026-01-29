@@ -53,6 +53,9 @@ const workspaceSessionsDirName = "sessions";
 const jwtKeyPath = process.env.JWT_KEY_PATH || "/var/lib/m5chat/jwt.key";
 const jwtIssuer = process.env.JWT_ISSUER || "m5chat";
 const jwtAudience = process.env.JWT_AUDIENCE || "workspace";
+const sessionGcIntervalMs = Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
+const sessionIdleTtlMs = Number(process.env.SESSION_IDLE_TTL_MS) || 24 * 60 * 60 * 1000;
+const sessionMaxTtlMs = Number(process.env.SESSION_MAX_TTL_MS) || 7 * 24 * 60 * 60 * 1000;
 const debugApiWsLog = /^(1|true|yes|on)$/i.test(
   process.env.DEBUG_API_WS_LOG || ""
 );
@@ -291,6 +294,7 @@ const getWorkspacePaths = (workspaceId) => {
     sessionsDir,
     secretPath: path.join(metadataDir, "workspace.secret"),
     configPath: path.join(metadataDir, "workspace.json"),
+    auditPath: path.join(metadataDir, "audit.log"),
   };
 };
 
@@ -327,6 +331,28 @@ const buildWorkspaceEnv = (workspaceId) => {
     USER: workspaceId,
     LOGNAME: workspaceId,
   };
+};
+
+const appendAuditLog = async (workspaceId, event, details = {}) => {
+  try {
+    const paths = getWorkspacePaths(workspaceId);
+    const ids = await getWorkspaceUserIds(workspaceId);
+    const entry = JSON.stringify({
+      ts: Date.now(),
+      event,
+      workspaceId,
+      ...details,
+    });
+    await fs.promises.appendFile(paths.auditPath, `${entry}\n`, { mode: 0o600 });
+    await fs.promises.chown(paths.auditPath, ids.uid, ids.gid).catch(() => {});
+  } catch {
+    // Avoid failing requests on audit errors.
+  }
+};
+
+const touchSession = (session) => {
+  if (!session) return;
+  session.lastActivityAt = Date.now();
 };
 
 const allowedAuthTypes = new Set(["api_key", "auth_json_b64", "setup_token"]);
@@ -442,6 +468,7 @@ const createWorkspace = async (providers) => {
     await fs.promises.chown(paths.secretPath, ids.uid, ids.gid).catch(() => {});
     await writeWorkspaceConfig(workspaceId, providers, ids);
     workspaces.set(workspaceId, { workspaceId, providers, paths });
+    await appendAuditLog(workspaceId, "workspace_created");
     return { workspaceId, workspaceSecret: secret };
   }
 };
@@ -455,6 +482,7 @@ const updateWorkspace = async (workspaceId, providers) => {
   const payload = await writeWorkspaceConfig(workspaceId, providers, ids);
   const paths = getWorkspacePaths(workspaceId);
   workspaces.set(workspaceId, { workspaceId, providers, paths });
+  await appendAuditLog(workspaceId, "workspace_updated");
   return payload;
 };
 
@@ -481,6 +509,72 @@ const verifyWorkspaceToken = (token) => {
     throw new Error("Invalid token subject.");
   }
   return workspaceId;
+};
+
+const stopClient = async (client) => {
+  if (!client) {
+    return;
+  }
+  if (typeof client.stop === "function") {
+    try {
+      await client.stop();
+      return;
+    } catch {
+      // fallthrough
+    }
+  }
+  if (client.proc && typeof client.proc.kill === "function") {
+    try {
+      client.proc.kill();
+    } catch {
+      // ignore
+    }
+  }
+};
+
+const cleanupSession = async (sessionId, reason) => {
+  const session = sessions.get(sessionId);
+  if (!session) {
+    return;
+  }
+  for (const socket of session.sockets) {
+    try {
+      socket.close();
+    } catch {
+      // ignore
+    }
+  }
+  if (session.worktrees) {
+    for (const worktree of session.worktrees.values()) {
+      if (worktree.client) {
+        await stopClient(worktree.client);
+      }
+    }
+  }
+  for (const client of Object.values(session.clients || {})) {
+    await stopClient(client);
+  }
+  if (session.dir) {
+    await fs.promises.rm(session.dir, { recursive: true, force: true }).catch(() => {});
+  }
+  if (session.sshKeyPath) {
+    await fs.promises.rm(session.sshKeyPath, { force: true }).catch(() => {});
+  }
+  sessions.delete(sessionId);
+  await appendAuditLog(session.workspaceId, "session_removed", { sessionId, reason });
+};
+
+const runSessionGc = async () => {
+  const now = Date.now();
+  for (const [sessionId, session] of sessions.entries()) {
+    const createdAt = session.createdAt || now;
+    const lastActivity = session.lastActivityAt || createdAt;
+    const expiredByIdle = sessionIdleTtlMs > 0 && now - lastActivity > sessionIdleTtlMs;
+    const expiredByMax = sessionMaxTtlMs > 0 && now - createdAt > sessionMaxTtlMs;
+    if (expiredByIdle || expiredByMax) {
+      await cleanupSession(sessionId, expiredByIdle ? "idle_timeout" : "max_ttl");
+    }
+  }
 };
 
 const normalizeRemoteBranches = (output, remote) =>
@@ -705,6 +799,9 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         activeProvider: defaultProvider,
         providers: enabledProviders,
         processOptions,
+        createdAt: Date.now(),
+        lastActivityAt: Date.now(),
+        sshKeyPath: sessionSshKeyPath,
         clients: {
           codex: null,
           claude: null,
@@ -720,6 +817,7 @@ const createSession = async (workspaceId, repoUrl, auth) => {
       session.messages = session.messagesByProvider[defaultProvider];
       sessions.set(sessionId, session);
       sessionRecord = session;
+      await appendAuditLog(workspaceId, "session_created", { sessionId, repoUrl });
 
       // Create and start the initial provider client
       const client = await getOrCreateClient(session, defaultProvider);
@@ -1050,6 +1148,7 @@ function broadcastToSession(sessionId, payload) {
   if (!session) {
     return;
   }
+  touchSession(session);
   const message = JSON.stringify(payload);
   for (const socket of session.sockets) {
     if (socket.readyState === socket.OPEN) {
@@ -1699,6 +1798,7 @@ wss.on("connection", (socket, req) => {
   }
 
   socket.on("message", async (data) => {
+    touchSession(session);
     let payload;
     try {
       payload = JSON.parse(data.toString());
@@ -2315,6 +2415,7 @@ if (terminalWss) {
     socket.close();
     return;
   }
+  touchSession(session);
   let worktree = null;
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -2430,12 +2531,15 @@ app.post("/api/workspaces/login", async (req, res) => {
   try {
     const storedSecret = await readWorkspaceSecret(workspaceId);
     if (storedSecret !== workspaceSecret) {
+      await appendAuditLog(workspaceId, "workspace_login_failed");
       res.status(403).json({ error: "Invalid workspace credentials." });
       return;
     }
     const token = createWorkspaceToken(workspaceId);
+    await appendAuditLog(workspaceId, "workspace_login_success");
     res.json({ workspaceToken: token, expiresIn: 60 * 60 * 24 });
   } catch (error) {
+    await appendAuditLog(workspaceId, "workspace_login_failed");
     res.status(403).json({ error: "Invalid workspace credentials." });
   }
 });
@@ -2478,6 +2582,7 @@ app.get("/api/health", (req, res) => {
     res.json({ ok: true, ready: false, threadId: null });
     return;
   }
+  touchSession(session);
   const activeClient = getActiveClient(session);
   res.json({
     ok: true,
@@ -2493,6 +2598,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
     res.status(404).json({ error: "Session not found." });
     return;
   }
+  touchSession(session);
   const repoDiff = await getRepoDiff(session);
   const activeProvider = session.activeProvider || "codex";
   const messages =
@@ -2517,6 +2623,7 @@ app.get("/api/session/:sessionId/diff", async (req, res) => {
     res.status(404).json({ error: "Session not found." });
     return;
   }
+  touchSession(session);
   const repoDiff = await getRepoDiff(session);
   res.json(repoDiff);
 });
@@ -2527,6 +2634,7 @@ app.post("/api/session/:sessionId/clear", async (req, res) => {
     res.status(404).json({ error: "Session not found." });
     return;
   }
+  touchSession(session);
   const worktreeId = req.body?.worktreeId;
   if (worktreeId) {
     const worktree = getWorktree(session, worktreeId);
@@ -2586,6 +2694,7 @@ app.get("/api/branches", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   try {
     const info = await getBranchInfo(session);
     res.json(info);
@@ -2605,6 +2714,7 @@ app.get("/api/models", async (req, res) => {
     res.status(404).json({ error: "Session not found." });
     return;
   }
+  touchSession(session);
   if (!isValidProvider(provider)) {
     res.status(400).json({ error: "Invalid provider. Must be 'codex' or 'claude'." });
     return;
@@ -2646,6 +2756,7 @@ app.post("/api/branches/switch", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   if (!target || typeof target !== "string") {
     res.status(400).json({ error: "Branch is required." });
     return;
@@ -2726,6 +2837,7 @@ app.get("/api/worktrees", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   try {
     const worktrees = listWorktrees(session);
     res.json({ worktrees });
@@ -2745,6 +2857,7 @@ app.post("/api/worktree", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   const provider = req.body?.provider;
   if (!isValidProvider(provider)) {
@@ -2812,6 +2925,7 @@ app.get("/api/worktree/:worktreeId", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   const worktree = getWorktree(session, req.params.worktreeId);
   if (!worktree) {
@@ -2849,6 +2963,7 @@ app.get("/api/worktree/:worktreeId/tree", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
   if (!rootPath) {
     res.status(404).json({ error: "Worktree not found." });
@@ -2877,6 +2992,7 @@ app.get("/api/worktree/:worktreeId/file", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
   if (!rootPath) {
     res.status(404).json({ error: "Worktree not found." });
@@ -2935,6 +3051,7 @@ app.post("/api/worktree/:worktreeId/file", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
   if (!rootPath) {
     res.status(404).json({ error: "Worktree not found." });
@@ -2987,6 +3104,7 @@ app.get("/api/worktree/:worktreeId/status", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
   if (!rootPath) {
     res.status(404).json({ error: "Worktree not found." });
@@ -3035,6 +3153,7 @@ app.delete("/api/worktree/:worktreeId", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   try {
     await removeWorktree(session, req.params.worktreeId);
@@ -3060,6 +3179,7 @@ app.patch("/api/worktree/:worktreeId", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   const worktree = getWorktree(session, req.params.worktreeId);
   if (!worktree) {
@@ -3091,6 +3211,7 @@ app.get("/api/worktree/:worktreeId/diff", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   try {
     const diff = await getWorktreeDiff(session, req.params.worktreeId);
@@ -3112,6 +3233,7 @@ app.get("/api/worktree/:worktreeId/commits", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   try {
     const limit = parseInt(req.query.limit, 10) || 20;
@@ -3134,6 +3256,7 @@ app.post("/api/worktree/:worktreeId/merge", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   const targetWorktreeId = req.body?.targetWorktreeId;
   if (!targetWorktreeId) {
@@ -3171,6 +3294,7 @@ app.post("/api/worktree/:worktreeId/abort-merge", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   try {
     await abortMerge(session, req.params.worktreeId);
@@ -3192,6 +3316,7 @@ app.post("/api/worktree/:worktreeId/cherry-pick", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
 
   const commitSha = req.body?.commitSha;
   if (!commitSha) {
@@ -3230,6 +3355,7 @@ app.get("/api/attachments/file", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   const rawPath = req.query.path;
   const rawName = req.query.name;
   if (!rawPath && !rawName) {
@@ -3263,6 +3389,7 @@ app.get("/api/attachments", async (req, res) => {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
+  touchSession(session);
   try {
     const entries = await fs.promises.readdir(session.attachmentsDir, {
       withFileTypes: true,
@@ -3296,6 +3423,7 @@ app.post(
       res.status(400).json({ error: "Invalid session." });
       return;
     }
+    touchSession(session);
     const uploaded = (req.files || []).map((file) => ({
       name: file.filename,
       path: file.path,
@@ -3325,6 +3453,12 @@ const port = process.env.PORT || 5179;
 server.listen(port, async () => {
   console.log(`Server listening on http://localhost:${port}`);
 });
+
+setInterval(() => {
+  runSessionGc().catch((error) => {
+    console.error("Session GC failed:", error?.message || error);
+  });
+}, sessionGcIntervalMs);
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname === "/ws") {

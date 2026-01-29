@@ -29,6 +29,10 @@ export class ClaudeCliClient extends EventEmitter {
     this.emit("ready", { threadId: this.threadId });
   }
 
+  async stop() {
+    return;
+  }
+
   async sendTurn(text) {
     const turnId = createTurnId();
     const args = [

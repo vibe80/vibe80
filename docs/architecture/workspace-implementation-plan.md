@@ -40,10 +40,10 @@
 - Map WS connection to workspaceId via JWT
 - Enforce session/worktree scope under workspace
 
-## Phase 5 - Cleanup and Hardening (PENDING)
+## Phase 5 - Cleanup and Hardening (DONE)
 - Session GC (TTL/inactivity/quotas)
 - Audit logs per workspace
-- Security tests for isolation
+- Security tests for isolation (manual/ongoing)
 
 ## Phase 6 - Client Updates (PENDING)
 - Web client: add workspace login flow, store token, send Authorization header and WS token
