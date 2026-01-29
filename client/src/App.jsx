@@ -578,6 +578,7 @@ function App() {
   const [branchError, setBranchError] = useState("");
   const [sideOpen, setSideOpen] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
+  const [closeConfirm, setCloseConfirm] = useState(null);
   const [terminalEnabled, setTerminalEnabled] = useState(true);
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
@@ -3095,6 +3096,39 @@ function App() {
     [attachmentSession?.sessionId]
   );
 
+  const mergeTargetBranch = defaultBranch || currentBranch || "main";
+
+  const openCloseConfirm = useCallback((worktreeId) => {
+    if (!worktreeId || worktreeId === "main") {
+      return;
+    }
+    setCloseConfirm({ worktreeId });
+  }, []);
+
+  const closeCloseConfirm = useCallback(() => {
+    setCloseConfirm(null);
+  }, []);
+
+  const handleConfirmMerge = useCallback(() => {
+    if (!closeConfirm?.worktreeId) {
+      return;
+    }
+    sendWorktreeMessage(
+      closeConfirm.worktreeId,
+      `Merge vers ${mergeTargetBranch}`,
+      []
+    );
+    setCloseConfirm(null);
+  }, [closeConfirm, mergeTargetBranch, sendWorktreeMessage]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!closeConfirm?.worktreeId) {
+      return;
+    }
+    await closeWorktree(closeConfirm.worktreeId);
+    setCloseConfirm(null);
+  }, [closeConfirm, closeWorktree]);
+
   const renameWorktreeHandler = useCallback(
     async (worktreeId, newName) => {
       if (!attachmentSession?.sessionId) return;
@@ -4347,7 +4381,7 @@ function App() {
               activeWorktreeId={activeWorktreeId}
               onSelect={setActiveWorktreeId}
               onCreate={createWorktree}
-              onClose={closeWorktree}
+              onClose={openCloseConfirm}
               onRename={renameWorktreeHandler}
               provider={llmProvider}
               providers={
@@ -5696,6 +5730,59 @@ function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+      {closeConfirm ? (
+        <div
+          className="worktree-close-confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeCloseConfirm}
+        >
+          <div
+            className="worktree-close-confirm-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="worktree-close-confirm-header">
+              <div className="worktree-close-confirm-title">
+                Fermer le worktree ?
+              </div>
+              <button
+                type="button"
+                className="worktree-close-confirm-close"
+                aria-label="Fermer"
+                onClick={closeCloseConfirm}
+              >
+                ×
+              </button>
+            </div>
+            <div className="worktree-close-confirm-body">
+              Toutes les modifications seront perdues. Que souhaitez-vous faire ?
+            </div>
+            <div className="worktree-close-confirm-actions">
+              <button
+                type="button"
+                className="worktree-close-confirm-cancel"
+                onClick={closeCloseConfirm}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="worktree-close-confirm-merge"
+                onClick={handleConfirmMerge}
+              >
+                Merge vers {mergeTargetBranch}
+              </button>
+              <button
+                type="button"
+                className="worktree-close-confirm-delete"
+                onClick={handleConfirmDelete}
+              >
+                Supprimer le worktree
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
