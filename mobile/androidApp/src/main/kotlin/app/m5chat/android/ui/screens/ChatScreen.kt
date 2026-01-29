@@ -29,11 +29,9 @@ import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -255,88 +253,89 @@ fun ChatScreen(
             )
         },
         bottomBar = {
-            val density = LocalDensity.current
-            val imeBottom = WindowInsets.ime.getBottom(density)
-            Surface(
-                tonalElevation = 3.dp,
-                shadowElevation = 8.dp,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Move the input bar above the keyboard without inflating its height.
-                    .offset { IntOffset(0, -imeBottom) }
+                    .imePadding()
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
+                Surface(
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.align(Alignment.BottomCenter)
                 ) {
-                    // Pending attachments preview
-                    AnimatedVisibility(
-                        visible = uiState.pendingAttachments.isNotEmpty(),
-                        enter = slideInVertically { it } + fadeIn(),
-                        exit = slideOutVertically { it } + fadeOut()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
                     ) {
-                        LazyRow(
+                        // Pending attachments preview
+                        AnimatedVisibility(
+                            visible = uiState.pendingAttachments.isNotEmpty(),
+                            enter = slideInVertically { it } + fadeIn(),
+                            exit = slideOutVertically { it } + fadeOut()
+                        ) {
+                            LazyRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(uiState.pendingAttachments) { attachment ->
+                                    AttachmentChip(
+                                        attachment = attachment,
+                                        onRemove = { viewModel.removePendingAttachment(attachment) }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Upload progress
+                        if (uiState.uploadingAttachments) {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(uiState.pendingAttachments) { attachment ->
-                                AttachmentChip(
-                                    attachment = attachment,
-                                    onRemove = { viewModel.removePendingAttachment(attachment) }
+                            // Attach button
+                            IconButton(
+                                onClick = {
+                                    filePickerLauncher.launch(arrayOf("*/*"))
+                                },
+                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachFile,
+                                    contentDescription = "Joindre un fichier"
                                 )
                             }
-                        }
-                    }
 
-                    // Upload progress
-                    if (uiState.uploadingAttachments) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Attach button
-                        IconButton(
-                            onClick = {
-                                filePickerLauncher.launch(arrayOf("*/*"))
-                            },
-                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AttachFile,
-                                contentDescription = "Joindre un fichier"
+                            OutlinedTextField(
+                                value = uiState.inputText,
+                                onValueChange = viewModel::updateInputText,
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text(stringResource(R.string.message_hint)) },
+                                maxLines = 4,
+                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && !uiState.uploadingAttachments
                             )
-                        }
 
-                        OutlinedTextField(
-                            value = uiState.inputText,
-                            onValueChange = viewModel::updateInputText,
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text(stringResource(R.string.message_hint)) },
-                            maxLines = 4,
-                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && !uiState.uploadingAttachments
-                        )
-
-                        FilledIconButton(
-                            onClick = viewModel::sendMessageWithAttachments,
-                            enabled = (uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()) &&
-                                    uiState.connectionState == ConnectionState.CONNECTED &&
-                                    !uiState.processing &&
-                                    !uiState.uploadingAttachments
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = stringResource(R.string.send_message)
-                            )
+                            FilledIconButton(
+                                onClick = viewModel::sendMessageWithAttachments,
+                                enabled = (uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()) &&
+                                        uiState.connectionState == ConnectionState.CONNECTED &&
+                                        !uiState.processing &&
+                                        !uiState.uploadingAttachments
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = stringResource(R.string.send_message)
+                                )
+                            }
                         }
                     }
                 }
@@ -347,7 +346,6 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
         ) {
             // Worktree tabs
             val worktreesForTabs = run {
