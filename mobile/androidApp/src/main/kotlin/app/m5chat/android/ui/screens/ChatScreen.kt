@@ -305,6 +305,7 @@ fun ChatScreen(
                     MessageBubble(
                         message = message,
                         sessionId = uiState.sessionId,
+                        formsSubmitted = uiState.submittedFormMessageIds.contains(message.id),
                         onChoiceSelected = { choice ->
                             viewModel.updateInputText(choice)
                             viewModel.sendMessage()
@@ -315,6 +316,7 @@ fun ChatScreen(
                                 viewModel.updateInputText(formattedResponse)
                                 viewModel.sendMessage()
                             }
+                            viewModel.markFormSubmitted(message.id)
                         }
                     )
                 }

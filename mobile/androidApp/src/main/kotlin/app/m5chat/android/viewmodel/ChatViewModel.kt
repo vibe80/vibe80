@@ -57,6 +57,8 @@ data class ChatUiState(
     val showCloseWorktreeConfirm: String? = null,
     // Provider models
     val providerModelState: Map<String, ProviderModelState> = emptyMap(),
+    // Vibecoder forms
+    val submittedFormMessageIds: Set<String> = emptySet(),
     // Error handling
     val error: AppError? = null
 ) {
@@ -213,10 +215,12 @@ class ChatViewModel(
         viewModelScope.launch {
             sessionRepository.sessionState.filterNotNull().collect { session ->
                 _uiState.update {
+                    val shouldResetForms = it.sessionId.isNotBlank() && it.sessionId != session.sessionId
                     it.copy(
                         sessionId = session.sessionId,
                         activeProvider = session.activeProvider,
-                        repoName = repoNameFromUrl(session.repoUrl)
+                        repoName = repoNameFromUrl(session.repoUrl),
+                        submittedFormMessageIds = if (shouldResetForms) emptySet() else it.submittedFormMessageIds
                     )
                 }
             }
@@ -237,6 +241,12 @@ class ChatViewModel(
 
     fun updateInputText(text: String) {
         _uiState.update { it.copy(inputText = text) }
+    }
+
+    fun markFormSubmitted(messageId: String) {
+        _uiState.update {
+            it.copy(submittedFormMessageIds = it.submittedFormMessageIds + messageId)
+        }
     }
 
     private fun repoNameFromUrl(url: String): String {

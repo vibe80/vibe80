@@ -154,6 +154,37 @@ fun removeVibecoderForms(text: String): String {
 }
 
 /**
+ * Replaces vibecoder:form blocks with their question text
+ */
+fun replaceVibecoderFormsWithQuestions(text: String): String {
+    val blocks = parseVibecoderForms(text)
+    if (blocks.isEmpty()) return text
+
+    val result = StringBuilder()
+    var lastEnd = 0
+
+    for (block in blocks.sortedBy { it.startIndex }) {
+        if (block.startIndex > lastEnd) {
+            result.append(text.substring(lastEnd, block.startIndex))
+        }
+        if (block.question.isNotBlank()) {
+            if (result.isNotEmpty() && !result.last().isWhitespace()) {
+                result.append("\n")
+            }
+            result.append(block.question.trim())
+            result.append("\n")
+        }
+        lastEnd = block.endIndex
+    }
+
+    if (lastEnd < text.length) {
+        result.append(text.substring(lastEnd))
+    }
+
+    return result.toString().trim()
+}
+
+/**
  * Composable to display vibecoder:form as interactive form fields
  */
 @OptIn(ExperimentalMaterial3Api::class)

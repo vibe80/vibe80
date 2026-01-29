@@ -54,7 +54,8 @@ fun MessageBubble(
     isStreaming: Boolean = false,
     sessionId: String? = null,
     onChoiceSelected: ((String) -> Unit)? = null,
-    onFormSubmit: ((Map<String, String>, List<VibecoderFormField>) -> Unit)? = null
+    onFormSubmit: ((Map<String, String>, List<VibecoderFormField>) -> Unit)? = null,
+    formsSubmitted: Boolean = false
 ) {
     val isUser = message?.role == MessageRole.USER
     val rawText = streamingText ?: message?.text ?: ""
@@ -75,11 +76,17 @@ fun MessageBubble(
         if (!isUser && !isStreaming) parseVibecoderYesNo(displayText) else emptyList()
     }
 
-    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks) {
+    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks, formsSubmitted) {
         var result = displayText
         if (choicesBlocks.isNotEmpty()) result = removeVibecoderChoices(result)
-        if (formBlocks.isNotEmpty()) result = removeVibecoderForms(result)
         if (yesNoBlocks.isNotEmpty()) result = removeVibecoderYesNo(result)
+        if (formBlocks.isNotEmpty()) {
+            result = if (formsSubmitted) {
+                replaceVibecoderFormsWithQuestions(result)
+            } else {
+                removeVibecoderForms(result)
+            }
+        }
         result
     }
 
@@ -178,7 +185,7 @@ fun MessageBubble(
                 }
 
                 // Vibecoder form
-                if (formBlocks.isNotEmpty() && onFormSubmit != null) {
+                if (formBlocks.isNotEmpty() && onFormSubmit != null && !formsSubmitted) {
                     Spacer(modifier = Modifier.height(12.dp))
                     formBlocks.forEach { block ->
                         VibecoderFormView(
