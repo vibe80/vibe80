@@ -10,7 +10,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
 
 enum class ConnectionState {
     DISCONNECTED,
@@ -201,7 +203,7 @@ class WebSocketManager(
                 "error" -> json.decodeFromString<ErrorMessage>(text)
                 "provider_switched" -> json.decodeFromString<ProviderSwitchedMessage>(text)
                 "messages_sync" -> json.decodeFromString<MessagesSyncMessage>(text)
-                "worktree_created" -> json.decodeFromString<WorktreeCreatedMessage>(text)
+                "worktree_created" -> parseWorktreeCreated(jsonObject, text)
                 "worktree_updated" -> json.decodeFromString<WorktreeUpdatedMessage>(text)
                 "worktree_message" -> json.decodeFromString<WorktreeMessageEvent>(text)
                 "worktree_delta" -> json.decodeFromString<WorktreeDeltaMessage>(text)
@@ -223,6 +225,55 @@ class WebSocketManager(
             message?.let { _messages.tryEmit(it) }
         } catch (e: Exception) {
             AppLogger.error(app.m5chat.shared.logging.LogSource.WEBSOCKET, "Parse error: ${e.message}", text)
+        }
+    }
+
+    private fun parseWorktreeCreated(jsonObject: JsonObject, raw: String): ServerMessage? {
+        return try {
+            if (jsonObject.containsKey("worktree")) {
+                json.decodeFromJsonElement<WorktreeCreatedMessage>(jsonObject)
+            } else {
+                val id = jsonObject["worktreeId"]?.jsonPrimitive?.contentOrNull
+                    ?: return null
+                val name = jsonObject["name"]?.jsonPrimitive?.contentOrNull ?: id
+                val branchName = jsonObject["branchName"]?.jsonPrimitive?.contentOrNull ?: name
+                val providerValue = jsonObject["provider"]?.jsonPrimitive?.contentOrNull ?: "codex"
+                val provider = runCatching {
+                    LLMProvider.valueOf(providerValue.uppercase())
+                }.getOrElse { LLMProvider.CODEX }
+                val statusValue = jsonObject["status"]?.jsonPrimitive?.contentOrNull ?: "ready"
+                val status = when (statusValue.lowercase()) {
+                    "creating" -> WorktreeStatus.CREATING
+                    "processing" -> WorktreeStatus.PROCESSING
+                    "completed" -> WorktreeStatus.COMPLETED
+                    "error" -> WorktreeStatus.ERROR
+                    "merging" -> WorktreeStatus.MERGING
+                    "merge_conflict" -> WorktreeStatus.MERGE_CONFLICT
+                    else -> WorktreeStatus.READY
+                }
+                val color = jsonObject["color"]?.jsonPrimitive?.contentOrNull
+                    ?: Worktree.COLORS.first()
+
+                WorktreeCreatedMessage(
+                    worktree = Worktree(
+                        id = id,
+                        name = name,
+                        branchName = branchName,
+                        provider = provider,
+                        status = status,
+                        color = color,
+                        parentId = null,
+                        createdAt = 0L
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            AppLogger.error(
+                app.m5chat.shared.logging.LogSource.WEBSOCKET,
+                "Failed to parse worktree_created: ${e.message}",
+                raw
+            )
+            null
         }
     }
 

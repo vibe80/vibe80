@@ -176,6 +176,8 @@ class SessionRepository(
                 _worktrees.update { it + (message.worktree.id to message.worktree) }
                 // Initialize empty message list for new worktree
                 _worktreeMessages.update { it + (message.worktree.id to emptyList()) }
+                // Switch to the newly created worktree
+                _activeWorktreeId.value = message.worktree.id
             }
 
             is WorktreeUpdatedMessage -> {
