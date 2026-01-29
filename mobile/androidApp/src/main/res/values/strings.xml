@@ -15,6 +15,8 @@
     <string name="message_hint">Écrivez votre message...</string>
     <string name="branches">Branches</string>
     <string name="diff">Diff</string>
+    <string name="worktrees">Worktrees</string>
+    <string name="worktree_add">Ajouter un worktree</string>
     <string name="connected">Connecté</string>
     <string name="disconnected">Déconnecté</string>
     <string name="reconnecting">Reconnexion...</string>

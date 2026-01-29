@@ -19,12 +19,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,6 +65,7 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showWorktreeSwitcher by remember { mutableStateOf(false) }
 
     // Show error snackbar when error occurs
     LaunchedEffect(uiState.error) {
@@ -139,6 +143,11 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
+                    val worktrees = uiState.sortedWorktrees.ifEmpty {
+                        listOf(Worktree.createMain(uiState.activeProvider))
+                    }
+                    val activeWorktreeName = worktrees.firstOrNull { it.id == uiState.activeWorktreeId }?.name
+                        ?: Worktree.MAIN_WORKTREE_ID
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -159,20 +168,17 @@ fun ChatScreen(
                                     text = "M5Chat",
                                     style = MaterialTheme.typography.titleMedium
                                 )
-                                // Current branch badge
-                                uiState.branches?.current?.let { branch ->
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                        shape = MaterialTheme.shapes.small
-                                    ) {
-                                        Text(
-                                            text = branch,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = MaterialTheme.shapes.small
+                                ) {
+                                    Text(
+                                        text = activeWorktreeName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
                             Text(
@@ -194,6 +200,60 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    val worktrees = uiState.sortedWorktrees.ifEmpty {
+                        listOf(Worktree.createMain(uiState.activeProvider))
+                    }
+
+                    Box {
+                        TextButton(
+                            onClick = { showWorktreeSwitcher = true },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountTree,
+                                contentDescription = stringResource(R.string.worktrees)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = worktrees.firstOrNull { it.id == uiState.activeWorktreeId }?.name
+                                    ?: Worktree.MAIN_WORKTREE_ID,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = null
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showWorktreeSwitcher,
+                            onDismissRequest = { showWorktreeSwitcher = false }
+                        ) {
+                            worktrees.forEach { worktree ->
+                                DropdownMenuItem(
+                                    text = { Text(worktree.name) },
+                                    onClick = {
+                                        viewModel.selectWorktree(worktree.id)
+                                        showWorktreeSwitcher = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    IconButton(onClick = {
+                        viewModel.loadBranches()
+                        viewModel.showCreateWorktreeSheet()
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.worktree_add)
+                        )
+                    }
+
                     // Diff button with badge for modified files
                     BadgedBox(
                         badge = {
