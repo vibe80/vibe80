@@ -41,8 +41,6 @@ RUN useradd -m -d /home/app -s /bin/bash app \
     && chown -R app:app /app /home/app/.codex
 RUN chmod +x /app/start.sh
 
-USER app
-ENV PATH="/home/app/.local/bin:${PATH}"
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 EXPOSE 5179
