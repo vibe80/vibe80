@@ -202,7 +202,11 @@ class ChatViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(inputText = "") }
-            sessionRepository.sendMessage(text)
+            if (_uiState.value.activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                sessionRepository.sendMessage(text)
+            } else {
+                sessionRepository.sendWorktreeMessage(_uiState.value.activeWorktreeId, text)
+            }
         }
     }
 
@@ -300,16 +304,25 @@ class ChatViewModel(
                 val paths = uploadedAttachments.map { it.path }.filter { it.isNotBlank() }
                 val suffix = buildAttachmentsSuffix(paths)
                 val textWithSuffix = "${text}${suffix}"
-                sessionRepository.sendMessage(
-                    text = textWithSuffix,
-                    attachments = uploadedAttachments.map {
-                        app.m5chat.shared.models.Attachment(
-                            name = it.name,
-                            path = it.path,
-                            size = it.size
-                        )
-                    }
-                )
+                val attachmentModels = uploadedAttachments.map {
+                    app.m5chat.shared.models.Attachment(
+                        name = it.name,
+                        path = it.path,
+                        size = it.size
+                    )
+                }
+                if (_uiState.value.activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                    sessionRepository.sendMessage(
+                        text = textWithSuffix,
+                        attachments = attachmentModels
+                    )
+                } else {
+                    sessionRepository.sendWorktreeMessage(
+                        worktreeId = _uiState.value.activeWorktreeId,
+                        text = textWithSuffix,
+                        attachments = attachmentModels
+                    )
+                }
                 AppLogger.info(LogSource.APP, "sessionRepository.sendMessage completed")
             } else {
                 AppLogger.warning(LogSource.APP, "Nothing to send - text is blank and no attachments")

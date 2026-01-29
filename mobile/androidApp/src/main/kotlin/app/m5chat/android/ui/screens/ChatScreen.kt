@@ -26,8 +26,6 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,7 +63,6 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showWorktreeSwitcher by remember { mutableStateOf(false) }
 
     // Show error snackbar when error occurs
     LaunchedEffect(uiState.error) {
@@ -143,9 +140,7 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    val worktrees = uiState.sortedWorktrees.ifEmpty {
-                        listOf(Worktree.createMain(uiState.activeProvider))
-                    }
+                    val worktrees = uiState.sortedWorktrees
                     val activeWorktreeName = worktrees.firstOrNull { it.id == uiState.activeWorktreeId }?.name
                         ?: Worktree.MAIN_WORKTREE_ID
                     Row(
@@ -200,50 +195,6 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    val worktrees = uiState.sortedWorktrees.ifEmpty {
-                        listOf(Worktree.createMain(uiState.activeProvider))
-                    }
-
-                    Box {
-                        TextButton(
-                            onClick = { showWorktreeSwitcher = true },
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AccountTree,
-                                contentDescription = stringResource(R.string.worktrees)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = worktrees.firstOrNull { it.id == uiState.activeWorktreeId }?.name
-                                    ?: Worktree.MAIN_WORKTREE_ID,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = null
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = showWorktreeSwitcher,
-                            onDismissRequest = { showWorktreeSwitcher = false }
-                        ) {
-                            worktrees.forEach { worktree ->
-                                DropdownMenuItem(
-                                    text = { Text(worktree.name) },
-                                    onClick = {
-                                        viewModel.selectWorktree(worktree.id)
-                                        showWorktreeSwitcher = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
                     IconButton(onClick = {
                         viewModel.loadBranches()
                         viewModel.showCreateWorktreeSheet()
@@ -394,21 +345,20 @@ fun ChatScreen(
                 .padding(padding)
         ) {
             // Worktree tabs
-            if (uiState.worktrees.isNotEmpty() || uiState.sortedWorktrees.isNotEmpty()) {
-                WorktreeTabs(
-                    worktrees = uiState.sortedWorktrees.ifEmpty {
-                        // Show at least main worktree
-                        listOf(Worktree.createMain(uiState.activeProvider))
-                    },
-                    activeWorktreeId = uiState.activeWorktreeId,
-                    onSelectWorktree = viewModel::selectWorktree,
-                    onCreateWorktree = {
-                        viewModel.loadBranches()
-                        viewModel.showCreateWorktreeSheet()
-                    },
-                    onWorktreeMenu = viewModel::showWorktreeMenu
-                )
+            val worktreesForTabs = run {
+                val baseList = uiState.sortedWorktrees
+                if (baseList.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
+                    listOf(Worktree.createMain(uiState.activeProvider)) + baseList
+                } else {
+                    baseList
+                }
             }
+            WorktreeTabs(
+                worktrees = worktreesForTabs,
+                activeWorktreeId = uiState.activeWorktreeId,
+                onSelectWorktree = viewModel::selectWorktree,
+                onWorktreeMenu = viewModel::showWorktreeMenu
+            )
 
             // Messages list
             LazyColumn(
