@@ -13,6 +13,7 @@ import app.m5chat.shared.models.ErrorType
 import app.m5chat.shared.models.LLMProvider
 import app.m5chat.shared.models.RepoDiff
 import app.m5chat.shared.models.BranchInfo
+import app.m5chat.shared.models.ProviderModelState
 import app.m5chat.shared.models.Worktree
 import app.m5chat.shared.models.WorktreeStatus
 import app.m5chat.shared.network.ConnectionState
@@ -40,24 +41,25 @@ data class ChatUiState(
     val activeProvider: LLMProvider = LLMProvider.CODEX,
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
     val processing: Boolean = false,
+    val repoName: String = "",
     val branches: BranchInfo? = null,
     val repoDiff: RepoDiff? = null,
     val inputText: String = "",
-    val showBranchesSheet: Boolean = false,
     val showDiffSheet: Boolean = false,
-    val showProviderDialog: Boolean = false,
     val showLogsSheet: Boolean = false,
-    val showBranchConfirmDialog: Boolean = false,
-    val pendingBranchSwitch: String? = null,
     val pendingAttachments: List<PendingAttachment> = emptyList(),
     val uploadingAttachments: Boolean = false,
-    val fetchingBranches: Boolean = false,
     // Worktrees
     val worktrees: Map<String, Worktree> = emptyMap(),
     val activeWorktreeId: String = Worktree.MAIN_WORKTREE_ID,
     val showCreateWorktreeSheet: Boolean = false,
     val showWorktreeMenuFor: String? = null,
     val showCloseWorktreeConfirm: String? = null,
+    // Provider models
+    val providerModelState: Map<String, ProviderModelState> = emptyMap(),
+    // Vibecoder forms
+    val submittedFormMessageIds: Set<String> = emptySet(),
+    val submittedYesNoMessageIds: Set<String> = emptySet(),
     // Error handling
     val error: AppError? = null
 ) {
@@ -89,7 +91,10 @@ private data class SessionSnapshot(
     val processing: Boolean,
     val branches: BranchInfo?,
     val worktrees: Map<String, Worktree>,
-    val activeWorktreeId: String
+    val activeWorktreeId: String,
+    val worktreeMessages: Map<String, List<ChatMessage>>,
+    val worktreeStreaming: Map<String, String>,
+    val worktreeProcessing: Map<String, Boolean>
 )
 
 private data class PartialSessionSnapshot(
@@ -99,6 +104,14 @@ private data class PartialSessionSnapshot(
     val processing: Boolean,
     val branches: BranchInfo?,
     val worktrees: Map<String, Worktree> = emptyMap()
+)
+
+private data class WorktreeStateSnapshot(
+    val snapshot: PartialSessionSnapshot,
+    val activeWorktreeId: String,
+    val worktreeMessages: Map<String, List<ChatMessage>>,
+    val worktreeStreaming: Map<String, String>,
+    val worktreeProcessing: Map<String, Boolean>
 )
 
 class ChatViewModel(
@@ -136,24 +149,54 @@ class ChatViewModel(
                     snapshot.copy(worktrees = worktrees)
                 }
                 .combine(sessionRepository.activeWorktreeId) { snapshot, activeWorktreeId ->
+                    snapshot to activeWorktreeId
+                }
+                .combine(sessionRepository.worktreeMessages) { (snapshot, activeWorktreeId), worktreeMessages ->
+                    WorktreeStateSnapshot(
+                        snapshot = snapshot,
+                        activeWorktreeId = activeWorktreeId,
+                        worktreeMessages = worktreeMessages,
+                        worktreeStreaming = emptyMap(),
+                        worktreeProcessing = emptyMap()
+                    )
+                }
+                .combine(sessionRepository.worktreeStreamingMessages) { state, worktreeStreaming ->
+                    state.copy(worktreeStreaming = worktreeStreaming)
+                }
+                .combine(sessionRepository.worktreeProcessing) { state, worktreeProcessing ->
                     SessionSnapshot(
-                        messages = snapshot.messages,
-                        streaming = snapshot.streaming,
-                        connection = snapshot.connection,
-                        processing = snapshot.processing,
-                        branches = snapshot.branches,
-                        worktrees = snapshot.worktrees,
-                        activeWorktreeId = activeWorktreeId
+                        messages = state.snapshot.messages,
+                        streaming = state.snapshot.streaming,
+                        connection = state.snapshot.connection,
+                        processing = state.snapshot.processing,
+                        branches = state.snapshot.branches,
+                        worktrees = state.snapshot.worktrees,
+                        activeWorktreeId = state.activeWorktreeId,
+                        worktreeMessages = state.worktreeMessages,
+                        worktreeStreaming = state.worktreeStreaming,
+                        worktreeProcessing = worktreeProcessing
                     )
                 }
                 .combine(sessionRepository.repoDiff) { snapshot, diff ->
                     snapshot to diff
                 }
                 .collect { (snapshot, diff) ->
-                    // Get messages for active worktree
-                    val activeMessages = sessionRepository.getWorktreeMessages(snapshot.activeWorktreeId)
-                    val activeStreaming = sessionRepository.getWorktreeStreamingMessage(snapshot.activeWorktreeId)
-                    val activeProcessing = sessionRepository.isWorktreeProcessing(snapshot.activeWorktreeId)
+                    val activeWorktreeId = snapshot.activeWorktreeId
+                    val activeMessages = if (activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        snapshot.messages
+                    } else {
+                        snapshot.worktreeMessages[activeWorktreeId] ?: emptyList()
+                    }
+                    val activeStreaming = if (activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        snapshot.streaming
+                    } else {
+                        snapshot.worktreeStreaming[activeWorktreeId]
+                    }
+                    val activeProcessing = if (activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        snapshot.processing
+                    } else {
+                        snapshot.worktreeProcessing[activeWorktreeId] ?: false
+                    }
 
                     _uiState.update {
                         it.copy(
@@ -173,9 +216,13 @@ class ChatViewModel(
         viewModelScope.launch {
             sessionRepository.sessionState.filterNotNull().collect { session ->
                 _uiState.update {
+                    val shouldResetForms = it.sessionId.isNotBlank() && it.sessionId != session.sessionId
                     it.copy(
                         sessionId = session.sessionId,
-                        activeProvider = session.activeProvider
+                        activeProvider = session.activeProvider,
+                        repoName = repoNameFromUrl(session.repoUrl),
+                        submittedFormMessageIds = if (shouldResetForms) emptySet() else it.submittedFormMessageIds,
+                        submittedYesNoMessageIds = if (shouldResetForms) emptySet() else it.submittedYesNoMessageIds
                     )
                 }
             }
@@ -198,19 +245,40 @@ class ChatViewModel(
         _uiState.update { it.copy(inputText = text) }
     }
 
+    fun markFormSubmitted(messageId: String) {
+        _uiState.update {
+            it.copy(submittedFormMessageIds = it.submittedFormMessageIds + messageId)
+        }
+    }
+
+    fun markYesNoSubmitted(messageId: String) {
+        _uiState.update {
+            it.copy(submittedYesNoMessageIds = it.submittedYesNoMessageIds + messageId)
+        }
+    }
+
+    private fun repoNameFromUrl(url: String): String {
+        val trimmed = url.trim().trimEnd('/')
+        if (trimmed.isBlank()) return ""
+        val separatorIndex = maxOf(trimmed.lastIndexOf('/'), trimmed.lastIndexOf(':'))
+        return if (separatorIndex >= 0) {
+            trimmed.substring(separatorIndex + 1)
+        } else {
+            trimmed
+        }
+    }
+
     fun sendMessage() {
         val text = _uiState.value.inputText.trim()
         if (text.isBlank()) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(inputText = "") }
-            sessionRepository.sendMessage(text)
-        }
-    }
-
-    fun switchProvider(provider: LLMProvider) {
-        viewModelScope.launch {
-            sessionRepository.switchProvider(provider)
+            if (_uiState.value.activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                sessionRepository.sendMessage(text)
+            } else {
+                sessionRepository.sendWorktreeMessage(_uiState.value.activeWorktreeId, text)
+            }
         }
     }
 
@@ -218,46 +286,6 @@ class ChatViewModel(
         viewModelScope.launch {
             sessionRepository.loadBranches()
         }
-    }
-
-    fun fetchBranches() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(fetchingBranches = true) }
-            sessionRepository.fetchBranches()
-            _uiState.update { it.copy(fetchingBranches = false) }
-        }
-    }
-
-    fun requestSwitchBranch(branch: String) {
-        _uiState.update { it.copy(showBranchConfirmDialog = true, pendingBranchSwitch = branch) }
-    }
-
-    fun confirmSwitchBranch() {
-        val branch = _uiState.value.pendingBranchSwitch ?: return
-        viewModelScope.launch {
-            sessionRepository.switchBranch(branch)
-            _uiState.update { it.copy(showBranchesSheet = false, showBranchConfirmDialog = false, pendingBranchSwitch = null) }
-        }
-    }
-
-    fun cancelSwitchBranch() {
-        _uiState.update { it.copy(showBranchConfirmDialog = false, pendingBranchSwitch = null) }
-    }
-
-    fun switchBranch(branch: String) {
-        viewModelScope.launch {
-            sessionRepository.switchBranch(branch)
-            _uiState.update { it.copy(showBranchesSheet = false) }
-        }
-    }
-
-    fun showBranchesSheet() {
-        loadBranches()
-        _uiState.update { it.copy(showBranchesSheet = true) }
-    }
-
-    fun hideBranchesSheet() {
-        _uiState.update { it.copy(showBranchesSheet = false) }
     }
 
     fun loadDiff() {
@@ -272,14 +300,6 @@ class ChatViewModel(
 
     fun hideDiffSheet() {
         _uiState.update { it.copy(showDiffSheet = false) }
-    }
-
-    fun showProviderDialog() {
-        _uiState.update { it.copy(showProviderDialog = true) }
-    }
-
-    fun hideProviderDialog() {
-        _uiState.update { it.copy(showProviderDialog = false) }
     }
 
     fun showLogsSheet() {
@@ -356,16 +376,25 @@ class ChatViewModel(
                 val paths = uploadedAttachments.map { it.path }.filter { it.isNotBlank() }
                 val suffix = buildAttachmentsSuffix(paths)
                 val textWithSuffix = "${text}${suffix}"
-                sessionRepository.sendMessage(
-                    text = textWithSuffix,
-                    attachments = uploadedAttachments.map {
-                        app.m5chat.shared.models.Attachment(
-                            name = it.name,
-                            path = it.path,
-                            size = it.size
-                        )
-                    }
-                )
+                val attachmentModels = uploadedAttachments.map {
+                    app.m5chat.shared.models.Attachment(
+                        name = it.name,
+                        path = it.path,
+                        size = it.size
+                    )
+                }
+                if (_uiState.value.activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                    sessionRepository.sendMessage(
+                        text = textWithSuffix,
+                        attachments = attachmentModels
+                    )
+                } else {
+                    sessionRepository.sendWorktreeMessage(
+                        worktreeId = _uiState.value.activeWorktreeId,
+                        text = textWithSuffix,
+                        attachments = attachmentModels
+                    )
+                }
                 AppLogger.info(LogSource.APP, "sessionRepository.sendMessage completed")
             } else {
                 AppLogger.warning(LogSource.APP, "Nothing to send - text is blank and no attachments")
@@ -418,10 +447,52 @@ class ChatViewModel(
         _uiState.update { it.copy(showCreateWorktreeSheet = false) }
     }
 
-    fun createWorktree(name: String, provider: LLMProvider, branchName: String? = null) {
+    fun createWorktree(
+        name: String?,
+        provider: LLMProvider,
+        branchName: String? = null,
+        model: String? = null,
+        reasoningEffort: String? = null
+    ) {
         viewModelScope.launch {
-            sessionRepository.createWorktree(name, provider, branchName)
+            sessionRepository.createWorktree(name, provider, branchName, model, reasoningEffort)
             _uiState.update { it.copy(showCreateWorktreeSheet = false) }
+        }
+    }
+
+    fun loadProviderModels(provider: String) {
+        viewModelScope.launch {
+            // Set loading state
+            _uiState.update { state ->
+                val currentState = state.providerModelState[provider] ?: ProviderModelState()
+                state.copy(
+                    providerModelState = state.providerModelState + (provider to currentState.copy(loading = true, error = null))
+                )
+            }
+
+            sessionRepository.loadProviderModels(provider)
+                .onSuccess { models ->
+                    _uiState.update { state ->
+                        state.copy(
+                            providerModelState = state.providerModelState + (provider to ProviderModelState(
+                                models = models,
+                                loading = false,
+                                error = null
+                            ))
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update { state ->
+                        state.copy(
+                            providerModelState = state.providerModelState + (provider to ProviderModelState(
+                                models = emptyList(),
+                                loading = false,
+                                error = error.message ?: "Impossible de charger les modèles"
+                            ))
+                        )
+                    }
+                }
         }
     }
 
@@ -450,8 +521,11 @@ class ChatViewModel(
     }
 
     fun mergeWorktree(worktreeId: String) {
+        val targetBranch = _uiState.value.worktrees[Worktree.MAIN_WORKTREE_ID]?.branchName
+            ?: Worktree.MAIN_WORKTREE_ID
+        val mergePrompt = "Merge vers $targetBranch"
         viewModelScope.launch {
-            sessionRepository.mergeWorktree(worktreeId)
+            sessionRepository.sendWorktreeMessage(worktreeId, mergePrompt)
             _uiState.update { it.copy(showWorktreeMenuFor = null) }
         }
     }

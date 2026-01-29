@@ -137,7 +137,7 @@ class ApiClient(
     /**
      * Get available models for a provider
      */
-    suspend fun getModels(sessionId: String, provider: String): Result<List<String>> {
+    suspend fun getModels(sessionId: String, provider: String): Result<ModelsResponse> {
         return runCatching {
             httpClient.get("$baseUrl/api/models") {
                 parameter("session", sessionId)
@@ -163,6 +163,18 @@ class ApiClient(
     suspend fun mergeWorktree(worktreeId: String): Result<Unit> {
         return runCatching {
             httpClient.post("$baseUrl/api/worktree/$worktreeId/merge")
+            Unit
+        }
+    }
+
+    /**
+     * Delete a worktree
+     */
+    suspend fun deleteWorktree(sessionId: String, worktreeId: String): Result<Unit> {
+        return runCatching {
+            httpClient.delete("$baseUrl/api/worktree/$worktreeId") {
+                parameter("session", sessionId)
+            }
             Unit
         }
     }

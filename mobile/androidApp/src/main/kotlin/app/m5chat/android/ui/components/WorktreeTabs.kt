@@ -10,7 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -29,7 +28,6 @@ fun WorktreeTabs(
     worktrees: List<Worktree>,
     activeWorktreeId: String,
     onSelectWorktree: (String) -> Unit,
-    onCreateWorktree: () -> Unit,
     onWorktreeMenu: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -37,8 +35,8 @@ fun WorktreeTabs(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 2.dp
+        color = Color.Transparent,
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -57,17 +55,6 @@ fun WorktreeTabs(
                 )
             }
 
-            // Add button
-            IconButton(
-                onClick = onCreateWorktree,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Créer worktree",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
         }
     }
 }

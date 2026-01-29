@@ -26,12 +26,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.res.ResourcesCompat
+import app.m5chat.android.R
 import app.m5chat.shared.models.Attachment
 import app.m5chat.shared.models.ChatMessage
 import app.m5chat.shared.models.MessageRole
@@ -51,7 +54,10 @@ fun MessageBubble(
     isStreaming: Boolean = false,
     sessionId: String? = null,
     onChoiceSelected: ((String) -> Unit)? = null,
-    onFormSubmit: ((Map<String, String>, List<VibecoderFormField>) -> Unit)? = null
+    onFormSubmit: ((Map<String, String>, List<VibecoderFormField>) -> Unit)? = null,
+    formsSubmitted: Boolean = false,
+    yesNoSubmitted: Boolean = false,
+    onYesNoSubmit: (() -> Unit)? = null
 ) {
     val isUser = message?.role == MessageRole.USER
     val rawText = streamingText ?: message?.text ?: ""
@@ -67,10 +73,28 @@ fun MessageBubble(
         if (!isUser && !isStreaming) parseVibecoderForms(displayText) else emptyList()
     }
 
-    val text = remember(displayText, choicesBlocks, formBlocks) {
+    // Parse vibecoder:yesno tags for assistant messages
+    val yesNoBlocks = remember(displayText, isUser) {
+        if (!isUser && !isStreaming) parseVibecoderYesNo(displayText) else emptyList()
+    }
+
+    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks, formsSubmitted, yesNoSubmitted) {
         var result = displayText
         if (choicesBlocks.isNotEmpty()) result = removeVibecoderChoices(result)
-        if (formBlocks.isNotEmpty()) result = removeVibecoderForms(result)
+        if (yesNoBlocks.isNotEmpty()) {
+            result = if (yesNoSubmitted) {
+                replaceVibecoderYesNoWithQuestions(result)
+            } else {
+                removeVibecoderYesNo(result)
+            }
+        }
+        if (formBlocks.isNotEmpty()) {
+            result = if (formsSubmitted) {
+                replaceVibecoderFormsWithQuestions(result)
+            } else {
+                removeVibecoderForms(result)
+            }
+        }
         result
     }
 
@@ -84,17 +108,19 @@ fun MessageBubble(
                 containerColor = if (isUser) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant
+                    Color.Transparent
                 }
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = if (isUser) 1.dp else 0.dp
             ),
             shape = MaterialTheme.shapes.medium
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 // Role indicator for non-user messages
-                if (!isUser && message != null) {
+                if (!isUser && message != null && message.role != MessageRole.ASSISTANT) {
                     Text(
                         text = when (message.role) {
-                            MessageRole.ASSISTANT -> "Assistant"
                             MessageRole.COMMAND_EXECUTION -> "Commande"
                             MessageRole.TOOL_RESULT -> "Résultat"
                             else -> ""
@@ -154,8 +180,23 @@ fun MessageBubble(
                     }
                 }
 
+                // Vibecoder yes/no
+                if (yesNoBlocks.isNotEmpty() && onChoiceSelected != null && !yesNoSubmitted) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    yesNoBlocks.forEach { block ->
+                        VibecoderYesNoView(
+                            block = block,
+                            onOptionSelected = { choice ->
+                                onChoiceSelected(choice)
+                                onYesNoSubmit?.invoke()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
                 // Vibecoder form
-                if (formBlocks.isNotEmpty() && onFormSubmit != null) {
+                if (formBlocks.isNotEmpty() && onFormSubmit != null && !formsSubmitted) {
                     Spacer(modifier = Modifier.height(12.dp))
                     formBlocks.forEach { block ->
                         VibecoderFormView(
@@ -346,6 +387,12 @@ fun MarkdownText(
     val codeTextSizePx = remember {
         14f * context.resources.displayMetrics.scaledDensity
     }
+    val bodyTypeface = remember {
+        ResourcesCompat.getFont(context, R.font.space_grotesk_wght)
+    }
+    val bodyTypefaceNormal = remember(bodyTypeface) {
+        bodyTypeface?.let { Typeface.create(it, 400, false) }
+    }
 
     val markwon = remember(textColor, linkColor, codeBackgroundColor, codeTextSizePx) {
         Markwon.builder(context)
@@ -380,6 +427,7 @@ fun MarkdownText(
                 setLinkTextColor(linkColor.toArgb())
                 movementMethod = LinkMovementMethod.getInstance()
                 textSize = 14f
+                bodyTypefaceNormal?.let { typeface = it }
             }
         },
         update = { textView ->
