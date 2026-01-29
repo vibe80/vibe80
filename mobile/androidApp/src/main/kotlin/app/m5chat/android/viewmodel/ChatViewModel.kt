@@ -102,6 +102,14 @@ private data class PartialSessionSnapshot(
     val worktrees: Map<String, Worktree> = emptyMap()
 )
 
+private data class WorktreeStateSnapshot(
+    val snapshot: PartialSessionSnapshot,
+    val activeWorktreeId: String,
+    val worktreeMessages: Map<String, List<ChatMessage>>,
+    val worktreeStreaming: Map<String, String>,
+    val worktreeProcessing: Map<String, Boolean>
+)
+
 class ChatViewModel(
     private val sessionRepository: SessionRepository,
     private val sessionPreferences: SessionPreferences,
@@ -136,22 +144,32 @@ class ChatViewModel(
                 .combine(sessionRepository.worktrees) { snapshot, worktrees ->
                     snapshot.copy(worktrees = worktrees)
                 }
-                .combine(
-                    sessionRepository.activeWorktreeId,
-                    sessionRepository.worktreeMessages,
-                    sessionRepository.worktreeStreamingMessages,
-                    sessionRepository.worktreeProcessing
-                ) { snapshot, activeWorktreeId, worktreeMessages, worktreeStreaming, worktreeProcessing ->
-                    SessionSnapshot(
-                        messages = snapshot.messages,
-                        streaming = snapshot.streaming,
-                        connection = snapshot.connection,
-                        processing = snapshot.processing,
-                        branches = snapshot.branches,
-                        worktrees = snapshot.worktrees,
+                .combine(sessionRepository.activeWorktreeId) { snapshot, activeWorktreeId ->
+                    snapshot to activeWorktreeId
+                }
+                .combine(sessionRepository.worktreeMessages) { (snapshot, activeWorktreeId), worktreeMessages ->
+                    WorktreeStateSnapshot(
+                        snapshot = snapshot,
                         activeWorktreeId = activeWorktreeId,
                         worktreeMessages = worktreeMessages,
-                        worktreeStreaming = worktreeStreaming,
+                        worktreeStreaming = emptyMap(),
+                        worktreeProcessing = emptyMap()
+                    )
+                }
+                .combine(sessionRepository.worktreeStreamingMessages) { state, worktreeStreaming ->
+                    state.copy(worktreeStreaming = worktreeStreaming)
+                }
+                .combine(sessionRepository.worktreeProcessing) { state, worktreeProcessing ->
+                    SessionSnapshot(
+                        messages = state.snapshot.messages,
+                        streaming = state.snapshot.streaming,
+                        connection = state.snapshot.connection,
+                        processing = state.snapshot.processing,
+                        branches = state.snapshot.branches,
+                        worktrees = state.snapshot.worktrees,
+                        activeWorktreeId = state.activeWorktreeId,
+                        worktreeMessages = state.worktreeMessages,
+                        worktreeStreaming = state.worktreeStreaming,
                         worktreeProcessing = worktreeProcessing
                     )
                 }
