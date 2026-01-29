@@ -503,8 +503,11 @@ class ChatViewModel(
     }
 
     fun mergeWorktree(worktreeId: String) {
+        val targetBranch = _uiState.value.worktrees[Worktree.MAIN_WORKTREE_ID]?.branchName
+            ?: Worktree.MAIN_WORKTREE_ID
+        val mergePrompt = "Merge vers $targetBranch"
         viewModelScope.launch {
-            sessionRepository.mergeWorktree(worktreeId)
+            sessionRepository.sendWorktreeMessage(worktreeId, mergePrompt)
             _uiState.update { it.copy(showWorktreeMenuFor = null) }
         }
     }

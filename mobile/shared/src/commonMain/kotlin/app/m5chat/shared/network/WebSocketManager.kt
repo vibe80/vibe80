@@ -118,8 +118,6 @@ class WebSocketManager(
                                 is WorktreeMessageRequest -> "worktree_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
                                 is CreateWorktreeRequest -> "create_worktree" to json.encodeToString(CreateWorktreeRequest.serializer(), message)
                                 is ListWorktreesRequest -> "list_worktrees" to json.encodeToString(ListWorktreesRequest.serializer(), message)
-                                is CloseWorktreeRequest -> "close_worktree" to json.encodeToString(CloseWorktreeRequest.serializer(), message)
-                                is MergeWorktreeRequest -> "merge_worktree" to json.encodeToString(MergeWorktreeRequest.serializer(), message)
                                 is SyncMessagesRequest -> "sync_messages" to json.encodeToString(SyncMessagesRequest.serializer(), message)
                             }
                             AppLogger.wsSend(messageType, jsonString)
@@ -335,14 +333,6 @@ class WebSocketManager(
             model = model,
             reasoningEffort = reasoningEffort
         ))
-    }
-
-    suspend fun closeWorktree(worktreeId: String) {
-        send(CloseWorktreeRequest(worktreeId = worktreeId))
-    }
-
-    suspend fun mergeWorktree(worktreeId: String) {
-        send(MergeWorktreeRequest(worktreeId = worktreeId))
     }
 
     suspend fun listWorktrees() {

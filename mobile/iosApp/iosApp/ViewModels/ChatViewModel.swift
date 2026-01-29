@@ -358,10 +358,12 @@ class ChatViewModel: ObservableObject {
 
     func mergeWorktree(_ worktreeId: String) {
         guard let repository = appState?.sessionRepository else { return }
+        let targetBranch = worktrees.first(where: { $0.id == "main" })?.branchName ?? "main"
+        let mergePrompt = "Merge vers \(targetBranch)"
 
         Coroutines.shared.launch(
             block: {
-                try await repository.mergeWorktree(worktreeId: worktreeId)
+                try await repository.sendWorktreeMessage(worktreeId: worktreeId, text: mergePrompt, attachments: [])
             },
             onError: { error in
                 print("Error merging worktree: \(error)")

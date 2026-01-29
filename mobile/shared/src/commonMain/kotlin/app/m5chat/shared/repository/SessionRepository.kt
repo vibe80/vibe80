@@ -506,17 +506,21 @@ class SessionRepository(
 
     suspend fun closeWorktree(worktreeId: String) {
         if (worktreeId == Worktree.MAIN_WORKTREE_ID) return // Cannot close main
-        webSocketManager.closeWorktree(worktreeId)
+        val sessionId = _sessionState.value?.sessionId ?: return
+        apiClient.deleteWorktree(sessionId, worktreeId).onSuccess {
+            _worktrees.update { it - worktreeId }
+            _worktreeMessages.update { it - worktreeId }
+            _worktreeStreamingMessages.update { it - worktreeId }
+            _worktreeProcessing.update { it - worktreeId }
+            if (_activeWorktreeId.value == worktreeId) {
+                _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
+            }
+        }
     }
 
     suspend fun mergeWorktree(worktreeId: String) {
         if (worktreeId == Worktree.MAIN_WORKTREE_ID) return // Cannot merge main
-        _worktrees.update { current ->
-            current[worktreeId]?.let { worktree ->
-                current + (worktreeId to worktree.copy(status = WorktreeStatus.MERGING))
-            } ?: current
-        }
-        webSocketManager.mergeWorktree(worktreeId)
+        // Deprecated: merge is now driven by the LLM via chat message.
     }
 
     suspend fun listWorktrees() {

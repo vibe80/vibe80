@@ -287,15 +287,3 @@ data class SyncMessagesRequest(
     val provider: String,
     val lastSeenMessageId: String? = null
 ) : ClientMessage()
-
-@Serializable
-data class CloseWorktreeRequest(
-    override val type: String = "close_worktree",
-    val worktreeId: String
-) : ClientMessage()
-
-@Serializable
-data class MergeWorktreeRequest(
-    override val type: String = "merge_worktree",
-    val worktreeId: String
-) : ClientMessage()

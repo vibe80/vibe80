@@ -168,6 +168,18 @@ class ApiClient(
     }
 
     /**
+     * Delete a worktree
+     */
+    suspend fun deleteWorktree(sessionId: String, worktreeId: String): Result<Unit> {
+        return runCatching {
+            httpClient.delete("$baseUrl/api/worktree/$worktreeId") {
+                parameter("session", sessionId)
+            }
+            Unit
+        }
+    }
+
+    /**
      * Abort a merge in progress
      */
     suspend fun abortMerge(worktreeId: String): Result<Unit> {
