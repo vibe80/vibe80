@@ -309,6 +309,14 @@ const getWorkspaceSshPaths = (workspaceHome) => {
   };
 };
 
+const getWorkspaceAuthPaths = (workspaceHome) => ({
+  codexDir: path.join(workspaceHome, ".codex"),
+  codexAuthPath: path.join(workspaceHome, ".codex", "auth.json"),
+  claudeAuthPath: path.join(workspaceHome, ".claude.json"),
+  claudeDir: path.join(workspaceHome, ".claude"),
+  claudeCredentialsPath: path.join(workspaceHome, ".claude", ".credentials.json"),
+});
+
 const getWorkspaceUserIds = async (workspaceId) => {
   const cached = workspaceUserIds.get(workspaceId);
   if (cached) {
@@ -358,17 +366,28 @@ const touchSession = (session) => {
 };
 
 const allowedAuthTypes = new Set(["api_key", "auth_json_b64", "setup_token"]);
+const allowedProviders = new Set(["codex", "claude"]);
+const providerAuthTypes = {
+  codex: new Set(["api_key", "auth_json_b64"]),
+  claude: new Set(["api_key", "setup_token"]),
+};
 
 const validateProvidersConfig = (providers) => {
   if (!providers || typeof providers !== "object") {
     return "providers is required.";
   }
   for (const [provider, config] of Object.entries(providers)) {
+    if (!allowedProviders.has(provider)) {
+      return `Unknown provider ${provider}.`;
+    }
     if (!config || typeof config !== "object") {
       return `Invalid provider config for ${provider}.`;
     }
     if (typeof config.enabled !== "boolean") {
       return `Provider ${provider} must include enabled boolean.`;
+    }
+    if (config.enabled && !config.auth) {
+      return `Provider ${provider} auth is required when enabled.`;
     }
     if (config.auth != null) {
       if (typeof config.auth !== "object") {
@@ -377,6 +396,10 @@ const validateProvidersConfig = (providers) => {
       const { type, value } = config.auth;
       if (!allowedAuthTypes.has(type)) {
         return `Provider ${provider} auth type is invalid.`;
+      }
+      const providerTypes = providerAuthTypes[provider];
+      if (providerTypes && !providerTypes.has(type)) {
+        return `Provider ${provider} auth type ${type} is not supported.`;
       }
       if (typeof value !== "string" || !value.trim()) {
         return `Provider ${provider} auth value is required.`;
@@ -415,6 +438,78 @@ const ensureWorkspaceDirs = async (workspaceId) => {
   await fs.promises.mkdir(paths.metadataDir, { recursive: true, mode: 0o700 });
   await fs.promises.mkdir(paths.sessionsDir, { recursive: true, mode: 0o700 });
   return paths;
+};
+
+const ensureOwnedDir = async (dirPath, ids) => {
+  await fs.promises.mkdir(dirPath, { recursive: true, mode: 0o700 });
+  if (ids) {
+    await fs.promises.chown(dirPath, ids.uid, ids.gid).catch(() => {});
+  }
+};
+
+const writeOwnedFile = async (filePath, content, ids) => {
+  await fs.promises.writeFile(filePath, content, { mode: 0o600 });
+  if (ids) {
+    await fs.promises.chown(filePath, ids.uid, ids.gid).catch(() => {});
+  }
+};
+
+const decodeBase64 = (value) => {
+  if (!value) {
+    return "";
+  }
+  try {
+    return Buffer.from(value, "base64").toString("utf8");
+  } catch (error) {
+    throw new Error("Invalid base64 payload.");
+  }
+};
+
+const writeWorkspaceProviderAuth = async (workspaceId, providers, ids) => {
+  const workspaceHome = path.join(workspaceHomeBase, workspaceId);
+  const authPaths = getWorkspaceAuthPaths(workspaceHome);
+
+  const codexConfig = providers?.codex;
+  if (codexConfig?.enabled && codexConfig.auth) {
+    await ensureOwnedDir(authPaths.codexDir, ids);
+    if (codexConfig.auth.type === "api_key") {
+      const payload = JSON.stringify({ OPENAI_API_KEY: codexConfig.auth.value }, null, 2);
+      await writeOwnedFile(authPaths.codexAuthPath, payload, ids);
+    } else if (codexConfig.auth.type === "auth_json_b64") {
+      const decoded = decodeBase64(codexConfig.auth.value);
+      await writeOwnedFile(authPaths.codexAuthPath, decoded, ids);
+    }
+  }
+
+  const claudeConfig = providers?.claude;
+  if (claudeConfig?.enabled && claudeConfig.auth) {
+    if (claudeConfig.auth.type === "api_key") {
+      const payload = JSON.stringify({ primaryApiKey: claudeConfig.auth.value }, null, 2);
+      await writeOwnedFile(authPaths.claudeAuthPath, payload, ids);
+    } else if (claudeConfig.auth.type === "setup_token") {
+      await ensureOwnedDir(authPaths.claudeDir, ids);
+      const payload = JSON.stringify(
+        {
+          claudeAiOauth: {
+            accessToken: claudeConfig.auth.value,
+            refreshToken: "dummy",
+            expiresAt: 1969350365482,
+            scopes: [
+              "user:inference",
+              "user:mcp_servers",
+              "user:profile",
+              "user:sessions:claude_code",
+            ],
+            subscriptionType: "pro",
+            rateLimitTier: "default_claude_ai",
+          },
+        },
+        null,
+        2
+      );
+      await writeOwnedFile(authPaths.claudeCredentialsPath, payload, ids);
+    }
+  }
 };
 
 const writeWorkspaceConfig = async (workspaceId, providers, ids) => {
@@ -468,6 +563,7 @@ const createWorkspace = async (providers) => {
     const secret = crypto.randomBytes(32).toString("hex");
     await fs.promises.writeFile(paths.secretPath, secret, { mode: 0o600 });
     await fs.promises.chown(paths.secretPath, ids.uid, ids.gid).catch(() => {});
+    await writeWorkspaceProviderAuth(workspaceId, providers, ids);
     await writeWorkspaceConfig(workspaceId, providers, ids);
     workspaces.set(workspaceId, { workspaceId, providers, paths });
     await appendAuditLog(workspaceId, "workspace_created");
@@ -481,6 +577,7 @@ const updateWorkspace = async (workspaceId, providers) => {
     throw new Error(validationError);
   }
   const ids = await getWorkspaceUserIds(workspaceId);
+  await writeWorkspaceProviderAuth(workspaceId, providers, ids);
   const payload = await writeWorkspaceConfig(workspaceId, providers, ids);
   const paths = getWorkspacePaths(workspaceId);
   workspaces.set(workspaceId, { workspaceId, providers, paths });
