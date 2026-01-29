@@ -170,10 +170,10 @@ app.use((req, res, next) => {
 });
 
 const isPublicApiRequest = (req) => {
-  if (req.method === "POST" && req.path === "/api/workspaces") {
+  if (req.method === "POST" && req.path === "/workspaces") {
     return true;
   }
-  if (req.method === "POST" && req.path === "/api/workspaces/login") {
+  if (req.method === "POST" && req.path === "/workspaces/login") {
     return true;
   }
   return false;
