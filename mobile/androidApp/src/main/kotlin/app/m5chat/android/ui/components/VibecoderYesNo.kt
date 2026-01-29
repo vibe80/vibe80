@@ -72,6 +72,38 @@ fun removeVibecoderYesNo(text: String): String {
 }
 
 /**
+ * Replaces vibecoder:yesno tags with their question text (when present)
+ */
+fun replaceVibecoderYesNoWithQuestions(text: String): String {
+    val blocks = parseVibecoderYesNo(text)
+    if (blocks.isEmpty()) return text
+
+    val result = StringBuilder()
+    var lastEnd = 0
+
+    for (block in blocks.sortedBy { it.startIndex }) {
+        if (block.startIndex > lastEnd) {
+            result.append(text.substring(lastEnd, block.startIndex))
+        }
+        val question = block.question?.trim().orEmpty()
+        if (question.isNotBlank()) {
+            if (result.isNotEmpty() && !result.last().isWhitespace()) {
+                result.append("\n")
+            }
+            result.append(question)
+            result.append("\n")
+        }
+        lastEnd = block.endIndex
+    }
+
+    if (lastEnd < text.length) {
+        result.append(text.substring(lastEnd))
+    }
+
+    return result.toString().trim()
+}
+
+/**
  * Composable to display vibecoder:yesno as clickable buttons
  */
 @Composable

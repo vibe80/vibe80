@@ -55,7 +55,9 @@ fun MessageBubble(
     sessionId: String? = null,
     onChoiceSelected: ((String) -> Unit)? = null,
     onFormSubmit: ((Map<String, String>, List<VibecoderFormField>) -> Unit)? = null,
-    formsSubmitted: Boolean = false
+    formsSubmitted: Boolean = false,
+    yesNoSubmitted: Boolean = false,
+    onYesNoSubmit: (() -> Unit)? = null
 ) {
     val isUser = message?.role == MessageRole.USER
     val rawText = streamingText ?: message?.text ?: ""
@@ -76,10 +78,16 @@ fun MessageBubble(
         if (!isUser && !isStreaming) parseVibecoderYesNo(displayText) else emptyList()
     }
 
-    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks, formsSubmitted) {
+    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks, formsSubmitted, yesNoSubmitted) {
         var result = displayText
         if (choicesBlocks.isNotEmpty()) result = removeVibecoderChoices(result)
-        if (yesNoBlocks.isNotEmpty()) result = removeVibecoderYesNo(result)
+        if (yesNoBlocks.isNotEmpty()) {
+            result = if (yesNoSubmitted) {
+                replaceVibecoderYesNoWithQuestions(result)
+            } else {
+                removeVibecoderYesNo(result)
+            }
+        }
         if (formBlocks.isNotEmpty()) {
             result = if (formsSubmitted) {
                 replaceVibecoderFormsWithQuestions(result)
@@ -173,12 +181,15 @@ fun MessageBubble(
                 }
 
                 // Vibecoder yes/no
-                if (yesNoBlocks.isNotEmpty() && onChoiceSelected != null) {
+                if (yesNoBlocks.isNotEmpty() && onChoiceSelected != null && !yesNoSubmitted) {
                     Spacer(modifier = Modifier.height(12.dp))
                     yesNoBlocks.forEach { block ->
                         VibecoderYesNoView(
                             block = block,
-                            onOptionSelected = onChoiceSelected,
+                            onOptionSelected = { choice ->
+                                onChoiceSelected(choice)
+                                onYesNoSubmit?.invoke()
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

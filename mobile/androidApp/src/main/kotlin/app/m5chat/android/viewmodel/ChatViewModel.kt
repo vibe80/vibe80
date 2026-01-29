@@ -59,6 +59,7 @@ data class ChatUiState(
     val providerModelState: Map<String, ProviderModelState> = emptyMap(),
     // Vibecoder forms
     val submittedFormMessageIds: Set<String> = emptySet(),
+    val submittedYesNoMessageIds: Set<String> = emptySet(),
     // Error handling
     val error: AppError? = null
 ) {
@@ -220,7 +221,8 @@ class ChatViewModel(
                         sessionId = session.sessionId,
                         activeProvider = session.activeProvider,
                         repoName = repoNameFromUrl(session.repoUrl),
-                        submittedFormMessageIds = if (shouldResetForms) emptySet() else it.submittedFormMessageIds
+                        submittedFormMessageIds = if (shouldResetForms) emptySet() else it.submittedFormMessageIds,
+                        submittedYesNoMessageIds = if (shouldResetForms) emptySet() else it.submittedYesNoMessageIds
                     )
                 }
             }
@@ -246,6 +248,12 @@ class ChatViewModel(
     fun markFormSubmitted(messageId: String) {
         _uiState.update {
             it.copy(submittedFormMessageIds = it.submittedFormMessageIds + messageId)
+        }
+    }
+
+    fun markYesNoSubmitted(messageId: String) {
+        _uiState.update {
+            it.copy(submittedYesNoMessageIds = it.submittedYesNoMessageIds + messageId)
         }
     }
 

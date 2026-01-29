@@ -306,9 +306,13 @@ fun ChatScreen(
                         message = message,
                         sessionId = uiState.sessionId,
                         formsSubmitted = uiState.submittedFormMessageIds.contains(message.id),
+                        yesNoSubmitted = uiState.submittedYesNoMessageIds.contains(message.id),
                         onChoiceSelected = { choice ->
                             viewModel.updateInputText(choice)
                             viewModel.sendMessage()
+                        },
+                        onYesNoSubmit = {
+                            viewModel.markYesNoSubmitted(message.id)
                         },
                         onFormSubmit = { formData, fields ->
                             val formattedResponse = formatFormResponse(formData, fields)
