@@ -35,8 +35,8 @@ fun WorktreeTabs(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 2.dp
+        color = Color.Transparent,
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
