@@ -66,6 +66,11 @@ class SessionRepository(
         observeWebSocketErrors()
     }
 
+    fun setWorkspaceToken(token: String?) {
+        apiClient.setWorkspaceToken(token)
+        webSocketManager.setWorkspaceToken(token)
+    }
+
     private fun observeWebSocketErrors() {
         scope.launch {
             webSocketManager.errors.collect { throwable ->
@@ -318,7 +323,6 @@ class SessionRepository(
 
     suspend fun createSession(
         repoUrl: String,
-        provider: LLMProvider = LLMProvider.CODEX,
         sshKey: String? = null,
         httpUser: String? = null,
         httpPassword: String? = null
@@ -336,8 +340,6 @@ class SessionRepository(
 
         val request = SessionCreateRequest(
             repoUrl = repoUrl,
-            provider = provider.name.lowercase(),
-            providers = listOf("codex", "claude"),
             auth = auth
         )
 
@@ -345,7 +347,7 @@ class SessionRepository(
             val state = SessionState(
                 sessionId = response.sessionId,
                 repoUrl = response.repoUrl,
-                activeProvider = LLMProvider.valueOf(response.provider.uppercase()),
+                activeProvider = LLMProvider.valueOf(response.defaultProvider.uppercase()),
                 providers = response.providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
             _sessionState.value = state
@@ -356,6 +358,18 @@ class SessionRepository(
 
             state
         }
+    }
+
+    suspend fun createWorkspace(request: WorkspaceCreateRequest): Result<WorkspaceCreateResponse> {
+        return apiClient.createWorkspace(request)
+    }
+
+    suspend fun loginWorkspace(request: WorkspaceLoginRequest): Result<WorkspaceLoginResponse> {
+        return apiClient.loginWorkspace(request)
+    }
+
+    suspend fun updateWorkspace(workspaceId: String, request: WorkspaceUpdateRequest): Result<WorkspaceUpdateResponse> {
+        return apiClient.updateWorkspace(workspaceId, request)
     }
 
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
@@ -435,17 +449,23 @@ class SessionRepository(
      */
     suspend fun reconnectSession(sessionId: String): Result<SessionState> {
         return apiClient.getSession(sessionId).map { response ->
+            val providerValue = response.defaultProvider?.uppercase() ?: "CODEX"
+            val providers = if (response.providers.isNotEmpty()) {
+                response.providers
+            } else {
+                listOf("codex", "claude")
+            }
             val state = SessionState(
                 sessionId = sessionId,
                 repoUrl = "", // Not returned by getSession
-                activeProvider = LLMProvider.CODEX, // Default, will be updated by WebSocket
-                providers = listOf(LLMProvider.CODEX, LLMProvider.CLAUDE)
+                activeProvider = LLMProvider.valueOf(providerValue),
+                providers = providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
             _sessionState.value = state
             _messages.value = response.messages
 
             // Connect WebSocket
-            ensureWebSocketConnected(sessionId)
+            ensureWebSocketConnected(sessionId, state.activeProvider)
 
             state
         }

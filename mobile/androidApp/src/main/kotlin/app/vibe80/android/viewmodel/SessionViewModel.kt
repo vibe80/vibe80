@@ -3,9 +3,11 @@ package app.vibe80.android.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.vibe80.android.Vibe80Application
-import app.vibe80.android.data.AuthConfigUploader
 import app.vibe80.android.data.SessionPreferences
-import app.vibe80.shared.models.LLMProvider
+import app.vibe80.shared.models.WorkspaceAuth
+import app.vibe80.shared.models.WorkspaceCreateRequest
+import app.vibe80.shared.models.WorkspaceLoginRequest
+import app.vibe80.shared.models.WorkspaceProviderConfig
 import app.vibe80.shared.repository.SessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,27 +15,53 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Base64
 
 data class SessionUiState(
+    val workspaceStep: Int = 1,
+    val workspaceMode: WorkspaceMode = WorkspaceMode.EXISTING,
+    val workspaceIdInput: String = "",
+    val workspaceSecretInput: String = "",
+    val workspaceId: String? = null,
+    val workspaceToken: String? = null,
+    val workspaceCreatedId: String? = null,
+    val workspaceCreatedSecret: String? = null,
+    val workspaceError: String? = null,
+    val workspaceBusy: Boolean = false,
+    val workspaceProviders: Map<String, ProviderAuthUi> = mapOf(
+        "codex" to ProviderAuthUi(authType = ProviderAuthType.API_KEY),
+        "claude" to ProviderAuthUi(authType = ProviderAuthType.SETUP_TOKEN)
+    ),
     val repoUrl: String = "",
     val sshKey: String = "",
     val httpUser: String = "",
     val httpPassword: String = "",
-    val selectedProvider: LLMProvider = LLMProvider.CODEX,
     val authMethod: AuthMethod = AuthMethod.NONE,
     val isLoading: Boolean = false,
     val loadingState: LoadingState = LoadingState.NONE,
     val isCheckingExistingSession: Boolean = true,
     val error: String? = null,
     val sessionId: String? = null,
-    val hasSavedSession: Boolean = false,
-    val hasClaudeConfig: Boolean = false,
-    val hasCodexConfig: Boolean = false
+    val hasSavedSession: Boolean = false
 )
 
 enum class AuthMethod {
     NONE, SSH, HTTP
 }
+
+enum class WorkspaceMode {
+    EXISTING, NEW
+}
+
+enum class ProviderAuthType {
+    API_KEY, AUTH_JSON_B64, SETUP_TOKEN
+}
+
+data class ProviderAuthUi(
+    val enabled: Boolean = false,
+    val authType: ProviderAuthType = ProviderAuthType.API_KEY,
+    val authValue: String = ""
+)
 
 enum class LoadingState {
     NONE,
@@ -48,48 +76,39 @@ class SessionViewModel(
 
     private val _uiState = MutableStateFlow(SessionUiState())
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
-
-    private val authConfigUploader = AuthConfigUploader(Vibe80Application.BASE_URL)
-
     init {
         checkExistingSession()
-        loadLLMConfigs()
+        loadWorkspace()
     }
 
-    private fun loadLLMConfigs() {
+    private fun loadWorkspace() {
         viewModelScope.launch {
-            sessionPreferences.llmConfig.collect { config ->
+            val saved = sessionPreferences.savedWorkspace.first()
+            if (saved == null) {
                 _uiState.update {
                     it.copy(
-                        hasClaudeConfig = config.claudeConfig != null,
-                        hasCodexConfig = config.codexConfig != null
+                        workspaceStep = 1,
+                        workspaceMode = WorkspaceMode.EXISTING,
+                        workspaceIdInput = "",
+                        workspaceSecretInput = ""
                     )
                 }
+                return@launch
             }
-        }
-    }
-
-    fun saveClaudeConfig(configJson: String) {
-        viewModelScope.launch {
-            sessionPreferences.saveClaudeConfig(configJson)
-        }
-    }
-
-    fun saveCodexConfig(configJson: String) {
-        viewModelScope.launch {
-            sessionPreferences.saveCodexConfig(configJson)
-        }
-    }
-
-    fun clearClaudeConfig() {
-        viewModelScope.launch {
-            sessionPreferences.clearClaudeConfig()
-        }
-    }
-
-    fun clearCodexConfig() {
-        viewModelScope.launch {
-            sessionPreferences.clearCodexConfig()
+            _uiState.update {
+                it.copy(
+                    workspaceId = saved.workspaceId,
+                    workspaceIdInput = saved.workspaceId,
+                    workspaceSecretInput = saved.workspaceSecret,
+                    workspaceToken = saved.workspaceToken,
+                    workspaceStep = 2
+                )
+            }
+            if (!saved.workspaceToken.isNullOrBlank()) {
+                sessionRepository.setWorkspaceToken(saved.workspaceToken)
+            } else {
+                loginWorkspace(saved.workspaceId, saved.workspaceSecret, auto = true)
+            }
         }
     }
 
@@ -103,12 +122,7 @@ class SessionViewModel(
                     it.copy(
                         isCheckingExistingSession = false,
                         hasSavedSession = true,
-                        repoUrl = savedSession.repoUrl,
-                        selectedProvider = try {
-                            LLMProvider.valueOf(savedSession.provider.uppercase())
-                        } catch (e: Exception) {
-                            LLMProvider.CODEX
-                        }
+                        repoUrl = savedSession.repoUrl
                     )
                 }
             } else {
@@ -124,6 +138,18 @@ class SessionViewModel(
 
     fun resumeExistingSession() {
         viewModelScope.launch {
+            val token = _uiState.value.workspaceToken
+            if (token.isNullOrBlank()) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        loadingState = LoadingState.NONE,
+                        error = "Workspace non authentifié"
+                    )
+                }
+                return@launch
+            }
+            sessionRepository.setWorkspaceToken(token)
             _uiState.update {
                 it.copy(
                     isLoading = true,
@@ -185,6 +211,45 @@ class SessionViewModel(
         _uiState.update { it.copy(repoUrl = url, error = null) }
     }
 
+    fun updateWorkspaceMode(mode: WorkspaceMode) {
+        _uiState.update { it.copy(workspaceMode = mode, workspaceError = null) }
+    }
+
+    fun updateWorkspaceIdInput(value: String) {
+        _uiState.update { it.copy(workspaceIdInput = value, workspaceError = null) }
+    }
+
+    fun updateWorkspaceSecretInput(value: String) {
+        _uiState.update { it.copy(workspaceSecretInput = value, workspaceError = null) }
+    }
+
+    fun toggleProvider(provider: String, enabled: Boolean) {
+        _uiState.update { state ->
+            val updated = state.workspaceProviders.toMutableMap()
+            val current = updated[provider] ?: ProviderAuthUi()
+            updated[provider] = current.copy(enabled = enabled)
+            state.copy(workspaceProviders = updated)
+        }
+    }
+
+    fun updateProviderAuthType(provider: String, authType: ProviderAuthType) {
+        _uiState.update { state ->
+            val updated = state.workspaceProviders.toMutableMap()
+            val current = updated[provider] ?: ProviderAuthUi()
+            updated[provider] = current.copy(authType = authType)
+            state.copy(workspaceProviders = updated)
+        }
+    }
+
+    fun updateProviderAuthValue(provider: String, value: String) {
+        _uiState.update { state ->
+            val updated = state.workspaceProviders.toMutableMap()
+            val current = updated[provider] ?: ProviderAuthUi()
+            updated[provider] = current.copy(authValue = value)
+            state.copy(workspaceProviders = updated)
+        }
+    }
+
     fun updateSshKey(key: String) {
         _uiState.update { it.copy(sshKey = key) }
     }
@@ -201,9 +266,120 @@ class SessionViewModel(
         _uiState.update { it.copy(authMethod = method) }
     }
 
-    fun updateProvider(provider: LLMProvider) {
-        _uiState.update { it.copy(selectedProvider = provider) }
+    fun submitWorkspace() {
+        viewModelScope.launch {
+            val state = _uiState.value
+            _uiState.update { it.copy(workspaceBusy = true, workspaceError = null) }
+            try {
+                when (state.workspaceMode) {
+                    WorkspaceMode.EXISTING -> {
+                        val workspaceId = state.workspaceIdInput.trim()
+                        val workspaceSecret = state.workspaceSecretInput.trim()
+                        if (workspaceId.isBlank() || workspaceSecret.isBlank()) {
+                            throw IllegalStateException("Workspace ID et secret requis.")
+                        }
+                        loginWorkspace(workspaceId, workspaceSecret, auto = false)
+                    }
+                    WorkspaceMode.NEW -> {
+                        val providers = buildWorkspaceProviders(state.workspaceProviders)
+                        if (providers.isEmpty()) {
+                            throw IllegalStateException("Sélectionnez au moins un provider.")
+                        }
+                        val createResult = sessionRepository.createWorkspace(
+                            WorkspaceCreateRequest(providers = providers)
+                        )
+                        createResult.fold(
+                            onSuccess = { created ->
+                                _uiState.update {
+                                    it.copy(
+                                        workspaceCreatedId = created.workspaceId,
+                                        workspaceCreatedSecret = created.workspaceSecret,
+                                        workspaceIdInput = created.workspaceId,
+                                        workspaceSecretInput = created.workspaceSecret
+                                    )
+                                }
+                                loginWorkspace(created.workspaceId, created.workspaceSecret, auto = false)
+                            },
+                            onFailure = { error ->
+                                throw error
+                            }
+                        )
+                    }
+                }
+            } catch (error: Exception) {
+                _uiState.update {
+                    it.copy(
+                        workspaceError = error.message ?: "Erreur workspace.",
+                        workspaceBusy = false
+                    )
+                }
+            }
+        }
     }
+
+    private suspend fun loginWorkspace(workspaceId: String, workspaceSecret: String, auto: Boolean) {
+        _uiState.update { it.copy(workspaceBusy = true, workspaceError = null) }
+        val result = sessionRepository.loginWorkspace(
+            WorkspaceLoginRequest(workspaceId = workspaceId, workspaceSecret = workspaceSecret)
+        )
+        result.fold(
+            onSuccess = { response ->
+                sessionRepository.setWorkspaceToken(response.workspaceToken)
+                sessionPreferences.saveWorkspace(
+                    workspaceId = workspaceId,
+                    workspaceSecret = workspaceSecret,
+                    workspaceToken = response.workspaceToken
+                )
+                _uiState.update {
+                    it.copy(
+                        workspaceId = workspaceId,
+                        workspaceToken = response.workspaceToken,
+                        workspaceStep = 2,
+                        workspaceBusy = false,
+                        workspaceError = null
+                    )
+                }
+            },
+            onFailure = { error ->
+                _uiState.update {
+                    it.copy(
+                        workspaceError = error.message ?: "Erreur d'authentification workspace.",
+                        workspaceBusy = false,
+                        workspaceStep = if (auto) 1 else it.workspaceStep
+                    )
+                }
+            }
+        )
+    }
+
+    private fun buildWorkspaceProviders(
+        configs: Map<String, ProviderAuthUi>
+    ): Map<String, WorkspaceProviderConfig> {
+        val result = mutableMapOf<String, WorkspaceProviderConfig>()
+        configs.forEach { (provider, config) ->
+            if (!config.enabled) return@forEach
+            val rawValue = config.authValue.trim()
+            if (rawValue.isBlank()) {
+                throw IllegalStateException("Clé requise pour $provider.")
+            }
+            val type = when (config.authType) {
+                ProviderAuthType.API_KEY -> "api_key"
+                ProviderAuthType.AUTH_JSON_B64 -> "auth_json_b64"
+                ProviderAuthType.SETUP_TOKEN -> "setup_token"
+            }
+            val value = if (config.authType == ProviderAuthType.AUTH_JSON_B64) {
+                Base64.getEncoder().encodeToString(rawValue.toByteArray())
+            } else {
+                rawValue
+            }
+            result[provider] = WorkspaceProviderConfig(
+                enabled = true,
+                auth = WorkspaceAuth(type = type, value = value)
+            )
+        }
+        return result
+    }
+
 
     fun createSession() {
         val state = _uiState.value
@@ -214,6 +390,11 @@ class SessionViewModel(
         }
 
         viewModelScope.launch {
+            if (state.workspaceToken.isNullOrBlank()) {
+                _uiState.update { it.copy(error = "Workspace non authentifié") }
+                return@launch
+            }
+            sessionRepository.setWorkspaceToken(state.workspaceToken)
             _uiState.update {
                 it.copy(
                     isLoading = true,
@@ -222,22 +403,8 @@ class SessionViewModel(
                 )
             }
 
-            // Upload auth configs to server before creating session
-            val authUploadError = uploadAuthConfigsToServer()
-            if (authUploadError != null) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        loadingState = LoadingState.NONE,
-                        error = authUploadError
-                    )
-                }
-                return@launch
-            }
-
             val result = sessionRepository.createSession(
                 repoUrl = state.repoUrl,
-                provider = state.selectedProvider,
                 sshKey = state.sshKey.takeIf { it.isNotBlank() },
                 httpUser = state.httpUser.takeIf { it.isNotBlank() },
                 httpPassword = state.httpPassword.takeIf { it.isNotBlank() }
@@ -249,7 +416,7 @@ class SessionViewModel(
                     sessionPreferences.saveSession(
                         sessionId = sessionState.sessionId,
                         repoUrl = state.repoUrl,
-                        provider = state.selectedProvider.name,
+                        provider = sessionState.activeProvider.name,
                         baseUrl = Vibe80Application.BASE_URL
                     )
 
@@ -272,33 +439,6 @@ class SessionViewModel(
                 }
             )
         }
-    }
-
-    /**
-     * Upload stored auth configurations to the server.
-     * This must be done before session creation so that the LLM providers can authenticate.
-     * @return Error message if upload failed, null if successful
-     */
-    private suspend fun uploadAuthConfigsToServer(): String? {
-        // Upload Codex config if available
-        val codexConfig = sessionPreferences.getCodexConfig()
-        if (codexConfig != null) {
-            val result = authConfigUploader.uploadCodexConfig(codexConfig)
-            if (result.isFailure) {
-                return "Erreur lors de l'envoi de la configuration Codex: ${result.exceptionOrNull()?.message}"
-            }
-        }
-
-        // Upload Claude config if available
-        val claudeConfig = sessionPreferences.getClaudeConfig()
-        if (claudeConfig != null) {
-            val result = authConfigUploader.uploadClaudeConfig(claudeConfig)
-            if (result.isFailure) {
-                return "Erreur lors de l'envoi de la configuration Claude: ${result.exceptionOrNull()?.message}"
-            }
-        }
-
-        return null
     }
 
     fun clearSavedSession() {

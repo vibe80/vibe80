@@ -305,6 +305,7 @@ fun ChatScreen(
                     MessageBubble(
                         message = message,
                         sessionId = uiState.sessionId,
+                        workspaceToken = uiState.workspaceToken,
                         formsSubmitted = uiState.submittedFormMessageIds.contains(message.id),
                         yesNoSubmitted = uiState.submittedYesNoMessageIds.contains(message.id),
                         onChoiceSelected = { choice ->
@@ -332,7 +333,8 @@ fun ChatScreen(
                             message = null,
                             streamingText = streamingText,
                             isStreaming = true,
-                            sessionId = uiState.sessionId
+                            sessionId = uiState.sessionId,
+                            workspaceToken = uiState.workspaceToken
                         )
                     }
                 }

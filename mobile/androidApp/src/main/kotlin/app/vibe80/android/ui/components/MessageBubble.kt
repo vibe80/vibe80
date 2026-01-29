@@ -53,6 +53,7 @@ fun MessageBubble(
     streamingText: String? = null,
     isStreaming: Boolean = false,
     sessionId: String? = null,
+    workspaceToken: String? = null,
     onChoiceSelected: ((String) -> Unit)? = null,
     onFormSubmit: ((Map<String, String>, List<Vibe80FormField>) -> Unit)? = null,
     formsSubmitted: Boolean = false,
@@ -229,7 +230,8 @@ fun MessageBubble(
                             AttachmentItem(
                                 attachment = attachment,
                                 isUser = isUser,
-                                sessionId = sessionId
+                                sessionId = sessionId,
+                                workspaceToken = workspaceToken
                             )
                         }
                     }
@@ -243,10 +245,11 @@ fun MessageBubble(
 private fun AttachmentItem(
     attachment: Attachment,
     isUser: Boolean,
-    sessionId: String?
+    sessionId: String?,
+    workspaceToken: String?
 ) {
-    val resolvedPath = remember(attachment.path, sessionId) {
-        resolveAttachmentPath(attachment.path, sessionId)
+    val resolvedPath = remember(attachment.path, sessionId, workspaceToken) {
+        resolveAttachmentPath(attachment.path, sessionId, workspaceToken)
     }
     val isImage = attachment.mimeType?.startsWith("image/") == true ||
             attachment.name.lowercase().let {
@@ -330,7 +333,7 @@ private fun AttachmentItem(
     }
 }
 
-private fun resolveAttachmentPath(path: String, sessionId: String?): String? {
+private fun resolveAttachmentPath(path: String, sessionId: String?, workspaceToken: String?): String? {
     if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("content://") || path.startsWith("file://")) {
         return path
     }
@@ -338,12 +341,14 @@ private fun resolveAttachmentPath(path: String, sessionId: String?): String? {
         return null
     }
     val base = Uri.parse(app.vibe80.android.Vibe80Application.BASE_URL)
-    return base.buildUpon()
+    val builder = base.buildUpon()
         .appendEncodedPath("api/attachments/file")
         .appendQueryParameter("session", sessionId)
         .appendQueryParameter("path", path)
-        .build()
-        .toString()
+    if (!workspaceToken.isNullOrBlank()) {
+        builder.appendQueryParameter("token", workspaceToken)
+    }
+    return builder.build().toString()
 }
 
 private fun stripAttachmentSuffix(text: String): String {

@@ -17,6 +17,16 @@ class ApiClient(
     private val baseUrl: String
 ) {
     private val json = Json { prettyPrint = false }
+    @Volatile private var workspaceToken: String? = null
+
+    fun setWorkspaceToken(token: String?) {
+        workspaceToken = token?.takeIf { it.isNotBlank() }
+    }
+
+    private fun applyAuth(builder: HttpRequestBuilder) {
+        val token = workspaceToken ?: return
+        builder.header("Authorization", "Bearer $token")
+    }
 
     /**
      * Create a new session by cloning a repository
@@ -30,6 +40,7 @@ class ApiClient(
             val response = httpClient.post(url) {
                 contentType(ContentType.Application.Json)
                 setBody(request)
+                applyAuth(this)
             }
             val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
             AppLogger.apiResponse("POST", url, response.status.value, responseBody)
@@ -65,7 +76,9 @@ class ApiClient(
         AppLogger.apiRequest("GET", url)
 
         return try {
-            val response = httpClient.get(url)
+            val response = httpClient.get(url) {
+                applyAuth(this)
+            }
             val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
             AppLogger.apiResponse("GET", url, response.status.value, responseBody)
 
@@ -94,6 +107,7 @@ class ApiClient(
         return runCatching {
             val response = httpClient.get("$baseUrl/api/health") {
                 parameter("session", sessionId)
+                applyAuth(this)
             }
             response.status.value in 200..299
         }
@@ -106,6 +120,7 @@ class ApiClient(
         return runCatching {
             httpClient.get("$baseUrl/api/branches") {
                 parameter("session", sessionId)
+                applyAuth(this)
             }.body()
         }
     }
@@ -118,6 +133,7 @@ class ApiClient(
             httpClient.post("$baseUrl/api/branches/fetch") {
                 contentType(ContentType.Application.Json)
                 setBody(mapOf("session" to sessionId))
+                applyAuth(this)
             }.body()
         }
     }
@@ -130,6 +146,7 @@ class ApiClient(
             httpClient.post("$baseUrl/api/branches/switch") {
                 contentType(ContentType.Application.Json)
                 setBody(BranchSwitchRequest(session = sessionId, branch = branch))
+                applyAuth(this)
             }.body()
         }
     }
@@ -142,6 +159,7 @@ class ApiClient(
             httpClient.get("$baseUrl/api/models") {
                 parameter("session", sessionId)
                 parameter("provider", provider)
+                applyAuth(this)
             }.body()
         }
     }
@@ -153,6 +171,7 @@ class ApiClient(
         return runCatching {
             httpClient.get("$baseUrl/api/worktree/$worktreeId/diff") {
                 parameter("session", sessionId)
+                applyAuth(this)
             }.body()
         }
     }
@@ -162,7 +181,9 @@ class ApiClient(
      */
     suspend fun mergeWorktree(worktreeId: String): Result<Unit> {
         return runCatching {
-            httpClient.post("$baseUrl/api/worktree/$worktreeId/merge")
+            httpClient.post("$baseUrl/api/worktree/$worktreeId/merge") {
+                applyAuth(this)
+            }
             Unit
         }
     }
@@ -174,6 +195,7 @@ class ApiClient(
         return runCatching {
             httpClient.delete("$baseUrl/api/worktree/$worktreeId") {
                 parameter("session", sessionId)
+                applyAuth(this)
             }
             Unit
         }
@@ -184,7 +206,9 @@ class ApiClient(
      */
     suspend fun abortMerge(worktreeId: String): Result<Unit> {
         return runCatching {
-            httpClient.post("$baseUrl/api/worktree/$worktreeId/abort-merge")
+            httpClient.post("$baseUrl/api/worktree/$worktreeId/abort-merge") {
+                applyAuth(this)
+            }
             Unit
         }
     }
@@ -196,6 +220,7 @@ class ApiClient(
         return runCatching {
             httpClient.get("$baseUrl/api/attachments") {
                 parameter("session", sessionId)
+                applyAuth(this)
             }.body()
         }
     }
@@ -217,6 +242,70 @@ class ApiClient(
      * Get base URL for platform-specific upload implementation
      */
     fun getBaseUrl(): String = baseUrl
+
+    suspend fun createWorkspace(request: WorkspaceCreateRequest): Result<WorkspaceCreateResponse> {
+        val url = "$baseUrl/api/workspaces"
+        AppLogger.apiRequest("POST", url)
+        return try {
+            val response = httpClient.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            AppLogger.apiResponse("POST", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(Exception("Workspace creation failed: ${response.status.value} ${response.status.description}"))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("POST", url, e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun loginWorkspace(request: WorkspaceLoginRequest): Result<WorkspaceLoginResponse> {
+        val url = "$baseUrl/api/workspaces/login"
+        AppLogger.apiRequest("POST", url)
+        return try {
+            val response = httpClient.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            AppLogger.apiResponse("POST", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(Exception("Workspace login failed: ${response.status.value} ${response.status.description}"))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("POST", url, e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateWorkspace(workspaceId: String, request: WorkspaceUpdateRequest): Result<WorkspaceUpdateResponse> {
+        val url = "$baseUrl/api/workspaces/$workspaceId"
+        AppLogger.apiRequest("PATCH", url)
+        return try {
+            val response = httpClient.patch(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+                applyAuth(this)
+            }
+            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            AppLogger.apiResponse("PATCH", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(Exception("Workspace update failed: ${response.status.value} ${response.status.description}"))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("PATCH", url, e)
+            Result.failure(e)
+        }
+    }
 }
 
 /**

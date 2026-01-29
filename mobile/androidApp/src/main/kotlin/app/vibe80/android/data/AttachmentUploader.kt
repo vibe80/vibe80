@@ -24,7 +24,8 @@ class AttachmentUploader(
 
     suspend fun uploadFiles(
         sessionId: String,
-        fileUris: List<Uri>
+        fileUris: List<Uri>,
+        workspaceToken: String?
     ): List<Attachment> = withContext(Dispatchers.IO) {
         if (fileUris.isEmpty()) return@withContext emptyList()
 
@@ -48,6 +49,11 @@ class AttachmentUploader(
 
             val request = Request.Builder()
                 .url("$baseUrl/api/attachments/upload?session=$sessionId")
+                .apply {
+                    if (!workspaceToken.isNullOrBlank()) {
+                        header("Authorization", "Bearer $workspaceToken")
+                    }
+                }
                 .post(multipartBuilder.build())
                 .build()
 

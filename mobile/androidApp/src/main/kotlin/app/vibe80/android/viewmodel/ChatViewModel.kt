@@ -36,6 +36,7 @@ data class UploadedAttachment(
 
 data class ChatUiState(
     val sessionId: String = "",
+    val workspaceToken: String? = null,
     val messages: List<ChatMessage> = emptyList(),
     val currentStreamingMessage: String? = null,
     val activeProvider: LLMProvider = LLMProvider.CODEX,
@@ -125,6 +126,15 @@ class ChatViewModel(
 
     init {
         observeSessionState()
+        observeWorkspaceToken()
+    }
+
+    private fun observeWorkspaceToken() {
+        viewModelScope.launch {
+            sessionPreferences.savedWorkspace.collect { workspace ->
+                _uiState.update { it.copy(workspaceToken = workspace?.workspaceToken) }
+            }
+        }
     }
 
     private fun observeSessionState() {
@@ -332,7 +342,8 @@ class ChatViewModel(
             val uris = _uiState.value.pendingAttachments.map { Uri.parse(it.uri) }
             val uploaded = attachmentUploader.uploadFiles(
                 _uiState.value.sessionId,
-                uris
+                uris,
+                _uiState.value.workspaceToken
             )
             return uploaded.map { UploadedAttachment(it.name, it.path, it.size ?: 0) }
         } finally {
