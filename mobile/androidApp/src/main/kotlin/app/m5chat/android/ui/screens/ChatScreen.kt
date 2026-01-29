@@ -347,6 +347,7 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
         ) {
             // Worktree tabs
             val worktreesForTabs = run {
