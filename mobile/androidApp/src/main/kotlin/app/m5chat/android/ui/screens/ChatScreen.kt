@@ -32,9 +32,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.m5chat.android.R
 import app.m5chat.android.ui.components.CreateWorktreeSheet
@@ -252,16 +255,125 @@ fun ChatScreen(
                 }
             )
         },
-        bottomBar = {
+    ) { padding ->
+        var inputBarSize by remember { mutableStateOf(IntSize.Zero) }
+        val density = LocalDensity.current
+        val inputBarHeight = with(density) { inputBarSize.height.toDp() }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Worktree tabs
+                val worktreesForTabs = run {
+                    val baseList = uiState.sortedWorktrees
+                    if (baseList.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
+                        listOf(Worktree.createMain(uiState.activeProvider)) + baseList
+                    } else {
+                        baseList
+                    }
+                }
+                if (worktreesForTabs.size > 1) {
+                    WorktreeTabs(
+                        worktrees = worktreesForTabs,
+                        activeWorktreeId = uiState.activeWorktreeId,
+                        onSelectWorktree = viewModel::selectWorktree,
+                        onWorktreeMenu = viewModel::showWorktreeMenu
+                    )
+                }
+
+                // Messages list
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        top = 16.dp,
+                        end = 16.dp,
+                        bottom = 16.dp + inputBarHeight
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                items(
+                    items = uiState.messages,
+                    key = { it.id }
+                ) { message ->
+                    MessageBubble(
+                        message = message,
+                        sessionId = uiState.sessionId,
+                        onChoiceSelected = { choice ->
+                            viewModel.updateInputText(choice)
+                            viewModel.sendMessage()
+                        },
+                        onFormSubmit = { formData, fields ->
+                            val formattedResponse = formatFormResponse(formData, fields)
+                            if (formattedResponse.isNotBlank()) {
+                                viewModel.updateInputText(formattedResponse)
+                                viewModel.sendMessage()
+                            }
+                        }
+                    )
+                }
+
+                // Streaming message
+                uiState.currentStreamingMessage?.let { streamingText ->
+                    item(key = "streaming") {
+                        MessageBubble(
+                            message = null,
+                            streamingText = streamingText,
+                            isStreaming = true,
+                            sessionId = uiState.sessionId
+                        )
+                    }
+                }
+
+                // Processing indicator
+                if (uiState.processing && uiState.currentStreamingMessage == null) {
+                    item(key = "loading") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Start
+                        ) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Text(
+                                        text = "En train de réfléchir...",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
                     .imePadding()
+                    .onSizeChanged { inputBarSize = it }
             ) {
                 Surface(
                     tonalElevation = 3.dp,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    shadowElevation = 8.dp
                 ) {
                     Column(
                         modifier = Modifier
@@ -339,104 +451,6 @@ fun ChatScreen(
                         }
                     }
                 }
-            }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Worktree tabs
-            val worktreesForTabs = run {
-                val baseList = uiState.sortedWorktrees
-                if (baseList.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
-                    listOf(Worktree.createMain(uiState.activeProvider)) + baseList
-                } else {
-                    baseList
-                }
-            }
-            if (worktreesForTabs.size > 1) {
-                WorktreeTabs(
-                    worktrees = worktreesForTabs,
-                    activeWorktreeId = uiState.activeWorktreeId,
-                    onSelectWorktree = viewModel::selectWorktree,
-                    onWorktreeMenu = viewModel::showWorktreeMenu
-                )
-            }
-
-            // Messages list
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-            items(
-                items = uiState.messages,
-                key = { it.id }
-            ) { message ->
-                MessageBubble(
-                    message = message,
-                    sessionId = uiState.sessionId,
-                    onChoiceSelected = { choice ->
-                        viewModel.updateInputText(choice)
-                        viewModel.sendMessage()
-                    },
-                    onFormSubmit = { formData, fields ->
-                        val formattedResponse = formatFormResponse(formData, fields)
-                        if (formattedResponse.isNotBlank()) {
-                            viewModel.updateInputText(formattedResponse)
-                            viewModel.sendMessage()
-                        }
-                    }
-                )
-            }
-
-            // Streaming message
-            uiState.currentStreamingMessage?.let { streamingText ->
-                item(key = "streaming") {
-                    MessageBubble(
-                        message = null,
-                        streamingText = streamingText,
-                        isStreaming = true,
-                        sessionId = uiState.sessionId
-                    )
-                }
-            }
-
-            // Processing indicator
-            if (uiState.processing && uiState.currentStreamingMessage == null) {
-                item(key = "loading") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
-                                Text(
-                                    text = "En train de réfléchir...",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-                }
-            }
             }
         }
     }
