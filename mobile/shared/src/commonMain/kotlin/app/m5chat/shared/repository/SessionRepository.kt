@@ -108,8 +108,16 @@ class SessionRepository(
             }
 
             is AssistantDeltaMessage -> {
-                _currentStreamingMessage.update { current ->
-                    (current ?: "") + message.delta
+                val worktreeId = message.worktreeId
+                if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                    _worktreeStreamingMessages.update { current ->
+                        val existing = current[worktreeId] ?: ""
+                        current + (worktreeId to (existing + message.delta))
+                    }
+                } else {
+                    _currentStreamingMessage.update { current ->
+                        (current ?: "") + message.delta
+                    }
                 }
             }
 
@@ -120,26 +128,59 @@ class SessionRepository(
                     text = message.text,
                     timestamp = System.currentTimeMillis()
                 )
-                _messages.update { it + newMessage }
-                _currentStreamingMessage.value = null
+                val worktreeId = message.worktreeId
+                if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                    _worktreeMessages.update { current ->
+                        val messages = current[worktreeId] ?: emptyList()
+                        current + (worktreeId to messages + newMessage)
+                    }
+                    _worktreeStreamingMessages.update { current ->
+                        current - worktreeId
+                    }
+                } else {
+                    _messages.update { it + newMessage }
+                    _currentStreamingMessage.value = null
+                }
             }
 
             is TurnStartedMessage -> {
-                _processing.value = true
+                val worktreeId = message.worktreeId
+                if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                    _worktreeProcessing.update { it + (worktreeId to true) }
+                } else {
+                    _processing.value = true
+                }
             }
 
             is TurnCompletedMessage -> {
-                _processing.value = false
-                _currentStreamingMessage.value = null
-                // Refresh diff after LLM action
-                scope.launch {
-                    loadDiff()
+                val worktreeId = message.worktreeId
+                if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                    _worktreeProcessing.update { it + (worktreeId to false) }
+                    _worktreeStreamingMessages.update { it - worktreeId }
+                    if (_activeWorktreeId.value == worktreeId) {
+                        scope.launch {
+                            loadDiff()
+                        }
+                    }
+                } else {
+                    _processing.value = false
+                    _currentStreamingMessage.value = null
+                    // Refresh diff after LLM action
+                    scope.launch {
+                        loadDiff()
+                    }
                 }
             }
 
             is TurnErrorMessage -> {
-                _processing.value = false
-                _currentStreamingMessage.value = null
+                val worktreeId = message.worktreeId
+                if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                    _worktreeProcessing.update { it + (worktreeId to false) }
+                    _worktreeStreamingMessages.update { it - worktreeId }
+                } else {
+                    _processing.value = false
+                    _currentStreamingMessage.value = null
+                }
                 // Report the error to the UI
                 _lastError.value = AppError.turnError(
                     message = message.errorMessage ?: "An error occurred during processing",
@@ -243,10 +284,14 @@ class SessionRepository(
             }
 
             is RepoDiffMessage -> {
-                _repoDiff.value = RepoDiff(
-                    status = message.status,
-                    diff = message.diff
-                )
+                val worktreeId = message.worktreeId
+                val activeWorktreeId = _activeWorktreeId.value
+                if (worktreeId == null || worktreeId == activeWorktreeId) {
+                    _repoDiff.value = RepoDiff(
+                        status = message.status,
+                        diff = message.diff
+                    )
+                }
             }
 
             is CommandExecutionDeltaMessage -> {
@@ -254,7 +299,15 @@ class SessionRepository(
             }
 
             is CommandExecutionCompletedMessage -> {
-                _messages.update { it + message.item }
+                val worktreeId = message.worktreeId
+                if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                    _worktreeMessages.update { current ->
+                        val messages = current[worktreeId] ?: emptyList()
+                        current + (worktreeId to messages + message.item)
+                    }
+                } else {
+                    _messages.update { it + message.item }
+                }
             }
 
             is PongMessage -> {

@@ -35,6 +35,7 @@ data class AssistantDeltaMessage(
     val delta: String,
     val itemId: String,
     val turnId: String,
+    val worktreeId: String? = null,
     val provider: String? = null
 ) : ServerMessage()
 
@@ -45,6 +46,7 @@ data class AssistantMessageComplete(
     val text: String,
     val itemId: String,
     val turnId: String,
+    val worktreeId: String? = null,
     val provider: String? = null
 ) : ServerMessage()
 
@@ -55,6 +57,7 @@ data class TurnStartedMessage(
     val threadId: String,
     val turnId: String,
     val status: String,
+    val worktreeId: String? = null,
     val provider: String? = null
 ) : ServerMessage()
 
@@ -66,6 +69,7 @@ data class TurnCompletedMessage(
     val turnId: String,
     val status: String,
     val error: String? = null,
+    val worktreeId: String? = null,
     val provider: String? = null
 ) : ServerMessage()
 
@@ -78,6 +82,7 @@ data class TurnErrorMessage(
     val willRetry: Boolean = false,
     val message: String? = null,
     val error: String? = null,
+    val worktreeId: String? = null,
     val provider: String? = null
 ) : ServerMessage() {
     /** Returns the error message from either 'message' or 'error' field */
@@ -195,7 +200,8 @@ data class WorktreesListMessage(
 data class RepoDiffMessage(
     override val type: String = "repo_diff",
     val status: String,
-    val diff: String
+    val diff: String,
+    val worktreeId: String? = null
 ) : ServerMessage()
 
 @Serializable
@@ -210,7 +216,8 @@ data class CommandExecutionDeltaMessage(
     override val type: String = "command_execution_delta",
     val delta: String,
     val itemId: String,
-    val turnId: String
+    val turnId: String,
+    val worktreeId: String? = null
 ) : ServerMessage()
 
 @Serializable
@@ -219,7 +226,8 @@ data class CommandExecutionCompletedMessage(
     override val type: String = "command_execution_completed",
     val item: ChatMessage,
     val itemId: String,
-    val turnId: String
+    val turnId: String,
+    val worktreeId: String? = null
 ) : ServerMessage()
 
 /**
