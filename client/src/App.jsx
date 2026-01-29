@@ -2889,12 +2889,6 @@ function App() {
     localStorage.setItem(backlogKey, JSON.stringify(backlog));
   }, [backlog, backlogKey]);
 
-  useEffect(() => {
-    if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
-    }
-  }, [messages, processing]);
-
   const uploadFiles = async (files) => {
     if (!files.length || !attachmentSession?.sessionId) {
       return;
@@ -3133,6 +3127,11 @@ function App() {
   // Get current messages based on active tab
   const currentMessages = activeWorktree ? activeWorktree.messages : messages;
   const hasMessages = Array.isArray(currentMessages) && currentMessages.length > 0;
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [currentMessages, processing, activeWorktreeId]);
 
   // Combined list for tabs: "main" + all worktrees
   const allTabs = useMemo(() => {
