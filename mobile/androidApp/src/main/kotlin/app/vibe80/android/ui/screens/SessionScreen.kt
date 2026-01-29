@@ -7,16 +7,16 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -245,6 +245,18 @@ fun SessionScreen(
                                                 }
                                             }
                                         }
+
+                                        OutlinedTextField(
+                                            value = codexConfig.authValue,
+                                            onValueChange = { viewModel.updateProviderAuthValue("codex", it) },
+                                            label = { Text("auth.json") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            minLines = 4,
+                                            maxLines = 6,
+                                            singleLine = false,
+                                            visualTransformation = VisualTransformation.None,
+                                            enabled = !uiState.workspaceBusy
+                                        )
                                     } else {
                                         OutlinedTextField(
                                             value = codexConfig.authValue,

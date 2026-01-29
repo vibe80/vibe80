@@ -91,7 +91,6 @@ class SessionRepository(
             _workspaceAuthInvalid.tryEmit("Token workspace invalide. Merci de vous reconnecter.")
         }
     }
-
     private fun observeWebSocketErrors() {
         scope.launch {
             webSocketManager.errors.collect { throwable ->

@@ -48,6 +48,9 @@ data class SessionUiState(
     val hasSavedSession: Boolean = false,
     val handoffBusy: Boolean = false,
     val handoffError: String? = null
+    val hasSavedSession: Boolean = false,
+    val handoffBusy: Boolean = false,
+    val handoffError: String? = null
 )
 
 enum class AuthMethod {
@@ -82,6 +85,7 @@ class SessionViewModel(
     private val _uiState = MutableStateFlow(SessionUiState())
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
     private val handoffJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
     init {
         checkExistingSession()
         loadWorkspace()

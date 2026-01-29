@@ -33,7 +33,6 @@ class ApiClient(
         val token = workspaceToken ?: return
         builder.header("Authorization", "Bearer $token")
     }
-
     private fun parseErrorPayload(bodyText: String): ApiErrorPayload? {
         if (bodyText.isBlank()) return null
         return try {
@@ -443,7 +442,6 @@ class ApiClient(
             Result.failure(e)
         }
     }
-
     suspend fun consumeHandoffToken(request: HandoffConsumeRequest): Result<HandoffConsumeResponse> {
         val url = "$baseUrl/api/sessions/handoff/consume"
         AppLogger.apiRequest("POST", url)
