@@ -1,9 +1,9 @@
 # Phase 0 Specs (Workspace Model)
 
 ## IDs
-- Workspace ID format: `w{hash}`
+- Workspace ID format: `w{24-hex}`
   - Example: `w9276276c9992d115016c5be8`
-- Session ID format (proposed): `s{hash}`
+- Session ID format: `s{24-hex}`
 - Hash length: 24 hex chars (same as current session hash length)
 
 ## Auth (Workspace)
@@ -17,10 +17,17 @@
     - `sub`: workspaceId
     - `exp`: now + 24h
     - `iat`: issued at
+    - `iss`: m5chat
+    - `aud`: workspace
+    - `jti`: UUID (for future revocation)
 
 ## Workspace Providers Schema
 - `providers` is defined at workspace creation
 - Sessions inherit providers from workspace
+- Allowed auth types:
+  - `api_key`
+  - `auth_json_b64`
+  - `setup_token`
 - Minimal schema (extensible):
 
 ```json
@@ -29,15 +36,15 @@
     "codex": {
       "enabled": true,
       "auth": {
-        "type": "file",
-        "path": "/home/w{hash}/.codex/auth.json"
+        "type": "api_key",
+        "value": "API_KEY"
       }
     },
     "claude": {
       "enabled": true,
       "auth": {
-        "type": "file",
-        "path": "/home/w{hash}/.claude/credentials.json"
+        "type": "auth_json_b64",
+        "value": "B64_ENCODED_AUTH_JSON"
       }
     }
   }
@@ -49,13 +56,16 @@
   - `metadata/`
     - `workspace.json` (providers + config)
     - `workspace.secret` (secret)
-    - `jwt.key` (signing key, if per-workspace)
   - `sessions/`
     - `{sessionId}/`
       - `repository/`
       - `attachments/`
       - `worktrees/`
       - `logs/`
+
+## Storage Layout (Server Global)
+- Global JWT signing key (shared for all workspaces)
+  - Suggested path: `/var/lib/m5chat/jwt.key`
 
 ## JWT Signing Key Strategy
 - Global signing key (shared for all workspaces)

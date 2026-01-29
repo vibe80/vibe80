@@ -849,7 +849,8 @@
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/workspaces/login": {
@@ -882,7 +883,8 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           }
-        }
+        },
+        "security": []
       }
     },
     "/api/workspaces/{workspaceId}": {
@@ -971,7 +973,8 @@
         "in": "path",
         "required": true,
         "schema": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^s[0-9a-f]{24}$"
         }
       },
       "WorktreeId": {
@@ -1046,7 +1049,8 @@
         "in": "path",
         "required": true,
         "schema": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^w[0-9a-f]{24}$"
         }
       }
     },
@@ -1912,6 +1916,27 @@
         ],
         "additionalProperties": false
       },
+      "WorkspaceProviderAuth": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "api_key",
+              "auth_json_b64",
+              "setup_token"
+            ]
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ],
+        "additionalProperties": false
+      },
       "WorkspaceProviderConfig": {
         "type": "object",
         "properties": {
@@ -1919,10 +1944,10 @@
             "type": "boolean"
           },
           "auth": {
-            "type": "object"
+            "$ref": "#/components/schemas/WorkspaceProviderAuth"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       },
       "WorkspaceCreateRequest": {
         "type": "object",

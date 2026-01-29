@@ -51,7 +51,7 @@
 - POST /api/workspaces returns workspaceSecret (non-expiring)
 - POST /api/workspaces/login exchanges secret for JWT workspaceToken
 - Token TTL: 24 hours
-- JWT claims: sub = workspaceId, exp = now + 24h
+- JWT claims: sub, exp, iat, iss, aud, jti
 - REST and WS use only workspaceToken
   - REST: Authorization: Bearer <token>
   - WS: ws://.../ws?token=<token>
