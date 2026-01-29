@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -120,10 +121,8 @@ fun ChatScreen(
     // Connection status indicator color
     val connectionColor by animateColorAsState(
         targetValue = when (uiState.connectionState) {
-            ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
-            ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> MaterialTheme.colorScheme.tertiary
-            ConnectionState.ERROR -> MaterialTheme.colorScheme.error
-            ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.outline
+            ConnectionState.CONNECTED -> Color(0xFF22C55E)
+            else -> Color(0xFFEF4444)
         },
         label = "connectionColor"
     )
@@ -142,9 +141,15 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    val worktrees = uiState.sortedWorktrees
-                    val activeWorktreeName = worktrees.firstOrNull { it.id == uiState.activeWorktreeId }?.name
+                    val baseWorktrees = uiState.sortedWorktrees
+                    val worktreesForTabs = if (baseWorktrees.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
+                        listOf(Worktree.createMain(uiState.activeProvider)) + baseWorktrees
+                    } else {
+                        baseWorktrees
+                    }
+                    val activeBranchName = worktreesForTabs.firstOrNull { it.id == uiState.activeWorktreeId }?.branchName
                         ?: Worktree.MAIN_WORKTREE_ID
+                    val showWorktreeTabs = worktreesForTabs.size > 1
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -165,33 +170,25 @@ fun ChatScreen(
                                     text = "M5Chat",
                                     style = MaterialTheme.typography.titleMedium
                                 )
-                                Surface(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    shape = MaterialTheme.shapes.small
-                                ) {
-                                    Text(
-                                        text = activeWorktreeName,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                if (!showWorktreeTabs) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = MaterialTheme.shapes.small
+                                    ) {
+                                        Text(
+                                            text = activeBranchName,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                             Text(
-                                text = when (uiState.connectionState) {
-                                    ConnectionState.CONNECTED -> stringResource(R.string.connected)
-                                    ConnectionState.CONNECTING -> "Connexion..."
-                                    ConnectionState.RECONNECTING -> stringResource(R.string.reconnecting)
-                                    ConnectionState.DISCONNECTED -> stringResource(R.string.disconnected)
-                                    ConnectionState.ERROR -> stringResource(R.string.error_connection)
-                                },
+                                text = uiState.repoName.ifBlank { "Repository" },
                                 style = MaterialTheme.typography.bodySmall,
-                                color = when (uiState.connectionState) {
-                                    ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
-                                    ConnectionState.ERROR -> MaterialTheme.colorScheme.error
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                }
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -360,12 +357,14 @@ fun ChatScreen(
                     baseList
                 }
             }
-            WorktreeTabs(
-                worktrees = worktreesForTabs,
-                activeWorktreeId = uiState.activeWorktreeId,
-                onSelectWorktree = viewModel::selectWorktree,
-                onWorktreeMenu = viewModel::showWorktreeMenu
-            )
+            if (worktreesForTabs.size > 1) {
+                WorktreeTabs(
+                    worktrees = worktreesForTabs,
+                    activeWorktreeId = uiState.activeWorktreeId,
+                    onSelectWorktree = viewModel::selectWorktree,
+                    onWorktreeMenu = viewModel::showWorktreeMenu
+                )
+            }
 
             // Messages list
             LazyColumn(

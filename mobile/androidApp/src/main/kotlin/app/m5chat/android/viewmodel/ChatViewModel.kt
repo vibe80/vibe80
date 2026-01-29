@@ -41,6 +41,7 @@ data class ChatUiState(
     val activeProvider: LLMProvider = LLMProvider.CODEX,
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
     val processing: Boolean = false,
+    val repoName: String = "",
     val branches: BranchInfo? = null,
     val repoDiff: RepoDiff? = null,
     val inputText: String = "",
@@ -214,7 +215,8 @@ class ChatViewModel(
                 _uiState.update {
                     it.copy(
                         sessionId = session.sessionId,
-                        activeProvider = session.activeProvider
+                        activeProvider = session.activeProvider,
+                        repoName = repoNameFromUrl(session.repoUrl)
                     )
                 }
             }
@@ -235,6 +237,17 @@ class ChatViewModel(
 
     fun updateInputText(text: String) {
         _uiState.update { it.copy(inputText = text) }
+    }
+
+    private fun repoNameFromUrl(url: String): String {
+        val trimmed = url.trim().trimEnd('/')
+        if (trimmed.isBlank()) return ""
+        val separatorIndex = maxOf(trimmed.lastIndexOf('/'), trimmed.lastIndexOf(':'))
+        return if (separatorIndex >= 0) {
+            trimmed.substring(separatorIndex + 1)
+        } else {
+            trimmed
+        }
     }
 
     fun sendMessage() {
