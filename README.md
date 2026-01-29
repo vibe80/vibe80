@@ -7,7 +7,7 @@ Application Node.js + React pour piloter des assistants (Codex app-server ou Cla
 - Chat temps reel via WebSocket avec streaming des reponses.
 - Multi-worktrees (branches isolees) avec diff, commits, merge et cherry-pick.
 - Vue des diffs et rendu Markdown dans le client.
-- Terminal web (xterm) connecte au repo de session.
+- Terminal web (xterm) connecte au repo de session (desactivable).
 - Upload d'attachments (pieces jointes) pour les agents.
 - Support multi-fournisseurs: Codex et Claude.
 
@@ -54,6 +54,7 @@ Le Dockerfile installe Node, Codex, Claude CLI et les outils utiles (git, ssh, r
 
 Variables utiles au runtime:
 - `PORT`: port HTTP du serveur (defaut 5179).
+- `TERMINAL_ENABLED`: active/desactive le terminal web (`false`, `0`, `no`, `off` pour desactiver).
 - `GIT_SSH_PRIVATE_KEY`: cle privee SSH pour cloner les repos.
 - `GIT_COMMIT_USER_NAME` / `GIT_COMMIT_USER_EMAIL`: identite Git.
 - `HOME_DIR`: base pour `.codex` et `.claude` (defaut HOME).
