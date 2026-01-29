@@ -1289,6 +1289,10 @@
           },
           "default_provider": {
             "$ref": "#/components/schemas/Provider"
+          },
+          "workspaceId": {
+            "type": "string",
+            "pattern": "^w[0-9a-f]{24}$"
           }
         },
         "required": [
@@ -1297,7 +1301,8 @@
           "repoUrl",
           "default_provider",
           "messages",
-          "repoDiff"
+          "repoDiff",
+          "workspaceId"
         ],
         "additionalProperties": true
       },
@@ -1345,6 +1350,10 @@
           },
           "default_provider": {
             "$ref": "#/components/schemas/Provider"
+          },
+          "workspaceId": {
+            "type": "string",
+            "pattern": "^w[0-9a-f]{24}$"
           }
         },
         "required": [
@@ -1352,7 +1361,8 @@
           "path",
           "repoUrl",
           "default_provider",
-          "messages"
+          "messages",
+          "workspaceId"
         ],
         "additionalProperties": true
       },

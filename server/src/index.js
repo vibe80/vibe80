@@ -2,12 +2,12 @@ import express from "express";
 import http from "http";
 import path from "path";
 import fs from "fs";
-import os from "os";
 import crypto from "crypto";
 import multer from "multer";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import { spawn } from "child_process";
+import jwt from "jsonwebtoken";
 import * as pty from "node-pty";
 import { CodexAppServerClient } from "./codexClient.js";
 import { ClaudeCliClient } from "./claudeClient.js";
@@ -44,14 +44,14 @@ const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : 
 
 const cwd = process.cwd();
 const sessions = new Map();
-const homeDir = process.env.HOME_DIR || os.homedir();
-const sshDir = path.join(homeDir, ".ssh");
-const knownHostsPath = path.join(sshDir, "known_hosts");
-const sshConfigPath = path.join(sshDir, "config");
-const codexConfigDir = path.join(homeDir, ".codex");
-const codexAuthPath = path.join(codexConfigDir, "auth.json");
-const claudeConfigDir = path.join(homeDir, ".claude");
-const claudeCredPath = path.join(claudeConfigDir, ".credentials.json");
+const workspaces = new Map();
+const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
+const workspaceRootName = "vibecoder_workspace";
+const workspaceMetadataDirName = "metadata";
+const workspaceSessionsDirName = "sessions";
+const jwtKeyPath = process.env.JWT_KEY_PATH || "/var/lib/m5chat/jwt.key";
+const jwtIssuer = process.env.JWT_ISSUER || "m5chat";
+const jwtAudience = process.env.JWT_AUDIENCE || "workspace";
 const debugApiWsLog = /^(1|true|yes|on)$/i.test(
   process.env.DEBUG_API_WS_LOG || ""
 );
@@ -168,6 +168,36 @@ app.use((req, res, next) => {
   next();
 });
 
+const isPublicApiRequest = (req) => {
+  if (req.method === "POST" && req.path === "/api/workspaces") {
+    return true;
+  }
+  if (req.method === "POST" && req.path === "/api/workspaces/login") {
+    return true;
+  }
+  return false;
+};
+
+app.use("/api", (req, res, next) => {
+  if (req.method === "OPTIONS" || isPublicApiRequest(req)) {
+    next();
+    return;
+  }
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) {
+    res.status(401).json({ error: "Missing workspace token." });
+    return;
+  }
+  try {
+    req.workspaceId = verifyWorkspaceToken(token);
+  } catch (error) {
+    res.status(401).json({ error: "Invalid workspace token." });
+    return;
+  }
+  next();
+});
+
 const runCommand = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
     const proc = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], ...options });
@@ -210,6 +240,193 @@ const runCommandOutput = (command, args, options = {}) =>
       reject(new Error(stderr.trim() || `${command} exited with ${code}`));
     });
   });
+
+const loadJwtKey = () => {
+  if (process.env.JWT_KEY) {
+    return process.env.JWT_KEY;
+  }
+  if (fs.existsSync(jwtKeyPath)) {
+    return fs.readFileSync(jwtKeyPath, "utf8").trim();
+  }
+  fs.mkdirSync(path.dirname(jwtKeyPath), { recursive: true, mode: 0o700 });
+  const key = crypto.randomBytes(32).toString("hex");
+  fs.writeFileSync(jwtKeyPath, key, { mode: 0o600 });
+  return key;
+};
+
+const jwtKey = loadJwtKey();
+
+const generateId = (prefix) => `${prefix}${crypto.randomBytes(12).toString("hex")}`;
+const workspaceIdPattern = /^w[0-9a-f]{24}$/;
+const sessionIdPattern = /^s[0-9a-f]{24}$/;
+
+const getWorkspacePaths = (workspaceId) => {
+  const home = path.join(workspaceHomeBase, workspaceId);
+  const root = path.join(home, workspaceRootName);
+  const metadataDir = path.join(root, workspaceMetadataDirName);
+  const sessionsDir = path.join(root, workspaceSessionsDirName);
+  return {
+    homeDir: home,
+    rootDir: root,
+    metadataDir,
+    sessionsDir,
+    secretPath: path.join(metadataDir, "workspace.secret"),
+    configPath: path.join(metadataDir, "workspace.json"),
+  };
+};
+
+const getWorkspaceSshPaths = (workspaceHome) => {
+  const sshDir = path.join(workspaceHome, ".ssh");
+  return {
+    sshDir,
+    knownHostsPath: path.join(sshDir, "known_hosts"),
+    sshConfigPath: path.join(sshDir, "config"),
+  };
+};
+
+const allowedAuthTypes = new Set(["api_key", "auth_json_b64", "setup_token"]);
+
+const validateProvidersConfig = (providers) => {
+  if (!providers || typeof providers !== "object") {
+    return "providers is required.";
+  }
+  for (const [provider, config] of Object.entries(providers)) {
+    if (!config || typeof config !== "object") {
+      return `Invalid provider config for ${provider}.`;
+    }
+    if (typeof config.enabled !== "boolean") {
+      return `Provider ${provider} must include enabled boolean.`;
+    }
+    if (config.auth != null) {
+      if (typeof config.auth !== "object") {
+        return `Provider ${provider} auth must be an object.`;
+      }
+      const { type, value } = config.auth;
+      if (!allowedAuthTypes.has(type)) {
+        return `Provider ${provider} auth type is invalid.`;
+      }
+      if (typeof value !== "string" || !value.trim()) {
+        return `Provider ${provider} auth value is required.`;
+      }
+    }
+  }
+  return null;
+};
+
+const listEnabledProviders = (providers) =>
+  Object.entries(providers || {})
+    .filter(([, config]) => config?.enabled)
+    .map(([name]) => name);
+
+const pickDefaultProvider = (providers) => {
+  if (!providers || providers.length === 0) {
+    return null;
+  }
+  if (providers.includes("codex")) {
+    return "codex";
+  }
+  return providers[0];
+};
+
+const ensureWorkspaceUser = async (workspaceId, homeDirPath) => {
+  try {
+    await runCommandOutput("id", ["-u", workspaceId]);
+    return;
+  } catch {
+    await runCommand("useradd", ["-m", "-d", homeDirPath, "-s", "/bin/bash", workspaceId]);
+  }
+};
+
+const ensureWorkspaceDirs = async (workspaceId) => {
+  const paths = getWorkspacePaths(workspaceId);
+  await fs.promises.mkdir(paths.metadataDir, { recursive: true, mode: 0o700 });
+  await fs.promises.mkdir(paths.sessionsDir, { recursive: true, mode: 0o700 });
+  return paths;
+};
+
+const writeWorkspaceConfig = async (workspaceId, providers) => {
+  const paths = getWorkspacePaths(workspaceId);
+  const payload = {
+    workspaceId,
+    providers,
+    updatedAt: Date.now(),
+  };
+  await fs.promises.writeFile(paths.configPath, JSON.stringify(payload, null, 2), {
+    mode: 0o600,
+  });
+  return payload;
+};
+
+const readWorkspaceConfig = async (workspaceId) => {
+  const paths = getWorkspacePaths(workspaceId);
+  const raw = await fs.promises.readFile(paths.configPath, "utf8");
+  return JSON.parse(raw);
+};
+
+const readWorkspaceSecret = async (workspaceId) => {
+  const paths = getWorkspacePaths(workspaceId);
+  return fs.promises.readFile(paths.secretPath, "utf8").then((value) => value.trim());
+};
+
+const createWorkspace = async (providers) => {
+  const validationError = validateProvidersConfig(providers);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+  while (true) {
+    const workspaceId = generateId("w");
+    if (!workspaceIdPattern.test(workspaceId)) {
+      continue;
+    }
+    const paths = getWorkspacePaths(workspaceId);
+    if (fs.existsSync(paths.homeDir)) {
+      continue;
+    }
+    await ensureWorkspaceUser(workspaceId, paths.homeDir);
+    await ensureWorkspaceDirs(workspaceId);
+    const secret = crypto.randomBytes(32).toString("hex");
+    await fs.promises.writeFile(paths.secretPath, secret, { mode: 0o600 });
+    await writeWorkspaceConfig(workspaceId, providers);
+    workspaces.set(workspaceId, { workspaceId, providers, paths });
+    return { workspaceId, workspaceSecret: secret };
+  }
+};
+
+const updateWorkspace = async (workspaceId, providers) => {
+  const validationError = validateProvidersConfig(providers);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+  const payload = await writeWorkspaceConfig(workspaceId, providers);
+  const paths = getWorkspacePaths(workspaceId);
+  workspaces.set(workspaceId, { workspaceId, providers, paths });
+  return payload;
+};
+
+const createWorkspaceToken = (workspaceId) =>
+  jwt.sign({}, jwtKey, {
+    algorithm: "HS256",
+    expiresIn: "24h",
+    subject: workspaceId,
+    issuer: jwtIssuer,
+    audience: jwtAudience,
+    jwtid:
+      typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : crypto.randomBytes(8).toString("hex"),
+  });
+
+const verifyWorkspaceToken = (token) => {
+  const payload = jwt.verify(token, jwtKey, {
+    issuer: jwtIssuer,
+    audience: jwtAudience,
+  });
+  const workspaceId = payload?.sub;
+  if (typeof workspaceId !== "string") {
+    throw new Error("Invalid token subject.");
+  }
+  return workspaceId;
+};
 
 const normalizeRemoteBranches = (output, remote) =>
   output
@@ -278,21 +495,23 @@ const resolveHttpAuthInfo = (repoUrl) => {
   }
 };
 
-const ensureKnownHost = async (repoUrl) => {
+const ensureKnownHost = async (repoUrl, sshPaths) => {
   const host = resolveRepoHost(repoUrl);
   if (!host) {
     return;
   }
+  const { sshDir, knownHostsPath } = sshPaths;
   await runCommand("sh", [
     "-c",
     `mkdir -p "${sshDir}" && ssh-keyscan -H ${host} >> "${knownHostsPath}" 2>/dev/null || true`,
   ]);
 };
 
-const ensureSshConfigEntry = async (host, keyPath) => {
+const ensureSshConfigEntry = async (host, keyPath, sshPaths) => {
   if (!host) {
     return;
   }
+  const { sshConfigPath } = sshPaths;
   const keyPathConfig = `~/.ssh/${path.basename(keyPath)}`;
   let existing = "";
   try {
@@ -311,10 +530,18 @@ const ensureSshConfigEntry = async (host, keyPath) => {
   await fs.promises.chmod(sshConfigPath, 0o600).catch(() => {});
 };
 
-const createSession = async (repoUrl, auth, provider = "codex", providers = null) => {
+const createSession = async (workspaceId, repoUrl, auth) => {
+  const workspaceConfig = await readWorkspaceConfig(workspaceId);
+  const enabledProviders = listEnabledProviders(workspaceConfig?.providers || {});
+  const defaultProvider = pickDefaultProvider(enabledProviders);
+  if (!defaultProvider) {
+    throw new Error("No providers enabled for this workspace.");
+  }
+  const workspacePaths = getWorkspacePaths(workspaceId);
+  const sshPaths = getWorkspaceSshPaths(workspacePaths.homeDir);
   while (true) {
-    const sessionId = crypto.randomBytes(12).toString("hex");
-    const dir = path.join(os.tmpdir(), sessionId);
+    const sessionId = generateId("s");
+    const dir = path.join(workspacePaths.sessionsDir, sessionId);
     let sessionRecord = null;
     let sessionSshKeyPath = null;
     try {
@@ -324,17 +551,17 @@ const createSession = async (repoUrl, auth, provider = "codex", providers = null
       const repoDir = path.join(dir, "repository");
       const env = { ...process.env };
       if (auth?.type === "ssh" && auth.privateKey) {
-        await fs.promises.mkdir(sshDir, { recursive: true, mode: 0o700 });
-        await fs.promises.chmod(sshDir, 0o700).catch(() => {});
-        const keyPath = path.join(sshDir, `codex_session_${sessionId}`);
+        await fs.promises.mkdir(sshPaths.sshDir, { recursive: true, mode: 0o700 });
+        await fs.promises.chmod(sshPaths.sshDir, 0o700).catch(() => {});
+        const keyPath = path.join(sshPaths.sshDir, `codex_session_${sessionId}`);
         const normalizedKey = `${auth.privateKey.trimEnd()}\n`;
         await fs.promises.writeFile(keyPath, normalizedKey, { mode: 0o600 });
         await fs.promises.chmod(keyPath, 0o600).catch(() => {});
         sessionSshKeyPath = keyPath;
         const sshHost = resolveRepoHost(repoUrl);
-        await ensureSshConfigEntry(sshHost, keyPath);
-        await ensureKnownHost(repoUrl);
-        env.GIT_SSH_COMMAND = `ssh -o IdentitiesOnly=yes -o UserKnownHostsFile="${knownHostsPath}"`;
+        await ensureSshConfigEntry(sshHost, keyPath, sshPaths);
+        await ensureKnownHost(repoUrl, sshPaths);
+        env.GIT_SSH_COMMAND = `ssh -o IdentitiesOnly=yes -o UserKnownHostsFile="${sshPaths.knownHostsPath}"`;
       } else if (auth?.type === "http" && auth.username && auth.password) {
         const authInfo = resolveHttpAuthInfo(repoUrl);
         if (!authInfo) {
@@ -385,20 +612,16 @@ const createSession = async (repoUrl, auth, provider = "codex", providers = null
           { env }
         );
       }
-      const normalizedProviders = Array.isArray(providers)
-        ? providers.filter((entry) => isValidProvider(entry))
-        : [];
-      if (!normalizedProviders.includes(provider)) {
-        normalizedProviders.unshift(provider);
-      }
       // Initialize session with multi-client structure
       const session = {
+        sessionId,
+        workspaceId,
         dir,
         attachmentsDir,
         repoDir,
         repoUrl,
-        activeProvider: provider,
-        providers: normalizedProviders,
+        activeProvider: defaultProvider,
+        providers: enabledProviders,
         clients: {
           codex: null,
           claude: null,
@@ -411,19 +634,19 @@ const createSession = async (repoUrl, auth, provider = "codex", providers = null
         messages: [],
         rpcLogs: [],
       };
-      session.messages = session.messagesByProvider[provider];
+      session.messages = session.messagesByProvider[defaultProvider];
       sessions.set(sessionId, session);
       sessionRecord = session;
 
       // Create and start the initial provider client
-      const client = await getOrCreateClient(session, provider);
-      if (provider === "claude") {
-        attachClaudeEvents(sessionId, client, provider);
+      const client = await getOrCreateClient(session, defaultProvider);
+      if (defaultProvider === "claude") {
+        attachClaudeEvents(sessionId, client, defaultProvider);
       } else {
-        attachClientEvents(sessionId, client, provider);
+        attachClientEvents(sessionId, client, defaultProvider);
       }
       client.start().catch((error) => {
-        const label = provider === "claude" ? "Claude CLI" : "Codex app-server";
+        const label = defaultProvider === "claude" ? "Claude CLI" : "Codex app-server";
         console.error(`Failed to start ${label}:`, error);
         broadcastToSession(sessionId, {
           type: "error",
@@ -451,8 +674,16 @@ const createSession = async (repoUrl, auth, provider = "codex", providers = null
   }
 };
 
-const getSession = (sessionId) =>
-  sessionId ? sessions.get(sessionId) || null : null;
+const getSession = (sessionId, workspaceId = null) => {
+  const session = sessionId ? sessions.get(sessionId) || null : null;
+  if (!session) {
+    return null;
+  }
+  if (workspaceId && session.workspaceId !== workspaceId) {
+    return null;
+  }
+  return session;
+};
 
 const getSessionFromRequest = (req) => {
   if (!req?.url) {
@@ -461,7 +692,7 @@ const getSessionFromRequest = (req) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const sessionId = url.searchParams.get("session");
-    return getSession(sessionId);
+    return getSession(sessionId, req.workspaceId);
   } catch {
     return null;
   }
@@ -692,7 +923,7 @@ const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
       const sessionId = req.query.session;
-      const session = getSession(sessionId);
+      const session = getSession(sessionId, req.workspaceId);
       if (!session) {
         cb(new Error("Invalid session."));
         return;
@@ -701,7 +932,7 @@ const upload = multer({
     },
     filename: async (req, file, cb) => {
       const sessionId = req.query.session;
-      const session = getSession(sessionId);
+      const session = getSession(sessionId, req.workspaceId);
       if (!session) {
         cb(new Error("Invalid session."));
         return;
@@ -722,10 +953,6 @@ const upload = multer({
     },
   }),
   limits: { files: 20, fileSize: 50 * 1024 * 1024 },
-});
-const authUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { files: 1, fileSize: 2 * 1024 * 1024 },
 });
 
 const getProviderLabel = (session) =>
@@ -1340,8 +1567,22 @@ function attachClaudeEvents(sessionId, client, provider) {
 wss.on("connection", (socket, req) => {
   attachWebSocketDebug(socket, req, "chat");
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const token = url.searchParams.get("token");
+  if (!token) {
+    socket.send(JSON.stringify({ type: "error", message: "Missing workspace token." }));
+    socket.close();
+    return;
+  }
+  let workspaceId = null;
+  try {
+    workspaceId = verifyWorkspaceToken(token);
+  } catch (error) {
+    socket.send(JSON.stringify({ type: "error", message: "Invalid workspace token." }));
+    socket.close();
+    return;
+  }
   const sessionId = url.searchParams.get("session");
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, workspaceId);
   if (!session) {
     socket.send(
       JSON.stringify({ type: "error", message: "Unknown session." })
@@ -1967,6 +2208,20 @@ wss.on("connection", (socket, req) => {
 if (terminalWss) {
   terminalWss.on("connection", (socket, req) => {
   attachWebSocketDebug(socket, req, "terminal");
+  let workspaceId = null;
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get("token");
+    if (!token) {
+      socket.close();
+      return;
+    }
+    workspaceId = verifyWorkspaceToken(token);
+  } catch {
+    socket.close();
+    return;
+  }
+  req.workspaceId = workspaceId;
   const session = getSessionFromRequest(req);
   if (!session) {
     socket.close();
@@ -2057,8 +2312,74 @@ if (terminalWss) {
   });
 }
 
+app.post("/api/workspaces", async (req, res) => {
+  try {
+    const providers = req.body?.providers;
+    const result = await createWorkspace(providers);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message || "Failed to create workspace." });
+  }
+});
+
+app.post("/api/workspaces/login", async (req, res) => {
+  const workspaceId = req.body?.workspaceId;
+  const workspaceSecret = req.body?.workspaceSecret;
+  if (!workspaceId || !workspaceSecret) {
+    res.status(400).json({ error: "workspaceId and workspaceSecret are required." });
+    return;
+  }
+  if (!workspaceIdPattern.test(workspaceId)) {
+    res.status(400).json({ error: "Invalid workspaceId." });
+    return;
+  }
+  try {
+    const storedSecret = await readWorkspaceSecret(workspaceId);
+    if (storedSecret !== workspaceSecret) {
+      res.status(403).json({ error: "Invalid workspace credentials." });
+      return;
+    }
+    const token = createWorkspaceToken(workspaceId);
+    res.json({ workspaceToken: token, expiresIn: 60 * 60 * 24 });
+  } catch (error) {
+    res.status(403).json({ error: "Invalid workspace credentials." });
+  }
+});
+
+app.patch("/api/workspaces/:workspaceId", async (req, res) => {
+  const workspaceId = req.params.workspaceId;
+  if (!workspaceIdPattern.test(workspaceId)) {
+    res.status(400).json({ error: "Invalid workspaceId." });
+    return;
+  }
+  if (req.workspaceId && req.workspaceId !== workspaceId) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
+  try {
+    const providers = req.body?.providers;
+    const payload = await updateWorkspace(workspaceId, providers);
+    res.json({ workspaceId, providers: payload.providers });
+  } catch (error) {
+    res.status(400).json({ error: error.message || "Failed to update workspace." });
+  }
+});
+
+app.delete("/api/workspaces/:workspaceId", async (req, res) => {
+  const workspaceId = req.params.workspaceId;
+  if (!workspaceIdPattern.test(workspaceId)) {
+    res.status(400).json({ error: "Invalid workspaceId." });
+    return;
+  }
+  if (req.workspaceId && req.workspaceId !== workspaceId) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
+  res.status(501).json({ error: "Workspace deletion policy not implemented yet." });
+});
+
 app.get("/api/health", (req, res) => {
-  const session = getSession(req.query.session);
+  const session = getSession(req.query.session, req.workspaceId);
   if (!session) {
     res.json({ ok: true, ready: false, threadId: null });
     return;
@@ -2073,7 +2394,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.get("/api/session/:sessionId", async (req, res) => {
-  const session = getSession(req.params.sessionId);
+  const session = getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
@@ -2084,9 +2405,10 @@ app.get("/api/session/:sessionId", async (req, res) => {
     session.messagesByProvider?.[activeProvider] || session.messages || [];
   res.json({
     sessionId: req.params.sessionId,
+    workspaceId: session.workspaceId,
     path: session.dir,
     repoUrl: session.repoUrl,
-    provider: activeProvider,
+    default_provider: activeProvider,
     providers: session.providers || [activeProvider],
     messages,
     repoDiff,
@@ -2096,7 +2418,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
 });
 
 app.get("/api/session/:sessionId/diff", async (req, res) => {
-  const session = getSession(req.params.sessionId);
+  const session = getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
@@ -2106,7 +2428,7 @@ app.get("/api/session/:sessionId/diff", async (req, res) => {
 });
 
 app.post("/api/session/:sessionId/clear", async (req, res) => {
-  const session = getSession(req.params.sessionId);
+  const session = getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
@@ -2143,21 +2465,14 @@ app.post("/api/session", async (req, res) => {
   }
   try {
     const auth = req.body?.auth || null;
-    const provider = req.body?.provider || "codex";
-    const providers = Array.isArray(req.body?.providers)
-      ? req.body.providers.filter((entry) => isValidProvider(entry))
-      : null;
-    if (provider !== "codex" && provider !== "claude") {
-      res.status(400).json({ error: "Invalid provider." });
-      return;
-    }
-    const session = await createSession(repoUrl, auth, provider, providers);
+    const session = await createSession(req.workspaceId, repoUrl, auth);
     res.json({
       sessionId: session.sessionId,
+      workspaceId: session.workspaceId,
       path: session.dir,
       repoUrl,
-      provider,
-      providers: session.providers || [provider],
+      default_provider: session.activeProvider || "codex",
+      providers: session.providers || [],
       messages: [],
       terminalEnabled,
     });
@@ -2172,7 +2487,7 @@ app.post("/api/session", async (req, res) => {
 
 app.get("/api/branches", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2190,7 +2505,7 @@ app.get("/api/branches", async (req, res) => {
 });
 
 app.get("/api/models", async (req, res) => {
-  const session = getSession(req.query?.session);
+  const session = getSession(req.query?.session, req.workspaceId);
   const provider = req.query?.provider;
   if (!session) {
     res.status(404).json({ error: "Session not found." });
@@ -2232,7 +2547,7 @@ app.get("/api/models", async (req, res) => {
 app.post("/api/branches/switch", async (req, res) => {
   const sessionId = req.body?.session;
   const target = req.body?.branch;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2307,7 +2622,7 @@ app.post("/api/branches/switch", async (req, res) => {
 
 app.get("/api/worktrees", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2326,7 +2641,7 @@ app.get("/api/worktrees", async (req, res) => {
 
 app.post("/api/worktree", async (req, res) => {
   const sessionId = req.body?.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2393,7 +2708,7 @@ app.post("/api/worktree", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2430,7 +2745,7 @@ app.get("/api/worktree/:worktreeId", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/tree", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2458,7 +2773,7 @@ app.get("/api/worktree/:worktreeId/tree", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/file", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2516,7 +2831,7 @@ app.get("/api/worktree/:worktreeId/file", async (req, res) => {
 
 app.post("/api/worktree/:worktreeId/file", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2568,7 +2883,7 @@ app.post("/api/worktree/:worktreeId/file", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/status", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2616,7 +2931,7 @@ app.get("/api/worktree/:worktreeId/status", async (req, res) => {
 
 app.delete("/api/worktree/:worktreeId", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2641,7 +2956,7 @@ app.delete("/api/worktree/:worktreeId", async (req, res) => {
 
 app.patch("/api/worktree/:worktreeId", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2672,7 +2987,7 @@ app.patch("/api/worktree/:worktreeId", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/diff", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2693,7 +3008,7 @@ app.get("/api/worktree/:worktreeId/diff", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/commits", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2715,7 +3030,7 @@ app.get("/api/worktree/:worktreeId/commits", async (req, res) => {
 
 app.post("/api/worktree/:worktreeId/merge", async (req, res) => {
   const sessionId = req.body?.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2752,7 +3067,7 @@ app.post("/api/worktree/:worktreeId/merge", async (req, res) => {
 
 app.post("/api/worktree/:worktreeId/abort-merge", async (req, res) => {
   const sessionId = req.body?.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2773,7 +3088,7 @@ app.post("/api/worktree/:worktreeId/abort-merge", async (req, res) => {
 
 app.post("/api/worktree/:worktreeId/cherry-pick", async (req, res) => {
   const sessionId = req.body?.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2811,7 +3126,7 @@ app.post("/api/worktree/:worktreeId/cherry-pick", async (req, res) => {
 
 app.get("/api/attachments/file", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2844,7 +3159,7 @@ app.get("/api/attachments/file", async (req, res) => {
 
 app.get("/api/attachments", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId);
+  const session = getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
@@ -2877,7 +3192,7 @@ app.post(
   upload.array("files"),
   async (req, res) => {
     const sessionId = req.query.session;
-    const session = getSession(sessionId);
+    const session = getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
       return;
@@ -2888,54 +3203,6 @@ app.post(
       size: file.size,
     }));
     res.json({ files: uploaded });
-  }
-);
-
-app.post("/api/auth-file", authUpload.single("file"), async (req, res) => {
-  if (!req.file) {
-    res.status(400).json({ error: "Auth file is required." });
-    return;
-  }
-  const raw = req.file.buffer.toString("utf8");
-  try {
-    JSON.parse(raw);
-  } catch (error) {
-    res.status(400).json({ error: "Invalid auth.json file." });
-    return;
-  }
-  try {
-    await fs.promises.mkdir(codexConfigDir, { recursive: true, mode: 0o700 });
-    await fs.promises.writeFile(codexAuthPath, raw, { mode: 0o600 });
-    await fs.promises.chmod(codexAuthPath, 0o600).catch(() => {});
-    res.json({ ok: true });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to write auth.json." });
-  }
-});
-
-app.post(
-  "/api/claude-auth-file",
-  authUpload.single("file"),
-  async (req, res) => {
-    if (!req.file) {
-      res.status(400).json({ error: "Auth file is required." });
-      return;
-    }
-    const raw = req.file.buffer.toString("utf8");
-    try {
-      JSON.parse(raw);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid credentials.json file." });
-      return;
-    }
-    try {
-      await fs.promises.mkdir(claudeConfigDir, { recursive: true, mode: 0o700 });
-      await fs.promises.writeFile(claudeCredPath, raw, { mode: 0o600 });
-      await fs.promises.chmod(claudeCredPath, 0o600).catch(() => {});
-      res.json({ ok: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to write credentials.json." });
-    }
   }
 );
 
