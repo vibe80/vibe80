@@ -8,8 +8,6 @@ import app.m5chat.android.R
 
 val SpaceGrotesk = FontFamily(
     Font(R.font.space_grotesk_wght, weight = FontWeight.Normal),
-    Font(R.font.space_grotesk_wght, weight = FontWeight.Medium),
-    Font(R.font.space_grotesk_wght, weight = FontWeight.SemiBold),
     Font(R.font.space_grotesk_wght, weight = FontWeight.Bold)
 )
 
@@ -25,10 +23,10 @@ val AppTypography = Typography(
     titleLarge = BaseTypography.titleLarge.copy(fontFamily = SpaceGrotesk),
     titleMedium = BaseTypography.titleMedium.copy(fontFamily = SpaceGrotesk),
     titleSmall = BaseTypography.titleSmall.copy(fontFamily = SpaceGrotesk),
-    bodyLarge = BaseTypography.bodyLarge.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium),
-    bodyMedium = BaseTypography.bodyMedium.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium),
-    bodySmall = BaseTypography.bodySmall.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium),
-    labelLarge = BaseTypography.labelLarge.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium),
-    labelMedium = BaseTypography.labelMedium.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium),
-    labelSmall = BaseTypography.labelSmall.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium)
+    bodyLarge = BaseTypography.bodyLarge.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Normal),
+    bodyMedium = BaseTypography.bodyMedium.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Normal),
+    bodySmall = BaseTypography.bodySmall.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Normal),
+    labelLarge = BaseTypography.labelLarge.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Normal),
+    labelMedium = BaseTypography.labelMedium.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Normal),
+    labelSmall = BaseTypography.labelSmall.copy(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Normal)
 )

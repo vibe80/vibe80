@@ -390,6 +390,9 @@ fun MarkdownText(
     val bodyTypeface = remember {
         ResourcesCompat.getFont(context, R.font.space_grotesk_wght)
     }
+    val bodyTypefaceNormal = remember(bodyTypeface) {
+        bodyTypeface?.let { Typeface.create(it, 400, false) }
+    }
 
     val markwon = remember(textColor, linkColor, codeBackgroundColor, codeTextSizePx) {
         Markwon.builder(context)
@@ -424,7 +427,7 @@ fun MarkdownText(
                 setLinkTextColor(linkColor.toArgb())
                 movementMethod = LinkMovementMethod.getInstance()
                 textSize = 14f
-                bodyTypeface?.let { typeface = it }
+                bodyTypefaceNormal?.let { typeface = it }
             }
         },
         update = { textView ->
