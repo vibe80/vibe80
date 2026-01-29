@@ -45,6 +45,7 @@ const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : 
 const cwd = process.cwd();
 const sessions = new Map();
 const workspaces = new Map();
+const workspaceUserIds = new Map();
 const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
 const workspaceRootName = "vibecoder_workspace";
 const workspaceMetadataDirName = "metadata";
@@ -241,6 +242,24 @@ const runCommandOutput = (command, args, options = {}) =>
     });
   });
 
+const buildProcessOptions = (base, overrides = {}) => {
+  const env = {
+    ...(base?.env || process.env),
+    ...(overrides.env || {}),
+  };
+  return {
+    ...base,
+    ...overrides,
+    env,
+  };
+};
+
+const runSessionCommand = (session, command, args, options = {}) =>
+  runCommand(command, args, buildProcessOptions(session?.processOptions, options));
+
+const runSessionCommandOutput = (session, command, args, options = {}) =>
+  runCommandOutput(command, args, buildProcessOptions(session?.processOptions, options));
+
 const loadJwtKey = () => {
   if (process.env.JWT_KEY) {
     return process.env.JWT_KEY;
@@ -281,6 +300,32 @@ const getWorkspaceSshPaths = (workspaceHome) => {
     sshDir,
     knownHostsPath: path.join(sshDir, "known_hosts"),
     sshConfigPath: path.join(sshDir, "config"),
+  };
+};
+
+const getWorkspaceUserIds = async (workspaceId) => {
+  const cached = workspaceUserIds.get(workspaceId);
+  if (cached) {
+    return cached;
+  }
+  const [uidRaw, gidRaw] = await Promise.all([
+    runCommandOutput("id", ["-u", workspaceId]),
+    runCommandOutput("id", ["-g", workspaceId]),
+  ]);
+  const uid = Number(uidRaw.trim());
+  const gid = Number(gidRaw.trim());
+  const ids = { uid, gid };
+  workspaceUserIds.set(workspaceId, ids);
+  return ids;
+};
+
+const buildWorkspaceEnv = (workspaceId) => {
+  const home = path.join(workspaceHomeBase, workspaceId);
+  return {
+    ...process.env,
+    HOME: home,
+    USER: workspaceId,
+    LOGNAME: workspaceId,
   };
 };
 
@@ -344,7 +389,7 @@ const ensureWorkspaceDirs = async (workspaceId) => {
   return paths;
 };
 
-const writeWorkspaceConfig = async (workspaceId, providers) => {
+const writeWorkspaceConfig = async (workspaceId, providers, ids) => {
   const paths = getWorkspacePaths(workspaceId);
   const payload = {
     workspaceId,
@@ -354,6 +399,9 @@ const writeWorkspaceConfig = async (workspaceId, providers) => {
   await fs.promises.writeFile(paths.configPath, JSON.stringify(payload, null, 2), {
     mode: 0o600,
   });
+  if (ids) {
+    await fs.promises.chown(paths.configPath, ids.uid, ids.gid).catch(() => {});
+  }
   return payload;
 };
 
@@ -383,10 +431,16 @@ const createWorkspace = async (providers) => {
       continue;
     }
     await ensureWorkspaceUser(workspaceId, paths.homeDir);
+    const ids = await getWorkspaceUserIds(workspaceId);
     await ensureWorkspaceDirs(workspaceId);
+    await fs.promises.chown(paths.homeDir, ids.uid, ids.gid).catch(() => {});
+    await fs.promises.chown(paths.rootDir, ids.uid, ids.gid).catch(() => {});
+    await fs.promises.chown(paths.metadataDir, ids.uid, ids.gid).catch(() => {});
+    await fs.promises.chown(paths.sessionsDir, ids.uid, ids.gid).catch(() => {});
     const secret = crypto.randomBytes(32).toString("hex");
     await fs.promises.writeFile(paths.secretPath, secret, { mode: 0o600 });
-    await writeWorkspaceConfig(workspaceId, providers);
+    await fs.promises.chown(paths.secretPath, ids.uid, ids.gid).catch(() => {});
+    await writeWorkspaceConfig(workspaceId, providers, ids);
     workspaces.set(workspaceId, { workspaceId, providers, paths });
     return { workspaceId, workspaceSecret: secret };
   }
@@ -397,7 +451,8 @@ const updateWorkspace = async (workspaceId, providers) => {
   if (validationError) {
     throw new Error(validationError);
   }
-  const payload = await writeWorkspaceConfig(workspaceId, providers);
+  const ids = await getWorkspaceUserIds(workspaceId);
+  const payload = await writeWorkspaceConfig(workspaceId, providers, ids);
   const paths = getWorkspacePaths(workspaceId);
   workspaces.set(workspaceId, { workspaceId, providers, paths });
   return payload;
@@ -438,19 +493,25 @@ const normalizeRemoteBranches = (output, remote) =>
       ref.startsWith(`${remote}/`) ? ref.slice(remote.length + 1) : ref
     );
 
-const getCurrentBranch = async (repoDir) => {
-  const output = await runCommandOutput("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-    cwd: repoDir,
-  });
+const getCurrentBranch = async (session) => {
+  const output = await runSessionCommandOutput(
+    session,
+    "git",
+    ["rev-parse", "--abbrev-ref", "HEAD"],
+    { cwd: session.repoDir }
+  );
   const trimmed = output.trim();
   return trimmed === "HEAD" ? "" : trimmed;
 };
 
 const getBranchInfo = async (session, remote = "origin") => {
-  await runCommand("git", ["fetch", "--prune"], { cwd: session.repoDir });
+  await runSessionCommand(session, "git", ["fetch", "--prune"], {
+    cwd: session.repoDir,
+  });
   const [current, branchesOutput] = await Promise.all([
-    getCurrentBranch(session.repoDir),
-    runCommandOutput(
+    getCurrentBranch(session),
+    runSessionCommandOutput(
+      session,
       "git",
       ["for-each-ref", "--format=%(refname:short)", `refs/remotes/${remote}`],
       { cwd: session.repoDir }
@@ -495,19 +556,23 @@ const resolveHttpAuthInfo = (repoUrl) => {
   }
 };
 
-const ensureKnownHost = async (repoUrl, sshPaths) => {
+const ensureKnownHost = async (repoUrl, sshPaths, runOptions = {}) => {
   const host = resolveRepoHost(repoUrl);
   if (!host) {
     return;
   }
   const { sshDir, knownHostsPath } = sshPaths;
-  await runCommand("sh", [
-    "-c",
-    `mkdir -p "${sshDir}" && ssh-keyscan -H ${host} >> "${knownHostsPath}" 2>/dev/null || true`,
-  ]);
+  await runCommand(
+    "sh",
+    [
+      "-c",
+      `mkdir -p "${sshDir}" && ssh-keyscan -H ${host} >> "${knownHostsPath}" 2>/dev/null || true`,
+    ],
+    runOptions
+  );
 };
 
-const ensureSshConfigEntry = async (host, keyPath, sshPaths) => {
+const ensureSshConfigEntry = async (host, keyPath, sshPaths, ids = null) => {
   if (!host) {
     return;
   }
@@ -528,6 +593,9 @@ const ensureSshConfigEntry = async (host, keyPath, sshPaths) => {
   const nextContent = existing ? `${existing.trimEnd()}\n\n${entry}` : entry;
   await fs.promises.writeFile(sshConfigPath, nextContent, { mode: 0o600 });
   await fs.promises.chmod(sshConfigPath, 0o600).catch(() => {});
+  if (ids) {
+    await fs.promises.chown(sshConfigPath, ids.uid, ids.gid).catch(() => {});
+  }
 };
 
 const createSession = async (workspaceId, repoUrl, auth) => {
@@ -538,6 +606,9 @@ const createSession = async (workspaceId, repoUrl, auth) => {
     throw new Error("No providers enabled for this workspace.");
   }
   const workspacePaths = getWorkspacePaths(workspaceId);
+  const ids = await getWorkspaceUserIds(workspaceId);
+  const workspaceEnv = buildWorkspaceEnv(workspaceId);
+  const processOptions = { uid: ids.uid, gid: ids.gid, env: workspaceEnv };
   const sshPaths = getWorkspaceSshPaths(workspacePaths.homeDir);
   while (true) {
     const sessionId = generateId("s");
@@ -545,11 +616,13 @@ const createSession = async (workspaceId, repoUrl, auth) => {
     let sessionRecord = null;
     let sessionSshKeyPath = null;
     try {
-      await fs.promises.mkdir(dir, { recursive: false });
+      await fs.promises.mkdir(dir, { recursive: false, mode: 0o700 });
+      await fs.promises.chown(dir, ids.uid, ids.gid).catch(() => {});
       const attachmentsDir = path.join(dir, "attachments");
-      await fs.promises.mkdir(attachmentsDir, { recursive: true });
+      await fs.promises.mkdir(attachmentsDir, { recursive: true, mode: 0o700 });
+      await fs.promises.chown(attachmentsDir, ids.uid, ids.gid).catch(() => {});
       const repoDir = path.join(dir, "repository");
-      const env = { ...process.env };
+      const env = { ...workspaceEnv };
       if (auth?.type === "ssh" && auth.privateKey) {
         await fs.promises.mkdir(sshPaths.sshDir, { recursive: true, mode: 0o700 });
         await fs.promises.chmod(sshPaths.sshDir, 0o700).catch(() => {});
@@ -557,10 +630,11 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         const normalizedKey = `${auth.privateKey.trimEnd()}\n`;
         await fs.promises.writeFile(keyPath, normalizedKey, { mode: 0o600 });
         await fs.promises.chmod(keyPath, 0o600).catch(() => {});
+        await fs.promises.chown(keyPath, ids.uid, ids.gid).catch(() => {});
         sessionSshKeyPath = keyPath;
         const sshHost = resolveRepoHost(repoUrl);
-        await ensureSshConfigEntry(sshHost, keyPath, sshPaths);
-        await ensureKnownHost(repoUrl, sshPaths);
+        await ensureSshConfigEntry(sshHost, keyPath, sshPaths, ids);
+        await ensureKnownHost(repoUrl, sshPaths, processOptions);
         env.GIT_SSH_COMMAND = `ssh -o IdentitiesOnly=yes -o UserKnownHostsFile="${sshPaths.knownHostsPath}"`;
       } else if (auth?.type === "http" && auth.username && auth.password) {
         const authInfo = resolveHttpAuthInfo(repoUrl);
@@ -574,15 +648,16 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         env.GIT_TERMINAL_PROMPT = "0";
         await fs.promises.writeFile(credFile, "", { mode: 0o600 });
         await fs.promises.chmod(credFile, 0o600).catch(() => {});
+        await fs.promises.chown(credFile, ids.uid, ids.gid).catch(() => {});
         await runCommand(
           "git",
           ["config", "--global", "credential.helper", "cache --timeout=43200"],
-          { env }
+          { env, uid: ids.uid, gid: ids.gid }
         );
         await runCommand(
           "git",
           ["config", "--global", "--add", "credential.helper", `store --file ${credFile}`],
-          { env }
+          { env, uid: ids.uid, gid: ids.gid }
         );
         const credentialPayload = [
           `protocol=${authInfo.protocol}`,
@@ -594,22 +669,29 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         ].join("\n");
         await fs.promises.writeFile(credInputPath, credentialPayload, { mode: 0o600 });
         await fs.promises.chmod(credInputPath, 0o600).catch(() => {});
-        await runCommand("sh", ["-c", `git credential approve < "${credInputPath}"`], {
-          env,
-        });
+        await fs.promises.chown(credInputPath, ids.uid, ids.gid).catch(() => {});
+        await runCommand(
+          "sh",
+          ["-c", `git credential approve < "${credInputPath}"`],
+          { env, uid: ids.uid, gid: ids.gid }
+        );
         await fs.promises.rm(credInputPath, { force: true });
       }
-      await runCommand("git", ["clone", repoUrl, repoDir], { env });
+      await runCommand("git", ["clone", repoUrl, repoDir], {
+        env,
+        uid: ids.uid,
+        gid: ids.gid,
+      });
       if (auth?.type === "http" && auth.username && auth.password) {
         await runCommand(
           "git",
           ["-C", repoDir, "config", "--add", "credential.helper", "cache --timeout=43200"],
-          { env }
+          { env, uid: ids.uid, gid: ids.gid }
         );
         await runCommand(
           "git",
           ["-C", repoDir, "config", "--add", "credential.helper", "store --file ../git-credentials"],
-          { env }
+          { env, uid: ids.uid, gid: ids.gid }
         );
       }
       // Initialize session with multi-client structure
@@ -622,6 +704,7 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         repoUrl,
         activeProvider: defaultProvider,
         providers: enabledProviders,
+        processOptions,
         clients: {
           codex: null,
           claude: null,
@@ -854,8 +937,10 @@ const broadcastRepoDiff = async (sessionId) => {
   }
   try {
     const [status, diff] = await Promise.all([
-      runCommandOutput("git", ["status", "--porcelain"], { cwd: session.repoDir }),
-      runCommandOutput("git", ["diff"], { cwd: session.repoDir }),
+      runSessionCommandOutput(session, "git", ["status", "--porcelain"], {
+        cwd: session.repoDir,
+      }),
+      runSessionCommandOutput(session, "git", ["diff"], { cwd: session.repoDir }),
     ]);
     broadcastToSession(sessionId, {
       type: "repo_diff",
@@ -876,8 +961,10 @@ const getRepoDiff = async (session) => {
   }
   try {
     const [status, diff] = await Promise.all([
-      runCommandOutput("git", ["status", "--porcelain"], { cwd: session.repoDir }),
-      runCommandOutput("git", ["diff"], { cwd: session.repoDir }),
+      runSessionCommandOutput(session, "git", ["status", "--porcelain"], {
+        cwd: session.repoDir,
+      }),
+      runSessionCommandOutput(session, "git", ["diff"], { cwd: session.repoDir }),
     ]);
     return { status, diff };
   } catch (error) {
@@ -1741,7 +1828,8 @@ wss.on("connection", (socket, req) => {
         if (startingBranch) {
           const targetRef = startingBranch.replace(/^origin\//, "");
           try {
-            await runCommand(
+            await runSessionCommand(
+              session,
               "git",
               ["show-ref", "--verify", `refs/remotes/origin/${targetRef}`],
               { cwd: session.repoDir }
@@ -2245,12 +2333,18 @@ if (terminalWss) {
     if (term) {
       return;
     }
+    const env = {
+      ...(session.processOptions?.env || process.env),
+      TERM: "xterm-256color",
+    };
     term = pty.spawn(shell, [], {
       name: "xterm-256color",
       cols,
       rows,
       cwd: worktree?.path || session.repoDir,
-      env: { ...process.env, TERM: "xterm-256color" },
+      env,
+      uid: session.processOptions?.uid,
+      gid: session.processOptions?.gid,
     });
 
     term.onData((data) => {
@@ -2558,7 +2652,7 @@ app.post("/api/branches/switch", async (req, res) => {
   }
   const branchName = target.replace(/^origin\//, "").trim();
   try {
-    const dirty = await runCommandOutput("git", ["status", "--porcelain"], {
+    const dirty = await runSessionCommandOutput(session, "git", ["status", "--porcelain"], {
       cwd: session.repoDir,
     });
     if (dirty.trim()) {
@@ -2569,21 +2663,25 @@ app.post("/api/branches/switch", async (req, res) => {
     }
 
     try {
-      await runCommand("git", ["check-ref-format", "--branch", branchName], {
+      await runSessionCommand(session, "git", ["check-ref-format", "--branch", branchName], {
         cwd: session.repoDir,
       });
     } catch (error) {
       res.status(400).json({ error: "Nom de branche invalide." });
       return;
     }
-    await runCommand("git", ["fetch", "--prune"], { cwd: session.repoDir });
+    await runSessionCommand(session, "git", ["fetch", "--prune"], {
+      cwd: session.repoDir,
+    });
 
     let switched = false;
     try {
-      await runCommand("git", ["show-ref", "--verify", `refs/heads/${branchName}`], {
+      await runSessionCommand(session, "git", ["show-ref", "--verify", `refs/heads/${branchName}`], {
         cwd: session.repoDir,
       });
-      await runCommand("git", ["switch", branchName], { cwd: session.repoDir });
+      await runSessionCommand(session, "git", ["switch", branchName], {
+        cwd: session.repoDir,
+      });
       switched = true;
     } catch (error) {
       // ignore and try remote
@@ -2591,7 +2689,8 @@ app.post("/api/branches/switch", async (req, res) => {
 
     if (!switched) {
       try {
-        await runCommand(
+        await runSessionCommand(
+          session,
           "git",
           ["show-ref", "--verify", `refs/remotes/origin/${branchName}`],
           { cwd: session.repoDir }
@@ -2600,7 +2699,7 @@ app.post("/api/branches/switch", async (req, res) => {
         res.status(404).json({ error: "Branche introuvable." });
         return;
       }
-      await runCommand("git", ["switch", "--track", `origin/${branchName}`], {
+      await runSessionCommand(session, "git", ["switch", "--track", `origin/${branchName}`], {
         cwd: session.repoDir,
       });
     }
@@ -2894,7 +2993,7 @@ app.get("/api/worktree/:worktreeId/status", async (req, res) => {
     return;
   }
   try {
-    const output = await runCommandOutput("git", ["status", "--porcelain"], {
+    const output = await runSessionCommandOutput(session, "git", ["status", "--porcelain"], {
       cwd: rootPath,
     });
     const entries = output

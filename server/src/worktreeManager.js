@@ -73,6 +73,24 @@ const runCommandOutput = (command, args, options = {}) =>
     });
   });
 
+const buildProcessOptions = (base, overrides = {}) => {
+  const env = {
+    ...(base?.env || process.env),
+    ...(overrides.env || {}),
+  };
+  return {
+    ...base,
+    ...overrides,
+    env,
+  };
+};
+
+const runSessionCommand = (session, command, args, options = {}) =>
+  runCommand(command, args, buildProcessOptions(session?.processOptions, options));
+
+const runSessionCommandOutput = (session, command, args, options = {}) =>
+  runCommandOutput(command, args, buildProcessOptions(session?.processOptions, options));
+
 const resolveStartingRef = (startingBranch, remote = "origin") => {
   if (!startingBranch || typeof startingBranch !== "string") {
     return null;
@@ -130,7 +148,12 @@ export async function createWorktree(session, options) {
 
   // Créer le répertoire worktrees s'il n'existe pas
   const worktreesDir = path.join(session.dir, "worktrees");
-  await fs.promises.mkdir(worktreesDir, { recursive: true });
+  await fs.promises.mkdir(worktreesDir, { recursive: true, mode: 0o700 });
+  if (session.processOptions?.uid != null && session.processOptions?.gid != null) {
+    await fs.promises
+      .chown(worktreesDir, session.processOptions.uid, session.processOptions.gid)
+      .catch(() => {});
+  }
 
   // Générer un ID unique
   const worktreeId = crypto.randomBytes(8).toString("hex");
@@ -148,28 +171,33 @@ export async function createWorktree(session, options) {
   if (parentWorktreeId && session.worktrees.has(parentWorktreeId)) {
     const parent = session.worktrees.get(parentWorktreeId);
     // Obtenir le HEAD du worktree parent
-    startCommit = await runCommandOutput("git", ["rev-parse", "HEAD"], {
-      cwd: parent.path,
-    });
+    startCommit = await runSessionCommandOutput(
+      session,
+      "git",
+      ["rev-parse", "HEAD"],
+      { cwd: parent.path }
+    );
     startCommit = startCommit.trim();
   } else if (startingBranch) {
     startCommit = resolveStartingRef(startingBranch) || startingBranch;
   }
 
   // Créer la branche
-  await runCommand("git", ["branch", branchName, startCommit], {
+  await runSessionCommand(session, "git", ["branch", branchName, startCommit], {
     cwd: session.repoDir,
   });
 
   // Associer directement la branche locale au remote pour permettre `git push` sans -u.
-  await runCommand(
+  await runSessionCommand(
+    session,
     "git",
     ["config", `branch.${branchName}.remote`, "origin"],
     {
       cwd: session.repoDir,
     }
   );
-  await runCommand(
+  await runSessionCommand(
+    session,
     "git",
     ["config", `branch.${branchName}.merge`, `refs/heads/${branchName}`],
     {
@@ -178,9 +206,17 @@ export async function createWorktree(session, options) {
   );
 
   // Créer le worktree
-  await runCommand("git", ["worktree", "add", worktreePath, branchName], {
-    cwd: session.repoDir,
-  });
+  await runSessionCommand(
+    session,
+    "git",
+    ["worktree", "add", worktreePath, branchName],
+    { cwd: session.repoDir }
+  );
+  if (session.processOptions?.uid != null && session.processOptions?.gid != null) {
+    await fs.promises
+      .chown(worktreePath, session.processOptions.uid, session.processOptions.gid)
+      .catch(() => {});
+  }
 
   // Créer l'entrée worktree
   const worktree = {
@@ -192,6 +228,7 @@ export async function createWorktree(session, options) {
     model: model || null,
     reasoningEffort: reasoningEffort || null,
     startingBranch: startingBranch || null,
+    processOptions: session.processOptions || null,
     client: null,
     messages: [],
     status: "creating",
@@ -210,8 +247,16 @@ export async function createWorktree(session, options) {
         ? new ClaudeCliClient({
             cwd: worktreePath,
             attachmentsDir: session.attachmentsDir,
+            env: session.processOptions?.env,
+            uid: session.processOptions?.uid,
+            gid: session.processOptions?.gid,
           })
-        : new CodexAppServerClient({ cwd: worktreePath });
+        : new CodexAppServerClient({
+            cwd: worktreePath,
+            env: session.processOptions?.env,
+            uid: session.processOptions?.uid,
+            gid: session.processOptions?.gid,
+          });
 
     worktree.client = client;
     worktree.status = "ready";
@@ -249,16 +294,22 @@ export async function removeWorktree(session, worktreeId, deleteBranch = true) {
   }
 
   // Supprimer le worktree git
-  await runCommand("git", ["worktree", "remove", "--force", worktree.path], {
-    cwd: session.repoDir,
-  });
+  await runSessionCommand(
+    session,
+    "git",
+    ["worktree", "remove", "--force", worktree.path],
+    { cwd: session.repoDir }
+  );
 
   // Supprimer la branche si demandé
   if (deleteBranch) {
     try {
-      await runCommand("git", ["branch", "-D", worktree.branchName], {
-        cwd: session.repoDir,
-      });
+      await runSessionCommand(
+        session,
+        "git",
+        ["branch", "-D", worktree.branchName],
+        { cwd: session.repoDir }
+      );
     } catch (error) {
       // Ignorer si la branche n'existe plus
       console.warn("Could not delete branch:", worktree.branchName);
@@ -283,8 +334,10 @@ export async function getWorktreeDiff(session, worktreeId) {
   const worktree = session.worktrees.get(worktreeId);
 
   const [status, diff] = await Promise.all([
-    runCommandOutput("git", ["status", "--porcelain"], { cwd: worktree.path }),
-    runCommandOutput("git", ["diff"], { cwd: worktree.path }),
+    runSessionCommandOutput(session, "git", ["status", "--porcelain"], {
+      cwd: worktree.path,
+    }),
+    runSessionCommandOutput(session, "git", ["diff"], { cwd: worktree.path }),
   ]);
 
   return { status, diff };
@@ -304,7 +357,8 @@ export async function getWorktreeCommits(session, worktreeId, limit = 20) {
 
   const worktree = session.worktrees.get(worktreeId);
 
-  const output = await runCommandOutput(
+  const output = await runSessionCommandOutput(
+    session,
     "git",
     ["log", `--max-count=${limit}`, "--format=%H|%s|%ci"],
     { cwd: worktree.path }
@@ -340,16 +394,19 @@ export async function mergeWorktree(session, sourceWorktreeId, targetWorktreeId)
 
   try {
     // Effectuer la fusion dans le worktree cible
-    await runCommand("git", ["merge", source.branchName, "--no-edit"], {
+    await runSessionCommand(session, "git", ["merge", source.branchName, "--no-edit"], {
       cwd: target.path,
     });
 
     return { success: true };
   } catch (error) {
     // Vérifier s'il y a des conflits
-    const status = await runCommandOutput("git", ["status", "--porcelain"], {
-      cwd: target.path,
-    });
+    const status = await runSessionCommandOutput(
+      session,
+      "git",
+      ["status", "--porcelain"],
+      { cwd: target.path }
+    );
 
     const conflicts = status
       .split("\n")
@@ -375,7 +432,7 @@ export async function abortMerge(session, worktreeId) {
   }
 
   const worktree = session.worktrees.get(worktreeId);
-  await runCommand("git", ["merge", "--abort"], { cwd: worktree.path });
+  await runSessionCommand(session, "git", ["merge", "--abort"], { cwd: worktree.path });
 }
 
 /**
@@ -393,13 +450,18 @@ export async function cherryPickCommit(session, commitSha, targetWorktreeId) {
   const target = session.worktrees.get(targetWorktreeId);
 
   try {
-    await runCommand("git", ["cherry-pick", commitSha], { cwd: target.path });
+    await runSessionCommand(session, "git", ["cherry-pick", commitSha], {
+      cwd: target.path,
+    });
     return { success: true };
   } catch (error) {
     // Vérifier s'il y a des conflits
-    const status = await runCommandOutput("git", ["status", "--porcelain"], {
-      cwd: target.path,
-    });
+    const status = await runSessionCommandOutput(
+      session,
+      "git",
+      ["status", "--porcelain"],
+      { cwd: target.path }
+    );
 
     const conflicts = status
       .split("\n")

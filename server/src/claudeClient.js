@@ -9,10 +9,13 @@ const createTurnId = () =>
     : crypto.randomBytes(16).toString("hex");
 
 export class ClaudeCliClient extends EventEmitter {
-  constructor({ cwd, attachmentsDir }) {
+  constructor({ cwd, attachmentsDir, env, uid, gid }) {
     super();
     this.cwd = cwd;
     this.attachmentsDir = attachmentsDir;
+    this.env = env || process.env;
+    this.uid = uid;
+    this.gid = gid;
     this.ready = false;
     this.threadId = "claude-session";
     this.modelInfo = null;
@@ -50,6 +53,9 @@ export class ClaudeCliClient extends EventEmitter {
     const proc = spawn("claude", args, {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
+      env: this.env,
+      uid: this.uid,
+      gid: this.gid,
     });
 
     proc.stdout.setEncoding("utf8");

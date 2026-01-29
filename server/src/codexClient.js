@@ -3,9 +3,12 @@ import { EventEmitter } from "events";
 import { SYSTEM_PROMPT } from "./config.js";
 
 export class CodexAppServerClient extends EventEmitter {
-  constructor({ cwd }) {
+  constructor({ cwd, env, uid, gid }) {
     super();
     this.cwd = cwd;
+    this.env = env || process.env;
+    this.uid = uid;
+    this.gid = gid;
     this.proc = null;
     this.buffer = "";
     this.nextId = 1;
@@ -28,6 +31,9 @@ export class CodexAppServerClient extends EventEmitter {
       {
         cwd: this.cwd,
         stdio: ["pipe", "pipe", "pipe"],
+        env: this.env,
+        uid: this.uid,
+        gid: this.gid,
       }
     );
 
