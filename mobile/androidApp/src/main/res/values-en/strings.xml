@@ -39,4 +39,7 @@
     <string name="error_connection_lost">Connection lost. Attempting to reconnect...</string>
     <string name="error_network">Network error. Check your connection.</string>
     <string name="error_unknown">An unexpected error occurred</string>
+
+    <string name="vibecoder_yes">Yes</string>
+    <string name="vibecoder_no">No</string>
 </resources>

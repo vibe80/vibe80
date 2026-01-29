@@ -70,10 +70,16 @@ fun MessageBubble(
         if (!isUser && !isStreaming) parseVibecoderForms(displayText) else emptyList()
     }
 
-    val text = remember(displayText, choicesBlocks, formBlocks) {
+    // Parse vibecoder:yesno tags for assistant messages
+    val yesNoBlocks = remember(displayText, isUser) {
+        if (!isUser && !isStreaming) parseVibecoderYesNo(displayText) else emptyList()
+    }
+
+    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks) {
         var result = displayText
         if (choicesBlocks.isNotEmpty()) result = removeVibecoderChoices(result)
         if (formBlocks.isNotEmpty()) result = removeVibecoderForms(result)
+        if (yesNoBlocks.isNotEmpty()) result = removeVibecoderYesNo(result)
         result
     }
 
@@ -152,6 +158,18 @@ fun MessageBubble(
                     Spacer(modifier = Modifier.height(12.dp))
                     choicesBlocks.forEach { block ->
                         VibecoderChoicesView(
+                            block = block,
+                            onOptionSelected = onChoiceSelected,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // Vibecoder yes/no
+                if (yesNoBlocks.isNotEmpty() && onChoiceSelected != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    yesNoBlocks.forEach { block ->
+                        VibecoderYesNoView(
                             block = block,
                             onOptionSelected = onChoiceSelected,
                             modifier = Modifier.fillMaxWidth()

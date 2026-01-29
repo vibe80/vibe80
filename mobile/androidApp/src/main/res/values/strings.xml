@@ -39,4 +39,7 @@
     <string name="error_connection_lost">Connexion perdue. Tentative de reconnexion...</string>
     <string name="error_network">Erreur réseau. Vérifiez votre connexion.</string>
     <string name="error_unknown">Une erreur inattendue s\'est produite</string>
+
+    <string name="vibecoder_yes">Oui</string>
+    <string name="vibecoder_no">Non</string>
 </resources>
