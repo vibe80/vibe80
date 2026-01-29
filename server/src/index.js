@@ -188,7 +188,9 @@ app.use("/api", (req, res, next) => {
     return;
   }
   const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const bearerToken = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const queryToken = typeof req.query.token === "string" ? req.query.token : "";
+  const token = bearerToken || queryToken;
   if (!token) {
     res.status(401).json({ error: "Missing workspace token." });
     return;

@@ -25,13 +25,56 @@ const getInitialRepoUrl = () => {
   return trimmed || "";
 };
 
-const wsUrl = (sessionId) => {
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const query = sessionId ? `?session=${encodeURIComponent(sessionId)}` : "";
-  return `${protocol}://${window.location.host}/ws${query}`;
+const WORKSPACE_TOKEN_KEY = "workspaceToken";
+const WORKSPACE_ID_KEY = "workspaceId";
+
+const readWorkspaceToken = () => {
+  try {
+    return localStorage.getItem(WORKSPACE_TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
 };
 
-const terminalWsUrl = (sessionId, worktreeId) => {
+const readWorkspaceId = () => {
+  try {
+    return localStorage.getItem(WORKSPACE_ID_KEY) || "";
+  } catch {
+    return "";
+  }
+};
+
+const encodeBase64 = (value) => {
+  if (!value) {
+    return "";
+  }
+  try {
+    const bytes = new TextEncoder().encode(value);
+    let binary = "";
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary);
+  } catch {
+    return btoa(value);
+  }
+};
+
+const wsUrl = (sessionId, token) => {
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const params = new URLSearchParams();
+  if (sessionId) {
+    params.set("session", sessionId);
+  }
+  if (token) {
+    params.set("token", token);
+  }
+  const query = params.toString();
+  const suffix = query ? `?${query}` : "";
+  return `${protocol}://${window.location.host}/ws${suffix}`;
+};
+
+const terminalWsUrl = (sessionId, worktreeId, token) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const params = new URLSearchParams();
   if (sessionId) {
@@ -39,6 +82,9 @@ const terminalWsUrl = (sessionId, worktreeId) => {
   }
   if (worktreeId) {
     params.set("worktreeId", worktreeId);
+  }
+  if (token) {
+    params.set("token", token);
   }
   const query = params.toString();
   const suffix = query ? `?${query}` : "";
@@ -496,6 +542,19 @@ function App() {
   const [sshKeyInput, setSshKeyInput] = useState("");
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
+  const [workspaceStep, setWorkspaceStep] = useState(1);
+  const [workspaceMode, setWorkspaceMode] = useState("existing");
+  const [workspaceIdInput, setWorkspaceIdInput] = useState(readWorkspaceId());
+  const [workspaceSecretInput, setWorkspaceSecretInput] = useState("");
+  const [workspaceToken, setWorkspaceToken] = useState(readWorkspaceToken());
+  const [workspaceId, setWorkspaceId] = useState(readWorkspaceId());
+  const [workspaceCreated, setWorkspaceCreated] = useState(null);
+  const [workspaceError, setWorkspaceError] = useState("");
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [workspaceProviders, setWorkspaceProviders] = useState(() => ({
+    codex: { enabled: false, authType: "api_key", authValue: "" },
+    claude: { enabled: false, authType: "auth_json_b64", authValue: "" },
+  }));
   const [llmProvider, setLlmProvider] = useState(readLlmProvider);
   const [selectedProviders, setSelectedProviders] = useState(readLlmProviders);
   const [providerSwitching, setProviderSwitching] = useState(false);
@@ -674,6 +733,17 @@ function App() {
   const lastPongRef = useRef(0);
   const messagesRef = useRef([]);
 
+  const apiFetch = useCallback(
+    (input, init = {}) => {
+      const headers = new Headers(init.headers || {});
+      if (workspaceToken) {
+        headers.set("Authorization", `Bearer ${workspaceToken}`);
+      }
+      return fetch(input, { ...init, headers });
+    },
+    [workspaceToken]
+  );
+
   const messageIndex = useMemo(() => new Map(), []);
   const commandIndex = useMemo(() => new Map(), []);
   const repoName = useMemo(
@@ -701,6 +771,9 @@ function App() {
       }
       const url = new URL("/api/attachments/file", window.location.origin);
       url.searchParams.set("session", attachmentSession.sessionId);
+      if (workspaceToken) {
+        url.searchParams.set("token", workspaceToken);
+      }
       if (attachment?.path) {
         url.searchParams.set("path", attachment.path);
       } else if (attachment?.name) {
@@ -708,7 +781,7 @@ function App() {
       }
       return url.toString();
     },
-    [attachmentSession?.sessionId]
+    [attachmentSession?.sessionId, workspaceToken]
   );
   const renderMessageAttachments = useCallback(
     (attachments = []) => {
@@ -782,7 +855,7 @@ function App() {
       attachmentSession?.sessionId
         ? `choices:${attachmentSession.sessionId}`
         : null,
-    [attachmentSession?.sessionId]
+    [attachmentSession?.sessionId, apiFetch]
   );
   const backlogKey = useMemo(
     () =>
@@ -889,7 +962,7 @@ function App() {
     }
     query.addListener(update);
     return () => query.removeListener(update);
-  }, []);
+  }, [workspaceToken, apiFetch]);
 
   useEffect(() => {
     if (!toolbarExportOpen) {
@@ -937,6 +1010,38 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [authMode]);
+
+  useEffect(() => {
+    try {
+      if (workspaceToken) {
+        localStorage.setItem(WORKSPACE_TOKEN_KEY, workspaceToken);
+      } else {
+        localStorage.removeItem(WORKSPACE_TOKEN_KEY);
+      }
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [workspaceToken]);
+
+  useEffect(() => {
+    try {
+      if (workspaceId) {
+        localStorage.setItem(WORKSPACE_ID_KEY, workspaceId);
+      } else {
+        localStorage.removeItem(WORKSPACE_ID_KEY);
+      }
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (workspaceToken) {
+      setWorkspaceStep(2);
+    } else {
+      setWorkspaceStep(1);
+    }
+  }, [workspaceToken]);
 
   useEffect(() => {
     try {
@@ -1056,7 +1161,7 @@ function App() {
     setBranchLoading(true);
     setBranchError("");
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/branches?session=${encodeURIComponent(attachmentSession.sessionId)}`
       );
       const payload = await response.json().catch(() => ({}));
@@ -1074,7 +1179,7 @@ function App() {
     } finally {
       setBranchLoading(false);
     }
-  }, [attachmentSession?.sessionId]);
+  }, [attachmentSession?.sessionId, apiFetch]);
 
   const loadProviderModels = useCallback(
     async (provider) => {
@@ -1090,7 +1195,7 @@ function App() {
         },
       }));
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/models?session=${encodeURIComponent(
             attachmentSession.sessionId
           )}&provider=${encodeURIComponent(provider)}`
@@ -1118,7 +1223,7 @@ function App() {
         }));
       }
     },
-    [attachmentSession?.sessionId]
+    [attachmentSession?.sessionId, apiFetch]
   );
 
   useEffect(() => {
@@ -1141,7 +1246,7 @@ function App() {
     if (!attachmentSession?.sessionId) {
       setDraftAttachments([]);
     }
-  }, [attachmentSession?.sessionId]);
+  }, [attachmentSession?.sessionId, apiFetch]);
 
   useEffect(() => {
     if (isMobileLayout) {
@@ -1205,15 +1310,15 @@ function App() {
       return;
     }
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/session/${encodeURIComponent(sessionId)}`
       );
       if (!response.ok) {
         return;
       }
       const data = await response.json();
-      if (data?.provider && data.provider !== llmProvider) {
-        setLlmProvider(data.provider);
+      if (data?.default_provider && data.default_provider !== llmProvider) {
+        setLlmProvider(data.default_provider);
       }
       if (Array.isArray(data?.providers) && data.providers.length) {
         const filtered = data.providers.filter(
@@ -1240,7 +1345,7 @@ function App() {
     } catch (error) {
       // Ignore resync failures; reconnect loop will retry.
     }
-  }, [attachmentSession?.sessionId, applyMessages, llmProvider]);
+  }, [attachmentSession?.sessionId, applyMessages, llmProvider, apiFetch]);
 
   const requestMessageSync = useCallback(() => {
     const socket = socketRef.current;
@@ -1294,7 +1399,7 @@ function App() {
         return;
       }
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/worktree/${encodeURIComponent(
             worktreeId
           )}/diff?session=${encodeURIComponent(sessionId)}`
@@ -1324,7 +1429,7 @@ function App() {
         // Ignore diff refresh failures.
       }
     },
-    [attachmentSession?.sessionId]
+    [attachmentSession?.sessionId, apiFetch]
   );
 
   const requestRepoDiff = useCallback(async () => {
@@ -1333,7 +1438,7 @@ function App() {
       return;
     }
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/session/${encodeURIComponent(sessionId)}/diff`
       );
       if (!response.ok) {
@@ -1350,10 +1455,13 @@ function App() {
     } catch (error) {
       // Ignore diff refresh failures.
     }
-  }, [attachmentSession?.sessionId]);
+  }, [attachmentSession?.sessionId, apiFetch]);
 
   const connectTerminal = useCallback(() => {
     if (!terminalEnabled) {
+      return;
+    }
+    if (!workspaceToken) {
       return;
     }
     const sessionId = attachmentSession?.sessionId;
@@ -1379,7 +1487,9 @@ function App() {
     if (term) {
       term.reset();
     }
-    const socket = new WebSocket(terminalWsUrl(sessionId, worktreeId));
+    const socket = new WebSocket(
+      terminalWsUrl(sessionId, worktreeId, workspaceToken)
+    );
     terminalSocketRef.current = socket;
     terminalSessionRef.current = sessionId;
     terminalWorktreeRef.current = worktreeId;
@@ -1424,7 +1534,7 @@ function App() {
         term.write("\r\n[terminal disconnected]\r\n");
       }
     });
-  }, [attachmentSession?.sessionId, activeWorktreeId, terminalEnabled]);
+  }, [attachmentSession?.sessionId, activeWorktreeId, terminalEnabled, workspaceToken]);
 
   const ensureNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
@@ -1526,7 +1636,7 @@ function App() {
   }, [repoHistory]);
 
   useEffect(() => {
-    if (!attachmentSession?.sessionId) {
+    if (!attachmentSession?.sessionId || !workspaceToken) {
       return;
     }
     let isMounted = true;
@@ -1583,7 +1693,7 @@ function App() {
         return;
       }
       setStatus("Connexion...");
-      const socket = new WebSocket(wsUrl(attachmentSession.sessionId));
+      const socket = new WebSocket(wsUrl(attachmentSession.sessionId, workspaceToken));
       socketRef.current = socket;
 
       const isCurrent = () => socketRef.current === socket;
@@ -2296,6 +2406,7 @@ function App() {
     };
   }, [
     attachmentSession?.sessionId,
+    workspaceToken,
     messageIndex,
     commandIndex,
     mergeAndApplyMessages,
@@ -2459,14 +2570,14 @@ function App() {
 
   useEffect(() => {
     const sessionId = getSessionIdFromUrl();
-    if (!sessionId) {
+    if (!sessionId || !workspaceToken || attachmentSession?.sessionId) {
       return;
     }
     const resumeSession = async () => {
       try {
         setSessionRequested(true);
         setAttachmentsError("");
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/session/${encodeURIComponent(sessionId)}`
         );
         if (!response.ok) {
@@ -2483,7 +2594,7 @@ function App() {
     };
 
     resumeSession();
-  }, []);
+  }, [workspaceToken, attachmentSession?.sessionId, apiFetch]);
 
   useEffect(() => {
     if (!repoUrl || attachmentSession?.sessionId) {
@@ -2493,11 +2604,11 @@ function App() {
       try {
         setAttachmentsLoading(true);
         setAttachmentsError("");
-        const payload = { repoUrl, provider: llmProvider, providers: selectedProviders };
+        const payload = { repoUrl };
         if (repoAuth) {
           payload.auth = repoAuth;
         }
-        const response = await fetch("/api/session", {
+        const response = await apiFetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -2542,7 +2653,7 @@ function App() {
     };
 
     createAttachmentSession();
-  }, [repoUrl, repoAuth, llmProvider, selectedProviders, attachmentSession?.sessionId]);
+  }, [repoUrl, repoAuth, attachmentSession?.sessionId, apiFetch]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -2562,6 +2673,92 @@ function App() {
   useEffect(() => {
     setAppServerReady(false);
   }, [attachmentSession?.sessionId]);
+
+  const handleWorkspaceSubmit = async (event) => {
+    event.preventDefault();
+    setWorkspaceError("");
+    setWorkspaceBusy(true);
+    try {
+      if (workspaceMode === "existing") {
+        const workspaceIdValue = workspaceIdInput.trim();
+        const secretValue = workspaceSecretInput.trim();
+        if (!workspaceIdValue || !secretValue) {
+          throw new Error("Workspace ID et secret requis.");
+        }
+        const response = await apiFetch("/api/workspaces/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspaceId: workspaceIdValue,
+            workspaceSecret: secretValue,
+          }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error || "Echec de l'authentification.");
+        }
+        const data = await response.json();
+        setWorkspaceToken(data.workspaceToken || "");
+        setWorkspaceId(workspaceIdValue);
+        setWorkspaceStep(2);
+        return;
+      }
+
+      const providersPayload = {};
+      ["codex", "claude"].forEach((provider) => {
+        const config = workspaceProviders[provider];
+        if (!config?.enabled) {
+          return;
+        }
+        const trimmedValue = (config.authValue || "").trim();
+        if (!trimmedValue) {
+          throw new Error(`Cle requise pour ${provider}.`);
+        }
+        const type = config.authType || "api_key";
+        const value =
+          type === "auth_json_b64" ? encodeBase64(trimmedValue) : trimmedValue;
+        providersPayload[provider] = {
+          enabled: true,
+          auth: { type, value },
+        };
+      });
+      if (Object.keys(providersPayload).length === 0) {
+        throw new Error("Selectionnez au moins un provider.");
+      }
+      const createResponse = await apiFetch("/api/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providers: providersPayload }),
+      });
+      if (!createResponse.ok) {
+        const payload = await createResponse.json().catch(() => null);
+        throw new Error(payload?.error || "Echec de creation du workspace.");
+      }
+      const created = await createResponse.json();
+      setWorkspaceCreated(created);
+      setWorkspaceId(created.workspaceId);
+      setWorkspaceIdInput(created.workspaceId);
+      const loginResponse = await apiFetch("/api/workspaces/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: created.workspaceId,
+          workspaceSecret: created.workspaceSecret,
+        }),
+      });
+      if (!loginResponse.ok) {
+        const payload = await loginResponse.json().catch(() => null);
+        throw new Error(payload?.error || "Echec de l'authentification.");
+      }
+      const loginData = await loginResponse.json();
+      setWorkspaceToken(loginData.workspaceToken || "");
+      setWorkspaceStep(2);
+    } catch (error) {
+      setWorkspaceError(error.message || "Echec de la configuration du workspace.");
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
 
   const onRepoSubmit = async (event) => {
     event.preventDefault();
@@ -2590,112 +2787,7 @@ function App() {
         auth = { type: "http", username: user, password: httpPassword };
       }
     }
-    const wantsCodex = selectedProviders.includes("codex");
-    const wantsClaude = selectedProviders.includes("claude");
-    if (!wantsCodex && !wantsClaude) {
-      setAttachmentsError("Selectionnez au moins un provider LLM.");
-      return;
-    }
-    let openAiParams = null;
-    if (wantsCodex) {
-      if (openAiAuthMode === "apiKey") {
-        const key = openAiApiKey.trim();
-        if (!key) {
-          setOpenAiLoginError("API Key OpenAI requise pour demarrer.");
-          return;
-        }
-        openAiParams = { type: "apiKey", apiKey: key };
-      } else if (openAiAuthMode === "authFile") {
-        if (!openAiAuthFile) {
-          setOpenAiLoginError("Fichier auth.json requis pour demarrer.");
-          return;
-        }
-      }
-    }
-    if (wantsClaude && !claudeAuthFile) {
-      setClaudeLoginError("Fichier credentials.json requis pour demarrer.");
-      return;
-    }
     setAttachmentsError("");
-    setOpenAiLoginError("");
-    setClaudeLoginError("");
-    if (wantsCodex) {
-      setClaudeLoginPending(false);
-      if (openAiAuthMode === "apiKey") {
-        setOpenAiReady(false);
-        setOpenAiLoginPending(true);
-        setOpenAiLoginRequest(openAiParams);
-      } else if (openAiAuthMode === "authFile") {
-        setOpenAiLoginRequest(null);
-        setOpenAiLoginPending(true);
-        try {
-          const formData = new FormData();
-          formData.append(
-            "file",
-            openAiAuthFile,
-            openAiAuthFile.name || "auth.json"
-          );
-          const response = await fetch("/api/auth-file", {
-            method: "POST",
-            body: formData,
-          });
-          if (!response.ok) {
-            const payload = await response.json().catch(() => null);
-            throw new Error(
-              payload?.error || "Echec de l'envoi du fichier auth.json."
-            );
-          }
-          setOpenAiReady(true);
-        } catch (error) {
-          setOpenAiReady(false);
-          setOpenAiLoginError(
-            error.message || "Echec de l'envoi du fichier auth.json."
-          );
-          setOpenAiLoginPending(false);
-          return;
-        } finally {
-          setOpenAiLoginPending(false);
-        }
-      }
-    } else {
-      setOpenAiLoginRequest(null);
-      setOpenAiLoginPending(false);
-    }
-    if (wantsClaude) {
-      setClaudeReady(false);
-      setClaudeLoginPending(true);
-      try {
-        const formData = new FormData();
-        formData.append(
-          "file",
-          claudeAuthFile,
-          claudeAuthFile.name || "credentials.json"
-        );
-        const response = await fetch("/api/claude-auth-file", {
-          method: "POST",
-          body: formData,
-        });
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null);
-          throw new Error(
-            payload?.error ||
-              "Echec de l'envoi du fichier credentials.json."
-          );
-        }
-        setClaudeReady(true);
-      } catch (error) {
-        setClaudeReady(false);
-        setClaudeLoginError(
-          error.message || "Echec de l'envoi du fichier credentials.json."
-        );
-        setClaudeLoginPending(false);
-        return;
-      } finally {
-        setClaudeLoginPending(false);
-      }
-    } else {
-      setClaudeLoginPending(false);
-    }
     if (!hasSession) {
       setSessionRequested(true);
       setRepoAuth(auth);
@@ -2715,7 +2807,7 @@ function App() {
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
 
   useEffect(() => {
-    if (!attachmentSession?.provider && !attachmentSession?.providers) {
+    if (!attachmentSession?.default_provider && !attachmentSession?.providers) {
       return;
     }
     const sessionProviders = Array.isArray(attachmentSession.providers)
@@ -2727,16 +2819,19 @@ function App() {
       setSelectedProviders(sessionProviders);
       setOpenAiReady(sessionProviders.includes("codex"));
       setClaudeReady(sessionProviders.includes("claude"));
-    } else if (attachmentSession.provider) {
-      setSelectedProviders([attachmentSession.provider]);
-      setOpenAiReady(attachmentSession.provider === "codex");
-      setClaudeReady(attachmentSession.provider === "claude");
+    } else if (attachmentSession.default_provider) {
+      setSelectedProviders([attachmentSession.default_provider]);
+      setOpenAiReady(attachmentSession.default_provider === "codex");
+      setClaudeReady(attachmentSession.default_provider === "claude");
     }
     // Sync local state with session provider on initial load
-    if (attachmentSession.provider && attachmentSession.provider !== llmProvider) {
-      setLlmProvider(attachmentSession.provider);
+    if (
+      attachmentSession.default_provider &&
+      attachmentSession.default_provider !== llmProvider
+    ) {
+      setLlmProvider(attachmentSession.default_provider);
     }
-  }, [attachmentSession?.provider, attachmentSession?.providers]);
+  }, [attachmentSession?.default_provider, attachmentSession?.providers]);
 
   useEffect(() => {
     if (!attachmentSession?.repoUrl) {
@@ -2844,7 +2939,7 @@ function App() {
     setBranchLoading(true);
     setBranchError("");
     try {
-      const response = await fetch("/api/branches/switch", {
+      const response = await apiFetch("/api/branches/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2899,7 +2994,7 @@ function App() {
       setAttachmentsError("");
       const formData = new FormData();
       files.forEach((file) => formData.append("files", file));
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/attachments/upload?session=${encodeURIComponent(
           attachmentSession.sessionId
         )}`,
@@ -3080,7 +3175,7 @@ function App() {
       if (!attachmentSession?.sessionId) return;
 
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/worktree/${worktreeId}?session=${encodeURIComponent(
             attachmentSession.sessionId
           )}`,
@@ -3134,7 +3229,7 @@ function App() {
       if (!attachmentSession?.sessionId) return;
 
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/worktree/${worktreeId}?session=${encodeURIComponent(
             attachmentSession.sessionId
           )}`,
@@ -3463,7 +3558,7 @@ function App() {
       }
       updateExplorerState(tabId, { loading: true, error: "" });
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/worktree/${encodeURIComponent(
             tabId
           )}/tree?session=${encodeURIComponent(sessionId)}`
@@ -3507,7 +3602,7 @@ function App() {
       }
       updateExplorerState(tabId, { statusLoading: true, statusError: "" });
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/worktree/${encodeURIComponent(
             tabId
           )}/status?session=${encodeURIComponent(sessionId)}`
@@ -3575,7 +3670,7 @@ function App() {
         isDirty: false,
       });
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/worktree/${encodeURIComponent(
             tabId
           )}/file?session=${encodeURIComponent(
@@ -3669,7 +3764,7 @@ function App() {
       }
       updateExplorerState(tabId, { fileSaving: true, fileSaveError: "" });
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/worktree/${encodeURIComponent(
             tabId
           )}/file?session=${encodeURIComponent(sessionId)}`,
@@ -3935,7 +4030,7 @@ function App() {
       lastNotifiedIdRef.current = null;
       if (attachmentSession?.sessionId) {
         try {
-          await fetch(
+          await apiFetch(
             `/api/session/${encodeURIComponent(
               attachmentSession.sessionId
             )}/clear`,
@@ -3964,7 +4059,7 @@ function App() {
     lastNotifiedIdRef.current = null;
     if (attachmentSession?.sessionId) {
       try {
-        await fetch(
+        await apiFetch(
           `/api/session/${encodeURIComponent(
             attachmentSession.sessionId
           )}/clear`,
@@ -3980,304 +4075,338 @@ function App() {
     }
   };
 
-  const llmReady = llmProvider === "claude" ? claudeReady : openAiReady;
   const supportsModels = llmProvider === "codex";
-  const anyAuthPending = openAiLoginPending || claudeLoginPending;
   const hasSession = Boolean(attachmentSession?.sessionId);
   const canSwitchProvider = availableProviders.length > 1;
   const nextProvider = canSwitchProvider
     ? availableProviders.find((provider) => provider !== llmProvider) || llmProvider
     : llmProvider;
 
-  if (!attachmentSession?.sessionId || !llmReady) {
+  if (!attachmentSession?.sessionId) {
     const isRepoProvided = Boolean(repoUrl);
-    const isCloning = !hasSession && isRepoProvided;
-    const repoDisplay = getTruncatedText(
-      attachmentSession?.repoUrl || repoUrl,
-      72
-    );
-    const formDisabled =
-      sessionRequested || openAiLoginPending || claudeLoginPending;
-    const submitDisabled = formDisabled || selectedProviders.length === 0;
-    const buttonLabel = "Go";
+    const isCloning = sessionRequested && isRepoProvided;
+    const repoDisplay = getTruncatedText(repoUrl, 72);
+    const formDisabled = workspaceBusy || sessionRequested;
+    const workspaceProvider = (providerKey) => workspaceProviders[providerKey] || {};
+    const showStep1 = workspaceStep === 1;
+    const showStep2 = workspaceStep === 2 && workspaceToken;
     return (
       <div className="session-gate">
         <div className="session-card">
           <p className="eyebrow">m5chat</p>
-          <h1>Demarrer une session</h1>
-          {isCloning ? (
-            <div className="session-hint">
-              Clonage du depot...
-              {repoDisplay && (
-                <div className="session-meta">{repoDisplay}</div>
-              )}
-            </div>
-          ) : (
+          <h1>Configurer le workspace</h1>
+          {showStep1 && (
             <>
               <p className="session-hint">
-                {hasSession
-                  ? "Authentification requise pour continuer."
-                  : "Indique l'URL du depot git a cloner pour cette session."}
+                Selectionnez un workspace existant ou creez-en un nouveau.
               </p>
-              {hasSession && repoDisplay && (
-                <div className="session-meta">{repoDisplay}</div>
-              )}
-              <form className="session-form" onSubmit={onRepoSubmit}>
-                {!hasSession && (
-                  <>
-                    <div className="session-form-row">
-                      <input
-                        type="text"
-                        placeholder="git@gitea.devops:mon-org/mon-repo.git"
-                        value={repoInput}
-                        onChange={(event) => {
-                          setRepoInput(event.target.value);
-                        }}
-                        disabled={formDisabled}
-                        required
-                        list={repoHistory.length > 0 ? "repo-history" : undefined}
-                      />
-                      {repoHistory.length > 0 && (
-                        <datalist id="repo-history">
-                          {repoHistory.map((url) => (
-                            <option key={url} value={url}>
-                              {getTruncatedText(url, 72)}
-                            </option>
-                          ))}
-                        </datalist>
-                      )}
-                    </div>
-                    <div className="session-auth">
-                      <div className="session-auth-title">
-                        Authentification (optionnelle)
-                      </div>
-                      <div className="session-auth-options">
-                        <label className="session-auth-option">
-                          <input
-                            type="radio"
-                            name="authMode"
-                            value="none"
-                            checked={authMode === "none"}
-                            onChange={() => setAuthMode("none")}
-                            disabled={formDisabled}
-                          />
-                          Aucune
-                        </label>
-                        <label className="session-auth-option">
-                          <input
-                            type="radio"
-                            name="authMode"
-                            value="ssh"
-                            checked={authMode === "ssh"}
-                            onChange={() => setAuthMode("ssh")}
-                            disabled={formDisabled}
-                          />
-                          Cle SSH privee
-                        </label>
-                        <label className="session-auth-option">
-                          <input
-                            type="radio"
-                            name="authMode"
-                            value="http"
-                            checked={authMode === "http"}
-                            onChange={() => setAuthMode("http")}
-                            disabled={formDisabled}
-                          />
-                          Identifiant + mot de passe
-                        </label>
-                      </div>
-                      {authMode === "ssh" && (
-                        <>
-                          <textarea
-                            className="session-auth-textarea"
-                            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                            value={sshKeyInput}
-                            onChange={(event) =>
-                              setSshKeyInput(event.target.value)
-                            }
-                            disabled={formDisabled}
-                            rows={6}
-                            spellCheck={false}
-                          />
-                          <div className="session-auth-hint">
-                            La cle est stockee dans ~/.ssh pour le clonage.
-                          </div>
-                        </>
-                      )}
-                      {authMode === "http" && (
-                        <>
-                          <div className="session-auth-grid">
-                            <input
-                              type="text"
-                              placeholder="Utilisateur"
-                              value={httpUsername}
-                              onChange={(event) =>
-                                setHttpUsername(event.target.value)
-                              }
-                              disabled={formDisabled}
-                              autoComplete="username"
-                            />
-                            <input
-                              type="password"
-                              placeholder="Mot de passe ou PAT"
-                              value={httpPassword}
-                              onChange={(event) =>
-                                setHttpPassword(event.target.value)
-                              }
-                              disabled={formDisabled}
-                              autoComplete="current-password"
-                            />
-                          </div>
-                          <div className="session-auth-hint">
-                            Le mot de passe peut etre remplace par un PAT.
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
+              <form className="session-form" onSubmit={handleWorkspaceSubmit}>
                 <div className="session-auth">
-                  <div className="session-auth-title">Agent LLM</div>
+                  <div className="session-auth-title">Workspace</div>
                   <div className="session-auth-options">
                     <label className="session-auth-option">
                       <input
-                        type="checkbox"
-                        name="llmProviderCodex"
-                        checked={selectedProviders.includes("codex")}
-                        onChange={() => toggleProviderSelection("codex")}
-                        disabled={formDisabled || hasSession}
+                        type="radio"
+                        name="workspaceMode"
+                        value="existing"
+                        checked={workspaceMode === "existing"}
+                        onChange={() => setWorkspaceMode("existing")}
+                        disabled={formDisabled}
                       />
-                      Codex
+                      Utiliser un workspace existant
                     </label>
                     <label className="session-auth-option">
                       <input
-                        type="checkbox"
-                        name="llmProviderClaude"
-                        checked={selectedProviders.includes("claude")}
-                        onChange={() => toggleProviderSelection("claude")}
-                        disabled={formDisabled || hasSession}
+                        type="radio"
+                        name="workspaceMode"
+                        value="new"
+                        checked={workspaceMode === "new"}
+                        onChange={() => setWorkspaceMode("new")}
+                        disabled={formDisabled}
                       />
-                      Claude
+                      Creer un nouveau workspace
                     </label>
                   </div>
-                  <div className="session-auth-hint">
-                    {hasSession
-                      ? "Providers verrouilles pour cette session."
-                      : "Selectionnez un ou plusieurs providers. Le dernier coche devient actif."}
-                  </div>
                 </div>
-                {selectedProviders.includes("codex") && (
+                {workspaceMode === "existing" ? (
+                  <div className="session-auth">
+                    <div className="session-auth-grid">
+                      <input
+                        type="text"
+                        placeholder="workspaceId (ex: w...)"
+                        value={workspaceIdInput}
+                        onChange={(event) => setWorkspaceIdInput(event.target.value)}
+                        disabled={formDisabled}
+                        spellCheck={false}
+                      />
+                      <input
+                        type="password"
+                        placeholder="workspaceSecret"
+                        value={workspaceSecretInput}
+                        onChange={(event) =>
+                          setWorkspaceSecretInput(event.target.value)
+                        }
+                        disabled={formDisabled}
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div className="session-auth">
                     <div className="session-auth-title">
-                      Authentification OpenAI
+                      Providers IA (obligatoire)
+                    </div>
+                    <div className="session-auth-options">
+                      {["codex", "claude"].map((provider) => {
+                        const config = workspaceProvider(provider);
+                        const label = provider === "codex" ? "Codex" : "Claude";
+                        return (
+                          <label key={provider} className="session-auth-option">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(config.enabled)}
+                              onChange={() =>
+                                setWorkspaceProviders((current) => ({
+                                  ...current,
+                                  [provider]: {
+                                    ...current[provider],
+                                    enabled: !current[provider]?.enabled,
+                                  },
+                                }))
+                              }
+                              disabled={formDisabled}
+                            />
+                            {label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {["codex", "claude"].map((provider) => {
+                      const config = workspaceProvider(provider);
+                      if (!config?.enabled) {
+                        return null;
+                      }
+                      return (
+                        <div key={`${provider}-auth`} className="session-auth">
+                          <div className="session-auth-title">
+                            Auth {provider === "codex" ? "Codex" : "Claude"}
+                          </div>
+                          <div className="session-auth-grid">
+                            <select
+                              value={config.authType}
+                              onChange={(event) =>
+                                setWorkspaceProviders((current) => ({
+                                  ...current,
+                                  [provider]: {
+                                    ...current[provider],
+                                    authType: event.target.value,
+                                  },
+                                }))
+                              }
+                              disabled={formDisabled}
+                            >
+                              <option value="api_key">api_key</option>
+                              <option value="auth_json_b64">auth_json_b64</option>
+                              <option value="setup_token">setup_token</option>
+                            </select>
+                            {config.authType === "auth_json_b64" ? (
+                              <textarea
+                                className="session-auth-textarea"
+                                placeholder="JSON credentials"
+                                value={config.authValue}
+                                onChange={(event) =>
+                                  setWorkspaceProviders((current) => ({
+                                    ...current,
+                                    [provider]: {
+                                      ...current[provider],
+                                      authValue: event.target.value,
+                                    },
+                                  }))
+                                }
+                                disabled={formDisabled}
+                                rows={4}
+                              />
+                            ) : (
+                              <input
+                                type="password"
+                                placeholder="Cle ou token"
+                                value={config.authValue}
+                                onChange={(event) =>
+                                  setWorkspaceProviders((current) => ({
+                                    ...current,
+                                    [provider]: {
+                                      ...current[provider],
+                                      authValue: event.target.value,
+                                    },
+                                  }))
+                                }
+                                disabled={formDisabled}
+                                autoComplete="off"
+                              />
+                            )}
+                          </div>
+                          {config.authType === "auth_json_b64" && (
+                            <div className="session-auth-hint">
+                              Le JSON sera encode en base64 cote client.
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="session-form-row">
+                  <div />
+                  <button type="submit" disabled={formDisabled}>
+                    {workspaceBusy ? "Validation..." : "Continuer"}
+                  </button>
+                </div>
+              </form>
+              {workspaceError && (
+                <div className="attachments-error">{workspaceError}</div>
+              )}
+            </>
+          )}
+
+          {showStep2 && (
+            <>
+              <p className="session-hint">
+                Workspace valide. Configurez le depot a cloner.
+              </p>
+              {(workspaceCreated?.workspaceId || workspaceId) && (
+                <div className="session-meta">
+                  Workspace: {workspaceCreated?.workspaceId || workspaceId}
+                  {workspaceCreated?.workspaceSecret && (
+                    <div className="session-meta">
+                      Secret: {workspaceCreated.workspaceSecret}
+                    </div>
+                  )}
+                </div>
+              )}
+              {isCloning ? (
+                <div className="session-hint">
+                  Clonage du depot...
+                  {repoDisplay && (
+                    <div className="session-meta">{repoDisplay}</div>
+                  )}
+                </div>
+              ) : (
+                <form className="session-form" onSubmit={onRepoSubmit}>
+                  <div className="session-form-row">
+                    <input
+                      type="text"
+                      placeholder="git@gitea.devops:mon-org/mon-repo.git"
+                      value={repoInput}
+                      onChange={(event) => {
+                        setRepoInput(event.target.value);
+                      }}
+                      disabled={formDisabled}
+                      required
+                      list={repoHistory.length > 0 ? "repo-history" : undefined}
+                    />
+                    {repoHistory.length > 0 && (
+                      <datalist id="repo-history">
+                        {repoHistory.map((url) => (
+                          <option key={url} value={url}>
+                            {getTruncatedText(url, 72)}
+                          </option>
+                        ))}
+                      </datalist>
+                    )}
+                  </div>
+                  <div className="session-auth">
+                    <div className="session-auth-title">
+                      Authentification depot (optionnelle)
                     </div>
                     <div className="session-auth-options">
                       <label className="session-auth-option">
                         <input
                           type="radio"
-                          name="openAiAuthMode"
-                          value="apiKey"
-                          checked={openAiAuthMode === "apiKey"}
-                          onChange={() => setOpenAiAuthMode("apiKey")}
+                          name="authMode"
+                          value="none"
+                          checked={authMode === "none"}
+                          onChange={() => setAuthMode("none")}
                           disabled={formDisabled}
                         />
-                        API Key
+                        Aucune
                       </label>
                       <label className="session-auth-option">
                         <input
                           type="radio"
-                          name="openAiAuthMode"
-                          value="authFile"
-                          checked={openAiAuthMode === "authFile"}
-                          onChange={() => setOpenAiAuthMode("authFile")}
+                          name="authMode"
+                          value="ssh"
+                          checked={authMode === "ssh"}
+                          onChange={() => setAuthMode("ssh")}
                           disabled={formDisabled}
                         />
-                        Fichier d'authentification (auth.json)
+                        Cle SSH privee
+                      </label>
+                      <label className="session-auth-option">
+                        <input
+                          type="radio"
+                          name="authMode"
+                          value="http"
+                          checked={authMode === "http"}
+                          onChange={() => setAuthMode("http")}
+                          disabled={formDisabled}
+                        />
+                        Identifiant + mot de passe
                       </label>
                     </div>
-                    {openAiAuthMode === "apiKey" && (
+                    {authMode === "ssh" && (
                       <>
-                        <input
-                          type="password"
-                          placeholder="sk-..."
-                          value={openAiApiKey}
-                          onChange={(event) =>
-                            setOpenAiApiKey(event.target.value)
-                          }
+                        <textarea
+                          className="session-auth-textarea"
+                          placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                          value={sshKeyInput}
+                          onChange={(event) => setSshKeyInput(event.target.value)}
                           disabled={formDisabled}
-                          autoComplete="off"
+                          rows={6}
                           spellCheck={false}
                         />
                         <div className="session-auth-hint">
-                          La cle est utilisee pour connecter l'agent OpenAI.
+                          La cle est stockee dans ~/.ssh pour le clonage.
                         </div>
                       </>
                     )}
-                    {openAiAuthMode === "authFile" && (
+                    {authMode === "http" && (
                       <>
-                        <input
-                          type="file"
-                          accept="application/json,.json"
-                          onChange={(event) =>
-                            setOpenAiAuthFile(event.target.files?.[0] || null)
-                          }
-                          disabled={formDisabled}
-                        />
+                        <div className="session-auth-grid">
+                          <input
+                            type="text"
+                            placeholder="Utilisateur"
+                            value={httpUsername}
+                            onChange={(event) => setHttpUsername(event.target.value)}
+                            disabled={formDisabled}
+                            autoComplete="username"
+                          />
+                          <input
+                            type="password"
+                            placeholder="Mot de passe ou PAT"
+                            value={httpPassword}
+                            onChange={(event) => setHttpPassword(event.target.value)}
+                            disabled={formDisabled}
+                            autoComplete="current-password"
+                          />
+                        </div>
                         <div className="session-auth-hint">
-                          Le fichier est copie dans ~/.codex/auth.json.
+                          Le mot de passe peut etre remplace par un PAT.
                         </div>
                       </>
                     )}
                   </div>
-                )}
-                {selectedProviders.includes("claude") && (
-                  <div className="session-auth">
-                    <div className="session-auth-title">
-                      Authentification Claude
-                    </div>
-                    <input
-                      type="file"
-                      accept="application/json,.json"
-                      onChange={(event) =>
-                        setClaudeAuthFile(event.target.files?.[0] || null)
-                      }
-                      disabled={formDisabled}
-                    />
-                    <div className="session-auth-hint">
-                      Le fichier est copie dans ~/.claude/.credentials.json.
-                    </div>
+                  <div className="session-form-row">
+                    <div />
+                    <button type="submit" disabled={formDisabled}>
+                      {sessionRequested ? "Chargement..." : "Cloner"}
+                    </button>
                   </div>
-                )}
-                <div className="session-form-row">
-                  <div />
-                  <button type="submit" disabled={submitDisabled}>
-                    {anyAuthPending
-                      ? "Connexion..."
-                      : sessionRequested
-                      ? "Chargement..."
-                      : buttonLabel}
-                  </button>
-                </div>
-              </form>
+                </form>
+              )}
+              {attachmentsError && (
+                <div className="attachments-error">{attachmentsError}</div>
+              )}
             </>
-          )}
-          {anyAuthPending && hasSession && (
-            <div className="session-hint">
-              {openAiLoginPending && claudeLoginPending
-                ? "Authentification OpenAI et Claude en cours..."
-                : openAiLoginPending
-                ? "Authentification OpenAI en cours..."
-                : "Authentification Claude en cours..."}
-            </div>
-          )}
-          {attachmentsError && (
-            <div className="attachments-error">{attachmentsError}</div>
-          )}
-          {openAiLoginError && (
-            <div className="attachments-error">{openAiLoginError}</div>
-          )}
-          {claudeLoginError && (
-            <div className="attachments-error">{claudeLoginError}</div>
           )}
         </div>
       </div>
