@@ -87,7 +87,10 @@ private data class SessionSnapshot(
     val processing: Boolean,
     val branches: BranchInfo?,
     val worktrees: Map<String, Worktree>,
-    val activeWorktreeId: String
+    val activeWorktreeId: String,
+    val worktreeMessages: Map<String, List<ChatMessage>>,
+    val worktreeStreaming: Map<String, String>,
+    val worktreeProcessing: Map<String, Boolean>
 )
 
 private data class PartialSessionSnapshot(
@@ -133,7 +136,12 @@ class ChatViewModel(
                 .combine(sessionRepository.worktrees) { snapshot, worktrees ->
                     snapshot.copy(worktrees = worktrees)
                 }
-                .combine(sessionRepository.activeWorktreeId) { snapshot, activeWorktreeId ->
+                .combine(
+                    sessionRepository.activeWorktreeId,
+                    sessionRepository.worktreeMessages,
+                    sessionRepository.worktreeStreamingMessages,
+                    sessionRepository.worktreeProcessing
+                ) { snapshot, activeWorktreeId, worktreeMessages, worktreeStreaming, worktreeProcessing ->
                     SessionSnapshot(
                         messages = snapshot.messages,
                         streaming = snapshot.streaming,
@@ -141,17 +149,32 @@ class ChatViewModel(
                         processing = snapshot.processing,
                         branches = snapshot.branches,
                         worktrees = snapshot.worktrees,
-                        activeWorktreeId = activeWorktreeId
+                        activeWorktreeId = activeWorktreeId,
+                        worktreeMessages = worktreeMessages,
+                        worktreeStreaming = worktreeStreaming,
+                        worktreeProcessing = worktreeProcessing
                     )
                 }
                 .combine(sessionRepository.repoDiff) { snapshot, diff ->
                     snapshot to diff
                 }
                 .collect { (snapshot, diff) ->
-                    // Get messages for active worktree
-                    val activeMessages = sessionRepository.getWorktreeMessages(snapshot.activeWorktreeId)
-                    val activeStreaming = sessionRepository.getWorktreeStreamingMessage(snapshot.activeWorktreeId)
-                    val activeProcessing = sessionRepository.isWorktreeProcessing(snapshot.activeWorktreeId)
+                    val activeWorktreeId = snapshot.activeWorktreeId
+                    val activeMessages = if (activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        snapshot.messages
+                    } else {
+                        snapshot.worktreeMessages[activeWorktreeId] ?: emptyList()
+                    }
+                    val activeStreaming = if (activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        snapshot.streaming
+                    } else {
+                        snapshot.worktreeStreaming[activeWorktreeId]
+                    }
+                    val activeProcessing = if (activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        snapshot.processing
+                    } else {
+                        snapshot.worktreeProcessing[activeWorktreeId] ?: false
+                    }
 
                     _uiState.update {
                         it.copy(
