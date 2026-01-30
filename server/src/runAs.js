@@ -84,13 +84,43 @@ const runCommandOutput = (command, args, options = {}) =>
   });
 
 export const runAsCommand = (workspaceId, command, args, options = {}) =>
-  runCommand(SUDO_PATH, ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)], {
-    env: process.env,
-    input: options.input,
+  runCommand(
+    SUDO_PATH,
+    ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
+    {
+      env: process.env,
+      input: options.input,
+    }
+  ).catch((error) => {
+    const details = [
+      "run-as failed",
+      `sudo=${SUDO_PATH}`,
+      `helper=${RUN_AS_HELPER}`,
+      `workspace=${workspaceId}`,
+      `command=${command}`,
+      `args=${JSON.stringify(args || [])}`,
+      `error=${error?.message || error}`,
+    ].join(" ");
+    throw new Error(details);
   });
 
 export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
-  runCommandOutput(SUDO_PATH, ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)], {
-    env: process.env,
-    input: options.input,
+  runCommandOutput(
+    SUDO_PATH,
+    ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
+    {
+      env: process.env,
+      input: options.input,
+    }
+  ).catch((error) => {
+    const details = [
+      "run-as output failed",
+      `sudo=${SUDO_PATH}`,
+      `helper=${RUN_AS_HELPER}`,
+      `workspace=${workspaceId}`,
+      `command=${command}`,
+      `args=${JSON.stringify(args || [])}`,
+      `error=${error?.message || error}`,
+    ].join(" ");
+    throw new Error(details);
   });

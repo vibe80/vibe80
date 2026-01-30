@@ -45,6 +45,21 @@ export class CodexAppServerClient extends EventEmitter {
         env: this.env,
       }
     );
+    const spawnReady = new Promise((resolve, reject) => {
+      this.proc.once("spawn", resolve);
+      this.proc.once("error", (error) => {
+        const details = [
+          `Failed to spawn Codex app-server`,
+          `sudo=${SUDO_PATH}`,
+          `helper=${RUN_AS_HELPER}`,
+          `workspace=${this.workspaceId}`,
+          `cwd=${this.cwd}`,
+          `error=${error?.message || error}`,
+        ].join(" ");
+        this.emit("log", details);
+        reject(new Error(details));
+      });
+    });
 
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk) => this.#handleStdout(chunk));
@@ -59,6 +74,7 @@ export class CodexAppServerClient extends EventEmitter {
       this.emit("exit", { code, signal });
     });
 
+    await spawnReady;
     await this.#initialize();
     await this.#configureSandbox();
     await this.#startThread();

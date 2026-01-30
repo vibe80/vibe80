@@ -86,9 +86,18 @@ export class ClaudeCliClient extends EventEmitter {
     });
 
     proc.on("error", (error) => {
+      const details = [
+        "Claude spawn failed",
+        `sudo=${SUDO_PATH}`,
+        `helper=${RUN_AS_HELPER}`,
+        `workspace=${this.workspaceId}`,
+        `cwd=${this.cwd}`,
+        `error=${error?.message || error}`,
+      ].join(" ");
+      this.emit("log", details);
       this.emit("turn_error", {
         turnId,
-        message: error?.message || "Claude process failed to start.",
+        message: details,
       });
     });
 
