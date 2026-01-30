@@ -52,9 +52,9 @@ COPY --from=helper-builder /out/vibecoder-root /usr/local/bin/vibecoder-root
 COPY --from=helper-builder /out/vibecoder-run-as /usr/local/bin/vibecoder-run-as
 COPY docker/vibecoder.sudoers /etc/sudoers.d/vibecoder
 
-RUN useradd -m -d /home/vibecoder -s /bin/bash vibecoder \
-    && mkdir -p /home/vibecoder \
-    && chown -R vibecoder:vibecoder /app /home/vibecoder \
+RUN useradd -m -d /var/lib/vibecoder -s /bin/bash vibecoder \
+    && mkdir -p /var/lib/vibecoder \
+    && chown -R vibecoder:vibecoder /app /var/lib/vibecoder \
     && chmod 0755 /usr/local/bin/vibecoder-root /usr/local/bin/vibecoder-run-as \
     && chmod 0440 /etc/sudoers.d/vibecoder
 RUN chmod +x /app/start.sh

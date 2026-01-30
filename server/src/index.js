@@ -60,11 +60,7 @@ const workspaceSessionsDirName = "sessions";
 const rootHelperPath = process.env.VIBECODER_ROOT_HELPER || "/usr/local/bin/vibecoder-root";
 const runAsHelperPath = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
 const sudoPath = process.env.VIBECODER_SUDO_PATH || "sudo";
-const defaultPlatformDir = process.env.HOME
-  ? path.join(process.env.HOME, ".vibecoder")
-  : "/var/lib/vibecoder";
-const jwtKeyPath =
-  process.env.JWT_KEY_PATH || path.join(defaultPlatformDir, "jwt.key");
+const jwtKeyPath = process.env.JWT_KEY_PATH || "/var/lib/m5chat/jwt.key";
 const jwtIssuer = process.env.JWT_ISSUER || "m5chat";
 const jwtAudience = process.env.JWT_AUDIENCE || "workspace";
 const sessionGcIntervalMs = Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
