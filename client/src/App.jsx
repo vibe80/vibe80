@@ -2061,6 +2061,33 @@ function App() {
 
         if (!isWorktreeScoped && payload.type === "rpc_log") {
           if (payload.entry) {
+            const entry = payload.entry;
+            if (entry?.provider === "codex" && entry.payload?.method === "error") {
+              const errorMessage =
+                entry.payload?.params?.error?.message ||
+                entry.payload?.params?.message ||
+                "Erreur";
+              const additionalDetails =
+                entry.payload?.params?.additionalDetails ||
+                entry.payload?.params?.error?.additionalDetails ||
+                "";
+              const suffix = additionalDetails ? `\n${additionalDetails}` : "";
+              const errorText = `⚠️ ${errorMessage}${suffix}`;
+              const errorId = `rpc-error-${entry.timestamp || Date.now()}-${entry.payload?.params?.turnId || "unknown"}`;
+              setMessages((current) => {
+                if (current.some((message) => message.id === errorId)) {
+                  return current;
+                }
+                return [
+                  ...current,
+                  {
+                    id: errorId,
+                    role: "assistant",
+                    text: errorText,
+                  },
+                ];
+              });
+            }
             setRpcLogs((current) => [payload.entry, ...current].slice(0, 500));
           }
         }
@@ -5194,22 +5221,26 @@ function App() {
                               {cleanedText}
                             </ReactMarkdown>
                             {filerefs.length ? (
-                              <div className="fileref-list">
+                              <ul className="fileref-list">
                                 {filerefs.map((pathRef) => (
-                                  <button
+                                  <li
                                     key={`${message.id}-fileref-${pathRef}`}
-                                    type="button"
-                                    className="fileref-link"
-                                    onClick={(event) => {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      openFileInExplorer(pathRef);
-                                    }}
+                                    className="fileref-item"
                                   >
-                                    {pathRef}
-                                  </button>
+                                    <button
+                                      type="button"
+                                      className="fileref-link"
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        openFileInExplorer(pathRef);
+                                      }}
+                                    >
+                                      {pathRef}
+                                    </button>
+                                  </li>
                                 ))}
-                              </div>
+                              </ul>
                             ) : null}
                             {blocks.map((block, index) => {
                               const blockKey = `${message.id}-${index}`;
