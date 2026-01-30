@@ -3729,6 +3729,24 @@ function App() {
     setToolbarExportOpen(false);
   }, [activeWorktreeId, debugMode, terminalEnabled]);
 
+  const handleLeaveSession = useCallback(() => {
+    setAttachmentSession(null);
+    setRepoUrl("");
+    setRepoInput("");
+    setRepoAuth(null);
+    setSessionRequested(false);
+    setAttachmentsError("");
+    setAttachmentsLoading(false);
+    setMessages([]);
+    setRepoDiff({ status: "", diff: "" });
+    setRpcLogs([]);
+    setCurrentTurnId(null);
+    setActivity("");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("session");
+    window.history.replaceState({}, "", url);
+  }, []);
+
   const handleDiffSelect = useCallback(() => {
     handleViewSelect("diff");
     if (activeWorktreeId && activeWorktreeId !== "main") {
@@ -4793,14 +4811,7 @@ function App() {
     <div className="app">
       <header className="header">
         <div className="topbar-left">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Ouvrir les paramètres"
-            onClick={handleOpenSettings}
-          >
-            ⚙️
-          </button>
+          <div className="topbar-spacer" />
           <div className="topbar-brand">
             <p className="eyebrow">m5chat</p>
             <div className="topbar-subtitle">
@@ -4834,7 +4845,24 @@ function App() {
           </div>
         </div>
 
-        <div className="topbar-right" />
+        <div className="topbar-right">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Ouvrir les paramètres"
+            onClick={handleOpenSettings}
+          >
+            ⚙️
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Quitter la session"
+            onClick={handleLeaveSession}
+          >
+            ⟵
+          </button>
+        </div>
       </header>
 
       <div
