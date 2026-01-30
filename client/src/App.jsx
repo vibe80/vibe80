@@ -137,16 +137,30 @@ const parseFormFields = (blockBody) => {
     .filter(Boolean);
 };
 
+const replaceVibecoderFileRefs = (text) =>
+  text.replace(
+    /<!--\s*vibecoder:fileref\s+([^>]+?)\s*-->/g,
+    (_, filePath) => {
+      const trimmed = String(filePath || "").trim();
+      if (!trimmed) {
+        return "";
+      }
+      const encoded = encodeURIComponent(trimmed);
+      return `[${trimmed}](vibecoder-fileref:${encoded})`;
+    }
+  );
+
 const extractVibecoderBlocks = (text) => {
   const pattern =
     /<!--\s*vibecoder:(choices|form)\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:\1\s*-->|<!--\s*vibecoder:yesno\s*([^>]*)-->/g;
   const blocks = [];
+  const normalizedText = replaceVibecoderFileRefs(text || "");
   let cleaned = "";
   let lastIndex = 0;
   let match;
 
-  while ((match = pattern.exec(text)) !== null) {
-    cleaned += text.slice(lastIndex, match.index);
+  while ((match = pattern.exec(normalizedText)) !== null) {
+    cleaned += normalizedText.slice(lastIndex, match.index);
     lastIndex = match.index + match[0].length;
     const blockType = match[1];
     const question = normalizeVibecoderQuestion(match[2] || match[4]);
@@ -179,10 +193,10 @@ const extractVibecoderBlocks = (text) => {
   }
 
   if (!blocks.length) {
-    return { cleanedText: text, blocks: [] };
+    return { cleanedText: normalizedText, blocks: [] };
   }
 
-  cleaned += text.slice(lastIndex);
+  cleaned += normalizedText.slice(lastIndex);
   return { cleanedText: cleaned.trim(), blocks };
 };
 
@@ -3834,6 +3848,26 @@ function App() {
     [attachmentSession?.sessionId, updateExplorerState]
   );
 
+  const openFileInExplorer = useCallback(
+    (filePath) => {
+      if (!filePath) {
+        return;
+      }
+      const tabId = activeWorktreeId || "main";
+      handleViewSelect("explorer");
+      requestExplorerTree(tabId);
+      requestExplorerStatus(tabId);
+      loadExplorerFile(tabId, filePath);
+    },
+    [
+      activeWorktreeId,
+      handleViewSelect,
+      loadExplorerFile,
+      requestExplorerStatus,
+      requestExplorerTree,
+    ]
+  );
+
   const toggleExplorerDir = useCallback(
     (tabId, dirPath) => {
       if (!tabId || !dirPath) {
@@ -5110,13 +5144,31 @@ function App() {
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
-                                a: ({ node, ...props }) => (
-                                  <a
-                                    {...props}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  />
-                                ),
+                                a: ({ node, ...props }) => {
+                                  const href = typeof props.href === "string" ? props.href : "";
+                                  if (href.startsWith("vibecoder-fileref:")) {
+                                    const encodedPath = href.slice("vibecoder-fileref:".length);
+                                    const decodedPath = decodeURIComponent(encodedPath);
+                                    return (
+                                      <a
+                                        {...props}
+                                        href="#"
+                                        onClick={(event) => {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          openFileInExplorer(decodedPath);
+                                        }}
+                                      />
+                                    );
+                                  }
+                                  return (
+                                    <a
+                                      {...props}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    />
+                                  );
+                                },
                                 code: ({
                                   node,
                                   inline,
