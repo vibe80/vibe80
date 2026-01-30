@@ -3,19 +3,21 @@ import { EventEmitter } from "events";
 import crypto from "crypto";
 import { SYSTEM_PROMPT } from "./config.js";
 
+const RUN_AS_HELPER = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
+const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
+
 const createTurnId = () =>
   typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
     : crypto.randomBytes(16).toString("hex");
 
 export class ClaudeCliClient extends EventEmitter {
-  constructor({ cwd, attachmentsDir, env, uid, gid }) {
+  constructor({ cwd, attachmentsDir, env, workspaceId }) {
     super();
     this.cwd = cwd;
     this.attachmentsDir = attachmentsDir;
     this.env = env || process.env;
-    this.uid = uid;
-    this.gid = gid;
+    this.workspaceId = workspaceId;
     this.ready = false;
     this.threadId = "claude-session";
     this.modelInfo = null;
@@ -54,12 +56,22 @@ export class ClaudeCliClient extends EventEmitter {
       args.push("--add-dir", this.attachmentsDir);
     }
 
-    const proc = spawn("claude", args, {
+    const helperArgs = [
+      "-n",
+      RUN_AS_HELPER,
+      "--workspace-id",
+      this.workspaceId,
+      "--cwd",
+      this.cwd,
+      "--",
+      "claude",
+      ...args,
+    ];
+
+    const proc = spawn(SUDO_PATH, helperArgs, {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
       env: this.env,
-      uid: this.uid,
-      gid: this.gid,
     });
 
     proc.stdout.setEncoding("utf8");

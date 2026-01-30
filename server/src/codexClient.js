@@ -2,13 +2,15 @@ import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import { SYSTEM_PROMPT } from "./config.js";
 
+const RUN_AS_HELPER = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
+const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
+
 export class CodexAppServerClient extends EventEmitter {
-  constructor({ cwd, env, uid, gid }) {
+  constructor({ cwd, env, workspaceId }) {
     super();
     this.cwd = cwd;
     this.env = env || process.env;
-    this.uid = uid;
-    this.gid = gid;
+    this.workspaceId = workspaceId;
     this.proc = null;
     this.buffer = "";
     this.nextId = 1;
@@ -18,22 +20,29 @@ export class CodexAppServerClient extends EventEmitter {
   }
 
   async start() {
-    this.proc = spawn(
+    const helperArgs = [
+      "-n",
+      RUN_AS_HELPER,
+      "--workspace-id",
+      this.workspaceId,
+      "--cwd",
+      this.cwd,
+      "--",
       "codex",
-      [
-        "--dangerously-bypass-approvals-and-sandbox",
-        "app-server",
-        "-c",
-        "sandbox_permissions=[\"workspace-write\", \"disk-full-read-access\"]",
-        "-c",
-        "sandbox_workspace_write.network_access=true",
-      ],
+      "--dangerously-bypass-approvals-and-sandbox",
+      "app-server",
+      "-c",
+      "sandbox_permissions=[\"workspace-write\", \"disk-full-read-access\"]",
+      "-c",
+      "sandbox_workspace_write.network_access=true",
+    ];
+    this.proc = spawn(
+      SUDO_PATH,
+      helperArgs,
       {
         cwd: this.cwd,
         stdio: ["pipe", "pipe", "pipe"],
         env: this.env,
-        uid: this.uid,
-        gid: this.gid,
       }
     );
 

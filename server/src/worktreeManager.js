@@ -1,9 +1,8 @@
 import path from "path";
-import fs from "fs";
 import crypto from "crypto";
-import { spawn } from "child_process";
 import { CodexAppServerClient } from "./codexClient.js";
 import { ClaudeCliClient } from "./claudeClient.js";
+import { runAsCommand, runAsCommandOutput } from "./runAs.js";
 
 // Palette de couleurs pour distinguer les worktrees
 const WORKTREE_COLORS = [
@@ -24,72 +23,11 @@ const getNextColor = () => {
   return color;
 };
 
-const runCommand = (command, args, options = {}) =>
-  new Promise((resolve, reject) => {
-    const proc = spawn(command, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      ...options,
-    });
-    let stderr = "";
-
-    proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    proc.on("error", reject);
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(stderr.trim() || `${command} exited with ${code}`));
-    });
-  });
-
-const runCommandOutput = (command, args, options = {}) =>
-  new Promise((resolve, reject) => {
-    const proc = spawn(command, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      ...options,
-    });
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-
-    proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    proc.on("error", reject);
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout);
-        return;
-      }
-      reject(new Error(stderr.trim() || `${command} exited with ${code}`));
-    });
-  });
-
-const buildProcessOptions = (base, overrides = {}) => {
-  const env = {
-    ...(base?.env || process.env),
-    ...(overrides.env || {}),
-  };
-  return {
-    ...base,
-    ...overrides,
-    env,
-  };
-};
-
 const runSessionCommand = (session, command, args, options = {}) =>
-  runCommand(command, args, buildProcessOptions(session?.processOptions, options));
+  runAsCommand(session.workspaceId, command, args, options);
 
 const runSessionCommandOutput = (session, command, args, options = {}) =>
-  runCommandOutput(command, args, buildProcessOptions(session?.processOptions, options));
+  runAsCommandOutput(session.workspaceId, command, args, options);
 
 const resolveStartingRef = (startingBranch, remote = "origin") => {
   if (!startingBranch || typeof startingBranch !== "string") {
@@ -173,12 +111,8 @@ export async function createWorktree(session, options) {
 
   // Créer le répertoire worktrees s'il n'existe pas
   const worktreesDir = path.join(session.dir, "worktrees");
-  await fs.promises.mkdir(worktreesDir, { recursive: true, mode: 0o700 });
-  if (session.processOptions?.uid != null && session.processOptions?.gid != null) {
-    await fs.promises
-      .chown(worktreesDir, session.processOptions.uid, session.processOptions.gid)
-      .catch(() => {});
-  }
+  await runAsCommand(session.workspaceId, "/bin/mkdir", ["-p", worktreesDir]);
+  await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", worktreesDir]);
 
   // Générer un ID unique
   const worktreeId = crypto.randomBytes(8).toString("hex");
@@ -288,11 +222,7 @@ export async function createWorktree(session, options) {
     ["worktree", "add", worktreePath, branchName],
     { cwd: session.repoDir }
   );
-  if (session.processOptions?.uid != null && session.processOptions?.gid != null) {
-    await fs.promises
-      .chown(worktreePath, session.processOptions.uid, session.processOptions.gid)
-      .catch(() => {});
-  }
+  await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", worktreePath]);
 
   // Créer l'entrée worktree
   const worktree = {
@@ -304,7 +234,7 @@ export async function createWorktree(session, options) {
     model: model || null,
     reasoningEffort: reasoningEffort || null,
     startingBranch: startingBranch || null,
-    processOptions: session.processOptions || null,
+    workspaceId: session.workspaceId,
     client: null,
     messages: [],
     status: "creating",
@@ -326,15 +256,13 @@ export async function createWorktree(session, options) {
         ? new ClaudeCliClient({
             cwd: worktreePath,
             attachmentsDir: session.attachmentsDir,
-            env: session.processOptions?.env,
-            uid: session.processOptions?.uid,
-            gid: session.processOptions?.gid,
+            env: process.env,
+            workspaceId: session.workspaceId,
           })
         : new CodexAppServerClient({
             cwd: worktreePath,
-            env: session.processOptions?.env,
-            uid: session.processOptions?.uid,
-            gid: session.processOptions?.gid,
+            env: process.env,
+            workspaceId: session.workspaceId,
           });
 
     worktree.client = client;

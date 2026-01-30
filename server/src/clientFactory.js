@@ -19,15 +19,13 @@ export async function getOrCreateClient(session, provider) {
       ? new ClaudeCliClient({
           cwd: session.repoDir,
           attachmentsDir: session.attachmentsDir,
-          env: session.processOptions?.env,
-          uid: session.processOptions?.uid,
-          gid: session.processOptions?.gid,
+          env: process.env,
+          workspaceId: session.workspaceId,
         })
       : new CodexAppServerClient({
           cwd: session.repoDir,
-          env: session.processOptions?.env,
-          uid: session.processOptions?.uid,
-          gid: session.processOptions?.gid,
+          env: process.env,
+          workspaceId: session.workspaceId,
         });
 
   session.clients[provider] = client;
@@ -50,15 +48,13 @@ export function createWorktreeClient(worktree, attachmentsDir) {
       ? new ClaudeCliClient({
           cwd: worktree.path,
           attachmentsDir,
-          env: worktree.processOptions?.env,
-          uid: worktree.processOptions?.uid,
-          gid: worktree.processOptions?.gid,
+          env: process.env,
+          workspaceId: worktree.workspaceId,
         })
       : new CodexAppServerClient({
           cwd: worktree.path,
-          env: worktree.processOptions?.env,
-          uid: worktree.processOptions?.uid,
-          gid: worktree.processOptions?.gid,
+          env: process.env,
+          workspaceId: worktree.workspaceId,
         });
 
   return client;

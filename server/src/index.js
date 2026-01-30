@@ -9,8 +9,7 @@ import { WebSocketServer } from "ws";
 import { spawn } from "child_process";
 import jwt from "jsonwebtoken";
 import * as pty from "node-pty";
-import { CodexAppServerClient } from "./codexClient.js";
-import { ClaudeCliClient } from "./claudeClient.js";
+import { runAsCommand, runAsCommandOutput } from "./runAs.js";
 import {
   DEFAULT_GIT_AUTHOR_EMAIL,
   DEFAULT_GIT_AUTHOR_NAME,
@@ -58,6 +57,9 @@ const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
 const workspaceRootName = "vibecoder_workspace";
 const workspaceMetadataDirName = "metadata";
 const workspaceSessionsDirName = "sessions";
+const rootHelperPath = process.env.VIBECODER_ROOT_HELPER || "/usr/local/bin/vibecoder-root";
+const runAsHelperPath = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
+const sudoPath = process.env.VIBECODER_SUDO_PATH || "sudo";
 const jwtKeyPath = process.env.JWT_KEY_PATH || "/var/lib/m5chat/jwt.key";
 const jwtIssuer = process.env.JWT_ISSUER || "m5chat";
 const jwtAudience = process.env.JWT_AUDIENCE || "workspace";
@@ -360,23 +362,17 @@ const classifySessionCreationError = (error) => {
   };
 };
 
-const buildProcessOptions = (base, overrides = {}) => {
-  const env = {
-    ...(base?.env || process.env),
-    ...(overrides.env || {}),
-  };
-  return {
-    ...base,
-    ...overrides,
-    env,
-  };
-};
+const runRootCommand = (args, options = {}) =>
+  runCommand(sudoPath, ["-n", rootHelperPath, ...args], options);
+
+const runRootCommandOutput = (args, options = {}) =>
+  runCommandOutput(sudoPath, ["-n", rootHelperPath, ...args], options);
 
 const runSessionCommand = (session, command, args, options = {}) =>
-  runCommand(command, args, buildProcessOptions(session?.processOptions, options));
+  runAsCommand(session.workspaceId, command, args, options);
 
 const runSessionCommandOutput = (session, command, args, options = {}) =>
-  runCommandOutput(command, args, buildProcessOptions(session?.processOptions, options));
+  runAsCommandOutput(session.workspaceId, command, args, options);
 
 const loadJwtKey = () => {
   if (process.env.JWT_KEY) {
@@ -430,6 +426,21 @@ const getWorkspaceAuthPaths = (workspaceHome) => ({
   claudeCredentialsPath: path.join(workspaceHome, ".claude", ".credentials.json"),
 });
 
+const ensureWorkspaceDir = async (workspaceId, dirPath, mode = 0o700) => {
+  await runAsCommand(workspaceId, "/bin/mkdir", ["-p", dirPath]);
+  await runAsCommand(workspaceId, "/bin/chmod", [mode.toString(8), dirPath]);
+};
+
+const writeWorkspaceFile = async (workspaceId, filePath, content, mode = 0o600) => {
+  await runAsCommand(workspaceId, "/usr/bin/tee", [filePath], { input: content });
+  await runAsCommand(workspaceId, "/bin/chmod", [mode.toString(8), filePath]);
+};
+
+const appendWorkspaceFile = async (workspaceId, filePath, content, mode = 0o600) => {
+  await runAsCommand(workspaceId, "/usr/bin/tee", ["-a", filePath], { input: content });
+  await runAsCommand(workspaceId, "/bin/chmod", [mode.toString(8), filePath]);
+};
+
 const getWorkspaceUserIds = async (workspaceId) => {
   const cached = workspaceUserIds.get(workspaceId);
   if (cached) {
@@ -467,15 +478,13 @@ const buildWorkspaceEnv = (workspaceId) => {
 const appendAuditLog = async (workspaceId, event, details = {}) => {
   try {
     const paths = getWorkspacePaths(workspaceId);
-    const ids = await getWorkspaceUserIds(workspaceId);
     const entry = JSON.stringify({
       ts: Date.now(),
       event,
       workspaceId,
       ...details,
     });
-    await fs.promises.appendFile(paths.auditPath, `${entry}\n`, { mode: 0o600 });
-    await fs.promises.chown(paths.auditPath, ids.uid, ids.gid).catch(() => {});
+    await appendWorkspaceFile(workspaceId, paths.auditPath, `${entry}\n`, 0o600);
   } catch {
     // Avoid failing requests on audit errors.
   }
@@ -691,20 +700,6 @@ const ensureWorkspaceDirs = async (workspaceId) => {
   return paths;
 };
 
-const ensureOwnedDir = async (dirPath, ids) => {
-  await fs.promises.mkdir(dirPath, { recursive: true, mode: 0o700 });
-  if (ids) {
-    await fs.promises.chown(dirPath, ids.uid, ids.gid).catch(() => {});
-  }
-};
-
-const writeOwnedFile = async (filePath, content, ids) => {
-  await fs.promises.writeFile(filePath, content, { mode: 0o600 });
-  if (ids) {
-    await fs.promises.chown(filePath, ids.uid, ids.gid).catch(() => {});
-  }
-};
-
 const decodeBase64 = (value) => {
   if (!value) {
     return "";
@@ -716,19 +711,19 @@ const decodeBase64 = (value) => {
   }
 };
 
-const writeWorkspaceProviderAuth = async (workspaceId, providers, ids) => {
+const writeWorkspaceProviderAuth = async (workspaceId, providers) => {
   const workspaceHome = path.join(workspaceHomeBase, workspaceId);
   const authPaths = getWorkspaceAuthPaths(workspaceHome);
 
   const codexConfig = providers?.codex;
   if (codexConfig?.enabled && codexConfig.auth) {
-    await ensureOwnedDir(authPaths.codexDir, ids);
+    await ensureWorkspaceDir(workspaceId, authPaths.codexDir, 0o700);
     if (codexConfig.auth.type === "api_key") {
       const payload = JSON.stringify({ OPENAI_API_KEY: codexConfig.auth.value }, null, 2);
-      await writeOwnedFile(authPaths.codexAuthPath, payload, ids);
+      await writeWorkspaceFile(workspaceId, authPaths.codexAuthPath, payload, 0o600);
     } else if (codexConfig.auth.type === "auth_json_b64") {
       const decoded = decodeBase64(codexConfig.auth.value);
-      await writeOwnedFile(authPaths.codexAuthPath, decoded, ids);
+      await writeWorkspaceFile(workspaceId, authPaths.codexAuthPath, decoded, 0o600);
     }
   }
 
@@ -736,9 +731,9 @@ const writeWorkspaceProviderAuth = async (workspaceId, providers, ids) => {
   if (claudeConfig?.enabled && claudeConfig.auth) {
     if (claudeConfig.auth.type === "api_key") {
       const payload = JSON.stringify({ primaryApiKey: claudeConfig.auth.value }, null, 2);
-      await writeOwnedFile(authPaths.claudeAuthPath, payload, ids);
+      await writeWorkspaceFile(workspaceId, authPaths.claudeAuthPath, payload, 0o600);
     } else if (claudeConfig.auth.type === "setup_token") {
-      await ensureOwnedDir(authPaths.claudeDir, ids);
+      await ensureWorkspaceDir(workspaceId, authPaths.claudeDir, 0o700);
       const payload = JSON.stringify(
         {
           claudeAiOauth: {
@@ -758,7 +753,7 @@ const writeWorkspaceProviderAuth = async (workspaceId, providers, ids) => {
         null,
         2
       );
-      await writeOwnedFile(authPaths.claudeCredentialsPath, payload, ids);
+      await writeWorkspaceFile(workspaceId, authPaths.claudeCredentialsPath, payload, 0o600);
     }
   }
 };
@@ -773,24 +768,19 @@ const writeWorkspaceConfig = async (workspaceId, providers, ids, existingConfig 
     gid: Number.isFinite(existing?.gid) ? existing.gid : ids?.gid,
     updatedAt: Date.now(),
   };
-  await fs.promises.writeFile(paths.configPath, JSON.stringify(payload, null, 2), {
-    mode: 0o600,
-  });
-  if (ids) {
-    await fs.promises.chown(paths.configPath, ids.uid, ids.gid).catch(() => {});
-  }
+  await writeWorkspaceFile(workspaceId, paths.configPath, JSON.stringify(payload, null, 2), 0o600);
   return payload;
 };
 
 const readWorkspaceConfig = async (workspaceId) => {
   const paths = getWorkspacePaths(workspaceId);
-  const raw = await fs.promises.readFile(paths.configPath, "utf8");
+  const raw = await runAsCommandOutput(workspaceId, "/bin/cat", [paths.configPath]);
   return JSON.parse(raw);
 };
 
 const readWorkspaceSecret = async (workspaceId) => {
   const paths = getWorkspacePaths(workspaceId);
-  return fs.promises.readFile(paths.secretPath, "utf8").then((value) => value.trim());
+  return runAsCommandOutput(workspaceId, "/bin/cat", [paths.secretPath]).then((value) => value.trim());
 };
 
 const createWorkspace = async (providers) => {
@@ -807,17 +797,11 @@ const createWorkspace = async (providers) => {
     if (fs.existsSync(paths.homeDir)) {
       continue;
     }
-    const ids = await allocateWorkspaceIds();
-    await ensureWorkspaceUser(workspaceId, paths.homeDir, ids);
-    await ensureWorkspaceDirs(workspaceId);
-    await fs.promises.chown(paths.homeDir, ids.uid, ids.gid).catch(() => {});
-    await fs.promises.chown(paths.rootDir, ids.uid, ids.gid).catch(() => {});
-    await fs.promises.chown(paths.metadataDir, ids.uid, ids.gid).catch(() => {});
-    await fs.promises.chown(paths.sessionsDir, ids.uid, ids.gid).catch(() => {});
+    await runRootCommand(["create-workspace", "--workspace-id", workspaceId]);
+    const ids = await getWorkspaceUserIds(workspaceId);
     const secret = crypto.randomBytes(32).toString("hex");
-    await fs.promises.writeFile(paths.secretPath, secret, { mode: 0o600 });
-    await fs.promises.chown(paths.secretPath, ids.uid, ids.gid).catch(() => {});
-    await writeWorkspaceProviderAuth(workspaceId, providers, ids);
+    await writeWorkspaceFile(workspaceId, paths.secretPath, secret, 0o600);
+    await writeWorkspaceProviderAuth(workspaceId, providers);
     await writeWorkspaceConfig(workspaceId, providers, ids);
     workspaces.set(workspaceId, { workspaceId, providers, paths });
     await appendAuditLog(workspaceId, "workspace_created");
@@ -832,7 +816,7 @@ const updateWorkspace = async (workspaceId, providers) => {
   }
   const ids = await getWorkspaceUserIds(workspaceId);
   const existing = await readWorkspaceConfig(workspaceId).catch(() => null);
-  await writeWorkspaceProviderAuth(workspaceId, providers, ids);
+  await writeWorkspaceProviderAuth(workspaceId, providers);
   const payload = await writeWorkspaceConfig(workspaceId, providers, ids, existing);
   const paths = getWorkspacePaths(workspaceId);
   workspaces.set(workspaceId, { workspaceId, providers, paths });
@@ -909,10 +893,10 @@ const cleanupSession = async (sessionId, reason) => {
     await stopClient(client);
   }
   if (session.dir) {
-    await fs.promises.rm(session.dir, { recursive: true, force: true }).catch(() => {});
+    await runAsCommand(session.workspaceId, "/bin/rm", ["-rf", session.dir]).catch(() => {});
   }
   if (session.sshKeyPath) {
-    await fs.promises.rm(session.sshKeyPath, { force: true }).catch(() => {});
+    await runAsCommand(session.workspaceId, "/bin/rm", ["-f", session.sshKeyPath]).catch(() => {});
   }
   sessions.delete(sessionId);
   await appendAuditLog(session.workspaceId, "session_removed", { sessionId, reason });
@@ -1004,23 +988,22 @@ const resolveHttpAuthInfo = (repoUrl) => {
   }
 };
 
-const ensureKnownHost = async (repoUrl, sshPaths, runOptions = {}) => {
+const ensureKnownHost = async (workspaceId, repoUrl, sshPaths) => {
   const host = resolveRepoHost(repoUrl);
   if (!host) {
     return;
   }
   const { sshDir, knownHostsPath } = sshPaths;
-  await runCommand(
-    "sh",
-    [
-      "-c",
-      `mkdir -p "${sshDir}" && ssh-keyscan -H ${host} >> "${knownHostsPath}" 2>/dev/null || true`,
-    ],
-    runOptions
+  await ensureWorkspaceDir(workspaceId, sshDir, 0o700);
+  const output = await runAsCommandOutput(workspaceId, "/usr/bin/ssh-keyscan", ["-H", host]).catch(
+    () => ""
   );
+  if (output && output.trim()) {
+    await appendWorkspaceFile(workspaceId, knownHostsPath, output, 0o600);
+  }
 };
 
-const ensureSshConfigEntry = async (host, keyPath, sshPaths, ids = null) => {
+const ensureSshConfigEntry = async (workspaceId, host, keyPath, sshPaths) => {
   if (!host) {
     return;
   }
@@ -1028,22 +1011,16 @@ const ensureSshConfigEntry = async (host, keyPath, sshPaths, ids = null) => {
   const keyPathConfig = `~/.ssh/${path.basename(keyPath)}`;
   let existing = "";
   try {
-    existing = await fs.promises.readFile(sshConfigPath, "utf8");
+    existing = await runAsCommandOutput(workspaceId, "/bin/cat", [sshConfigPath]);
   } catch (error) {
-    if (error?.code !== "ENOENT") {
-      throw error;
-    }
+    existing = "";
   }
   const entry = `Host ${host}\n  IdentityFile ${keyPathConfig}\n`;
   if (existing.includes(entry)) {
     return;
   }
   const nextContent = existing ? `${existing.trimEnd()}\n\n${entry}` : entry;
-  await fs.promises.writeFile(sshConfigPath, nextContent, { mode: 0o600 });
-  await fs.promises.chmod(sshConfigPath, 0o600).catch(() => {});
-  if (ids) {
-    await fs.promises.chown(sshConfigPath, ids.uid, ids.gid).catch(() => {});
-  }
+  await writeWorkspaceFile(workspaceId, sshConfigPath, nextContent, 0o600);
 };
 
 const createSession = async (workspaceId, repoUrl, auth) => {
@@ -1054,9 +1031,6 @@ const createSession = async (workspaceId, repoUrl, auth) => {
     throw new Error("No providers enabled for this workspace.");
   }
   const workspacePaths = getWorkspacePaths(workspaceId);
-  const ids = await getWorkspaceUserIds(workspaceId);
-  const workspaceEnv = buildWorkspaceEnv(workspaceId);
-  const processOptions = { uid: ids.uid, gid: ids.gid, env: workspaceEnv };
   const sshPaths = getWorkspaceSshPaths(workspacePaths.homeDir);
   while (true) {
     const sessionId = generateId("s");
@@ -1064,25 +1038,22 @@ const createSession = async (workspaceId, repoUrl, auth) => {
     let sessionRecord = null;
     let sessionSshKeyPath = null;
     try {
-      await fs.promises.mkdir(dir, { recursive: false, mode: 0o700 });
-      await fs.promises.chown(dir, ids.uid, ids.gid).catch(() => {});
+      await runAsCommand(workspaceId, "/bin/mkdir", [dir]);
+      await runAsCommand(workspaceId, "/bin/chmod", ["2750", dir]);
       const attachmentsDir = path.join(dir, "attachments");
-      await fs.promises.mkdir(attachmentsDir, { recursive: true, mode: 0o700 });
-      await fs.promises.chown(attachmentsDir, ids.uid, ids.gid).catch(() => {});
+      await runAsCommand(workspaceId, "/bin/mkdir", ["-p", attachmentsDir]);
+      await runAsCommand(workspaceId, "/bin/chmod", ["2750", attachmentsDir]);
       const repoDir = path.join(dir, "repository");
-      const env = { ...workspaceEnv };
+      const env = {};
       if (auth?.type === "ssh" && auth.privateKey) {
-        await fs.promises.mkdir(sshPaths.sshDir, { recursive: true, mode: 0o700 });
-        await fs.promises.chmod(sshPaths.sshDir, 0o700).catch(() => {});
+        await ensureWorkspaceDir(workspaceId, sshPaths.sshDir, 0o700);
         const keyPath = path.join(sshPaths.sshDir, `codex_session_${sessionId}`);
         const normalizedKey = `${auth.privateKey.trimEnd()}\n`;
-        await fs.promises.writeFile(keyPath, normalizedKey, { mode: 0o600 });
-        await fs.promises.chmod(keyPath, 0o600).catch(() => {});
-        await fs.promises.chown(keyPath, ids.uid, ids.gid).catch(() => {});
+        await writeWorkspaceFile(workspaceId, keyPath, normalizedKey, 0o600);
         sessionSshKeyPath = keyPath;
         const sshHost = resolveRepoHost(repoUrl);
-        await ensureSshConfigEntry(sshHost, keyPath, sshPaths, ids);
-        await ensureKnownHost(repoUrl, sshPaths, processOptions);
+        await ensureSshConfigEntry(workspaceId, sshHost, keyPath, sshPaths);
+        await ensureKnownHost(workspaceId, repoUrl, sshPaths);
         env.GIT_SSH_COMMAND = `ssh -o IdentitiesOnly=yes -o UserKnownHostsFile="${sshPaths.knownHostsPath}"`;
       } else if (auth?.type === "http" && auth.username && auth.password) {
         const authInfo = resolveHttpAuthInfo(repoUrl);
@@ -1094,19 +1065,13 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         const credInputPath = path.join(dir, "git-credential-input");
         env.GIT_CONFIG_GLOBAL = gitConfigPath;
         env.GIT_TERMINAL_PROMPT = "0";
-        await fs.promises.writeFile(credFile, "", { mode: 0o600 });
-        await fs.promises.chmod(credFile, 0o600).catch(() => {});
-        await fs.promises.chown(credFile, ids.uid, ids.gid).catch(() => {});
-        await runCommand(
-          "git",
-          ["config", "--global", "credential.helper", "cache --timeout=43200"],
-          { env, uid: ids.uid, gid: ids.gid }
-        );
-        await runCommand(
-          "git",
-          ["config", "--global", "--add", "credential.helper", `store --file ${credFile}`],
-          { env, uid: ids.uid, gid: ids.gid }
-        );
+        await writeWorkspaceFile(workspaceId, credFile, "", 0o600);
+        await runAsCommand(workspaceId, "git", ["config", "--global", "credential.helper", "cache --timeout=43200"], {
+          env,
+        });
+        await runAsCommand(workspaceId, "git", ["config", "--global", "--add", "credential.helper", `store --file ${credFile}`], {
+          env,
+        });
         const credentialPayload = [
           `protocol=${authInfo.protocol}`,
           `host=${authInfo.host}`,
@@ -1115,43 +1080,40 @@ const createSession = async (workspaceId, repoUrl, auth) => {
           "",
           "",
         ].join("\n");
-        await fs.promises.writeFile(credInputPath, credentialPayload, { mode: 0o600 });
-        await fs.promises.chmod(credInputPath, 0o600).catch(() => {});
-        await fs.promises.chown(credInputPath, ids.uid, ids.gid).catch(() => {});
-        await runCommand(
-          "sh",
-          ["-c", `git credential approve < "${credInputPath}"`],
-          { env, uid: ids.uid, gid: ids.gid }
-        );
-        await fs.promises.rm(credInputPath, { force: true });
+        await writeWorkspaceFile(workspaceId, credInputPath, credentialPayload, 0o600);
+        await runAsCommand(workspaceId, "git", ["credential", "approve"], {
+          env,
+          input: credentialPayload,
+        });
+        await runAsCommand(workspaceId, "/bin/rm", ["-f", credInputPath]);
       }
-      await runCommand("git", ["clone", repoUrl, repoDir], {
-        env,
-        uid: ids.uid,
-        gid: ids.gid,
-      });
+      await runAsCommand(workspaceId, "git", ["clone", repoUrl, repoDir], { env });
       if (DEFAULT_GIT_AUTHOR_NAME && DEFAULT_GIT_AUTHOR_EMAIL) {
-        await runCommand(
+        await runAsCommand(
+          workspaceId,
           "git",
           ["-C", repoDir, "config", "user.name", DEFAULT_GIT_AUTHOR_NAME],
-          { env, uid: ids.uid, gid: ids.gid }
+          { env }
         );
-        await runCommand(
+        await runAsCommand(
+          workspaceId,
           "git",
           ["-C", repoDir, "config", "user.email", DEFAULT_GIT_AUTHOR_EMAIL],
-          { env, uid: ids.uid, gid: ids.gid }
+          { env }
         );
       }
       if (auth?.type === "http" && auth.username && auth.password) {
-        await runCommand(
+        await runAsCommand(
+          workspaceId,
           "git",
           ["-C", repoDir, "config", "--add", "credential.helper", "cache --timeout=43200"],
-          { env, uid: ids.uid, gid: ids.gid }
+          { env }
         );
-        await runCommand(
+        await runAsCommand(
+          workspaceId,
           "git",
           ["-C", repoDir, "config", "--add", "credential.helper", "store --file ../git-credentials"],
-          { env, uid: ids.uid, gid: ids.gid }
+          { env }
         );
       }
       // Initialize session with multi-client structure
@@ -1164,7 +1126,6 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         repoUrl,
         activeProvider: defaultProvider,
         providers: enabledProviders,
-        processOptions,
         createdAt: Date.now(),
         lastActivityAt: Date.now(),
         sshKeyPath: sessionSshKeyPath,
@@ -1211,9 +1172,9 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         sessions.delete(sessionId);
       }
       if (sessionSshKeyPath) {
-        await fs.promises.rm(sessionSshKeyPath, { force: true });
+        await runAsCommand(workspaceId, "/bin/rm", ["-f", sessionSshKeyPath]).catch(() => {});
       }
-      await fs.promises.rm(dir, { recursive: true, force: true });
+      await runAsCommand(workspaceId, "/bin/rm", ["-rf", dir]).catch(() => {});
       if (error.code !== "EEXIST") {
         throw error;
       }
@@ -2792,7 +2753,7 @@ if (terminalWss) {
   } catch {
     // Ignore invalid URL parsing; fall back to main repo.
   }
-  const shell = process.env.SHELL || "bash";
+  const shell = "/bin/bash";
   let term = null;
   let closed = false;
 
@@ -2800,18 +2761,24 @@ if (terminalWss) {
     if (term) {
       return;
     }
-    const env = {
-      ...(session.processOptions?.env || process.env),
-      TERM: "xterm-256color",
-    };
-    term = pty.spawn(shell, [], {
+    const env = { ...process.env };
+    const termArgs = [
+      "-n",
+      runAsHelperPath,
+      "--workspace-id",
+      session.workspaceId,
+      "--cwd",
+      worktree?.path || session.repoDir,
+      "--env",
+      "TERM=xterm-256color",
+      "--",
+      shell,
+    ];
+    term = pty.spawn(sudoPath, termArgs, {
       name: "xterm-256color",
       cols,
       rows,
-      cwd: worktree?.path || session.repoDir,
       env,
-      uid: session.processOptions?.uid,
-      gid: session.processOptions?.gid,
     });
 
     term.onData((data) => {
