@@ -2716,6 +2716,87 @@ app.get("/api/session/:sessionId", async (req, res) => {
   });
 });
 
+const readGitConfigValue = async (session, args) => {
+  try {
+    const output = await runSessionCommandOutput(session, "git", args);
+    return output.trim();
+  } catch (error) {
+    return "";
+  }
+};
+
+app.get("/api/session/:sessionId/git-identity", async (req, res) => {
+  const session = getSession(req.params.sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  touchSession(session);
+  try {
+    const [globalName, globalEmail, repoName, repoEmail] = await Promise.all([
+      readGitConfigValue(session, ["config", "--global", "--get", "user.name"]),
+      readGitConfigValue(session, ["config", "--global", "--get", "user.email"]),
+      readGitConfigValue(session, [
+        "-C",
+        session.repoDir,
+        "config",
+        "--get",
+        "user.name",
+      ]),
+      readGitConfigValue(session, [
+        "-C",
+        session.repoDir,
+        "config",
+        "--get",
+        "user.email",
+      ]),
+    ]);
+    const effectiveName = repoName || globalName;
+    const effectiveEmail = repoEmail || globalEmail;
+    res.json({
+      global: { name: globalName || "", email: globalEmail || "" },
+      repo: { name: repoName || "", email: repoEmail || "" },
+      effective: { name: effectiveName || "", email: effectiveEmail || "" },
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to read git identity." });
+  }
+});
+
+app.post("/api/session/:sessionId/git-identity", async (req, res) => {
+  const session = getSession(req.params.sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  touchSession(session);
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+  if (!name || !email) {
+    res.status(400).json({ error: "name and email are required." });
+    return;
+  }
+  try {
+    await runSessionCommand(session, "git", [
+      "-C",
+      session.repoDir,
+      "config",
+      "user.name",
+      name,
+    ]);
+    await runSessionCommand(session, "git", [
+      "-C",
+      session.repoDir,
+      "config",
+      "user.email",
+      email,
+    ]);
+    res.json({ ok: true, repo: { name, email } });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update git identity." });
+  }
+});
+
 app.get("/api/session/:sessionId/diff", async (req, res) => {
   const session = getSession(req.params.sessionId, req.workspaceId);
   if (!session) {

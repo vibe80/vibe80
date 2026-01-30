@@ -588,6 +588,17 @@ function App() {
     readComposerInputMode
   );
   const soundEnabled = notificationsEnabled;
+  const [gitIdentityName, setGitIdentityName] = useState("");
+  const [gitIdentityEmail, setGitIdentityEmail] = useState("");
+  const [gitIdentityGlobal, setGitIdentityGlobal] = useState({
+    name: "",
+    email: "",
+  });
+  const [gitIdentityRepo, setGitIdentityRepo] = useState({ name: "", email: "" });
+  const [gitIdentityLoading, setGitIdentityLoading] = useState(false);
+  const [gitIdentitySaving, setGitIdentitySaving] = useState(false);
+  const [gitIdentityError, setGitIdentityError] = useState("");
+  const [gitIdentityMessage, setGitIdentityMessage] = useState("");
   const [choiceSelections, setChoiceSelections] = useState({});
   const [activeForm, setActiveForm] = useState(null);
   const [activeFormValues, setActiveFormValues] = useState({});
@@ -743,6 +754,76 @@ function App() {
     },
     [workspaceToken]
   );
+
+  const loadGitIdentity = useCallback(async () => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    setGitIdentityLoading(true);
+    setGitIdentityError("");
+    setGitIdentityMessage("");
+    try {
+      const response = await apiFetch(
+        `/api/session/${encodeURIComponent(sessionId)}/git-identity`
+      );
+      if (!response.ok) {
+        throw new Error("Impossible de charger l'identité Git.");
+      }
+      const payload = await response.json();
+      const globalName = payload?.global?.name || "";
+      const globalEmail = payload?.global?.email || "";
+      const repoName = payload?.repo?.name || "";
+      const repoEmail = payload?.repo?.email || "";
+      setGitIdentityGlobal({ name: globalName, email: globalEmail });
+      setGitIdentityRepo({ name: repoName, email: repoEmail });
+      setGitIdentityName(repoName || globalName);
+      setGitIdentityEmail(repoEmail || globalEmail);
+    } catch (error) {
+      setGitIdentityError(error?.message || "Erreur lors du chargement.");
+    } finally {
+      setGitIdentityLoading(false);
+    }
+  }, [attachmentSession?.sessionId, apiFetch]);
+
+  const handleSaveGitIdentity = useCallback(async () => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    const name = gitIdentityName.trim();
+    const email = gitIdentityEmail.trim();
+    if (!name || !email) {
+      setGitIdentityError("Nom et email requis.");
+      return;
+    }
+    setGitIdentitySaving(true);
+    setGitIdentityError("");
+    setGitIdentityMessage("");
+    try {
+      const response = await apiFetch(
+        `/api/session/${encodeURIComponent(sessionId)}/git-identity`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email }),
+        }
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || "Echec de la mise à jour.");
+      }
+      const payload = await response.json().catch(() => ({}));
+      const repoName = payload?.repo?.name || name;
+      const repoEmail = payload?.repo?.email || email;
+      setGitIdentityRepo({ name: repoName, email: repoEmail });
+      setGitIdentityMessage("Identité Git du dépôt mise à jour.");
+    } catch (error) {
+      setGitIdentityError(error?.message || "Echec de la mise à jour.");
+    } finally {
+      setGitIdentitySaving(false);
+    }
+  }, [attachmentSession?.sessionId, apiFetch, gitIdentityEmail, gitIdentityName]);
 
   const messageIndex = useMemo(() => new Map(), []);
   const commandIndex = useMemo(() => new Map(), []);
@@ -1626,6 +1707,13 @@ function App() {
     void ensureNotificationPermission();
     primeAudioContext();
   }, [ensureNotificationPermission, primeAudioContext, notificationsEnabled]);
+
+  useEffect(() => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    loadGitIdentity();
+  }, [attachmentSession?.sessionId, loadGitIdentity]);
 
   useEffect(() => {
     try {
@@ -5610,6 +5698,91 @@ function App() {
                   onChange={(event) => setDebugMode(event.target.checked)}
                 />
               </label>
+            </div>
+            <div className="settings-group">
+              <div className="settings-item settings-item--stacked">
+                <div className="settings-text">
+                  <span className="settings-name">
+                    Identité Git pour ce dépôt
+                  </span>
+                  <span className="settings-hint">
+                    Renseignez user.name et user.email pour les commits du dépôt.
+                  </span>
+                  <span className="settings-hint">
+                    Valeurs globales:{" "}
+                    {gitIdentityGlobal.name || "Non défini"} /{" "}
+                    {gitIdentityGlobal.email || "Non défini"}.
+                  </span>
+                  <span className="settings-hint">
+                    {gitIdentityRepo.name || gitIdentityRepo.email
+                      ? `Valeurs du dépôt: ${
+                          gitIdentityRepo.name || "Non défini"
+                        } / ${gitIdentityRepo.email || "Non défini"}.`
+                      : "Aucune valeur spécifique au dépôt."}
+                  </span>
+                </div>
+                <div className="settings-fields">
+                  <label className="settings-field">
+                    <span className="settings-field-label">user.name</span>
+                    <input
+                      type="text"
+                      className="settings-input"
+                      value={gitIdentityName}
+                      onChange={(event) => setGitIdentityName(event.target.value)}
+                      placeholder={gitIdentityGlobal.name || "Nom complet"}
+                      disabled={
+                        gitIdentityLoading ||
+                        gitIdentitySaving ||
+                        !attachmentSession?.sessionId
+                      }
+                    />
+                  </label>
+                  <label className="settings-field">
+                    <span className="settings-field-label">user.email</span>
+                    <input
+                      type="email"
+                      className="settings-input"
+                      value={gitIdentityEmail}
+                      onChange={(event) =>
+                        setGitIdentityEmail(event.target.value)
+                      }
+                      placeholder={
+                        gitIdentityGlobal.email || "ton.email@exemple.com"
+                      }
+                      disabled={
+                        gitIdentityLoading ||
+                        gitIdentitySaving ||
+                        !attachmentSession?.sessionId
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="settings-button"
+                    onClick={handleSaveGitIdentity}
+                    disabled={
+                      gitIdentityLoading ||
+                      gitIdentitySaving ||
+                      !attachmentSession?.sessionId
+                    }
+                  >
+                    {gitIdentitySaving ? "Enregistrement..." : "Enregistrer"}
+                  </button>
+                  {gitIdentityLoading ? (
+                    <span className="settings-status">Chargement...</span>
+                  ) : null}
+                  {gitIdentityError ? (
+                    <span className="settings-status is-error">
+                      {gitIdentityError}
+                    </span>
+                  ) : null}
+                  {gitIdentityMessage ? (
+                    <span className="settings-status">{gitIdentityMessage}</span>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </div>
           </div>
