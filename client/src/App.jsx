@@ -2607,15 +2607,19 @@ function App() {
     if (!terminalContainerRef.current || terminalRef.current) {
       return;
     }
+    const isDark = themeMode === "dark";
     const term = new Terminal({
       fontFamily:
         '"SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace',
       fontSize: 13,
       cursorBlink: true,
       theme: {
-        background: "#fbf6ee",
-        foreground: "#2a2418",
-        cursor: "#2a2418",
+        background: isDark ? "#0f1110" : "#fbf6ee",
+        foreground: isDark ? "#e6edf3" : "#2a2418",
+        cursor: isDark ? "#e6edf3" : "#2a2418",
+        selection: isDark
+          ? "rgba(255, 255, 255, 0.2)"
+          : "rgba(20, 19, 17, 0.15)",
       },
     });
     const fitAddon = new FitAddon();
@@ -2631,7 +2635,7 @@ function App() {
         socket.send(JSON.stringify({ type: "input", data }));
       }
     });
-  }, [activePane, terminalEnabled]);
+  }, [activePane, terminalEnabled, themeMode]);
 
   useEffect(() => {
     return () => {
@@ -2654,6 +2658,17 @@ function App() {
     if (!terminalEnabled) {
       return;
     }
+    if (terminalRef.current) {
+      const isDark = themeMode === "dark";
+      terminalRef.current.setOption("theme", {
+        background: isDark ? "#0f1110" : "#fbf6ee",
+        foreground: isDark ? "#e6edf3" : "#2a2418",
+        cursor: isDark ? "#e6edf3" : "#2a2418",
+        selection: isDark
+          ? "rgba(255, 255, 255, 0.2)"
+          : "rgba(20, 19, 17, 0.15)",
+      });
+    }
     if (terminalFitRef.current) {
       requestAnimationFrame(() => {
         const fitAddon = terminalFitRef.current;
@@ -2672,7 +2687,7 @@ function App() {
       });
     }
     connectTerminal();
-  }, [activePane, connectTerminal, terminalEnabled]);
+  }, [activePane, connectTerminal, terminalEnabled, themeMode]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -4748,10 +4763,10 @@ function App() {
           <button
             type="button"
             className="icon-button"
-            aria-label={sideOpen ? "Fermer le panneau" : "Ouvrir le panneau"}
-            onClick={() => setSideOpen((current) => !current)}
+            aria-label="Ouvrir les paramètres"
+            onClick={handleOpenSettings}
           >
-            ☰
+            ⚙️
           </button>
           <div className="topbar-brand">
             <p className="eyebrow">m5chat</p>

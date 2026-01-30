@@ -601,6 +601,54 @@ export default function WorktreeTabs({
           cursor: not-allowed;
         }
 
+        :root[data-theme="dark"] .worktree-tabs {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(255, 255, 255, 0.14);
+        }
+
+        :root[data-theme="dark"] .worktree-select {
+          background: rgba(22, 24, 23, 0.9);
+          border-color: rgba(255, 255, 255, 0.18);
+          color: #e6edf3;
+        }
+
+        :root[data-theme="dark"] .worktree-tab {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.12);
+          color: #e6edf3;
+        }
+
+        :root[data-theme="dark"] .worktree-tab:hover {
+          background: rgba(255, 255, 255, 0.16);
+          border-color: rgba(255, 255, 255, 0.22);
+        }
+
+        :root[data-theme="dark"] .worktree-tab.active {
+          background: rgba(255, 255, 255, 0.22);
+          border-color: var(--tab-accent, #3b82f6);
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+        }
+
+        :root[data-theme="dark"] .worktree-tab-provider {
+          color: #b7ada1;
+        }
+
+        :root[data-theme="dark"] .worktree-tab-close {
+          color: #c6cbd1;
+        }
+
+        :root[data-theme="dark"] .worktree-tab-add {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(255, 255, 255, 0.22);
+          color: #b7ada1;
+        }
+
+        :root[data-theme="dark"] .worktree-tab-add:hover:not(:disabled) {
+          background: rgba(255, 255, 255, 0.16);
+          border-color: var(--accent, #ee5d3b);
+          color: var(--accent, #ee5d3b);
+        }
+
         .worktree-create-dialog-overlay {
           position: fixed;
           inset: 0;

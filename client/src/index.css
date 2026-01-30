@@ -1230,6 +1230,121 @@ main.chat {
   font-size: 12px;
 }
 
+:root[data-theme="dark"] .tab-button {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .tab-button.is-active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .tab-button:not(.is-active):hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme="dark"] .explorer-tree,
+:root[data-theme="dark"] .explorer-editor {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(22, 24, 23, 0.85);
+}
+
+:root[data-theme="dark"] .explorer-editor-header {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-muted);
+}
+
+:root[data-theme="dark"] .explorer-tree-toggle:hover,
+:root[data-theme="dark"] .explorer-tree-file:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .explorer-tree-item.is-file.is-selected > .explorer-tree-file {
+  background: rgba(238, 93, 59, 0.22);
+  color: #ffd2c7;
+}
+
+:root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-toggle,
+:root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-file,
+:root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-toggle .explorer-tree-name,
+:root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-toggle .explorer-tree-icon,
+:root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-file .explorer-tree-name,
+:root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-file .explorer-tree-icon {
+  color: #8ab4ff;
+}
+
+:root[data-theme="dark"] .explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-toggle,
+:root[data-theme="dark"] .explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-file,
+:root[data-theme="dark"] .explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-toggle .explorer-tree-name,
+:root[data-theme="dark"] .explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-toggle .explorer-tree-icon,
+:root[data-theme="dark"] .explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-file .explorer-tree-name,
+:root[data-theme="dark"] .explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-file .explorer-tree-icon {
+  color: #7ee6a8;
+}
+
+:root[data-theme="dark"] .diff-file {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(20, 22, 21, 0.9);
+}
+
+:root[data-theme="dark"] .diff-file-header {
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .diff-status {
+  background: rgba(255, 255, 255, 0.05);
+  color: #c9d1d9;
+}
+
+:root[data-theme="dark"] .diff-fallback {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .diff-line,
+:root[data-theme="dark"] .diff-code,
+:root[data-theme="dark"] .diff-gutter {
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .diff-line-add,
+:root[data-theme="dark"] .diff-line-added,
+:root[data-theme="dark"] .diff-line-insert,
+:root[data-theme="dark"] .diff-added,
+:root[data-theme="dark"] .diff-code-insert,
+:root[data-theme="dark"] .diff-gutter-insert {
+  background: rgba(46, 160, 67, 0.25);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .diff-line-del,
+:root[data-theme="dark"] .diff-line-removed,
+:root[data-theme="dark"] .diff-line-delete,
+:root[data-theme="dark"] .diff-removed,
+:root[data-theme="dark"] .diff-code-delete,
+:root[data-theme="dark"] .diff-gutter-delete {
+  background: rgba(248, 81, 73, 0.25);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .diff-hunk {
+  background: rgba(255, 255, 255, 0.06);
+  color: #c9d1d9;
+}
+
+:root[data-theme="dark"] .terminal-body {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f1110;
+}
+
 .logs-panel {
   background: var(--surface);
   border-radius: var(--radius);
