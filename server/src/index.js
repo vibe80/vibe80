@@ -12,6 +12,10 @@ import * as pty from "node-pty";
 import { CodexAppServerClient } from "./codexClient.js";
 import { ClaudeCliClient } from "./claudeClient.js";
 import {
+  DEFAULT_GIT_AUTHOR_EMAIL,
+  DEFAULT_GIT_AUTHOR_NAME,
+} from "./config.js";
+import {
   getOrCreateClient,
   getActiveClient,
   isValidProvider,
@@ -1066,6 +1070,18 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         uid: ids.uid,
         gid: ids.gid,
       });
+      if (DEFAULT_GIT_AUTHOR_NAME && DEFAULT_GIT_AUTHOR_EMAIL) {
+        await runCommand(
+          "git",
+          ["-C", repoDir, "config", "user.name", DEFAULT_GIT_AUTHOR_NAME],
+          { env, uid: ids.uid, gid: ids.gid }
+        );
+        await runCommand(
+          "git",
+          ["-C", repoDir, "config", "user.email", DEFAULT_GIT_AUTHOR_EMAIL],
+          { env, uid: ids.uid, gid: ids.gid }
+        );
+      }
       if (auth?.type === "http" && auth.username && auth.password) {
         await runCommand(
           "git",
