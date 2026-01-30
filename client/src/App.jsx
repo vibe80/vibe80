@@ -2622,6 +2622,15 @@ function App() {
           : "rgba(20, 19, 17, 0.15)",
       },
     });
+    if (typeof term.setOption !== "function") {
+      term.setOption = (key, value) => {
+        if (key && typeof key === "object") {
+          term.options = { ...term.options, ...key };
+          return;
+        }
+        term.options = { ...term.options, [key]: value };
+      };
+    }
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalContainerRef.current);
@@ -2636,6 +2645,30 @@ function App() {
       }
     });
   }, [activePane, terminalEnabled, themeMode]);
+
+  useEffect(() => {
+    const term = terminalRef.current;
+    if (!term) {
+      return;
+    }
+    const theme =
+      themeMode === "dark"
+        ? {
+            background: "#15120d",
+            foreground: "#f2e9dc",
+            cursor: "#f2e9dc",
+          }
+        : {
+            background: "#fbf6ee",
+            foreground: "#2a2418",
+            cursor: "#2a2418",
+          };
+    if (typeof term.setOption === "function") {
+      term.setOption("theme", theme);
+    } else {
+      term.options = { ...term.options, theme };
+    }
+  }, [themeMode]);
 
   useEffect(() => {
     return () => {
