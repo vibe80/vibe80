@@ -109,15 +109,19 @@ export class ClaudeCliClient extends EventEmitter {
   }
 
   async listModels() {
-    const model = this.modelInfo?.model || "claude";
+    const model = this.modelInfo?.model || "default";
     return {
       data: [
         {
-          id: model,
-          model,
-          displayName: model,
+          id: "default",
+          model: "default",
+          displayName: "default",
           isDefault: true,
         },
+        { id: "sonnet", model: "sonnet", displayName: "sonnet" },
+        { id: "opus", model: "opus", displayName: "opus" },
+        { id: "haiku", model: "haiku", displayName: "haiku" },
+        { id: "opusplan", model: "opusplan", displayName: "opusplan" },
       ],
       nextCursor: null,
     };
