@@ -4103,6 +4103,19 @@ function App() {
     inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
   };
 
+  const handleComposerKeyDown = (event) => {
+    if (composerInputMode !== "single") {
+      return;
+    }
+    if (event.isComposing) {
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
+
   useEffect(() => {
     if (!inputRef.current) {
       return;
@@ -5917,6 +5930,7 @@ function App() {
                     }`}
                     value={input}
                     onChange={handleInputChange}
+                    onKeyDown={handleComposerKeyDown}
                     onPaste={onPasteAttachments}
                     placeholder="Écris ton message…"
                     rows={composerInputMode === "single" ? 1 : 2}
