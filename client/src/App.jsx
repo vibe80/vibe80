@@ -137,24 +137,22 @@ const parseFormFields = (blockBody) => {
     .filter(Boolean);
 };
 
-const replaceVibecoderFileRefs = (text) =>
-  text.replace(
-    /<!--\s*vibecoder:fileref\s+([^>]+?)\s*-->/g,
-    (_, filePath) => {
-      const trimmed = String(filePath || "").trim();
-      if (!trimmed) {
-        return "";
-      }
-      const encoded = encodeURIComponent(trimmed);
-      return `[${trimmed}](vibecoder-fileref:${encoded})`;
-    }
-  );
-
 const extractVibecoderBlocks = (text) => {
   const pattern =
     /<!--\s*vibecoder:(choices|form)\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:\1\s*-->|<!--\s*vibecoder:yesno\s*([^>]*)-->/g;
+  const filerefPattern = /<!--\s*vibecoder:fileref\s+([^>]+?)\s*-->/g;
   const blocks = [];
-  const normalizedText = replaceVibecoderFileRefs(text || "");
+  const filerefs = [];
+  const normalizedText = String(text || "").replace(
+    filerefPattern,
+    (_, filePath) => {
+      const trimmed = String(filePath || "").trim();
+      if (trimmed) {
+        filerefs.push(trimmed);
+      }
+      return "";
+    }
+  );
   let cleaned = "";
   let lastIndex = 0;
   let match;
@@ -193,11 +191,11 @@ const extractVibecoderBlocks = (text) => {
   }
 
   if (!blocks.length) {
-    return { cleanedText: normalizedText, blocks: [] };
+    return { cleanedText: normalizedText, blocks: [], filerefs };
   }
 
   cleaned += normalizedText.slice(lastIndex);
-  return { cleanedText: cleaned.trim(), blocks };
+  return { cleanedText: cleaned.trim(), blocks, filerefs };
 };
 
 const copyTextToClipboard = async (text) => {
@@ -5136,33 +5134,14 @@ function App() {
                   return (
                     <div key={message.id} className={`bubble ${message.role}`}>
                       {(() => {
-                        const { cleanedText, blocks } = extractVibecoderBlocks(
-                          message.text || ""
-                        );
+                        const { cleanedText, blocks, filerefs } =
+                          extractVibecoderBlocks(message.text || "");
                         return (
                           <>
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
                                 a: ({ node, ...props }) => {
-                                  const href = typeof props.href === "string" ? props.href : "";
-                                  if (href.startsWith("vibecoder-fileref:")) {
-                                    const encodedPath = href.slice("vibecoder-fileref:".length);
-                                    const decodedPath = decodeURIComponent(encodedPath);
-                                    return (
-                                      <button
-                                        type="button"
-                                        className="fileref-link"
-                                        onClick={(event) => {
-                                          event.preventDefault();
-                                          event.stopPropagation();
-                                          openFileInExplorer(decodedPath);
-                                        }}
-                                      >
-                                        {props.children}
-                                      </button>
-                                    );
-                                  }
                                   return (
                                     <a
                                       {...props}
@@ -5214,6 +5193,24 @@ function App() {
                             >
                               {cleanedText}
                             </ReactMarkdown>
+                            {filerefs.length ? (
+                              <div className="fileref-list">
+                                {filerefs.map((pathRef) => (
+                                  <button
+                                    key={`${message.id}-fileref-${pathRef}`}
+                                    type="button"
+                                    className="fileref-link"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      openFileInExplorer(pathRef);
+                                    }}
+                                  >
+                                    {pathRef}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
                             {blocks.map((block, index) => {
                               const blockKey = `${message.id}-${index}`;
                               if (block.type === "form") {
