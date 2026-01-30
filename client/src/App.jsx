@@ -2770,6 +2770,7 @@ function App() {
         });
         if (!response.ok) {
           let details = "";
+          let errorType = "";
           try {
             const errorPayload = await response.json();
             if (typeof errorPayload?.error === "string") {
@@ -2779,12 +2780,29 @@ function App() {
             } else if (typeof errorPayload === "string") {
               details = errorPayload;
             }
+            if (typeof errorPayload?.error_type === "string") {
+              errorType = errorPayload.error_type;
+            }
           } catch (parseError) {
             try {
               details = await response.text();
             } catch (readError) {
               details = "";
             }
+          }
+          const isInvalidToken =
+            response.status === 401 &&
+            (errorType === "WORKSPACE_TOKEN_INVALID" ||
+              (typeof details === "string" &&
+                details.toLowerCase().includes("invalid workspace token")));
+          if (isInvalidToken) {
+            setWorkspaceToken("");
+            setWorkspaceMode("existing");
+            setWorkspaceError(
+              "Token workspace invalide. Merci de vous reconnecter."
+            );
+            setAttachmentsError("");
+            return;
           }
           const suffix = details ? `: ${details}` : "";
           if (response.status === 401 || response.status === 403) {
