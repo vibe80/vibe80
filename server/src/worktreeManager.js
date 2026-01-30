@@ -108,6 +108,31 @@ const resolveStartingRef = (startingBranch, remote = "origin") => {
   return `${remote}/${trimmed}`;
 };
 
+const normalizeBranchName = (value, remote = "origin") => {
+  if (!value || typeof value !== "string") {
+    return "";
+  }
+  let name = value.trim();
+  if (!name) {
+    return "";
+  }
+  if (name.startsWith("refs/heads/")) {
+    name = name.slice("refs/heads/".length);
+  } else if (name.startsWith(`refs/remotes/${remote}/`)) {
+    name = name.slice(`refs/remotes/${remote}/`.length);
+  } else if (name.startsWith(`${remote}/`)) {
+    name = name.slice(`${remote}/`.length);
+  }
+  return name.trim();
+};
+
+const resolveCurrentBranchName = async (session) => {
+  const output = await runSessionCommandOutput(session, "git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+    cwd: session.repoDir,
+  });
+  return output.trim();
+};
+
 /**
  * Génère un nom de worktree à partir du premier message ou un nom par défaut
  */
@@ -158,19 +183,16 @@ export async function createWorktree(session, options) {
   // Générer un ID unique
   const worktreeId = crypto.randomBytes(8).toString("hex");
 
-  // Générer le nom de la branche
   const worktreeIndex = session.worktrees.size + 1;
-  const baseName = name || generateWorktreeName(null, worktreeIndex);
-  const branchName = `wt-${worktreeId.slice(0, 6)}-${baseName}`;
+  const requestedBranchName = normalizeBranchName(name);
 
   // Chemin du worktree
   const worktreePath = path.join(worktreesDir, worktreeId);
 
-  // Déterminer le commit de départ
   let startCommit = "HEAD";
+  let sourceBranchName = "";
   if (parentWorktreeId && session.worktrees.has(parentWorktreeId)) {
     const parent = session.worktrees.get(parentWorktreeId);
-    // Obtenir le HEAD du worktree parent
     startCommit = await runSessionCommandOutput(
       session,
       "git",
@@ -178,14 +200,68 @@ export async function createWorktree(session, options) {
       { cwd: parent.path }
     );
     startCommit = startCommit.trim();
+    sourceBranchName = parent.branchName || "";
   } else if (startingBranch) {
     startCommit = resolveStartingRef(startingBranch) || startingBranch;
+    sourceBranchName = normalizeBranchName(startingBranch);
+  } else {
+    sourceBranchName = await resolveCurrentBranchName(session);
   }
 
-  // Créer la branche
-  await runSessionCommand(session, "git", ["branch", branchName, startCommit], {
-    cwd: session.repoDir,
-  });
+  const baseName =
+    requestedBranchName ||
+    sourceBranchName ||
+    generateWorktreeName(null, worktreeIndex);
+  const branchName = requestedBranchName
+    ? requestedBranchName
+    : `wt-${worktreeId.slice(0, 6)}-${baseName}`;
+
+  const checkRemoteBranchExists = async (branch) => {
+    const remoteRef = resolveStartingRef(branch);
+    if (!remoteRef) {
+      return false;
+    }
+    const remoteVerifyRef = remoteRef.startsWith("refs/")
+      ? remoteRef
+      : `refs/remotes/${remoteRef}`;
+    try {
+      await runSessionCommand(
+        session,
+        "git",
+        ["show-ref", "--verify", remoteVerifyRef],
+        { cwd: session.repoDir }
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const remoteBranchExists = requestedBranchName
+    ? await checkRemoteBranchExists(requestedBranchName)
+    : false;
+
+  if (requestedBranchName) {
+    if (remoteBranchExists) {
+      await runSessionCommand(
+        session,
+        "git",
+        ["branch", branchName, resolveStartingRef(requestedBranchName)],
+        { cwd: session.repoDir }
+      );
+    } else {
+      if (!parentWorktreeId && !startingBranch) {
+        throw new Error("Branche source requise pour creer une nouvelle branche.");
+      }
+      await runSessionCommand(session, "git", ["branch", branchName, startCommit], {
+        cwd: session.repoDir,
+      });
+    }
+  } else {
+    await runSessionCommand(session, "git", ["branch", branchName, startCommit], {
+      cwd: session.repoDir,
+    });
+  }
 
   // Associer directement la branche locale au remote pour permettre `git push` sans -u.
   await runSessionCommand(
