@@ -5150,15 +5150,17 @@ function App() {
                                     const encodedPath = href.slice("vibecoder-fileref:".length);
                                     const decodedPath = decodeURIComponent(encodedPath);
                                     return (
-                                      <a
-                                        {...props}
-                                        href="#"
+                                      <button
+                                        type="button"
+                                        className="fileref-link"
                                         onClick={(event) => {
                                           event.preventDefault();
                                           event.stopPropagation();
                                           openFileInExplorer(decodedPath);
                                         }}
-                                      />
+                                      >
+                                        {props.children}
+                                      </button>
                                     );
                                   }
                                   return (
