@@ -26,10 +26,20 @@
   --accent: #ee5d3b;
   --accent-dark: #d9573c;
   --surface: #171a19;
+  --surface-elevated: #1f2321;
+  --surface-ghost: rgba(20, 24, 22, 0.8);
+  --border-soft: rgba(255, 255, 255, 0.12);
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
   --app-bg: radial-gradient(circle at top left, #1b211f, transparent 60%),
     radial-gradient(circle at 20% 20%, #261a16, transparent 55%),
     linear-gradient(160deg, #0f1110, #141816);
+}
+
+:root {
+  --surface-elevated: #ffffff;
+  --surface-ghost: rgba(255, 255, 255, 0.92);
+  --border-soft: rgba(20, 19, 17, 0.12);
 }
 
 * {
@@ -947,6 +957,53 @@ main.chat {
   overflow: auto;
   min-height: 0;
   height: 100%;
+}
+
+:root[data-theme="dark"] .diff-panel .diff-view {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .diff-panel .diff-code {
+  background: #121514;
+}
+
+:root[data-theme="dark"] .diff-panel .diff-gutter {
+  background: #0f1211;
+  color: rgba(242, 237, 227, 0.6);
+}
+
+:root[data-theme="dark"] .diff-panel .diff-line:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme="dark"] .diff-panel .diff-code-added {
+  background: rgba(46, 116, 64, 0.4);
+}
+
+:root[data-theme="dark"] .diff-panel .diff-code-deleted {
+  background: rgba(176, 67, 53, 0.35);
+}
+
+:root[data-theme="dark"] .diff-panel .diff-gutter-added {
+  background: rgba(46, 116, 64, 0.6);
+  color: #eaf6ef;
+}
+
+:root[data-theme="dark"] .diff-panel .diff-gutter-deleted {
+  background: rgba(176, 67, 53, 0.55);
+  color: #fdeceb;
+}
+
+:root[data-theme="dark"] .diff-panel .diff-line::selection,
+:root[data-theme="dark"] .diff-panel .diff-line ::selection {
+  background: rgba(120, 180, 255, 0.35);
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .diff-panel .diff-gutter::selection,
+:root[data-theme="dark"] .diff-panel .diff-gutter ::selection {
+  background: rgba(120, 180, 255, 0.35);
+  color: #ffffff;
 }
 
 .explorer-panel {
@@ -2281,7 +2338,7 @@ main.chat {
   width: min(540px, 92vw);
   background: var(--surface);
   border-radius: 18px;
-  border: 1px solid rgba(20, 19, 17, 0.1);
+  border: 1px solid var(--border-soft);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   padding: 18px 20px 20px;
   display: grid;
@@ -2336,12 +2393,12 @@ main.chat {
 
 .vibecoder-form-input {
   width: 100%;
-  border: 1px solid rgba(20, 19, 17, 0.12);
+  border: 1px solid var(--border-soft);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
   font-family: "Space Grotesk", system-ui, sans-serif;
-  background: white;
+  background: var(--surface-elevated);
   color: var(--ink);
 }
 
@@ -2834,9 +2891,9 @@ main.chat {
 }
 
 .attachment-card {
-  border: 1px solid rgba(20, 19, 17, 0.12);
+  border: 1px solid var(--border-soft);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--surface-ghost);
   padding: 12px 14px;
   min-width: 150px;
   max-width: 200px;
@@ -2877,6 +2934,60 @@ main.chat {
   color: var(--ink-muted);
 }
 
+:root[data-theme="dark"] .attachment-card-type,
+:root[data-theme="dark"] .attachment-card-remove,
+:root[data-theme="dark"] .vibecoder-form-cancel,
+:root[data-theme="dark"] .vibecoder-form-close {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .vibecoder-form-overlay {
+  background: rgba(7, 8, 7, 0.7);
+}
+
+:root[data-theme="dark"] .vibecoder-form-dialog {
+  background: var(--surface-elevated);
+  border-color: var(--border-soft);
+}
+
+:root[data-theme="dark"] .vibecoder-form-select,
+:root[data-theme="dark"] .vibecoder-form-input {
+  background: #111413;
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-theme="dark"] .vibecoder-form-input {
+  background: #111413;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .vibecoder-form-input::placeholder {
+  color: rgba(242, 237, 227, 0.5);
+}
+
+:root[data-theme="dark"] .attachment-card {
+  background: #1c201e;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="dark"] .attachment-card-title {
+  color: #f5efe4;
+}
+
+:root[data-theme="dark"] .attachment-card-meta {
+  color: rgba(242, 237, 227, 0.6);
+}
+
+:root[data-theme="dark"] .attachment-card-remove:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+:root[data-theme="dark"] .composer-input::placeholder {
+  color: rgba(242, 237, 227, 0.5);
+}
 .attachment-card-remove {
   border: none;
   background: rgba(20, 19, 17, 0.08);
@@ -2896,6 +3007,14 @@ main.chat {
 .composer-attachments-count {
   font-size: 12px;
   color: var(--ink-muted);
+}
+
+:root[data-theme="dark"] .composer-input {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .composer-attachments-count {
+  color: rgba(242, 237, 227, 0.6);
 }
 
 .chip {

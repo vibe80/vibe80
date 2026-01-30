@@ -6222,7 +6222,7 @@ function App() {
                       </label>
                       <select
                         id={fieldId}
-                        className="vibecoder-form-input"
+                        className="vibecoder-form-input vibecoder-form-select"
                         value={value}
                         onChange={(event) =>
                           updateActiveFormValue(field.id, event.target.value)
