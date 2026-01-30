@@ -3747,6 +3747,17 @@ function App() {
     window.history.replaceState({}, "", url);
   }, []);
 
+  const handleLeaveWorkspace = useCallback(() => {
+    setWorkspaceToken("");
+    setWorkspaceId("");
+    setWorkspaceIdInput("");
+    setWorkspaceSecretInput("");
+    setWorkspaceCreated(null);
+    setWorkspaceError("");
+    setWorkspaceMode("existing");
+    setWorkspaceStep(1);
+  }, []);
+
   const handleDiffSelect = useCallback(() => {
     handleViewSelect("diff");
     if (activeWorktreeId && activeWorktreeId !== "main") {
@@ -4594,6 +4605,12 @@ function App() {
               <p className="session-hint">
                 Workspace valide. Configurez le depot a cloner.
               </p>
+              <div className="session-form-row">
+                <div />
+                <button type="button" onClick={handleLeaveWorkspace}>
+                  Leave workspace
+                </button>
+              </div>
               {(workspaceCreated?.workspaceId || workspaceId) && (
                 <div className="session-meta">
                   Workspace: {workspaceCreated?.workspaceId || workspaceId}
