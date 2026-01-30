@@ -1375,7 +1375,7 @@ function attachClientEvents(sessionId, client, provider) {
           threadId,
           turnId: turn.id,
           status: turn.status,
-          error: turn.error?.message || null,
+          error: turn.error || null,
           provider,
         });
         break;
@@ -1594,7 +1594,7 @@ function attachClientEventsForWorktree(sessionId, worktree) {
           threadId,
           turnId: turn.id,
           status: turn.status,
-          error: turn.error?.message || null,
+          error: turn.error || null,
           provider,
         });
         break;

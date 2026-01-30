@@ -1893,11 +1893,12 @@ function App() {
         }
 
         if (!isWorktreeScoped && payload.type === "turn_completed") {
-          const turnErrorInfo = payload?.turn?.error?.codexErrorInfo;
+          const errorPayload = payload?.turn?.error || payload?.error || null;
+          const turnErrorInfo = errorPayload?.codexErrorInfo;
           if (turnErrorInfo === "usageLimitExceeded") {
-            const warningId = `usage-limit-${payload.turn?.id || Date.now()}`;
+            const warningId = `usage-limit-${payload.turnId || payload.turn?.id || Date.now()}`;
             const warningText =
-              payload?.turn?.error?.message ||
+              (typeof errorPayload === "string" ? errorPayload : errorPayload?.message) ||
               "Limite d'usage atteinte. Merci de reessayer plus tard.";
             setMessages((current) => {
               if (current.some((message) => message.id === warningId)) {
@@ -2274,6 +2275,33 @@ function App() {
               }
               return next;
             });
+          }
+
+          if (payload.type === "turn_completed") {
+            const errorPayload = payload?.turn?.error || payload?.error || null;
+            const turnErrorInfo = errorPayload?.codexErrorInfo;
+            if (turnErrorInfo === "usageLimitExceeded") {
+              const warningId = `usage-limit-${payload.turnId || Date.now()}`;
+              const warningText =
+                (typeof errorPayload === "string" ? errorPayload : errorPayload?.message) ||
+                "Limite d'usage atteinte. Merci de reessayer plus tard.";
+              setWorktrees((current) => {
+                const next = new Map(current);
+                const wt = next.get(wtId);
+                if (!wt) return current;
+                if (wt.messages.some((message) => message.id === warningId)) {
+                  return current;
+                }
+                next.set(wtId, {
+                  ...wt,
+                  messages: [
+                    ...wt.messages,
+                    { id: warningId, role: "assistant", text: `⚠️ ${warningText}` },
+                  ],
+                });
+                return next;
+              });
+            }
           }
 
           if (payload.type === "assistant_delta" || payload.type === "assistant_message") {
