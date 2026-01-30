@@ -69,7 +69,6 @@ export class ClaudeCliClient extends EventEmitter {
     ];
 
     const proc = spawn(SUDO_PATH, helperArgs, {
-      cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
       env: this.env,
     });

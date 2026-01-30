@@ -40,7 +40,6 @@ export class CodexAppServerClient extends EventEmitter {
       SUDO_PATH,
       helperArgs,
       {
-        cwd: this.cwd,
         stdio: ["pipe", "pipe", "pipe"],
         env: this.env,
       }
