@@ -74,7 +74,7 @@ export default function WorktreeTabs({
     if (!branches?.length && onRefreshBranches && !branchLoading) {
       onRefreshBranches();
     }
-    if (newProvider === "codex" && onRequestProviderModels) {
+    if (onRequestProviderModels) {
       const providerState = providerModelState?.[newProvider] || {};
       if (!providerState.loading && !(providerState.models || []).length) {
         onRequestProviderModels(newProvider);
@@ -98,15 +98,14 @@ export default function WorktreeTabs({
   }, [providerOptions, newProvider]);
 
   useEffect(() => {
-    if (newProvider === "codex" && onRequestProviderModels) {
+    if (onRequestProviderModels) {
       const providerState = providerModelState?.[newProvider] || {};
       if (!providerState.loading && !(providerState.models || []).length) {
         onRequestProviderModels(newProvider);
       }
-    } else {
-      setNewModel("");
-      setNewReasoningEffort("");
     }
+    setNewModel("");
+    setNewReasoningEffort("");
   }, [newProvider, onRequestProviderModels]);
 
   const providerState = providerModelState?.[newProvider] || {};
@@ -131,16 +130,24 @@ export default function WorktreeTabs({
   );
 
   useEffect(() => {
-    if (newProvider !== "codex") return;
     if (!newModel && defaultModel?.model) {
       setNewModel(defaultModel.model);
     }
-    if (!newReasoningEffort && defaultModel?.defaultReasoningEffort) {
+    if (newProvider === "codex" && !newReasoningEffort && defaultModel?.defaultReasoningEffort) {
       setNewReasoningEffort(defaultModel.defaultReasoningEffort);
+    }
+    if (newProvider !== "codex" && newReasoningEffort) {
+      setNewReasoningEffort("");
     }
   }, [newProvider, newModel, newReasoningEffort, defaultModel]);
 
   useEffect(() => {
+    if (newProvider !== "codex") {
+      if (newReasoningEffort) {
+        setNewReasoningEffort("");
+      }
+      return;
+    }
     if (!selectedModelDetails?.supportedReasoningEfforts?.length) {
       if (newReasoningEffort) {
         setNewReasoningEffort("");
@@ -375,7 +382,7 @@ export default function WorktreeTabs({
               )}
               {branchError && <div className="worktree-field-error">{branchError}</div>}
             </div>
-            {newProvider === "codex" && (
+            {(newProvider === "codex" || newProvider === "claude") && (
               <>
                 <div className="worktree-create-field">
                   <label>Modele</label>
@@ -401,34 +408,36 @@ export default function WorktreeTabs({
                       {providerState.loading ? "Chargement..." : "Rafraichir"}
                     </button>
                   </div>
-                  {providerState.error && (
-                    <div className="worktree-field-error">{providerState.error}</div>
-                  )}
-                </div>
-                <div className="worktree-create-field">
-                  <label>Reasoning</label>
-                  <select
-                    value={newReasoningEffort}
-                    onChange={(e) => setNewReasoningEffort(e.target.value)}
-                    disabled={
-                      providerState.loading ||
-                      !selectedModelDetails ||
-                      !selectedModelDetails.supportedReasoningEfforts?.length
-                    }
-                  >
-                    <option value="">Reasoning par defaut</option>
-                    {(selectedModelDetails?.supportedReasoningEfforts || []).map(
-                      (effort) => (
-                        <option
-                          key={effort.reasoningEffort}
-                          value={effort.reasoningEffort}
-                        >
-                          {effort.reasoningEffort}
-                        </option>
-                      )
+                    {providerState.error && (
+                      <div className="worktree-field-error">{providerState.error}</div>
                     )}
-                  </select>
-                </div>
+                  </div>
+                {newProvider === "codex" && (
+                  <div className="worktree-create-field">
+                    <label>Reasoning</label>
+                    <select
+                      value={newReasoningEffort}
+                      onChange={(e) => setNewReasoningEffort(e.target.value)}
+                      disabled={
+                        providerState.loading ||
+                        !selectedModelDetails ||
+                        !selectedModelDetails.supportedReasoningEfforts?.length
+                      }
+                    >
+                      <option value="">Reasoning par defaut</option>
+                      {(selectedModelDetails?.supportedReasoningEfforts || []).map(
+                        (effort) => (
+                          <option
+                            key={effort.reasoningEffort}
+                            value={effort.reasoningEffort}
+                          >
+                            {effort.reasoningEffort}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+                )}
               </>
             )}
             <div className="worktree-create-actions">
