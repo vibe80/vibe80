@@ -41,7 +41,10 @@ RUN useradd -m -d /home/app -s /bin/bash app \
     && chown -R app:app /app /home/app/.codex
 RUN chmod +x /app/start.sh
 
+# Install Claude code
 RUN curl -fsSL https://claude.ai/install.sh | bash
+# Make Claude command available to all users
+RUN bash -c 'mv $(readlink /root/.local/bin/claude) /usr/bin/claude'
 
 EXPOSE 5179
 
