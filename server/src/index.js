@@ -613,6 +613,10 @@ const recoverWorkspaceIds = async (workspaceId) => {
   const ids = { uid, gid };
   await ensureWorkspaceUser(workspaceId, homeDir, ids);
   await ensureWorkspaceIdsRecorded(workspaceId, ids, config);
+  await appendAuditLog(workspaceId, "workspace_user_rehydrated", {
+    uid: ids.uid,
+    gid: ids.gid,
+  });
   return ids;
 };
 
