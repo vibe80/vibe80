@@ -46,6 +46,10 @@ const cwd = process.cwd();
 const sessions = new Map();
 const workspaces = new Map();
 const workspaceUserIds = new Map();
+const workspaceUidMin = Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
+const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
+const workspaceIdsUsed = new Set();
+let workspaceIdsScanned = false;
 const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
 const workspaceRootName = "vibecoder_workspace";
 const workspaceMetadataDirName = "metadata";
@@ -367,12 +371,20 @@ const getWorkspaceUserIds = async (workspaceId) => {
   if (cached) {
     return cached;
   }
-  const [uidRaw, gidRaw] = await Promise.all([
-    runCommandOutput("id", ["-u", workspaceId]),
-    runCommandOutput("id", ["-g", workspaceId]),
-  ]);
-  const uid = Number(uidRaw.trim());
-  const gid = Number(gidRaw.trim());
+  let uid = null;
+  let gid = null;
+  try {
+    const [uidRaw, gidRaw] = await Promise.all([
+      runCommandOutput("id", ["-u", workspaceId]),
+      runCommandOutput("id", ["-g", workspaceId]),
+    ]);
+    uid = Number(uidRaw.trim());
+    gid = Number(gidRaw.trim());
+  } catch {
+    const recovered = await recoverWorkspaceIds(workspaceId);
+    uid = recovered.uid;
+    gid = recovered.gid;
+  }
   const ids = { uid, gid };
   workspaceUserIds.set(workspaceId, ids);
   return ids;
@@ -469,13 +481,139 @@ const pickDefaultProvider = (providers) => {
   return providers[0];
 };
 
-const ensureWorkspaceUser = async (workspaceId, homeDirPath) => {
+const ensureWorkspaceUser = async (workspaceId, homeDirPath, ids = null) => {
   try {
     await runCommandOutput("id", ["-u", workspaceId]);
     return;
   } catch {
-    await runCommand("useradd", ["-m", "-d", homeDirPath, "-s", "/bin/bash", workspaceId]);
+    // continue
   }
+  if (ids?.gid) {
+    try {
+      await runCommandOutput("getent", ["group", String(ids.gid)]);
+    } catch {
+      await runCommand("groupadd", ["-g", String(ids.gid), workspaceId]);
+    }
+  }
+  const shouldCreateHome = !fs.existsSync(homeDirPath);
+  const userArgs = [shouldCreateHome ? "-m" : "-M", "-d", homeDirPath, "-s", "/bin/bash"];
+  if (ids?.uid) {
+    userArgs.push("-u", String(ids.uid));
+  }
+  if (ids?.gid) {
+    userArgs.push("-g", String(ids.gid));
+  }
+  userArgs.push(workspaceId);
+  await runCommand("useradd", userArgs);
+};
+
+const ensureWorkspaceIdsRecorded = async (workspaceId, ids, config = null) => {
+  const existing = config || (await readWorkspaceConfig(workspaceId).catch(() => null));
+  if (!existing) {
+    return;
+  }
+  if (Number.isFinite(existing.uid) && Number.isFinite(existing.gid)) {
+    return;
+  }
+  await writeWorkspaceConfig(workspaceId, existing.providers, ids, existing);
+};
+
+const scanWorkspaceIds = async () => {
+  if (workspaceIdsScanned) {
+    return;
+  }
+  workspaceIdsScanned = true;
+  let entries = [];
+  try {
+    entries = await fs.promises.readdir(workspaceHomeBase, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  const workspaceDirs = entries
+    .filter((entry) => entry.isDirectory() && workspaceIdPattern.test(entry.name))
+    .map((entry) => entry.name);
+  for (const workspaceId of workspaceDirs) {
+    try {
+      const config = await readWorkspaceConfig(workspaceId);
+      if (Number.isFinite(config?.uid)) {
+        workspaceIdsUsed.add(Number(config.uid));
+      }
+      if (Number.isFinite(config?.gid)) {
+        workspaceIdsUsed.add(Number(config.gid));
+      }
+      if (Number.isFinite(config?.uid) && Number.isFinite(config?.gid)) {
+        continue;
+      }
+    } catch {
+      // ignore missing config
+    }
+    try {
+      const homePath = path.join(workspaceHomeBase, workspaceId);
+      const stat = await fs.promises.stat(homePath);
+      if (Number.isFinite(stat.uid)) {
+        workspaceIdsUsed.add(stat.uid);
+      }
+      if (Number.isFinite(stat.gid)) {
+        workspaceIdsUsed.add(stat.gid);
+      }
+    } catch {
+      // ignore missing home dir
+    }
+  }
+};
+
+const allocateWorkspaceIds = async () => {
+  await scanWorkspaceIds();
+  const min = Math.max(1, workspaceUidMin);
+  const max = Math.max(min, workspaceUidMax);
+  const attempts = 1000;
+  for (let i = 0; i < attempts; i += 1) {
+    const candidate = crypto.randomInt(min, max + 1);
+    if (workspaceIdsUsed.has(candidate)) {
+      continue;
+    }
+    try {
+      await runCommandOutput("getent", ["passwd", String(candidate)]);
+      continue;
+    } catch {
+      // free uid
+    }
+    workspaceIdsUsed.add(candidate);
+    return { uid: candidate, gid: candidate };
+  }
+  throw new Error("Unable to allocate a workspace uid/gid.");
+};
+
+const recoverWorkspaceIds = async (workspaceId) => {
+  const homeDir = path.join(workspaceHomeBase, workspaceId);
+  let config = null;
+  try {
+    config = await readWorkspaceConfig(workspaceId);
+  } catch {
+    config = null;
+  }
+  let uid = Number.isFinite(config?.uid) ? Number(config.uid) : null;
+  let gid = Number.isFinite(config?.gid) ? Number(config.gid) : null;
+  if (!Number.isFinite(uid) || !Number.isFinite(gid)) {
+    try {
+      const stat = await fs.promises.stat(homeDir);
+      if (!Number.isFinite(uid)) {
+        uid = stat.uid;
+      }
+      if (!Number.isFinite(gid)) {
+        gid = stat.gid;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (!Number.isFinite(uid) || !Number.isFinite(gid)) {
+    throw new Error("Workspace user ids unavailable.");
+  }
+  const ids = { uid, gid };
+  await ensureWorkspaceUser(workspaceId, homeDir, ids);
+  await ensureWorkspaceIdsRecorded(workspaceId, ids, config);
+  return ids;
 };
 
 const ensureWorkspaceDirs = async (workspaceId) => {
@@ -557,11 +695,14 @@ const writeWorkspaceProviderAuth = async (workspaceId, providers, ids) => {
   }
 };
 
-const writeWorkspaceConfig = async (workspaceId, providers, ids) => {
+const writeWorkspaceConfig = async (workspaceId, providers, ids, existingConfig = null) => {
   const paths = getWorkspacePaths(workspaceId);
+  const existing = existingConfig || null;
   const payload = {
     workspaceId,
     providers,
+    uid: Number.isFinite(existing?.uid) ? existing.uid : ids?.uid,
+    gid: Number.isFinite(existing?.gid) ? existing.gid : ids?.gid,
     updatedAt: Date.now(),
   };
   await fs.promises.writeFile(paths.configPath, JSON.stringify(payload, null, 2), {
@@ -598,8 +739,8 @@ const createWorkspace = async (providers) => {
     if (fs.existsSync(paths.homeDir)) {
       continue;
     }
-    await ensureWorkspaceUser(workspaceId, paths.homeDir);
-    const ids = await getWorkspaceUserIds(workspaceId);
+    const ids = await allocateWorkspaceIds();
+    await ensureWorkspaceUser(workspaceId, paths.homeDir, ids);
     await ensureWorkspaceDirs(workspaceId);
     await fs.promises.chown(paths.homeDir, ids.uid, ids.gid).catch(() => {});
     await fs.promises.chown(paths.rootDir, ids.uid, ids.gid).catch(() => {});
@@ -622,8 +763,9 @@ const updateWorkspace = async (workspaceId, providers) => {
     throw new Error(validationError);
   }
   const ids = await getWorkspaceUserIds(workspaceId);
+  const existing = await readWorkspaceConfig(workspaceId).catch(() => null);
   await writeWorkspaceProviderAuth(workspaceId, providers, ids);
-  const payload = await writeWorkspaceConfig(workspaceId, providers, ids);
+  const payload = await writeWorkspaceConfig(workspaceId, providers, ids, existing);
   const paths = getWorkspacePaths(workspaceId);
   workspaces.set(workspaceId, { workspaceId, providers, paths });
   await appendAuditLog(workspaceId, "workspace_updated");
@@ -2679,6 +2821,7 @@ app.post("/api/workspaces/login", async (req, res) => {
       res.status(403).json({ error: "Invalid workspace credentials." });
       return;
     }
+    await getWorkspaceUserIds(workspaceId);
     const token = createWorkspaceToken(workspaceId);
     await appendAuditLog(workspaceId, "workspace_login_success");
     res.json({ workspaceToken: token, expiresIn: 60 * 60 * 24 });
