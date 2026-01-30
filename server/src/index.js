@@ -141,7 +141,7 @@ const attachWebSocketDebug = (socket, req, label) => {
   });
 };
 
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
 app.use((req, res, next) => {
   const originalJson = res.json.bind(res);
   res.json = (body) => {
