@@ -247,6 +247,51 @@ const runCommandOutput = (command, args, options = {}) =>
     });
   });
 
+const classifySessionCreationError = (error) => {
+  const rawMessage = (error?.message || "").trim();
+  const message = rawMessage.toLowerCase();
+  if (
+    message.includes("authentication failed") ||
+    message.includes("invalid username or password") ||
+    message.includes("http basic: access denied") ||
+    message.includes("could not read username") ||
+    message.includes("fatal: authentication")
+  ) {
+    return {
+      status: 401,
+      error: `Echec d'authentification Git.${rawMessage ? ` ${rawMessage}` : ""}`,
+    };
+  }
+  if (message.includes("permission denied (publickey)") || message.includes("publickey")) {
+    return {
+      status: 401,
+      error: `Echec d'authentification SSH (cle).${rawMessage ? ` ${rawMessage}` : ""}`,
+    };
+  }
+  if (message.includes("repository not found") || message.includes("not found")) {
+    return {
+      status: 404,
+      error: `Depot Git introuvable.${rawMessage ? ` ${rawMessage}` : ""}`,
+    };
+  }
+  if (message.includes("could not resolve host") || message.includes("name or service not known")) {
+    return {
+      status: 400,
+      error: `Hote Git introuvable.${rawMessage ? ` ${rawMessage}` : ""}`,
+    };
+  }
+  if (message.includes("connection timed out") || message.includes("operation timed out")) {
+    return {
+      status: 504,
+      error: `Connexion au depot Git expiree.${rawMessage ? ` ${rawMessage}` : ""}`,
+    };
+  }
+  return {
+    status: 500,
+    error: rawMessage || "Failed to create session.",
+  };
+};
+
 const buildProcessOptions = (base, overrides = {}) => {
   const env = {
     ...(base?.env || process.env),
@@ -2863,7 +2908,8 @@ app.post("/api/session", async (req, res) => {
       repoUrl,
       error: error?.message || error,
     });
-    res.status(500).json({ error: "Failed to create session." });
+    const classified = classifySessionCreationError(error);
+    res.status(classified.status).json({ error: classified.error });
   }
 });
 

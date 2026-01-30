@@ -1118,7 +1118,7 @@ function App() {
 
   useEffect(() => {
     if (workspaceToken) {
-      setWorkspaceStep(2);
+      setWorkspaceStep(3);
     } else {
       setWorkspaceStep(1);
     }
@@ -2748,6 +2748,12 @@ function App() {
             }
           }
           const suffix = details ? `: ${details}` : "";
+          if (response.status === 401 || response.status === 403) {
+            throw new Error(`Echec d'authentification Git${suffix}.`);
+          }
+          if (response.status === 404) {
+            throw new Error(`Depot Git introuvable${suffix}.`);
+          }
           throw new Error(
             `Impossible de creer la session de pieces jointes (HTTP ${response.status}${
               response.statusText ? ` ${response.statusText}` : ""
@@ -2816,10 +2822,22 @@ function App() {
         const data = await response.json();
         setWorkspaceToken(data.workspaceToken || "");
         setWorkspaceId(workspaceIdValue);
-        setWorkspaceStep(2);
+        setWorkspaceStep(3);
         return;
       }
+      setWorkspaceStep(2);
+    } catch (error) {
+      setWorkspaceError(error.message || "Echec de la configuration du workspace.");
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
 
+  const handleWorkspaceProvidersSubmit = async (event) => {
+    event.preventDefault();
+    setWorkspaceError("");
+    setWorkspaceBusy(true);
+    try {
       const providersPayload = {};
       ["codex", "claude"].forEach((provider) => {
         const config = workspaceProviders[provider];
@@ -2868,7 +2886,7 @@ function App() {
       }
       const loginData = await loginResponse.json();
       setWorkspaceToken(loginData.workspaceToken || "");
-      setWorkspaceStep(2);
+      setWorkspaceStep(3);
     } catch (error) {
       setWorkspaceError(error.message || "Echec de la configuration du workspace.");
     } finally {
@@ -4205,12 +4223,19 @@ function App() {
     const formDisabled = workspaceBusy || sessionRequested;
     const workspaceProvider = (providerKey) => workspaceProviders[providerKey] || {};
     const showStep1 = workspaceStep === 1;
-    const showStep2 = workspaceStep === 2 && workspaceToken;
+    const showStep2 = workspaceStep === 2 && workspaceMode === "new";
+    const showStep3 = workspaceStep === 3 && workspaceToken;
     return (
       <div className="session-gate">
         <div className="session-card">
           <p className="eyebrow">m5chat</p>
-          <h1>Configurer le workspace</h1>
+          <h1>
+            {showStep3
+              ? "Cloner une session"
+              : showStep2
+                ? "Configurer les providers IA"
+                : "Configurer le workspace"}
+          </h1>
           {showStep1 && (
             <>
               <p className="session-hint">
@@ -4244,7 +4269,7 @@ function App() {
                     </label>
                   </div>
                 </div>
-                {workspaceMode === "existing" ? (
+                {workspaceMode === "existing" && (
                   <div className="session-auth">
                     <div className="session-auth-grid">
                       <input
@@ -4267,109 +4292,6 @@ function App() {
                       />
                     </div>
                   </div>
-                ) : (
-                  <div className="session-auth">
-                    <div className="session-auth-title">
-                      Providers IA (obligatoire)
-                    </div>
-                    <div className="session-auth-options">
-                      {["codex", "claude"].map((provider) => {
-                        const config = workspaceProvider(provider);
-                        const label = provider === "codex" ? "Codex" : "Claude";
-                        return (
-                          <label key={provider} className="session-auth-option">
-                            <input
-                              type="checkbox"
-                              checked={Boolean(config.enabled)}
-                              onChange={() =>
-                                setWorkspaceProviders((current) => ({
-                                  ...current,
-                                  [provider]: {
-                                    ...current[provider],
-                                    enabled: !current[provider]?.enabled,
-                                  },
-                                }))
-                              }
-                              disabled={formDisabled}
-                            />
-                            {label}
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {["codex", "claude"].map((provider) => {
-                      const config = workspaceProvider(provider);
-                      if (!config?.enabled) {
-                        return null;
-                      }
-                      return (
-                        <div key={`${provider}-auth`} className="session-auth">
-                          <div className="session-auth-title">
-                            Auth {provider === "codex" ? "Codex" : "Claude"}
-                          </div>
-                          <div className="session-auth-grid">
-                            <select
-                              value={config.authType}
-                              onChange={(event) =>
-                                setWorkspaceProviders((current) => ({
-                                  ...current,
-                                  [provider]: {
-                                    ...current[provider],
-                                    authType: event.target.value,
-                                  },
-                                }))
-                              }
-                              disabled={formDisabled}
-                            >
-                              <option value="api_key">api_key</option>
-                              <option value="auth_json_b64">auth_json_b64</option>
-                              <option value="setup_token">setup_token</option>
-                            </select>
-                            {config.authType === "auth_json_b64" ? (
-                              <textarea
-                                className="session-auth-textarea"
-                                placeholder="JSON credentials"
-                                value={config.authValue}
-                                onChange={(event) =>
-                                  setWorkspaceProviders((current) => ({
-                                    ...current,
-                                    [provider]: {
-                                      ...current[provider],
-                                      authValue: event.target.value,
-                                    },
-                                  }))
-                                }
-                                disabled={formDisabled}
-                                rows={4}
-                              />
-                            ) : (
-                              <input
-                                type="password"
-                                placeholder="Cle ou token"
-                                value={config.authValue}
-                                onChange={(event) =>
-                                  setWorkspaceProviders((current) => ({
-                                    ...current,
-                                    [provider]: {
-                                      ...current[provider],
-                                      authValue: event.target.value,
-                                    },
-                                  }))
-                                }
-                                disabled={formDisabled}
-                                autoComplete="off"
-                              />
-                            )}
-                          </div>
-                          {config.authType === "auth_json_b64" && (
-                            <div className="session-auth-hint">
-                              Le JSON sera encode en base64 cote client.
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
                 )}
                 <div className="session-form-row">
                   <div />
@@ -4385,6 +4307,133 @@ function App() {
           )}
 
           {showStep2 && (
+            <>
+              <p className="session-hint">
+                Configurez les providers IA pour ce workspace.
+              </p>
+              <form className="session-form" onSubmit={handleWorkspaceProvidersSubmit}>
+                <div className="session-auth">
+                  <div className="session-auth-title">
+                    Providers IA (obligatoire)
+                  </div>
+                  <div className="session-auth-options">
+                    {["codex", "claude"].map((provider) => {
+                      const config = workspaceProvider(provider);
+                      const label = provider === "codex" ? "Codex" : "Claude";
+                      return (
+                        <label key={provider} className="session-auth-option">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(config.enabled)}
+                            onChange={() =>
+                              setWorkspaceProviders((current) => ({
+                                ...current,
+                                [provider]: {
+                                  ...current[provider],
+                                  enabled: !current[provider]?.enabled,
+                                },
+                              }))
+                            }
+                            disabled={formDisabled}
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {["codex", "claude"].map((provider) => {
+                    const config = workspaceProvider(provider);
+                    if (!config?.enabled) {
+                      return null;
+                    }
+                    return (
+                      <div key={`${provider}-auth`} className="session-auth">
+                        <div className="session-auth-title">
+                          Auth {provider === "codex" ? "Codex" : "Claude"}
+                        </div>
+                        <div className="session-auth-grid">
+                          <select
+                            value={config.authType}
+                            onChange={(event) =>
+                              setWorkspaceProviders((current) => ({
+                                ...current,
+                                [provider]: {
+                                  ...current[provider],
+                                  authType: event.target.value,
+                                },
+                              }))
+                            }
+                            disabled={formDisabled}
+                          >
+                            <option value="api_key">api_key</option>
+                            <option value="auth_json_b64">auth_json_b64</option>
+                            <option value="setup_token">setup_token</option>
+                          </select>
+                          {config.authType === "auth_json_b64" ? (
+                            <textarea
+                              className="session-auth-textarea"
+                              placeholder="JSON credentials"
+                              value={config.authValue}
+                              onChange={(event) =>
+                                setWorkspaceProviders((current) => ({
+                                  ...current,
+                                  [provider]: {
+                                    ...current[provider],
+                                    authValue: event.target.value,
+                                  },
+                                }))
+                              }
+                              disabled={formDisabled}
+                              rows={4}
+                            />
+                          ) : (
+                            <input
+                              type="password"
+                              placeholder="Cle ou token"
+                              value={config.authValue}
+                              onChange={(event) =>
+                                setWorkspaceProviders((current) => ({
+                                  ...current,
+                                  [provider]: {
+                                    ...current[provider],
+                                    authValue: event.target.value,
+                                  },
+                                }))
+                              }
+                              disabled={formDisabled}
+                              autoComplete="off"
+                            />
+                          )}
+                        </div>
+                        {config.authType === "auth_json_b64" && (
+                          <div className="session-auth-hint">
+                            Le JSON sera encode en base64 cote client.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="session-form-row">
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceStep(1)}
+                    disabled={formDisabled}
+                  >
+                    Retour
+                  </button>
+                  <button type="submit" disabled={formDisabled}>
+                    {workspaceBusy ? "Validation..." : "Continuer"}
+                  </button>
+                </div>
+              </form>
+              {workspaceError && (
+                <div className="attachments-error">{workspaceError}</div>
+              )}
+            </>
+          )}
+
+          {showStep3 && (
             <>
               <p className="session-hint">
                 Workspace valide. Configurez le depot a cloner.
