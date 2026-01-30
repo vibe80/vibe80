@@ -50,17 +50,12 @@ RUN npm run build
 
 COPY --from=helper-builder /out/vibecoder-root /usr/local/bin/vibecoder-root
 COPY --from=helper-builder /out/vibecoder-run-as /usr/local/bin/vibecoder-run-as
+COPY docker/vibecoder.sudoers /etc/sudoers.d/vibecoder
 
 RUN useradd -m -d /home/vibecoder -s /bin/bash vibecoder \
     && mkdir -p /home/vibecoder/.codex \
     && chown -R vibecoder:vibecoder /app /home/vibecoder/.codex \
     && chmod 0755 /usr/local/bin/vibecoder-root /usr/local/bin/vibecoder-run-as \
-    && cat <<'EOF' > /etc/sudoers.d/vibecoder \
-vibecoder ALL=(root) NOPASSWD: /usr/local/bin/vibecoder-root \
-vibecoder ALL=(root) NOPASSWD: /usr/local/bin/vibecoder-run-as \
-Defaults! /usr/local/bin/vibecoder-root !requiretty \
-Defaults! /usr/local/bin/vibecoder-run-as !requiretty \
-EOF \
     && chmod 0440 /etc/sudoers.d/vibecoder
 RUN chmod +x /app/start.sh
 

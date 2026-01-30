@@ -1,0 +1,4 @@
+vibecoder ALL=(root) NOPASSWD: /usr/local/bin/vibecoder-root
+vibecoder ALL=(root) NOPASSWD: /usr/local/bin/vibecoder-run-as
+Defaults! /usr/local/bin/vibecoder-root !requiretty
+Defaults! /usr/local/bin/vibecoder-run-as !requiretty
