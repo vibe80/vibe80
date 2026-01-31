@@ -51,6 +51,10 @@ const terminalEnabled = !/^(0|false|no|off)$/i.test(
 const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : null;
 
 const cwd = process.cwd();
+const sessions = new Map();
+const workspaces = new Map();
+const handoffTokens = new Map();
+const workspaceUserIds = new Map();
 const deploymentMode = process.env.DEPLOYMENT_MODE;
 if (!deploymentMode) {
   console.error("DEPLOYMENT_MODE is required (mono_user or multi_user).");
@@ -83,6 +87,7 @@ const jwtAudience = process.env.JWT_AUDIENCE || "workspace";
 const sessionGcIntervalMs = Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
 const sessionIdleTtlMs = Number(process.env.SESSION_IDLE_TTL_MS) || 24 * 60 * 60 * 1000;
 const sessionMaxTtlMs = Number(process.env.SESSION_MAX_TTL_MS) || 7 * 24 * 60 * 60 * 1000;
+const handoffTokenTtlMs = Number(process.env.HANDOFF_TOKEN_TTL_MS) || 120 * 1000;
 const debugApiWsLog = /^(1|true|yes|on)$/i.test(
   process.env.DEBUG_API_WS_LOG || ""
 );
@@ -271,6 +276,9 @@ const isPublicApiRequest = (req) => {
   if (req.method === "POST" && req.path === "/workspaces/login") {
     return true;
   }
+  if (req.method === "POST" && req.path === "/sessions/handoff/consume") {
+    return true;
+  }
   return false;
 };
 
@@ -420,6 +428,31 @@ const loadJwtKey = () => {
 const jwtKey = loadJwtKey();
 
 const generateId = (prefix) => `${prefix}${crypto.randomBytes(12).toString("hex")}`;
+
+const createHandoffToken = (session) => {
+  const now = Date.now();
+  const token = generateId("h");
+  const record = {
+    token,
+    sessionId: session.sessionId,
+    workspaceId: session.workspaceId,
+    createdAt: now,
+    expiresAt: now + handoffTokenTtlMs,
+    usedAt: null,
+  };
+  handoffTokens.set(token, record);
+  return record;
+};
+
+const cleanupHandoffTokens = () => {
+  if (handoffTokens.size === 0) return;
+  const now = Date.now();
+  for (const [token, record] of handoffTokens.entries()) {
+    if (record.usedAt || (record.expiresAt && record.expiresAt <= now)) {
+      handoffTokens.delete(token);
+    }
+  }
+};
 const workspaceIdPattern = isMonoUser ? /^default$/ : /^w[0-9a-f]{24}$/;
 const sessionIdPattern = /^s[0-9a-f]{24}$/;
 
@@ -3474,6 +3507,55 @@ app.get("/api/sessions", (req, res) => {
     });
 });
 
+app.post("/api/sessions/handoff", (req, res) => {
+  const sessionId = req.body?.sessionId;
+  if (!sessionId || typeof sessionId !== "string") {
+    res.status(400).json({ error: "Session ID required.", error_type: "SESSION_ID_REQUIRED" });
+    return;
+  }
+  const session = getSession(sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found.", error_type: "SESSION_NOT_FOUND" });
+    return;
+  }
+  const record = createHandoffToken(session);
+  res.json({ handoffToken: record.token, expiresAt: record.expiresAt });
+});
+
+app.post("/api/sessions/handoff/consume", (req, res) => {
+  const handoffToken = req.body?.handoffToken;
+  if (!handoffToken || typeof handoffToken !== "string") {
+    res.status(400).json({ error: "Handoff token required.", error_type: "HANDOFF_TOKEN_REQUIRED" });
+    return;
+  }
+  const record = handoffTokens.get(handoffToken);
+  if (!record) {
+    res.status(404).json({ error: "Handoff token not found.", error_type: "HANDOFF_TOKEN_INVALID" });
+    return;
+  }
+  if (record.usedAt) {
+    res.status(409).json({ error: "Handoff token already used.", error_type: "HANDOFF_TOKEN_USED" });
+    return;
+  }
+  if (record.expiresAt && record.expiresAt <= Date.now()) {
+    handoffTokens.delete(handoffToken);
+    res.status(410).json({ error: "Handoff token expired.", error_type: "HANDOFF_TOKEN_EXPIRED" });
+    return;
+  }
+  const session = getSession(record.sessionId, record.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found.", error_type: "SESSION_NOT_FOUND" });
+    return;
+  }
+  record.usedAt = Date.now();
+  const workspaceToken = createWorkspaceToken(record.workspaceId);
+  res.json({
+    workspaceId: record.workspaceId,
+    workspaceToken,
+    sessionId: record.sessionId,
+  });
+});
+
 app.get("/api/session/:sessionId", async (req, res) => {
   const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
@@ -4478,6 +4560,9 @@ setInterval(() => {
     console.error("Session GC failed:", error?.message || error);
   });
 }, sessionGcIntervalMs);
+setInterval(() => {
+  cleanupHandoffTokens();
+}, 30 * 1000);
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname === "/ws") {
