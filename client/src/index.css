@@ -646,7 +646,8 @@ main.chat {
 }
 
 .chat-history-grid.has-meta {
-  grid-template-columns: minmax(0, 1fr) minmax(0, var(--chat-max-width));
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--chat-max-width))
+    minmax(0, 1fr);
   column-gap: 24px;
 }
 
@@ -698,15 +699,14 @@ main.chat {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(20, 19, 17, 0.12);
-  background: var(--surface);
+  padding: 2px 0;
+  border: none;
+  background: transparent;
   color: var(--ink);
   font-family: "Space Grotesk", system-ui, sans-serif;
   font-size: 12px;
-  box-shadow: 0 10px 25px rgba(20, 19, 17, 0.08);
-  max-width: 180px;
+  box-shadow: none;
+  max-width: 200px;
   text-align: right;
 }
 
@@ -716,11 +716,20 @@ main.chat {
 }
 
 .chat-meta-commit {
+  font-size: 0;
+}
+
+.chat-meta-hash {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(20, 19, 17, 0.08);
+  color: var(--ink);
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
-  font-weight: 700;
   font-size: 11px;
-  color: var(--ink-muted);
+  font-weight: 600;
 }
 
 .chat-meta-message {

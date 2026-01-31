@@ -5514,9 +5514,11 @@ function App() {
                           <div className="chat-meta-branch">
                             {activeBranchLabel}
                           </div>
-                          <div className="chat-meta-commit">{shortSha}</div>
+                          <div className="chat-meta-commit">
+                            <span className="chat-meta-hash">{shortSha}</span>
+                          </div>
                           <div className="chat-meta-message">
-                            &quot;{activeCommit?.message || ""}&quot;
+                            {activeCommit?.message || ""}
                           </div>
                         </div>
                       </div>
