@@ -2164,6 +2164,7 @@ function App() {
           setProcessing(false);
           setActivity("");
           setCurrentTurnId(null);
+          void loadRepoLastCommit();
         }
 
         if (!isWorktreeScoped && payload.type === "repo_diff") {
@@ -2584,6 +2585,7 @@ function App() {
                 return next;
               });
             }
+            void loadWorktreeLastCommit(wtId);
           }
 
           if (payload.type === "assistant_delta" || payload.type === "assistant_message") {

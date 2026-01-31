@@ -693,6 +693,8 @@ main.chat {
   justify-self: end;
   align-self: start;
   min-width: 0;
+  position: sticky;
+  top: 12px;
 }
 
 .chat-meta-card {
