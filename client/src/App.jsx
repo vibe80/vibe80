@@ -2625,10 +2625,10 @@ function App() {
     if (typeof term.setOption !== "function") {
       term.setOption = (key, value) => {
         if (key && typeof key === "object") {
-          term.options = { ...term.options, ...key };
+          term.options = key;
           return;
         }
-        term.options = { ...term.options, [key]: value };
+        term.options = { [key]: value };
       };
     }
     const fitAddon = new FitAddon();
@@ -2666,7 +2666,7 @@ function App() {
     if (typeof term.setOption === "function") {
       term.setOption("theme", theme);
     } else {
-      term.options = { ...term.options, theme };
+      term.options = { theme };
     }
   }, [themeMode]);
 
