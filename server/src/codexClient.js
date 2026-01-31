@@ -23,12 +23,7 @@ export class CodexAppServerClient extends EventEmitter {
   async start() {
     const codexArgs = [
       "codex",
-      "--dangerously-bypass-approvals-and-sandbox",
-      "app-server",
-      "-c",
-      "sandbox_permissions=[\"workspace-write\", \"disk-full-read-access\"]",
-      "-c",
-      "sandbox_workspace_write.network_access=true",
+      "app-server"
     ];
     const spawnCommand = isMonoUser ? codexArgs[0] : SUDO_PATH;
     const spawnArgs = isMonoUser
@@ -227,8 +222,8 @@ export class CodexAppServerClient extends EventEmitter {
   async #startThread() {
     const result = await this.#sendRequest("thread/start", {
       cwd: this.cwd,
-      approvalPolicy: "never",
-      sandbox: "danger-full-access",
+      sandbox: "workspace-write",
+      approvalPolicy: "never"
     });
 
     this.threadId = result.thread.id;
