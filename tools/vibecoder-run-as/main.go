@@ -1,6 +1,7 @@
 package main
 
 import (
+  "encoding/json"
   "errors"
   "fmt"
   "os"
@@ -13,6 +14,9 @@ import (
 )
 
 var workspaceIDPattern = regexp.MustCompile(`^w[0-9a-f]{24}$`)
+const workspaceRootName = "vibecoder_workspace"
+const workspaceMetadataDirName = "metadata"
+const workspaceConfigName = "workspace.json"
 
 var allowedCommands = map[string]struct{}{
   "/usr/bin/git":        {},
@@ -173,23 +177,32 @@ func resolveCommand(command string) (string, error) {
 }
 
 func lookupIDs(workspaceID string) (uint32, uint32, error) {
-  uidRaw, err := exec.Command("id", "-u", workspaceID).Output()
-  if err != nil {
+  uidRaw, uidErr := exec.Command("id", "-u", workspaceID).Output()
+  gidRaw, gidErr := exec.Command("id", "-g", workspaceID).Output()
+  if uidErr == nil && gidErr == nil {
+    uid, err := parseUint(strings.TrimSpace(string(uidRaw)))
+    if err != nil {
+      return 0, 0, errors.New("invalid uid")
+    }
+    gid, err := parseUint(strings.TrimSpace(string(gidRaw)))
+    if err != nil {
+      return 0, 0, errors.New("invalid gid")
+    }
+    return uid, gid, nil
+  }
+
+  uid, gid, err := readIDsFromConfig(workspaceID)
+  if err == nil {
+    return uid, gid, nil
+  }
+
+  if uidErr != nil {
     return 0, 0, errors.New("unable to resolve uid")
   }
-  gidRaw, err := exec.Command("id", "-g", workspaceID).Output()
-  if err != nil {
+  if gidErr != nil {
     return 0, 0, errors.New("unable to resolve gid")
   }
-  uid, err := parseUint(strings.TrimSpace(string(uidRaw)))
-  if err != nil {
-    return 0, 0, errors.New("invalid uid")
-  }
-  gid, err := parseUint(strings.TrimSpace(string(gidRaw)))
-  if err != nil {
-    return 0, 0, errors.New("invalid gid")
-  }
-  return uid, gid, nil
+  return 0, 0, errors.New("unable to resolve workspace ids")
 }
 
 func parseUint(value string) (uint32, error) {
@@ -198,6 +211,37 @@ func parseUint(value string) (uint32, error) {
     return 0, err
   }
   return uint32(parsed), nil
+}
+
+type workspaceConfig struct {
+  UID int `json:"uid"`
+  GID int `json:"gid"`
+}
+
+func readIDsFromConfig(workspaceID string) (uint32, uint32, error) {
+  homeBase := os.Getenv("WORKSPACE_HOME_BASE")
+  if homeBase == "" {
+    homeBase = "/home"
+  }
+  configPath := filepath.Join(
+    homeBase,
+    workspaceID,
+    workspaceRootName,
+    workspaceMetadataDirName,
+    workspaceConfigName,
+  )
+  raw, err := os.ReadFile(configPath)
+  if err != nil {
+    return 0, 0, err
+  }
+  var config workspaceConfig
+  if err := json.Unmarshal(raw, &config); err != nil {
+    return 0, 0, err
+  }
+  if config.UID < 0 || config.GID < 0 {
+    return 0, 0, errors.New("invalid workspace ids")
+  }
+  return uint32(config.UID), uint32(config.GID), nil
 }
 
 func fail(message string) {
