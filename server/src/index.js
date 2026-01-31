@@ -108,6 +108,11 @@ const formatDebugPayload = (payload) => {
   return String(payload);
 };
 
+const logDebug = (...args) => {
+  if (!debugApiWsLog) return;
+  console.log(...args);
+};
+
 const attachWebSocketDebug = (socket, req, label) => {
   if (!debugApiWsLog) return;
   const connectionId = createDebugId();
@@ -473,7 +478,7 @@ const listWorkspaceEntries = async (workspaceId, dirPath) => {
       return parsed;
     }
   } catch (error) {
-    console.error("listWorkspaceEntries failed:", {
+    logDebug("[debug] listWorkspaceEntries failed", {
       workspaceId,
       dirPath,
       error: error?.message || error,
@@ -503,14 +508,14 @@ const listWorkspaceEntries = async (workspaceId, dirPath) => {
       return parsed;
     }
     if (output) {
-      console.warn("listWorkspaceEntries empty parse:", {
+      logDebug("[debug] listWorkspaceEntries empty parse", {
         workspaceId,
         dirPath,
         sample: output.toString("utf8").slice(0, 200),
       });
     }
   } catch (error) {
-    console.error("listWorkspaceEntries fallback failed:", {
+    logDebug("[debug] listWorkspaceEntries fallback failed", {
       workspaceId,
       dirPath,
       error: error?.message || error,
