@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import path from "path";
+import os from "os";
 import fs from "fs";
 import crypto from "crypto";
 import multer from "multer";
@@ -441,6 +442,88 @@ const appendWorkspaceFile = async (workspaceId, filePath, content, mode = 0o600)
   await runAsCommand(workspaceId, "/bin/chmod", [mode.toString(8), filePath]);
 };
 
+const workspaceUserExists = async (workspaceId) => {
+  try {
+    await runCommandOutput("id", ["-u", workspaceId]);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const listWorkspaceEntries = async (workspaceId, dirPath) => {
+  try {
+    const output = await runAsCommandOutput(
+      workspaceId,
+      "/usr/bin/find",
+      [dirPath, "-maxdepth", "1", "-mindepth", "1", "-printf", "%y\t%f\0"],
+      { binary: true }
+    );
+    return output
+      .toString("utf8")
+      .split("\0")
+      .filter(Boolean)
+      .map((line) => {
+        const [type, name] = line.split("\t");
+        return { type, name };
+      });
+  } catch {
+    return [];
+  }
+};
+
+const getWorkspaceStat = async (workspaceId, targetPath) => {
+  const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
+    "-c",
+    "%F\t%s\t%a",
+    targetPath,
+  ]);
+  const [type, sizeRaw, modeRaw] = output.trim().split("\t");
+  return {
+    type,
+    size: Number.parseInt(sizeRaw, 10),
+    mode: modeRaw,
+  };
+};
+
+const workspacePathExists = async (workspaceId, targetPath) => {
+  try {
+    await runAsCommandOutput(workspaceId, "/usr/bin/stat", ["-c", "%F", targetPath]);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const readWorkspaceFileBuffer = async (workspaceId, filePath, maxBytes) => {
+  const stat = await getWorkspaceStat(workspaceId, filePath);
+  if (!stat.type || !stat.type.startsWith("regular")) {
+    throw new Error("Path is not a file.");
+  }
+  if (Number.isFinite(maxBytes) && stat.size > maxBytes) {
+    const buffer = await runAsCommandOutput(
+      workspaceId,
+      "/usr/bin/head",
+      ["-c", String(maxBytes), filePath],
+      { binary: true }
+    );
+    return { buffer, truncated: true };
+  }
+  const buffer = await runAsCommandOutput(workspaceId, "/bin/cat", [filePath], { binary: true });
+  return { buffer, truncated: false };
+};
+
+const writeWorkspaceFilePreserveMode = async (workspaceId, filePath, content) => {
+  const stat = await getWorkspaceStat(workspaceId, filePath);
+  if (!stat.type || !stat.type.startsWith("regular")) {
+    throw new Error("Path is not a file.");
+  }
+  await runAsCommand(workspaceId, "/usr/bin/tee", [filePath], { input: content });
+  if (stat.mode) {
+    await runAsCommand(workspaceId, "/bin/chmod", [stat.mode, filePath]);
+  }
+};
+
 const getWorkspaceUserIds = async (workspaceId) => {
   const cached = workspaceUserIds.get(workspaceId);
   if (cached) {
@@ -568,8 +651,7 @@ const ensureWorkspaceUser = async (workspaceId, homeDirPath, ids = null) => {
       await runCommand("groupadd", ["-g", String(ids.gid), workspaceId]);
     }
   }
-  const shouldCreateHome = !fs.existsSync(homeDirPath);
-  const userArgs = [shouldCreateHome ? "-m" : "-M", "-d", homeDirPath, "-s", "/bin/bash"];
+  const userArgs = ["-m", "-d", homeDirPath, "-s", "/bin/bash"];
   if (ids?.uid) {
     userArgs.push("-u", String(ids.uid));
   }
@@ -622,12 +704,19 @@ const scanWorkspaceIds = async () => {
     }
     try {
       const homePath = path.join(workspaceHomeBase, workspaceId);
-      const stat = await fs.promises.stat(homePath);
-      if (Number.isFinite(stat.uid)) {
-        workspaceIdsUsed.add(stat.uid);
+      const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
+        "-c",
+        "%u\t%g",
+        homePath,
+      ]);
+      const [uidRaw, gidRaw] = output.trim().split("\t");
+      const uid = Number(uidRaw);
+      const gid = Number(gidRaw);
+      if (Number.isFinite(uid)) {
+        workspaceIdsUsed.add(uid);
       }
-      if (Number.isFinite(stat.gid)) {
-        workspaceIdsUsed.add(stat.gid);
+      if (Number.isFinite(gid)) {
+        workspaceIdsUsed.add(gid);
       }
     } catch {
       // ignore missing home dir
@@ -669,12 +758,17 @@ const recoverWorkspaceIds = async (workspaceId) => {
   let gid = Number.isFinite(config?.gid) ? Number(config.gid) : null;
   if (!Number.isFinite(uid) || !Number.isFinite(gid)) {
     try {
-      const stat = await fs.promises.stat(homeDir);
+      const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
+        "-c",
+        "%u\t%g",
+        homeDir,
+      ]);
+      const [uidRaw, gidRaw] = output.trim().split("\t");
       if (!Number.isFinite(uid)) {
-        uid = stat.uid;
+        uid = Number(uidRaw);
       }
       if (!Number.isFinite(gid)) {
-        gid = stat.gid;
+        gid = Number(gidRaw);
       }
     } catch {
       // ignore
@@ -695,8 +789,10 @@ const recoverWorkspaceIds = async (workspaceId) => {
 
 const ensureWorkspaceDirs = async (workspaceId) => {
   const paths = getWorkspacePaths(workspaceId);
-  await fs.promises.mkdir(paths.metadataDir, { recursive: true, mode: 0o700 });
-  await fs.promises.mkdir(paths.sessionsDir, { recursive: true, mode: 0o700 });
+  await runAsCommand(workspaceId, "/bin/mkdir", ["-p", paths.metadataDir]);
+  await runAsCommand(workspaceId, "/bin/chmod", ["700", paths.metadataDir]);
+  await runAsCommand(workspaceId, "/bin/mkdir", ["-p", paths.sessionsDir]);
+  await runAsCommand(workspaceId, "/bin/chmod", ["700", paths.sessionsDir]);
   return paths;
 };
 
@@ -794,7 +890,7 @@ const createWorkspace = async (providers) => {
       continue;
     }
     const paths = getWorkspacePaths(workspaceId);
-    if (fs.existsSync(paths.homeDir)) {
+    if (await workspaceUserExists(workspaceId)) {
       continue;
     }
     await runRootCommand(["create-workspace", "--workspace-id", workspaceId]);
@@ -1245,7 +1341,7 @@ const resolveWorktreeRoot = (session, worktreeId) => {
   return { rootPath: worktree.path, worktree };
 };
 
-const buildDirectoryTree = async (rootPath, options = {}) => {
+const buildDirectoryTree = async (workspaceId, rootPath, options = {}) => {
   const maxDepth = Number.isFinite(Number(options.maxDepth))
     ? Math.min(Number(options.maxDepth), MAX_TREE_DEPTH)
     : MAX_TREE_DEPTH;
@@ -1260,16 +1356,13 @@ const buildDirectoryTree = async (rootPath, options = {}) => {
       truncated = true;
       return [];
     }
-    let entries = [];
-    try {
-      entries = await fs.promises.readdir(absPath, { withFileTypes: true });
-    } catch {
-      return [];
-    }
+    const entries = await listWorkspaceEntries(workspaceId, absPath);
     const visible = entries.filter((entry) => !TREE_IGNORED_NAMES.has(entry.name));
     visible.sort((a, b) => {
-      if (a.isDirectory() && !b.isDirectory()) return -1;
-      if (!a.isDirectory() && b.isDirectory()) return 1;
+      const aIsDir = a.type === "d";
+      const bIsDir = b.type === "d";
+      if (aIsDir && !bIsDir) return -1;
+      if (!aIsDir && bIsDir) return 1;
       return a.name.localeCompare(b.name);
     });
 
@@ -1281,7 +1374,7 @@ const buildDirectoryTree = async (rootPath, options = {}) => {
       }
       const entryPath = relPath ? `${relPath}/${entry.name}` : entry.name;
       const absEntryPath = path.join(absPath, entry.name);
-      if (entry.isDirectory()) {
+      if (entry.type === "d") {
         count += 1;
         const node = {
           name: entry.name,
@@ -1401,7 +1494,7 @@ const getRepoDiff = async (session) => {
   }
 };
 
-const ensureUniqueFilename = async (dir, filename, reserved) => {
+const ensureUniqueFilename = async (workspaceId, dir, filename, reserved) => {
   const extension = path.extname(filename);
   const base = path.basename(filename, extension);
   let candidate = filename;
@@ -1412,24 +1505,21 @@ const ensureUniqueFilename = async (dir, filename, reserved) => {
       counter += 1;
       continue;
     }
-    try {
-      if (reserved) {
-        reserved.add(candidate);
-      }
-      await fs.promises.access(path.join(dir, candidate));
+    if (reserved) {
+      reserved.add(candidate);
+    }
+    const exists = await workspacePathExists(workspaceId, path.join(dir, candidate));
+    if (exists) {
       candidate = `${base}-${counter}${extension}`;
       counter += 1;
-    } catch (error) {
-      if (error.code === "ENOENT") {
-        return candidate;
-      }
-      if (reserved) {
-        reserved.delete(candidate);
-      }
-      throw error;
+      continue;
     }
+    return candidate;
   }
 };
+
+const uploadTempDir = path.join(os.tmpdir(), "vibecoder_uploads");
+fs.mkdirSync(uploadTempDir, { recursive: true, mode: 0o700 });
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -1440,7 +1530,7 @@ const upload = multer({
         cb(new Error("Invalid session."));
         return;
       }
-      cb(null, session.attachmentsDir);
+      cb(null, uploadTempDir);
     },
     filename: async (req, file, cb) => {
       const sessionId = req.query.session;
@@ -1454,6 +1544,7 @@ const upload = multer({
         const reserved =
           req._reservedFilenames || (req._reservedFilenames = new Set());
         const uniqueName = await ensureUniqueFilename(
+          session.workspaceId,
           session.attachmentsDir,
           safeName,
           reserved
@@ -3386,7 +3477,7 @@ app.get("/api/worktree/:worktreeId/tree", async (req, res) => {
     return;
   }
   try {
-    const payload = await buildDirectoryTree(rootPath, {
+    const payload = await buildDirectoryTree(session.workspaceId, rootPath, {
       maxDepth: req.query?.depth,
       maxEntries: req.query?.limit,
     });
@@ -3426,28 +3517,13 @@ app.get("/api/worktree/:worktreeId/file", async (req, res) => {
     return;
   }
   try {
-    const stats = await fs.promises.stat(absPath);
-    if (!stats.isFile()) {
-      res.status(400).json({ error: "Path is not a file." });
-      return;
-    }
-    let content = "";
-    let truncated = false;
-    let binary = false;
-    if (stats.size > MAX_FILE_BYTES) {
-      truncated = true;
-      const handle = await fs.promises.open(absPath, "r");
-      const buffer = Buffer.alloc(MAX_FILE_BYTES);
-      const result = await handle.read(buffer, 0, MAX_FILE_BYTES, 0);
-      await handle.close();
-      const slice = buffer.subarray(0, result.bytesRead);
-      binary = slice.includes(0);
-      content = binary ? "" : slice.toString("utf8");
-    } else {
-      const data = await fs.promises.readFile(absPath);
-      binary = data.includes(0);
-      content = binary ? "" : data.toString("utf8");
-    }
+    const { buffer, truncated } = await readWorkspaceFileBuffer(
+      session.workspaceId,
+      absPath,
+      MAX_FILE_BYTES
+    );
+    const binary = buffer.includes(0);
+    const content = binary ? "" : buffer.toString("utf8");
     res.json({ path: requestedPath, content, truncated, binary });
   } catch (error) {
     console.error("Failed to read file:", {
@@ -3495,12 +3571,7 @@ app.post("/api/worktree/:worktreeId/file", async (req, res) => {
     return;
   }
   try {
-    const stats = await fs.promises.stat(absPath);
-    if (!stats.isFile()) {
-      res.status(400).json({ error: "Path is not a file." });
-      return;
-    }
-    await fs.promises.writeFile(absPath, content, "utf8");
+    await writeWorkspaceFilePreserveMode(session.workspaceId, absPath, content);
     res.json({ ok: true, path: requestedPath });
   } catch (error) {
     console.error("Failed to write file:", {
@@ -3787,12 +3858,13 @@ app.get("/api/attachments/file", async (req, res) => {
     return;
   }
   try {
-    const stats = await fs.promises.stat(candidatePath);
-    if (!stats.isFile()) {
-      res.status(404).json({ error: "Attachment not found." });
-      return;
+    const data = await runAsCommandOutput(session.workspaceId, "/bin/cat", [candidatePath], {
+      binary: true,
+    });
+    if (rawName) {
+      res.setHeader("Content-Disposition", `attachment; filename="${sanitizeFilename(rawName)}"`);
     }
-    res.sendFile(candidatePath);
+    res.send(data);
   } catch (error) {
     res.status(404).json({ error: "Attachment not found." });
   }
@@ -3807,22 +3879,24 @@ app.get("/api/attachments", async (req, res) => {
   }
   touchSession(session);
   try {
-    const entries = await fs.promises.readdir(session.attachmentsDir, {
-      withFileTypes: true,
-    });
-    const files = [];
-    for (const entry of entries) {
-      if (!entry.isFile()) {
-        continue;
-      }
-      const filePath = path.join(session.attachmentsDir, entry.name);
-      const stats = await fs.promises.stat(filePath);
-      files.push({
-        name: entry.name,
-        path: filePath,
-        size: stats.size,
+    const output = await runAsCommandOutput(
+      session.workspaceId,
+      "/usr/bin/find",
+      [session.attachmentsDir, "-maxdepth", "1", "-mindepth", "1", "-type", "f", "-printf", "%f\t%s\0"],
+      { binary: true }
+    );
+    const files = output
+      .toString("utf8")
+      .split("\0")
+      .filter(Boolean)
+      .map((line) => {
+        const [name, sizeRaw] = line.split("\t");
+        return {
+          name,
+          path: path.join(session.attachmentsDir, name),
+          size: Number.parseInt(sizeRaw, 10),
+        };
       });
-    }
     res.json({ files });
   } catch (error) {
     res.status(500).json({ error: "Failed to list attachments." });
@@ -3840,11 +3914,20 @@ app.post(
       return;
     }
     touchSession(session);
-    const uploaded = (req.files || []).map((file) => ({
-      name: file.filename,
-      path: file.path,
-      size: file.size,
-    }));
+    const uploaded = [];
+    for (const file of req.files || []) {
+      const targetPath = path.join(session.attachmentsDir, file.filename);
+      const inputStream = fs.createReadStream(file.path);
+      await runAsCommand(session.workspaceId, "/usr/bin/tee", [targetPath], {
+        input: inputStream,
+      });
+      await fs.promises.rm(file.path, { force: true });
+      uploaded.push({
+        name: file.filename,
+        path: targetPath,
+        size: file.size,
+      });
+    }
     res.json({ files: uploaded });
   }
 );

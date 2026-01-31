@@ -38,8 +38,9 @@
 
 ## Security Model (Strict Isolation)
 - One Linux user per workspace
-- File permissions: directories 0700, secrets 0600
-- All subprocesses (git/codex/claude/pty) run under workspace UID/GID
+- Server runs unprivileged (`vibecoder`) and delegates privileged actions to root helpers
+- File permissions: directories 02750 (setgid + group for workspace), secrets 0600
+- All subprocesses (git/codex/claude/pty) run under workspace UID/GID via `vibecoder-run-as`
 - Cross-workspace access forbidden (must not be readable or visible)
 
 ## Providers

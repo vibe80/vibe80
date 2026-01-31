@@ -36,8 +36,12 @@ const runCommand = (command, args, options = {}) =>
     });
 
     if (options.input) {
-      proc.stdin.write(options.input);
-      proc.stdin.end();
+      if (typeof options.input.pipe === "function") {
+        options.input.pipe(proc.stdin);
+      } else {
+        proc.stdin.write(options.input);
+        proc.stdin.end();
+      }
     } else {
       proc.stdin.end();
     }
@@ -55,11 +59,11 @@ const runCommand = (command, args, options = {}) =>
 const runCommandOutput = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
     const proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], ...options });
-    let stdout = "";
+    const stdoutChunks = [];
     let stderr = "";
 
     proc.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+      stdoutChunks.push(chunk);
     });
 
     proc.stderr.on("data", (chunk) => {
@@ -67,8 +71,12 @@ const runCommandOutput = (command, args, options = {}) =>
     });
 
     if (options.input) {
-      proc.stdin.write(options.input);
-      proc.stdin.end();
+      if (typeof options.input.pipe === "function") {
+        options.input.pipe(proc.stdin);
+      } else {
+        proc.stdin.write(options.input);
+        proc.stdin.end();
+      }
     } else {
       proc.stdin.end();
     }
@@ -76,7 +84,8 @@ const runCommandOutput = (command, args, options = {}) =>
     proc.on("error", reject);
     proc.on("close", (code) => {
       if (code === 0) {
-        resolve(stdout);
+        const output = Buffer.concat(stdoutChunks);
+        resolve(options.binary ? output : output.toString("utf8"));
         return;
       }
       reject(new Error(stderr.trim() || `${command} exited with ${code}`));
@@ -111,6 +120,7 @@ export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
     {
       env: process.env,
       input: options.input,
+      binary: options.binary,
     }
   ).catch((error) => {
     const details = [

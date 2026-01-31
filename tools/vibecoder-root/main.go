@@ -62,25 +62,21 @@ func ensureWorkspace(workspaceID string) {
     fail(err.Error())
   }
 
-  uid, _, err := lookupIDs(workspaceID)
-  if err != nil {
-    fail(err.Error())
-  }
-  serverGID, err := lookupServerGID()
+  uid, gid, err := lookupIDs(workspaceID)
   if err != nil {
     fail(err.Error())
   }
 
-  if err := ensureDir(homeDir, 02750, uid, serverGID); err != nil {
+  if err := ensureDir(homeDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
-  if err := ensureDir(rootDir, 02750, uid, serverGID); err != nil {
+  if err := ensureDir(rootDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
-  if err := ensureDir(metadataDir, 02750, uid, serverGID); err != nil {
+  if err := ensureDir(metadataDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
-  if err := ensureDir(sessionsDir, 02750, uid, serverGID); err != nil {
+  if err := ensureDir(sessionsDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
 }
@@ -116,22 +112,6 @@ func lookupIDs(workspaceID string) (int, int, error) {
     return 0, 0, errors.New("invalid gid")
   }
   return uid, gid, nil
-}
-
-func lookupServerGID() (int, error) {
-  serverUser := os.Getenv("VIBECODER_SERVER_USER")
-  if serverUser == "" {
-    serverUser = "vibecoder"
-  }
-  gidRaw, err := exec.Command("id", "-g", serverUser).Output()
-  if err != nil {
-    return 0, errors.New("unable to resolve server gid")
-  }
-  gid, err := strconv.Atoi(strings.TrimSpace(string(gidRaw)))
-  if err != nil {
-    return 0, errors.New("invalid server gid")
-  }
-  return gid, nil
 }
 
 func ensureDir(path string, mode os.FileMode, uid, gid int) error {
