@@ -1,11 +1,20 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCheck,
+  faCircle,
+  faCircleHalfStroke,
+  faCircleNotch,
+  faPlus,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 
 const STATUS_ICONS = {
-  creating: "◌",
-  ready: "●",
-  processing: "◐",
-  completed: "✓",
-  error: "✕",
+  creating: faCircleNotch,
+  ready: faCircle,
+  processing: faCircleHalfStroke,
+  completed: faCheck,
+  error: faXmark,
 };
 
 const STATUS_COLORS = {
@@ -239,7 +248,7 @@ export default function WorktreeTabs({
               title="Nouvelle branche parallèle"
               aria-label="Nouvelle branche parallèle"
             >
-              +
+              <FontAwesomeIcon icon={faPlus} />
             </button>
           </div>
         ) : (
@@ -258,7 +267,7 @@ export default function WorktreeTabs({
                   style={{ color: STATUS_COLORS[wt.status] || STATUS_COLORS.ready }}
                   title={wt.status}
                 >
-                  {STATUS_ICONS[wt.status] || STATUS_ICONS.ready}
+                  <FontAwesomeIcon icon={STATUS_ICONS[wt.status] || STATUS_ICONS.ready} />
                 </span>
 
                 {editingId === wt.id && wt.id !== "main" ? (
@@ -299,7 +308,7 @@ export default function WorktreeTabs({
                     }}
                     title="Fermer"
                   >
-                    ×
+                    <FontAwesomeIcon icon={faXmark} />
                   </button>
                 )}
               </div>
@@ -311,7 +320,7 @@ export default function WorktreeTabs({
               disabled={disabled || worktreeList.length >= 5}
               title="Nouvelle branche parallèle"
             >
-              +
+              <FontAwesomeIcon icon={faPlus} />
             </button>
           </>
         )}

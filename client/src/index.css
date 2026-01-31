@@ -2216,6 +2216,26 @@ main.chat {
   color: var(--ink-muted);
 }
 
+.warning-message {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.warning-icon {
+  color: #f59e0b;
+  margin-top: 2px;
+}
+
+.warning-body {
+  flex: 1;
+  min-width: 0;
+}
+
+:root[data-theme="dark"] .warning-icon {
+  color: #f6c453;
+}
+
 .bubble ul,
 .bubble ol {
   padding-left: 20px;

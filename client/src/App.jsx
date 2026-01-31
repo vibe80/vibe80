@@ -7,6 +7,21 @@ import "react-diff-view/style/index.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faArrowLeft,
+  faBroom,
+  faChevronDown,
+  faChevronRight,
+  faClipboardList,
+  faCopy,
+  faFileLines,
+  faFolderTree,
+  faGear,
+  faPaperclip,
+  faTriangleExclamation,
+  faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
 
 const getSessionIdFromUrl = () =>
@@ -922,14 +937,18 @@ function App() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <span className="attachment-icon">📎</span>
+                  <span className="attachment-icon" aria-hidden="true">
+                    <FontAwesomeIcon icon={faPaperclip} />
+                  </span>
                   <span className="attachment-name">{name}</span>
                 </a>
               );
             }
             return (
               <div key={key} className="attachment-card">
-                <span className="attachment-icon">📎</span>
+                <span className="attachment-icon" aria-hidden="true">
+                  <FontAwesomeIcon icon={faPaperclip} />
+                </span>
                 <span className="attachment-name">{name}</span>
               </div>
             );
@@ -4780,8 +4799,10 @@ function App() {
                   className="explorer-tree-toggle"
                   onClick={() => toggleExplorerDir(tabId, node.path)}
                 >
-                  <span className="explorer-tree-caret">
-                    {isExpanded ? "▾" : "▸"}
+                  <span className="explorer-tree-caret" aria-hidden="true">
+                    <FontAwesomeIcon
+                      icon={isExpanded ? faChevronDown : faChevronRight}
+                    />
                   </span>
                   <span className="explorer-tree-name">{node.name}</span>
                 </button>
@@ -4813,7 +4834,7 @@ function App() {
                 onClick={() => loadExplorerFile(tabId, node.path)}
               >
                 <span className="explorer-tree-icon" aria-hidden="true">
-                  📄
+                  <FontAwesomeIcon icon={faFileLines} />
                 </span>
                 <span className="explorer-tree-name">{node.name}</span>
               </button>
@@ -4869,7 +4890,7 @@ function App() {
             aria-label="Ouvrir les paramètres"
             onClick={handleOpenSettings}
           >
-            ⚙️
+            <FontAwesomeIcon icon={faGear} />
           </button>
           <button
             type="button"
@@ -4877,7 +4898,7 @@ function App() {
             aria-label="Quitter la session"
             onClick={handleLeaveSession}
           >
-            ⟵
+            <FontAwesomeIcon icon={faArrowLeft} />
           </button>
         </div>
       </header>
@@ -5024,7 +5045,9 @@ function App() {
                   title="Explorateur"
                 >
                   <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon">🗂</span>
+                    <span className="chat-toolbar-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={faFolderTree} />
+                    </span>
                   </span>
                   <span className="chat-toolbar-label">Explorateur</span>
                 </button>
@@ -5057,7 +5080,9 @@ function App() {
                     title="Logs"
                   >
                     <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                      <span className="chat-toolbar-icon">🧾</span>
+                      <span className="chat-toolbar-icon" aria-hidden="true">
+                        <FontAwesomeIcon icon={faClipboardList} />
+                      </span>
                     </span>
                     <span className="chat-toolbar-label">Logs</span>
                   </button>
@@ -5122,7 +5147,9 @@ function App() {
                   disabled={!hasMessages}
                 >
                   <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon">🧹</span>
+                    <span className="chat-toolbar-icon" aria-hidden="true">
+                      <FontAwesomeIcon icon={faBroom} />
+                    </span>
                   </span>
                   <span className="chat-toolbar-label">Effacer</span>
                 </button>
@@ -5272,65 +5299,80 @@ function App() {
                   return (
                     <div key={message.id} className={`bubble ${message.role}`}>
                       {(() => {
+                        const rawText = message.text || "";
+                        const isWarning = rawText.startsWith("⚠️");
+                        const warningText = rawText.replace(/^⚠️\s*/, "");
                         const { cleanedText, blocks, filerefs } =
-                          extractVibecoderBlocks(message.text || "");
+                          extractVibecoderBlocks(isWarning ? warningText : rawText);
+                        const content = (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({ node, ...props }) => {
+                                return (
+                                  <a
+                                    {...props}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  />
+                                );
+                              },
+                              code: ({
+                                node,
+                                inline,
+                                className,
+                                children,
+                                ...props
+                              }) => {
+                                const rawText = Array.isArray(children)
+                                  ? children.join("")
+                                  : String(children);
+                                const text = rawText.replace(/\n$/, "");
+                                if (!inline) {
+                                  return (
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                }
+                                return (
+                                  <span className="inline-code">
+                                    <code className={className} {...props}>
+                                      {text}
+                                    </code>
+                                    <button
+                                      type="button"
+                                      className="code-copy"
+                                      aria-label="Copier le code"
+                                      title="Copier"
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        copyTextToClipboard(text);
+                                      }}
+                                    >
+                                      <FontAwesomeIcon icon={faCopy} />
+                                    </button>
+                                  </span>
+                                );
+                              },
+                            }}
+                          >
+                            {cleanedText}
+                          </ReactMarkdown>
+                        );
                         return (
                           <>
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                a: ({ node, ...props }) => {
-                                  return (
-                                    <a
-                                      {...props}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    />
-                                  );
-                                },
-                                code: ({
-                                  node,
-                                  inline,
-                                  className,
-                                  children,
-                                  ...props
-                                }) => {
-                                  const rawText = Array.isArray(children)
-                                    ? children.join("")
-                                    : String(children);
-                                  const text = rawText.replace(/\n$/, "");
-                                  if (!inline) {
-                                    return (
-                                      <code className={className} {...props}>
-                                        {children}
-                                      </code>
-                                    );
-                                  }
-                                  return (
-                                    <span className="inline-code">
-                                      <code className={className} {...props}>
-                                        {text}
-                                      </code>
-                                      <button
-                                        type="button"
-                                        className="code-copy"
-                                        aria-label="Copier le code"
-                                        title="Copier"
-                                        onClick={(event) => {
-                                          event.preventDefault();
-                                          event.stopPropagation();
-                                          copyTextToClipboard(text);
-                                        }}
-                                      >
-                                        ⧉
-                                      </button>
-                                    </span>
-                                  );
-                                },
-                              }}
-                            >
-                              {cleanedText}
-                            </ReactMarkdown>
+                            {isWarning ? (
+                              <div className="warning-message">
+                                <span className="warning-icon" aria-hidden="true">
+                                  <FontAwesomeIcon icon={faTriangleExclamation} />
+                                </span>
+                                <div className="warning-body">{content}</div>
+                              </div>
+                            ) : (
+                              content
+                            )}
                             {filerefs.length ? (
                               <ul className="fileref-list">
                                 {filerefs.map((pathRef) => (
@@ -5823,15 +5865,17 @@ function App() {
             }`}
           >
             <div className="settings-header">
-              <button
-                type="button"
-                className="settings-back icon-button"
-                onClick={handleSettingsBack}
-                aria-label="Revenir à la vue précédente"
-                title="Revenir"
-              >
-                <span aria-hidden="true">←</span>
-              </button>
+                <button
+                  type="button"
+                  className="settings-back icon-button"
+                  onClick={handleSettingsBack}
+                  aria-label="Revenir à la vue précédente"
+                  title="Revenir"
+                >
+                  <span aria-hidden="true">
+                    <FontAwesomeIcon icon={faArrowLeft} />
+                  </span>
+                </button>
               <div className="settings-heading">
                 <div className="settings-title">Paramètres utilisateur</div>
                 <div className="settings-subtitle">
@@ -6086,7 +6130,7 @@ function App() {
                                 )
                               }
                             >
-                              ×
+                              <FontAwesomeIcon icon={faXmark} />
                             </button>
                           </div>
                         </div>
@@ -6183,7 +6227,7 @@ function App() {
                 aria-label="Fermer"
                 onClick={closeVibecoderForm}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
             <form className="vibecoder-form-body" onSubmit={submitActiveForm}>
@@ -6340,7 +6384,7 @@ function App() {
                 aria-label="Fermer"
                 onClick={closeCloseConfirm}
               >
-                ×
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
             <div className="worktree-close-confirm-body">
@@ -6385,7 +6429,7 @@ function App() {
             aria-label="Fermer"
             onClick={() => setAttachmentPreview(null)}
           >
-            ×
+            <FontAwesomeIcon icon={faXmark} />
           </button>
           <div
             className="attachment-modal-body"
