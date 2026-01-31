@@ -649,6 +649,50 @@ export default function WorktreeTabs({
           color: var(--accent, #ee5d3b);
         }
 
+        :root[data-theme="dark"] .worktree-create-dialog {
+          background: var(--surface-elevated, #1f2321);
+          color: var(--ink, #f2ede3);
+          box-shadow: var(--shadow);
+        }
+
+        :root[data-theme="dark"] .worktree-create-dialog h3 {
+          color: var(--ink, #f2ede3);
+        }
+
+        :root[data-theme="dark"] .worktree-create-field label {
+          color: var(--ink-muted, #b7ada1);
+        }
+
+        :root[data-theme="dark"] .worktree-create-field input,
+        :root[data-theme="dark"] .worktree-create-field select {
+          background: var(--bg-strong, #171a18);
+          border-color: var(--border-soft, rgba(255, 255, 255, 0.12));
+          color: var(--ink, #f2ede3);
+        }
+
+        :root[data-theme="dark"] .worktree-create-field input::placeholder {
+          color: rgba(242, 237, 227, 0.5);
+        }
+
+        :root[data-theme="dark"] .worktree-btn-refresh {
+          background: var(--surface-ghost, rgba(20, 24, 22, 0.8));
+          border-color: var(--border-soft, rgba(255, 255, 255, 0.12));
+          color: var(--ink-muted, #b7ada1);
+        }
+
+        :root[data-theme="dark"] .worktree-btn-cancel {
+          border-color: var(--border-soft, rgba(255, 255, 255, 0.12));
+          color: var(--ink-muted, #b7ada1);
+        }
+
+        :root[data-theme="dark"] .worktree-btn-cancel:hover {
+          background: rgba(255, 255, 255, 0.06);
+        }
+
+        :root[data-theme="dark"] .worktree-field-hint {
+          color: rgba(242, 237, 227, 0.55);
+        }
+
         .worktree-create-dialog-overlay {
           position: fixed;
           inset: 0;
