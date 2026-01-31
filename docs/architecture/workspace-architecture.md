@@ -56,6 +56,14 @@
 - Sessions do not accept providers; they inherit from the workspace
 - No rotation/versioning for now
 
+## Provider Sandbox Whitelist
+- Claude CLI: uses `--add-dir` to whitelist paths
+- Codex app-server: uses `sandbox_workspace_write.writable_roots`
+- Whitelisted paths:
+  - Session repository: `.../sessions/<session_id>/repository/`
+  - Current worktree: `.../sessions/<session_id>/worktrees/<worktree_id>/`
+  - Attachments: `.../sessions/<session_id>/attachments/`
+
 ## Auth Model (Option B)
 - POST /api/workspaces returns workspaceSecret (non-expiring)
 - POST /api/workspaces/login exchanges secret for JWT workspaceToken
