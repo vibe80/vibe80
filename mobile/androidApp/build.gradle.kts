@@ -107,4 +107,7 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.mlkit.barcode.scanning)
+
+    // JSON parsing for QR payloads
+    implementation(libs.kotlinx.serialization.json)
 }

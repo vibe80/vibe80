@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Base64
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 data class SessionUiState(
@@ -488,7 +489,7 @@ class SessionViewModel(
             _uiState.update { it.copy(handoffBusy = true, handoffError = null) }
 
             val parsed = runCatching {
-                handoffJson.decodeFromString(HandoffQrPayload.serializer(), payload)
+                handoffJson.decodeFromString<HandoffQrPayload>(payload)
             }.getOrNull()
 
             val token = parsed?.handoffToken?.trim()
