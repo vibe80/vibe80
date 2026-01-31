@@ -50,6 +50,8 @@ export class ClaudeCliClient extends EventEmitter {
       "./",
       "--permission-mode",
       "acceptEdits",
+      "--allowed-tools",
+      "Bash(git:*) WebSearch",
       "--append-system-prompt",
       this.systemPrompt,
     ];
