@@ -24,6 +24,7 @@ import {
   faPaperclip,
   faRightFromBracket,
   faTerminal,
+  faTowerBroadcast,
   faTriangleExclamation,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -3697,6 +3698,7 @@ function App() {
     : currentBranch || repoLastCommit?.branch || "";
   const shortSha =
     typeof activeCommit?.sha === "string" ? activeCommit.sha.slice(0, 7) : "";
+  const showInternetAccess = Boolean(activeWorktree?.internetAccess);
   const showChatInfoPanel =
     !isMobileLayout &&
     activePane === "chat" &&
@@ -5528,6 +5530,14 @@ function App() {
                           <div className="chat-meta-commit">
                             <span className="chat-meta-hash">{shortSha}</span>
                           </div>
+                          {showInternetAccess && (
+                            <div className="chat-meta-internet">
+                              <span className="chat-meta-internet-icon" aria-hidden="true">
+                                <FontAwesomeIcon icon={faTowerBroadcast} />
+                              </span>
+                              <span>Accès internet activé</span>
+                            </div>
+                          )}
                           <div className="chat-meta-message">
                             {activeCommit?.message || ""}
                           </div>

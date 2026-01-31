@@ -734,6 +734,23 @@ main.chat {
   font-weight: 600;
 }
 
+.chat-meta-internet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chat-meta-internet-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  color: #2f9e44;
+}
+
 .chat-meta-message {
   color: var(--ink-muted);
   line-height: 1.3;
