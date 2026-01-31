@@ -49,7 +49,7 @@ export class ClaudeCliClient extends EventEmitter {
       "--add-dir",
       "./",
       "--permission-mode",
-      "bypassPermissions",
+      "acceptEdits",
       "--append-system-prompt",
       this.systemPrompt,
     ];
