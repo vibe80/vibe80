@@ -1,4 +1,5 @@
 import { createRedisStorage } from "./redis.js";
+import { createSqliteStorage } from "./sqlite.js";
 
 const backend = process.env.STORAGE_BACKEND;
 
@@ -11,7 +12,7 @@ let storage = null;
 if (backend === "redis") {
   storage = createRedisStorage();
 } else if (backend === "sqlite") {
-  throw new Error("SQLite storage backend is not implemented yet.");
+  storage = createSqliteStorage();
 } else {
   throw new Error(`Unsupported STORAGE_BACKEND: ${backend}.`);
 }
