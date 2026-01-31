@@ -242,6 +242,8 @@ const copyTextToClipboard = async (text) => {
 };
 
 const MAX_USER_DISPLAY_LENGTH = 1024;
+const CHAT_COLLAPSE_THRESHOLD = 140;
+const CHAT_COLLAPSE_VISIBLE = 60;
 const REPO_HISTORY_KEY = "repoHistory";
 const AUTH_MODE_KEY = "authMode";
 const OPENAI_AUTH_MODE_KEY = "openAiAuthMode";
@@ -616,6 +618,7 @@ function App() {
     readToolResultsVisible
   );
   const [chatFullWidth, setChatFullWidth] = useState(readChatFullWidth);
+  const [showOlderMessagesByTab, setShowOlderMessagesByTab] = useState({});
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     readNotificationsEnabled
   );
@@ -3752,6 +3755,27 @@ function App() {
     });
     return grouped;
   }, [currentMessages, showChatCommands, showToolResults]);
+  const activeChatKey = activeWorktreeId || "main";
+  const showOlderMessages = Boolean(showOlderMessagesByTab[activeChatKey]);
+  const chatHistoryWindow = useMemo(() => {
+    const total = displayedGroupedMessages.length;
+    const shouldCollapse = !showOlderMessages && total > CHAT_COLLAPSE_THRESHOLD;
+    if (!shouldCollapse) {
+      return {
+        visibleMessages: displayedGroupedMessages,
+        hiddenCount: 0,
+        isCollapsed: false,
+      };
+    }
+    const visibleMessages = displayedGroupedMessages.slice(
+      Math.max(0, total - CHAT_COLLAPSE_VISIBLE)
+    );
+    return {
+      visibleMessages,
+      hiddenCount: Math.max(0, total - visibleMessages.length),
+      isCollapsed: true,
+    };
+  }, [displayedGroupedMessages, showOlderMessages]);
 
   const isWorktreeProcessing = activeWorktree?.status === "processing";
   const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
@@ -5503,7 +5527,22 @@ function App() {
                           <p>Envoyez un message pour demarrer une session.</p>
                         </div>
                       )}
-                      {displayedGroupedMessages.map((message) => {
+                      {chatHistoryWindow.hiddenCount > 0 && (
+                        <button
+                          type="button"
+                          className="chat-history-reveal"
+                          onClick={() =>
+                            setShowOlderMessagesByTab((current) => ({
+                              ...current,
+                              [activeChatKey]: true,
+                            }))
+                          }
+                        >
+                          Voir les messages précédents (
+                          {chatHistoryWindow.hiddenCount})
+                        </button>
+                      )}
+                      {chatHistoryWindow.visibleMessages.map((message) => {
                         if (message?.groupType === "commandExecution") {
                           return (
                             <div

@@ -658,6 +658,31 @@ main.chat {
   min-width: 0;
 }
 
+.chat-history-reveal {
+  align-self: center;
+  border: 1px solid rgba(20, 19, 17, 0.18);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.chat-history-reveal:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 19, 17, 0.32);
+  box-shadow: 0 6px 16px rgba(20, 19, 17, 0.12);
+}
+
+.chat-history-reveal:focus-visible {
+  outline: 2px solid rgba(20, 19, 17, 0.55);
+  outline-offset: 2px;
+}
+
 .chat-history-grid.has-meta .chat-history {
   grid-column: 2;
 }
