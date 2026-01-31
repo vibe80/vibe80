@@ -43,6 +43,14 @@
 - All subprocesses (git/codex/claude/pty) run under workspace UID/GID via `vibecoder-run-as`
 - Cross-workspace access forbidden (must not be readable or visible)
 
+## Storage Backend (Env)
+- `STORAGE_BACKEND` is mandatory: `redis` or `sqlite`
+- When `STORAGE_BACKEND=redis`:
+  - `REDIS_URL` is required
+  - Optional: `REDIS_KEY_PREFIX` (default: `vc`)
+- When `STORAGE_BACKEND=sqlite`:
+  - `SQLITE_PATH` is required (absolute or relative path to the DB file)
+
 ## Providers
 - Providers are configured at workspace creation
 - Sessions do not accept providers; they inherit from the workspace
