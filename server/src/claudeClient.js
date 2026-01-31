@@ -5,6 +5,7 @@ import { SYSTEM_PROMPT } from "./config.js";
 
 const RUN_AS_HELPER = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
 const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
+const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
 
 const createTurnId = () =>
   typeof crypto.randomUUID === "function"
@@ -56,21 +57,26 @@ export class ClaudeCliClient extends EventEmitter {
       args.push("--add-dir", this.attachmentsDir);
     }
 
-    const helperArgs = [
-      "-n",
-      RUN_AS_HELPER,
-      "--workspace-id",
-      this.workspaceId,
-      "--cwd",
-      this.cwd,
-      "--",
-      "claude",
-      ...args,
-    ];
+    const command = "claude";
+    const spawnCommand = isMonoUser ? command : SUDO_PATH;
+    const spawnArgs = isMonoUser
+      ? args
+      : [
+          "-n",
+          RUN_AS_HELPER,
+          "--workspace-id",
+          this.workspaceId,
+          "--cwd",
+          this.cwd,
+          "--",
+          command,
+          ...args,
+        ];
 
-    const proc = spawn(SUDO_PATH, helperArgs, {
+    const proc = spawn(spawnCommand, spawnArgs, {
       stdio: ["pipe", "pipe", "pipe"],
       env: this.env,
+      cwd: isMonoUser ? this.cwd : undefined,
     });
 
     proc.stdout.setEncoding("utf8");
@@ -87,12 +93,15 @@ export class ClaudeCliClient extends EventEmitter {
     proc.on("error", (error) => {
       const details = [
         "Claude spawn failed",
-        `sudo=${SUDO_PATH}`,
-        `helper=${RUN_AS_HELPER}`,
+        `mode=${isMonoUser ? "mono_user" : "multi_user"}`,
+        isMonoUser ? `cmd=${command}` : `sudo=${SUDO_PATH}`,
+        isMonoUser ? null : `helper=${RUN_AS_HELPER}`,
         `workspace=${this.workspaceId}`,
         `cwd=${this.cwd}`,
         `error=${error?.message || error}`,
-      ].join(" ");
+      ]
+        .filter(Boolean)
+        .join(" ");
       this.emit("log", details);
       this.emit("turn_error", {
         turnId,

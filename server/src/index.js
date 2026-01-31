@@ -2998,24 +2998,38 @@ if (terminalWss) {
       return;
     }
     const env = { ...process.env };
-    const termArgs = [
-      "-n",
-      runAsHelperPath,
-      "--workspace-id",
-      session.workspaceId,
-      "--cwd",
-      worktree?.path || session.repoDir,
-      "--env",
-      "TERM=xterm-256color",
-      "--",
-      shell,
-    ];
-    term = pty.spawn(sudoPath, termArgs, {
-      name: "xterm-256color",
-      cols,
-      rows,
-      env,
-    });
+    const cwd = worktree?.path || session.repoDir;
+    if (isMonoUser) {
+      term = pty.spawn(shell, [], {
+        name: "xterm-256color",
+        cols,
+        rows,
+        env: {
+          ...env,
+          TERM: "xterm-256color",
+        },
+        cwd,
+      });
+    } else {
+      const termArgs = [
+        "-n",
+        runAsHelperPath,
+        "--workspace-id",
+        session.workspaceId,
+        "--cwd",
+        cwd,
+        "--env",
+        "TERM=xterm-256color",
+        "--",
+        shell,
+      ];
+      term = pty.spawn(sudoPath, termArgs, {
+        name: "xterm-256color",
+        cols,
+        rows,
+        env,
+      });
+    }
 
     term.onData((data) => {
       if (socket.readyState === socket.OPEN) {

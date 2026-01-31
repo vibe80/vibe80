@@ -4,6 +4,7 @@ import { SYSTEM_PROMPT } from "./config.js";
 
 const RUN_AS_HELPER = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
 const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
+const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
 
 export class CodexAppServerClient extends EventEmitter {
   constructor({ cwd, env, workspaceId }) {
@@ -20,14 +21,7 @@ export class CodexAppServerClient extends EventEmitter {
   }
 
   async start() {
-    const helperArgs = [
-      "-n",
-      RUN_AS_HELPER,
-      "--workspace-id",
-      this.workspaceId,
-      "--cwd",
-      this.cwd,
-      "--",
+    const codexArgs = [
       "codex",
       "--dangerously-bypass-approvals-and-sandbox",
       "app-server",
@@ -36,25 +30,38 @@ export class CodexAppServerClient extends EventEmitter {
       "-c",
       "sandbox_workspace_write.network_access=true",
     ];
-    this.proc = spawn(
-      SUDO_PATH,
-      helperArgs,
-      {
-        stdio: ["pipe", "pipe", "pipe"],
-        env: this.env,
-      }
-    );
+    const spawnCommand = isMonoUser ? codexArgs[0] : SUDO_PATH;
+    const spawnArgs = isMonoUser
+      ? codexArgs.slice(1)
+      : [
+          "-n",
+          RUN_AS_HELPER,
+          "--workspace-id",
+          this.workspaceId,
+          "--cwd",
+          this.cwd,
+          "--",
+          ...codexArgs,
+        ];
+    this.proc = spawn(spawnCommand, spawnArgs, {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: this.env,
+      cwd: isMonoUser ? this.cwd : undefined,
+    });
     const spawnReady = new Promise((resolve, reject) => {
       this.proc.once("spawn", resolve);
       this.proc.once("error", (error) => {
         const details = [
           `Failed to spawn Codex app-server`,
-          `sudo=${SUDO_PATH}`,
-          `helper=${RUN_AS_HELPER}`,
+          `mode=${isMonoUser ? "mono_user" : "multi_user"}`,
+          isMonoUser ? `cmd=${codexArgs[0]}` : `sudo=${SUDO_PATH}`,
+          isMonoUser ? null : `helper=${RUN_AS_HELPER}`,
           `workspace=${this.workspaceId}`,
           `cwd=${this.cwd}`,
           `error=${error?.message || error}`,
-        ].join(" ");
+        ]
+          .filter(Boolean)
+          .join(" ");
         this.emit("log", details);
         reject(new Error(details));
       });
