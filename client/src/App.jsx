@@ -19,6 +19,7 @@ import {
   faFolderTree,
   faGear,
   faPaperclip,
+  faRightFromBracket,
   faTriangleExclamation,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -4626,8 +4627,14 @@ function App() {
               </p>
               <div className="session-form-row">
                 <div />
-                <button type="button" onClick={handleLeaveWorkspace}>
-                  Leave workspace
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={handleLeaveWorkspace}
+                  aria-label="Leave workspace"
+                  title="Leave workspace"
+                >
+                  <FontAwesomeIcon icon={faRightFromBracket} />
                 </button>
               </div>
               {(workspaceCreated?.workspaceId || workspaceId) && (
@@ -4898,7 +4905,7 @@ function App() {
             aria-label="Quitter la session"
             onClick={handleLeaveSession}
           >
-            <FontAwesomeIcon icon={faArrowLeft} />
+            <FontAwesomeIcon icon={faRightFromBracket} />
           </button>
         </div>
       </header>
