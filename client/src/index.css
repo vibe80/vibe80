@@ -580,6 +580,15 @@ body {
   }
 }
 
+@keyframes chat-meta-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 .activity {
   display: flex;
   gap: 10px;
@@ -750,6 +759,26 @@ main.chat {
   align-items: center;
   font-size: 11px;
   color: #2f9e44;
+}
+
+.chat-meta-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 6px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chat-meta-task-loader {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(20, 19, 17, 0.18);
+  border-top-color: var(--accent, #ee5d3b);
+  animation: chat-meta-spin 0.9s linear infinite;
 }
 
 .chat-meta-message {

@@ -8,6 +8,7 @@ export const SYSTEM_PROMPT =
   "<!-- /vibecoder:form --> One field per line and Use :: as choices separator; " +
   "example form <!-- vibecoder:form How r u? -->select::Anwser::Fine::very fine<!-- /vibecoder:form -->" +
   "Use <!-- vibecoder:yesno <question?> --> to ask yes/no questions;" +
+  "Use <!-- vibecoder:task <short_task_description> --> to notify the user about what you are doing;" +
   "Use <!-- vibecoder:fileref <filepath> --> to reference any file in the current repository";
 
 export const DEFAULT_GIT_AUTHOR_NAME =

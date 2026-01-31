@@ -219,6 +219,20 @@ const extractVibecoderBlocks = (text) => {
   return { cleanedText: cleaned.trim(), blocks, filerefs };
 };
 
+const extractVibecoderTask = (text) => {
+  const pattern = /<!--\s*vibecoder:task\s*([^>]*)-->/g;
+  const raw = String(text || "");
+  let label = "";
+  let match;
+  while ((match = pattern.exec(raw)) !== null) {
+    const normalized = normalizeVibecoderQuestion(match[1]);
+    if (normalized) {
+      label = normalized;
+    }
+  }
+  return label;
+};
+
 const copyTextToClipboard = async (text) => {
   if (!text) {
     return;
@@ -699,6 +713,7 @@ function App() {
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
+  const [mainTaskLabel, setMainTaskLabel] = useState("");
   const activePane = paneByTab[activeWorktreeId] || "chat";
   const activeWorktreeIdRef = useRef("main");
   const lastPaneByTabRef = useRef(new Map());
@@ -2035,6 +2050,10 @@ function App() {
           if (typeof payload.text !== "string") {
             return;
           }
+          const taskLabel = extractVibecoderTask(payload.text);
+          if (taskLabel) {
+            setMainTaskLabel(taskLabel);
+          }
           maybeNotify({ id: payload.itemId, text: payload.text });
           setMessages((current) => {
             const next = [...current];
@@ -2124,6 +2143,7 @@ function App() {
           setProcessing(false);
           setActivity("");
           setCurrentTurnId(null);
+          setMainTaskLabel("");
         }
 
         if (!isWorktreeScoped && payload.type === "error") {
@@ -2165,6 +2185,7 @@ function App() {
           setProcessing(false);
           setActivity("");
           setCurrentTurnId(null);
+          setMainTaskLabel("");
           void loadRepoLastCommit();
         }
 
@@ -2556,6 +2577,7 @@ function App() {
                   status: "ready",
                   currentTurnId: null,
                   activity: "",
+                  taskLabel: "",
                 });
               }
               return next;
@@ -2630,6 +2652,18 @@ function App() {
               next.set(wtId, { ...wt, messages });
               return next;
             });
+            if (payload.type === "assistant_message" && typeof payload.text === "string") {
+              const taskLabel = extractVibecoderTask(payload.text);
+              if (taskLabel) {
+                setWorktrees((current) => {
+                  const next = new Map(current);
+                  const wt = next.get(wtId);
+                  if (!wt) return current;
+                  next.set(wtId, { ...wt, taskLabel });
+                  return next;
+                });
+              }
+            }
           }
 
           if (payload.type === "command_execution_delta" || payload.type === "command_execution_completed") {
@@ -3698,6 +3732,9 @@ function App() {
     : currentBranch || repoLastCommit?.branch || "";
   const shortSha =
     typeof activeCommit?.sha === "string" ? activeCommit.sha.slice(0, 7) : "";
+  const activeTaskLabel = isInWorktree
+    ? activeWorktree?.taskLabel
+    : mainTaskLabel;
   const showInternetAccess = Boolean(activeWorktree?.internetAccess);
   const showChatInfoPanel =
     !isMobileLayout &&
@@ -5539,6 +5576,12 @@ function App() {
                                 <FontAwesomeIcon icon={faTowerBroadcast} />
                               </span>
                               <span>Accès internet activé</span>
+                            </div>
+                          )}
+                          {activeTaskLabel && (
+                            <div className="chat-meta-task">
+                              <span className="chat-meta-task-loader" aria-hidden="true" />
+                              <span>{activeTaskLabel}</span>
                             </div>
                           )}
                         </div>
