@@ -671,6 +671,10 @@ function App() {
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [rpcLogs, setRpcLogs] = useState([]);
   const [rpcLogsEnabled, setRpcLogsEnabled] = useState(true);
+  const [repoLastCommit, setRepoLastCommit] = useState(null);
+  const [worktreeLastCommitById, setWorktreeLastCommitById] = useState(
+    new Map()
+  );
   const [logFilterByTab, setLogFilterByTab] = useState({ main: "all" });
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
@@ -1345,6 +1349,62 @@ function App() {
     }
   }, [attachmentSession?.sessionId, apiFetch]);
 
+  const loadRepoLastCommit = useCallback(async () => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    try {
+      const response = await apiFetch(
+        `/api/session/${encodeURIComponent(attachmentSession.sessionId)}/last-commit`
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Impossible de charger le dernier commit.");
+      }
+      const commit = payload.commit || {};
+      setRepoLastCommit({
+        branch: payload.branch || "",
+        sha: commit.sha || "",
+        message: commit.message || "",
+      });
+    } catch (error) {
+      setRepoLastCommit(null);
+    }
+  }, [attachmentSession?.sessionId, apiFetch]);
+
+  const loadWorktreeLastCommit = useCallback(
+    async (worktreeId) => {
+      if (!attachmentSession?.sessionId || !worktreeId) {
+        return;
+      }
+      try {
+        const response = await apiFetch(
+          `/api/worktree/${encodeURIComponent(
+            worktreeId
+          )}/commits?session=${encodeURIComponent(
+            attachmentSession.sessionId
+          )}&limit=1`
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || "Impossible de charger le commit.");
+        }
+        const commit = Array.isArray(payload.commits) ? payload.commits[0] : null;
+        if (!commit?.sha) {
+          return;
+        }
+        setWorktreeLastCommitById((current) => {
+          const next = new Map(current);
+          next.set(worktreeId, { sha: commit.sha, message: commit.message || "" });
+          return next;
+        });
+      } catch (error) {
+        // Ignore worktree commit errors.
+      }
+    },
+    [attachmentSession?.sessionId, apiFetch]
+  );
+
   const loadProviderModels = useCallback(
     async (provider) => {
       if (!attachmentSession?.sessionId || !provider) {
@@ -1397,6 +1457,8 @@ function App() {
       setDefaultBranch("");
       setBranchError("");
       initialBranchRef.current = "";
+      setRepoLastCommit(null);
+      setWorktreeLastCommitById(new Map());
       setProviderModelState({});
       return;
     }
@@ -1404,7 +1466,8 @@ function App() {
     setDefaultBranch("");
     setProviderModelState({});
     loadBranches();
-  }, [attachmentSession?.sessionId, loadBranches]);
+    loadRepoLastCommit();
+  }, [attachmentSession?.sessionId, loadBranches, loadRepoLastCommit]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -2332,6 +2395,11 @@ function App() {
 
         if (payload.type === "worktree_removed") {
           setWorktrees((current) => {
+            const next = new Map(current);
+            next.delete(payload.worktreeId);
+            return next;
+          });
+          setWorktreeLastCommitById((current) => {
             const next = new Map(current);
             next.delete(payload.worktreeId);
             return next;
@@ -3304,6 +3372,7 @@ function App() {
       }
       setBranches(Array.isArray(payload.branches) ? payload.branches : []);
       setCurrentBranch(payload.current || "");
+      await loadRepoLastCommit();
       setBranchMenuOpen(false);
     } catch (error) {
       setBranchError(error.message || "Impossible de changer de branche.");
@@ -3606,6 +3675,18 @@ function App() {
   // Check if we're in a real worktree (not "main")
   const isInWorktree = activeWorktreeId && activeWorktreeId !== "main";
   const activeWorktree = isInWorktree ? worktrees.get(activeWorktreeId) : null;
+  const activeCommit = isInWorktree
+    ? worktreeLastCommitById.get(activeWorktreeId)
+    : repoLastCommit;
+  const activeBranchLabel = isInWorktree
+    ? activeWorktree?.branchName || activeWorktree?.name || ""
+    : currentBranch || repoLastCommit?.branch || "";
+  const shortSha =
+    typeof activeCommit?.sha === "string" ? activeCommit.sha.slice(0, 7) : "";
+  const showChatInfoPanel =
+    !isMobileLayout &&
+    activePane === "chat" &&
+    Boolean(activeBranchLabel && shortSha && activeCommit?.message);
 
   // Get current messages based on active tab
   const currentMessages = activeWorktree ? activeWorktree.messages : messages;
@@ -3856,6 +3937,8 @@ function App() {
     setRepoDiff({ status: "", diff: "" });
     setRpcLogs([]);
     setRpcLogsEnabled(true);
+    setRepoLastCommit(null);
+    setWorktreeLastCommitById(new Map());
     setCurrentTurnId(null);
     setActivity("");
     const url = new URL(window.location.href);
@@ -4242,6 +4325,28 @@ function App() {
     activeWorktreeId,
     requestExplorerTree,
     requestExplorerStatus,
+  ]);
+
+  useEffect(() => {
+    if (!attachmentSession?.sessionId || isMobileLayout || activePane !== "chat") {
+      return;
+    }
+    if (isInWorktree && activeWorktreeId) {
+      if (!worktreeLastCommitById.has(activeWorktreeId)) {
+        void loadWorktreeLastCommit(activeWorktreeId);
+      }
+      return;
+    }
+    void loadRepoLastCommit();
+  }, [
+    attachmentSession?.sessionId,
+    isMobileLayout,
+    activePane,
+    isInWorktree,
+    activeWorktreeId,
+    worktreeLastCommitById,
+    loadWorktreeLastCommit,
+    loadRepoLastCommit,
   ]);
 
   const handleExportChat = useCallback(
@@ -5369,129 +5474,154 @@ function App() {
             )}
             <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
               <div className="chat-scroll" ref={listRef}>
-                <div className="chat-scroll-inner">
-                  {currentMessages.length === 0 && (
-                    <div className="empty">
-                      <p>Envoyez un message pour demarrer une session.</p>
-                    </div>
-                  )}
-                  {displayedGroupedMessages.map((message) => {
-                    if (message?.groupType === "commandExecution") {
-                      return (
-                        <div
-                          key={message.id}
-                          className="bubble command-execution"
-                        >
-                          {message.items.map((item) => {
-                            const commandTitle = `Commande : ${
-                              item.command || "Commande"
-                            }`;
-                            const showLoader = item.status !== "completed";
-                            const isExpandable =
-                              item.isExpandable || Boolean(item.output);
-                            const summaryContent = (
-                              <>
-                                {showLoader && (
-                                  <span
-                                    className="loader command-execution-loader"
-                                    title="Execution en cours"
-                                  >
-                                    <span className="dot" />
-                                    <span className="dot" />
-                                    <span className="dot" />
-                                  </span>
-                                )}
-                                <span className="command-execution-title">
-                                  {commandTitle}
-                                </span>
-                              </>
-                            );
-                            return (
-                              <div key={item.id}>
-                                {isExpandable ? (
-                                  <details
-                                    className="command-execution-panel"
-                                    open={Boolean(commandPanelOpen[item.id])}
-                                    onToggle={(event) => {
-                                      const isOpen = event.currentTarget.open;
-                                      setCommandPanelOpen((prev) => ({
-                                        ...prev,
-                                        [item.id]: isOpen,
-                                      }));
-                                    }}
-                                  >
-                                  <summary className="command-execution-summary">
-                                    {summaryContent}
-                                  </summary>
-                                  <pre className="command-execution-output">
-                                    {item.output || ""}
-                                  </pre>
-                                </details>
-                              ) : (
-                                <div className="command-execution-summary is-static">
-                                  {summaryContent}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                <div
+                  className={`chat-scroll-inner ${
+                    showChatInfoPanel ? "has-meta" : ""
+                  }`}
+                >
+                  <div
+                    className={`chat-history-grid ${
+                      showChatInfoPanel ? "has-meta" : ""
+                    }`}
+                  >
+                    {showChatInfoPanel && (
+                      <div className="chat-meta-rail">
+                        <div className="chat-meta-card">
+                          <div className="chat-meta-branch">
+                            {activeBranchLabel}
+                          </div>
+                          <div className="chat-meta-commit">{shortSha}</div>
+                          <div className="chat-meta-message">
+                            &quot;{activeCommit?.message || ""}&quot;
+                          </div>
+                        </div>
                       </div>
-                    );
-                  }
-                  if (message?.groupType === "toolResult") {
-                    return (
-                      <div
-                        key={message.id}
-                        className="bubble command-execution"
-                      >
-                        {message.items.map((item) => {
-                          const toolTitle = `Outil : ${
-                            item.toolResult?.name ||
-                            item.toolResult?.tool ||
-                            "Tool"
-                          }`;
-                          const output =
-                            item.toolResult?.output || item.text || "";
-                          const isExpandable = Boolean(output);
-                          const summaryContent = (
-                            <span className="command-execution-title">
-                              {toolTitle}
-                            </span>
-                          );
-                          const panelKey = `tool-${item.id}`;
+                    )}
+                    <div className="chat-history">
+                      {currentMessages.length === 0 && (
+                        <div className="empty">
+                          <p>Envoyez un message pour demarrer une session.</p>
+                        </div>
+                      )}
+                      {displayedGroupedMessages.map((message) => {
+                        if (message?.groupType === "commandExecution") {
                           return (
-                            <div key={item.id}>
-                              {isExpandable ? (
-                                <details
-                                  className="command-execution-panel"
-                                  open={Boolean(toolResultPanelOpen[panelKey])}
-                                  onToggle={(event) => {
-                                    const isOpen = event.currentTarget.open;
-                                    setToolResultPanelOpen((prev) => ({
-                                      ...prev,
-                                      [panelKey]: isOpen,
-                                    }));
-                                  }}
-                                >
-                                  <summary className="command-execution-summary">
-                                    {summaryContent}
-                                  </summary>
-                                  <pre className="command-execution-output">
-                                    {output}
-                                  </pre>
-                                </details>
-                              ) : (
-                                <div className="command-execution-summary is-static">
-                                  {summaryContent}
-                                </div>
-                              )}
+                            <div
+                              key={message.id}
+                              className="bubble command-execution"
+                            >
+                              {message.items.map((item) => {
+                                const commandTitle = `Commande : ${
+                                  item.command || "Commande"
+                                }`;
+                                const showLoader = item.status !== "completed";
+                                const isExpandable =
+                                  item.isExpandable || Boolean(item.output);
+                                const summaryContent = (
+                                  <>
+                                    {showLoader && (
+                                      <span
+                                        className="loader command-execution-loader"
+                                        title="Execution en cours"
+                                      >
+                                        <span className="dot" />
+                                        <span className="dot" />
+                                        <span className="dot" />
+                                      </span>
+                                    )}
+                                    <span className="command-execution-title">
+                                      {commandTitle}
+                                    </span>
+                                  </>
+                                );
+                                return (
+                                  <div key={item.id}>
+                                    {isExpandable ? (
+                                      <details
+                                        className="command-execution-panel"
+                                        open={Boolean(commandPanelOpen[item.id])}
+                                        onToggle={(event) => {
+                                          const isOpen = event.currentTarget.open;
+                                          setCommandPanelOpen((prev) => ({
+                                            ...prev,
+                                            [item.id]: isOpen,
+                                          }));
+                                        }}
+                                      >
+                                        <summary className="command-execution-summary">
+                                          {summaryContent}
+                                        </summary>
+                                        <pre className="command-execution-output">
+                                          {item.output || ""}
+                                        </pre>
+                                      </details>
+                                    ) : (
+                                      <div className="command-execution-summary is-static">
+                                        {summaryContent}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           );
-                        })}
-                      </div>
-                    );
-                  }
-                  const isLongUserMessage =
+                        }
+                        if (message?.groupType === "toolResult") {
+                          return (
+                            <div
+                              key={message.id}
+                              className="bubble command-execution"
+                            >
+                              {message.items.map((item) => {
+                                const toolTitle = `Outil : ${
+                                  item.toolResult?.name ||
+                                  item.toolResult?.tool ||
+                                  "Tool"
+                                }`;
+                                const output =
+                                  item.toolResult?.output || item.text || "";
+                                const isExpandable = Boolean(output);
+                                const summaryContent = (
+                                  <span className="command-execution-title">
+                                    {toolTitle}
+                                  </span>
+                                );
+                                const panelKey = `tool-${item.id}`;
+                                return (
+                                  <div key={item.id}>
+                                    {isExpandable ? (
+                                      <details
+                                        className="command-execution-panel"
+                                        open={Boolean(
+                                          toolResultPanelOpen[panelKey]
+                                        )}
+                                        onToggle={(event) => {
+                                          const isOpen = event.currentTarget.open;
+                                          setToolResultPanelOpen((prev) => ({
+                                            ...prev,
+                                            [panelKey]: isOpen,
+                                          }));
+                                        }}
+                                      >
+                                        <summary className="command-execution-summary">
+                                          {summaryContent}
+                                        </summary>
+                                        <pre className="command-execution-output">
+                                          {output}
+                                        </pre>
+                                      </details>
+                                    ) : (
+                                      <div className="command-execution-summary is-static">
+                                        {summaryContent}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        }
+                        const isLongUserMessage =
                     message.role === "user" &&
                     (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
                   if (isLongUserMessage) {

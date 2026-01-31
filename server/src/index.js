@@ -1145,6 +1145,17 @@ const getCurrentBranch = async (session) => {
   return trimmed === "HEAD" ? "" : trimmed;
 };
 
+const getLastCommit = async (session, cwd) => {
+  const output = await runSessionCommandOutput(
+    session,
+    "git",
+    ["log", "-1", "--format=%H|%s"],
+    { cwd }
+  );
+  const [sha, message] = output.trim().split("|");
+  return { sha: sha || "", message: message || "" };
+};
+
 const getBranchInfo = async (session, remote = "origin") => {
   await runSessionCommand(session, "git", ["fetch", "--prune"], {
     cwd: session.repoDir,
@@ -3198,6 +3209,24 @@ app.get("/api/session/:sessionId", async (req, res) => {
     rpcLogs: debugApiWsLog ? session.rpcLogs || [] : [],
     terminalEnabled,
   });
+});
+
+app.get("/api/session/:sessionId/last-commit", async (req, res) => {
+  const session = getSession(req.params.sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  touchSession(session);
+  try {
+    const [branch, commit] = await Promise.all([
+      getCurrentBranch(session),
+      getLastCommit(session, session.repoDir),
+    ]);
+    res.json({ branch, commit });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load last commit." });
+  }
 });
 
 app.get("/api/session/:sessionId/rpc-logs", async (req, res) => {

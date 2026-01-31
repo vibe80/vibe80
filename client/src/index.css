@@ -633,6 +633,77 @@ main.chat {
   width: 100%;
 }
 
+.chat-scroll-inner.has-meta {
+  max-width: none;
+  margin: 0;
+}
+
+.chat-history-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.chat-history-grid.has-meta {
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--chat-max-width));
+  column-gap: 24px;
+}
+
+.chat-history {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.chat-history-grid.has-meta .chat-history {
+  grid-column: 2;
+}
+
+.chat-meta-rail {
+  grid-column: 1;
+  justify-self: end;
+  align-self: start;
+  min-width: 0;
+}
+
+.chat-meta-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 12px;
+  box-shadow: 0 10px 25px rgba(20, 19, 17, 0.08);
+  max-width: 180px;
+  text-align: right;
+}
+
+.chat-meta-branch {
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.chat-meta-commit {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.chat-meta-message {
+  color: var(--ink-muted);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
 .chat-toolbar {
   position: absolute;
   top: var(--chat-toolbar-inset);
@@ -825,6 +896,11 @@ main.chat {
   max-width: var(--chat-max-width);
   width: 100%;
   margin: 0 auto;
+}
+
+.conversation.is-chat-narrow .chat-scroll-inner.has-meta {
+  max-width: none;
+  margin: 0;
 }
 
 .pane-stack {
