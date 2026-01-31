@@ -21,11 +21,14 @@ export async function getOrCreateClient(session, provider) {
       ? new ClaudeCliClient({
           cwd: session.repoDir,
           attachmentsDir: session.attachmentsDir,
+          repoDir: session.repoDir,
           env: process.env,
           workspaceId: session.workspaceId,
         })
       : new CodexAppServerClient({
           cwd: session.repoDir,
+          attachmentsDir: session.attachmentsDir,
+          repoDir: session.repoDir,
           env: process.env,
           workspaceId: session.workspaceId,
         });
@@ -46,17 +49,20 @@ export async function getOrCreateClient(session, provider) {
  * @param {string} [attachmentsDir] - The attachments directory
  * @returns {CodexAppServerClient | ClaudeCliClient}
  */
-export function createWorktreeClient(worktree, attachmentsDir) {
+export function createWorktreeClient(worktree, attachmentsDir, repoDir) {
   const client =
     worktree.provider === "claude"
       ? new ClaudeCliClient({
           cwd: worktree.path,
           attachmentsDir,
+          repoDir,
           env: process.env,
           workspaceId: worktree.workspaceId,
         })
       : new CodexAppServerClient({
           cwd: worktree.path,
+          attachmentsDir,
+          repoDir,
           env: process.env,
           workspaceId: worktree.workspaceId,
         });

@@ -241,7 +241,11 @@ export async function createWorktree(session, options) {
   await touchSession(session);
 
   try {
-    const client = createWorktreeClient(worktree, session.attachmentsDir);
+    const client = createWorktreeClient(
+      worktree,
+      session.attachmentsDir,
+      session.repoDir
+    );
     const runtime = getSessionRuntime(session.sessionId);
     if (runtime) {
       runtime.worktreeClients.set(worktreeId, client);

@@ -7,9 +7,11 @@ const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
 const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
 
 export class CodexAppServerClient extends EventEmitter {
-  constructor({ cwd, env, workspaceId }) {
+  constructor({ cwd, attachmentsDir, repoDir, env, workspaceId }) {
     super();
     this.cwd = cwd;
+    this.attachmentsDir = attachmentsDir;
+    this.repoDir = repoDir || cwd;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
     this.proc = null;
@@ -193,6 +195,13 @@ export class CodexAppServerClient extends EventEmitter {
   }
 
   async #configureSandbox() {
+    const writableRoots = [
+      this.cwd,
+      this.repoDir,
+      this.attachmentsDir,
+    ]
+      .filter(Boolean)
+      .filter((value, index, self) => self.indexOf(value) === index);
     await this.#sendRequest("config/batchWrite", {
       edits: [
         {
@@ -203,7 +212,7 @@ export class CodexAppServerClient extends EventEmitter {
         {
           keyPath: "sandbox_workspace_write.writable_roots",
           mergeStrategy: "replace",
-          value: [this.cwd],
+          value: writableRoots,
         },
         {
           keyPath: "sandbox_workspace_write.network_access",

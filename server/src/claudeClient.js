@@ -13,10 +13,11 @@ const createTurnId = () =>
     : crypto.randomBytes(16).toString("hex");
 
 export class ClaudeCliClient extends EventEmitter {
-  constructor({ cwd, attachmentsDir, env, workspaceId }) {
+  constructor({ cwd, attachmentsDir, repoDir, env, workspaceId }) {
     super();
     this.cwd = cwd;
     this.attachmentsDir = attachmentsDir;
+    this.repoDir = repoDir || cwd;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
     this.ready = false;
@@ -38,6 +39,13 @@ export class ClaudeCliClient extends EventEmitter {
 
   async sendTurn(text) {
     const turnId = createTurnId();
+    const allowedDirs = [
+      this.cwd,
+      this.repoDir,
+      this.attachmentsDir,
+    ]
+      .filter(Boolean)
+      .filter((value, index, self) => self.indexOf(value) === index);
     const args = [
       "--continue",
       "--verbose",
@@ -46,8 +54,6 @@ export class ClaudeCliClient extends EventEmitter {
       "stream-json",
       "--input-format",
       "stream-json",
-      "--add-dir",
-      "./",
       "--permission-mode",
       "acceptEdits",
       "--allowed-tools",
@@ -55,8 +61,8 @@ export class ClaudeCliClient extends EventEmitter {
       "--append-system-prompt",
       this.systemPrompt,
     ];
-    if (this.attachmentsDir) {
-      args.push("--add-dir", this.attachmentsDir);
+    for (const dir of allowedDirs) {
+      args.push("--add-dir", dir);
     }
 
     const command = "claude";
