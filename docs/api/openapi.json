@@ -956,6 +956,149 @@
           }
         }
       }
+    },
+    "/api/sessions": {
+      "get": {
+        "summary": "List sessions",
+        "responses": {
+          "200": {
+            "description": "Session list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/api/session/{sessionId}/last-commit": {
+      "get": {
+        "summary": "Get last commit for session",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Last commit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LastCommitResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/api/session/{sessionId}/rpc-logs": {
+      "get": {
+        "summary": "Get RPC logs for session (debug only)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RPC logs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcLogsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/session/{sessionId}/git-identity": {
+      "get": {
+        "summary": "Get git identity for session",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Git identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitIdentityResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Update git identity for session",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitIdentityUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Git identity updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitIdentityUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1293,6 +1436,9 @@
           "workspaceId": {
             "type": "string",
             "pattern": "^w[0-9a-f]{24}$"
+          },
+          "rpcLogsEnabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1354,6 +1500,9 @@
           "workspaceId": {
             "type": "string",
             "pattern": "^w[0-9a-f]{24}$"
+          },
+          "rpcLogsEnabled": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1479,6 +1628,9 @@
           },
           "color": {
             "type": "string"
+          },
+          "internetAccess": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1531,6 +1683,9 @@
               "string",
               "null"
             ]
+          },
+          "internetAccess": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1559,6 +1714,9 @@
           },
           "color": {
             "type": "string"
+          },
+          "internetAccess": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1606,6 +1764,9 @@
           },
           "diff": {
             "$ref": "#/components/schemas/RepoDiff"
+          },
+          "internetAccess": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2053,6 +2214,174 @@
         "required": [
           "workspaceId",
           "providers"
+        ],
+        "additionalProperties": false
+      },
+      "SessionSummary": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "repoUrl": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "lastActivityAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "activeProvider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Provider"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "sessionId",
+          "repoUrl"
+        ],
+        "additionalProperties": true
+      },
+      "SessionListResponse": {
+        "type": "object",
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionSummary"
+            }
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "additionalProperties": false
+      },
+      "LastCommit": {
+        "type": "object",
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "LastCommitResponse": {
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "commit": {
+            "$ref": "#/components/schemas/LastCommit"
+          }
+        },
+        "required": [
+          "branch",
+          "commit"
+        ],
+        "additionalProperties": false
+      },
+      "RpcLogsResponse": {
+        "type": "object",
+        "properties": {
+          "rpcLogs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "rpcLogs"
+        ],
+        "additionalProperties": false
+      },
+      "GitIdentity": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ],
+        "additionalProperties": false
+      },
+      "GitIdentityResponse": {
+        "type": "object",
+        "properties": {
+          "global": {
+            "$ref": "#/components/schemas/GitIdentity"
+          },
+          "repo": {
+            "$ref": "#/components/schemas/GitIdentity"
+          },
+          "effective": {
+            "$ref": "#/components/schemas/GitIdentity"
+          }
+        },
+        "required": [
+          "global",
+          "repo",
+          "effective"
+        ],
+        "additionalProperties": false
+      },
+      "GitIdentityUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ],
+        "additionalProperties": false
+      },
+      "GitIdentityUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "repo": {
+            "$ref": "#/components/schemas/GitIdentity"
+          }
+        },
+        "required": [
+          "ok",
+          "repo"
         ],
         "additionalProperties": false
       }

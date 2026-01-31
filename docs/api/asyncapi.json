@@ -9,12 +9,12 @@
     "chat": {
       "url": "ws://localhost:5179/ws",
       "protocol": "ws",
-      "description": "Chat + worktree websocket. Requires ?session=SESSION_ID"
+      "description": "Chat + worktree websocket. Requires ?session=SESSION_ID and ?token=WORKSPACE_TOKEN"
     },
     "terminal": {
       "url": "ws://localhost:5179/terminal",
       "protocol": "ws",
-      "description": "Terminal websocket. Requires ?session=SESSION_ID and optional &worktreeId=ID"
+      "description": "Terminal websocket. Requires ?session=SESSION_ID and ?token=WORKSPACE_TOKEN, optional &worktreeId=ID"
     }
   },
   "channels": {
