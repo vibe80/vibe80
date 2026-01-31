@@ -5661,241 +5661,254 @@ function App() {
                           );
                         }
                         const isLongUserMessage =
-                    message.role === "user" &&
-                    (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
-                  if (isLongUserMessage) {
-                    const truncatedText = getTruncatedText(
-                      message.text,
-                      MAX_USER_DISPLAY_LENGTH
-                    );
-                    return (
-                      <div key={message.id} className={`bubble ${message.role}`}>
-                        <div className="plain-text">{truncatedText}</div>
-                        {renderMessageAttachments(message.attachments)}
-                      </div>
-                    );
-                  }
+                          message.role === "user" &&
+                          (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
+                        if (isLongUserMessage) {
+                          const truncatedText = getTruncatedText(
+                            message.text,
+                            MAX_USER_DISPLAY_LENGTH
+                          );
+                          return (
+                            <div
+                              key={message.id}
+                              className={`bubble ${message.role}`}
+                            >
+                              <div className="plain-text">{truncatedText}</div>
+                              {renderMessageAttachments(message.attachments)}
+                            </div>
+                          );
+                        }
 
-                  return (
-                    <div key={message.id} className={`bubble ${message.role}`}>
-                      {(() => {
-                        const rawText = message.text || "";
-                        const isWarning = rawText.startsWith("⚠️");
-                        const warningText = rawText.replace(/^⚠️\s*/, "");
-                        const { cleanedText, blocks, filerefs } =
-                          extractVibecoderBlocks(isWarning ? warningText : rawText);
-                        const content = (
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              a: ({ node, ...props }) => {
-                                return (
-                                  <a
-                                    {...props}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  />
-                                );
-                              },
-                              code: ({
-                                node,
-                                inline,
-                                className,
-                                children,
-                                ...props
-                              }) => {
-                                const rawText = Array.isArray(children)
-                                  ? children.join("")
-                                  : String(children);
-                                const text = rawText.replace(/\n$/, "");
-                                if (!inline) {
-                                  return (
-                                    <code className={className} {...props}>
-                                      {children}
-                                    </code>
-                                  );
-                                }
-                                return (
-                                  <span className="inline-code">
-                                    <code className={className} {...props}>
-                                      {text}
-                                    </code>
-                                    <button
-                                      type="button"
-                                      className="code-copy"
-                                      aria-label="Copier le code"
-                                      title="Copier"
-                                      onClick={(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        copyTextToClipboard(text);
-                                      }}
-                                    >
-                                      <FontAwesomeIcon icon={faCopy} />
-                                    </button>
-                                  </span>
-                                );
-                              },
-                            }}
-                          >
-                            {cleanedText}
-                          </ReactMarkdown>
-                        );
                         return (
-                          <>
-                            {isWarning ? (
-                              <div className="warning-message">
-                                <span className="warning-icon" aria-hidden="true">
-                                  <FontAwesomeIcon icon={faTriangleExclamation} />
-                                </span>
-                                <div className="warning-body">{content}</div>
-                              </div>
-                            ) : (
-                              content
-                            )}
-                            {filerefs.length ? (
-                              <ul className="fileref-list">
-                                {filerefs.map((pathRef) => (
-                                  <li
-                                    key={`${message.id}-fileref-${pathRef}`}
-                                    className="fileref-item"
-                                  >
-                                    <button
-                                      type="button"
-                                      className="fileref-link"
-                                      onClick={(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        openFileInExplorer(pathRef);
-                                      }}
-                                    >
-                                      {pathRef}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : null}
-                            {blocks.map((block, index) => {
-                              const blockKey = `${message.id}-${index}`;
-                              if (block.type === "form") {
-                                return (
-                                  <div
-                                    className="vibecoder-form"
-                                    key={blockKey}
-                                  >
-                                    <button
-                                      type="button"
-                                      className="vibecoder-form-button"
-                                      onClick={() =>
-                                        openVibecoderForm(block, blockKey)
-                                      }
-                                    >
-                                      {block.question ||
-                                        "Ouvrir le formulaire"}
-                                    </button>
-                                  </div>
+                          <div key={message.id} className={`bubble ${message.role}`}>
+                            {(() => {
+                              const rawText = message.text || "";
+                              const isWarning = rawText.startsWith("⚠️");
+                              const warningText = rawText.replace(/^⚠️\s*/, "");
+                              const { cleanedText, blocks, filerefs } =
+                                extractVibecoderBlocks(
+                                  isWarning ? warningText : rawText
                                 );
-                              }
-
-                              const selectedIndex = choiceSelections[blockKey];
-                              const choicesWithIndex = block.choices.map(
-                                (choice, choiceIndex) => ({
-                                  choice,
-                                  choiceIndex,
-                                })
-                              );
-                              const orderedChoices =
-                                selectedIndex === undefined
-                                  ? choicesWithIndex
-                                  : [
-                                      choicesWithIndex.find(
-                                        ({ choiceIndex }) =>
-                                          choiceIndex === selectedIndex
-                                      ),
-                                      ...choicesWithIndex.filter(
-                                        ({ choiceIndex }) =>
-                                          choiceIndex !== selectedIndex
-                                      ),
-                                    ].filter(Boolean);
-
-                              const isInline = block.type === "yesno";
-                              return (
-                                <div
-                                  className={`choices ${
-                                    isInline ? "is-inline" : ""
-                                  }`}
-                                  key={blockKey}
-                                >
-                                  {block.question && (
-                                    <div className="choices-question">
-                                      {block.question}
-                                    </div>
-                                  )}
-                                  <div
-                                    className={`choices-list ${
-                                      selectedIndex !== undefined
-                                        ? "is-selected"
-                                        : ""
-                                    } ${isInline ? "is-inline" : ""}`}
-                                  >
-                                    {orderedChoices.map(
-                                      ({ choice, choiceIndex }) => {
-                                        const isSelected =
-                                          selectedIndex === choiceIndex;
+                              const content = (
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    a: ({ node, ...props }) => {
+                                      return (
+                                        <a
+                                          {...props}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        />
+                                      );
+                                    },
+                                    code: ({
+                                      node,
+                                      inline,
+                                      className,
+                                      children,
+                                      ...props
+                                    }) => {
+                                      const rawText = Array.isArray(children)
+                                        ? children.join("")
+                                        : String(children);
+                                      const text = rawText.replace(/\n$/, "");
+                                      if (!inline) {
                                         return (
-                                          <button
-                                            type="button"
-                                            key={`${blockKey}-${choiceIndex}`}
-                                            onClick={() =>
-                                              handleChoiceClick(
-                                                choice,
-                                                blockKey,
-                                                choiceIndex
-                                              )
-                                            }
-                                            className={`choice-button ${
-                                              isSelected
-                                                ? "is-selected"
-                                                : selectedIndex !== undefined
-                                                  ? "is-muted"
-                                                  : ""
-                                            }`}
-                                          >
-                                            <ReactMarkdown
-                                              remarkPlugins={[remarkGfm]}
-                                              components={{
-                                                p: ({ node, ...props }) => (
-                                                  <span {...props} />
-                                                ),
-                                                a: ({ node, ...props }) => (
-                                                  <a
-                                                    {...props}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                  />
-                                                ),
-                                              }}
-                                            >
-                                              {choice}
-                                            </ReactMarkdown>
-                                          </button>
+                                          <code className={className} {...props}>
+                                            {children}
+                                          </code>
                                         );
                                       }
-                                    )}
-                                  </div>
-                                </div>
+                                      return (
+                                        <span className="inline-code">
+                                          <code className={className} {...props}>
+                                            {text}
+                                          </code>
+                                          <button
+                                            type="button"
+                                            className="code-copy"
+                                            aria-label="Copier le code"
+                                            title="Copier"
+                                            onClick={(event) => {
+                                              event.preventDefault();
+                                              event.stopPropagation();
+                                              copyTextToClipboard(text);
+                                            }}
+                                          >
+                                            <FontAwesomeIcon icon={faCopy} />
+                                          </button>
+                                        </span>
+                                      );
+                                    },
+                                  }}
+                                >
+                                  {cleanedText}
+                                </ReactMarkdown>
                               );
-                            })}
-                            {renderMessageAttachments(message.attachments)}
-                          </>
+                              return (
+                                <>
+                                  {isWarning ? (
+                                    <div className="warning-message">
+                                      <span
+                                        className="warning-icon"
+                                        aria-hidden="true"
+                                      >
+                                        <FontAwesomeIcon
+                                          icon={faTriangleExclamation}
+                                        />
+                                      </span>
+                                      <div className="warning-body">{content}</div>
+                                    </div>
+                                  ) : (
+                                    content
+                                  )}
+                                  {filerefs.length ? (
+                                    <ul className="fileref-list">
+                                      {filerefs.map((pathRef) => (
+                                        <li
+                                          key={`${message.id}-fileref-${pathRef}`}
+                                          className="fileref-item"
+                                        >
+                                          <button
+                                            type="button"
+                                            className="fileref-link"
+                                            onClick={(event) => {
+                                              event.preventDefault();
+                                              event.stopPropagation();
+                                              openFileInExplorer(pathRef);
+                                            }}
+                                          >
+                                            {pathRef}
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : null}
+                                  {blocks.map((block, index) => {
+                                    const blockKey = `${message.id}-${index}`;
+                                    if (block.type === "form") {
+                                      return (
+                                        <div
+                                          className="vibecoder-form"
+                                          key={blockKey}
+                                        >
+                                          <button
+                                            type="button"
+                                            className="vibecoder-form-button"
+                                            onClick={() =>
+                                              openVibecoderForm(block, blockKey)
+                                            }
+                                          >
+                                            {block.question ||
+                                              "Ouvrir le formulaire"}
+                                          </button>
+                                        </div>
+                                      );
+                                    }
+
+                                    const selectedIndex =
+                                      choiceSelections[blockKey];
+                                    const choicesWithIndex = block.choices.map(
+                                      (choice, choiceIndex) => ({
+                                        choice,
+                                        choiceIndex,
+                                      })
+                                    );
+                                    const orderedChoices =
+                                      selectedIndex === undefined
+                                        ? choicesWithIndex
+                                        : [
+                                            choicesWithIndex.find(
+                                              ({ choiceIndex }) =>
+                                                choiceIndex === selectedIndex
+                                            ),
+                                            ...choicesWithIndex.filter(
+                                              ({ choiceIndex }) =>
+                                                choiceIndex !== selectedIndex
+                                            ),
+                                          ].filter(Boolean);
+
+                                    const isInline = block.type === "yesno";
+                                    return (
+                                      <div
+                                        className={`choices ${
+                                          isInline ? "is-inline" : ""
+                                        }`}
+                                        key={blockKey}
+                                      >
+                                        {block.question && (
+                                          <div className="choices-question">
+                                            {block.question}
+                                          </div>
+                                        )}
+                                        <div
+                                          className={`choices-list ${
+                                            selectedIndex !== undefined
+                                              ? "is-selected"
+                                              : ""
+                                          } ${isInline ? "is-inline" : ""}`}
+                                        >
+                                          {orderedChoices.map(
+                                            ({ choice, choiceIndex }) => {
+                                              const isSelected =
+                                                selectedIndex === choiceIndex;
+                                              return (
+                                                <button
+                                                  type="button"
+                                                  key={`${blockKey}-${choiceIndex}`}
+                                                  onClick={() =>
+                                                    handleChoiceClick(
+                                                      choice,
+                                                      blockKey,
+                                                      choiceIndex
+                                                    )
+                                                  }
+                                                  className={`choice-button ${
+                                                    isSelected
+                                                      ? "is-selected"
+                                                      : selectedIndex !== undefined
+                                                        ? "is-muted"
+                                                        : ""
+                                                  }`}
+                                                >
+                                                  <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                    components={{
+                                                      p: ({ node, ...props }) => (
+                                                        <span {...props} />
+                                                      ),
+                                                      a: ({ node, ...props }) => (
+                                                        <a
+                                                          {...props}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                        />
+                                                      ),
+                                                    }}
+                                                  >
+                                                    {choice}
+                                                  </ReactMarkdown>
+                                                </button>
+                                              );
+                                            }
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                  {renderMessageAttachments(message.attachments)}
+                                </>
+                              );
+                            })()}
+                          </div>
                         );
-                      })()}
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                </div>
               </div>
-            </div>
-            {currentProcessing && (
+              {currentProcessing && (
                 <div className="bubble assistant typing">
                   <div className="typing-indicator">
                     <div
