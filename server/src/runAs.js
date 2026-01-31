@@ -1,7 +1,11 @@
 import { spawn } from "child_process";
+import os from "os";
+import path from "path";
 
 const RUN_AS_HELPER = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
 const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
+const DEPLOYMENT_MODE = process.env.DEPLOYMENT_MODE;
+const IS_MONO_USER = DEPLOYMENT_MODE === "mono_user";
 const ALLOWED_ENV_KEYS = new Set([
   "GIT_SSH_COMMAND",
   "GIT_CONFIG_GLOBAL",
@@ -24,6 +28,35 @@ const buildRunAsArgs = (workspaceId, command, args, options = {}) => {
   }
   result.push("--", command, ...args);
   return result;
+};
+
+const buildRunEnv = (options = {}) => {
+  const env = { ...process.env };
+  if (options.env) {
+    for (const [key, value] of Object.entries(options.env)) {
+      if (!ALLOWED_ENV_KEYS.has(key)) {
+        continue;
+      }
+      env[key] = value;
+    }
+  }
+  return env;
+};
+
+const getWorkspaceHome = (workspaceId) => {
+  const homeBase = process.env.WORKSPACE_HOME_BASE || "/home";
+  return IS_MONO_USER ? os.homedir() : path.join(homeBase, workspaceId);
+};
+
+const validateCwd = (workspaceId, cwd) => {
+  const resolved = path.resolve(cwd);
+  const homeDir = getWorkspaceHome(workspaceId);
+  if (
+    resolved !== homeDir &&
+    !resolved.startsWith(homeDir + path.sep)
+  ) {
+    throw new Error("cwd outside workspace");
+  }
 };
 
 const runCommand = (command, args, options = {}) =>
@@ -93,16 +126,25 @@ const runCommandOutput = (command, args, options = {}) =>
   });
 
 export const runAsCommand = (workspaceId, command, args, options = {}) =>
-  runCommand(
-    SUDO_PATH,
-    ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
-    {
-      env: process.env,
-      input: options.input,
-    }
+  (IS_MONO_USER
+    ? (validateCwd(workspaceId, options.cwd || getWorkspaceHome(workspaceId)),
+      runCommand(command, args, {
+        cwd: options.cwd || getWorkspaceHome(workspaceId),
+        env: buildRunEnv(options),
+        input: options.input,
+      }))
+    : runCommand(
+        SUDO_PATH,
+        ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
+        {
+          env: process.env,
+          input: options.input,
+        }
+      )
   ).catch((error) => {
     const details = [
       "run-as failed",
+      `mode=${DEPLOYMENT_MODE || "unknown"}`,
       `sudo=${SUDO_PATH}`,
       `helper=${RUN_AS_HELPER}`,
       `workspace=${workspaceId}`,
@@ -114,17 +156,27 @@ export const runAsCommand = (workspaceId, command, args, options = {}) =>
   });
 
 export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
-  runCommandOutput(
-    SUDO_PATH,
-    ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
-    {
-      env: process.env,
-      input: options.input,
-      binary: options.binary,
-    }
+  (IS_MONO_USER
+    ? (validateCwd(workspaceId, options.cwd || getWorkspaceHome(workspaceId)),
+      runCommandOutput(command, args, {
+        cwd: options.cwd || getWorkspaceHome(workspaceId),
+        env: buildRunEnv(options),
+        input: options.input,
+        binary: options.binary,
+      }))
+    : runCommandOutput(
+        SUDO_PATH,
+        ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
+        {
+          env: process.env,
+          input: options.input,
+          binary: options.binary,
+        }
+      )
   ).catch((error) => {
     const details = [
       "run-as output failed",
+      `mode=${DEPLOYMENT_MODE || "unknown"}`,
       `sudo=${SUDO_PATH}`,
       `helper=${RUN_AS_HELPER}`,
       `workspace=${workspaceId}`,

@@ -50,6 +50,19 @@ const cwd = process.cwd();
 const sessions = new Map();
 const workspaces = new Map();
 const workspaceUserIds = new Map();
+const deploymentMode = process.env.DEPLOYMENT_MODE;
+if (!deploymentMode) {
+  console.error("DEPLOYMENT_MODE is required (mono_user or multi_user).");
+  process.exit(1);
+}
+if (deploymentMode !== "mono_user" && deploymentMode !== "multi_user") {
+  console.error(`Invalid DEPLOYMENT_MODE: ${deploymentMode}. Use mono_user or multi_user.`);
+  process.exit(1);
+}
+
+const isMonoUser = deploymentMode === "mono_user";
+const isMultiUser = deploymentMode === "multi_user";
+
 const workspaceUidMin = Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
 const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
 const workspaceIdsUsed = new Set();
@@ -368,11 +381,19 @@ const classifySessionCreationError = (error) => {
   };
 };
 
-const runRootCommand = (args, options = {}) =>
-  runCommand(sudoPath, ["-n", rootHelperPath, ...args], options);
+const runRootCommand = (args, options = {}) => {
+  if (isMonoUser) {
+    throw new Error("Root helpers are not available in mono_user mode.");
+  }
+  return runCommand(sudoPath, ["-n", rootHelperPath, ...args], options);
+};
 
-const runRootCommandOutput = (args, options = {}) =>
-  runCommandOutput(sudoPath, ["-n", rootHelperPath, ...args], options);
+const runRootCommandOutput = (args, options = {}) => {
+  if (isMonoUser) {
+    throw new Error("Root helpers are not available in mono_user mode.");
+  }
+  return runCommandOutput(sudoPath, ["-n", rootHelperPath, ...args], options);
+};
 
 const runSessionCommand = (session, command, args, options = {}) =>
   runAsCommand(session.workspaceId, command, args, options);
@@ -396,11 +417,11 @@ const loadJwtKey = () => {
 const jwtKey = loadJwtKey();
 
 const generateId = (prefix) => `${prefix}${crypto.randomBytes(12).toString("hex")}`;
-const workspaceIdPattern = /^w[0-9a-f]{24}$/;
+const workspaceIdPattern = isMonoUser ? /^default$/ : /^w[0-9a-f]{24}$/;
 const sessionIdPattern = /^s[0-9a-f]{24}$/;
 
 const getWorkspacePaths = (workspaceId) => {
-  const home = path.join(workspaceHomeBase, workspaceId);
+  const home = isMonoUser ? os.homedir() : path.join(workspaceHomeBase, workspaceId);
   const root = path.join(home, workspaceRootName);
   const metadataDir = path.join(root, workspaceMetadataDirName);
   const sessionsDir = path.join(root, workspaceSessionsDirName);
@@ -448,6 +469,9 @@ const appendWorkspaceFile = async (workspaceId, filePath, content, mode = 0o600)
 };
 
 const workspaceUserExists = async (workspaceId) => {
+  if (isMonoUser) {
+    return workspaceId === "default";
+  }
   try {
     await runCommandOutput("id", ["-u", workspaceId]);
     return true;
@@ -581,6 +605,13 @@ const getWorkspaceUserIds = async (workspaceId) => {
   if (cached) {
     return cached;
   }
+  if (isMonoUser) {
+    const uid = typeof process.getuid === "function" ? process.getuid() : os.userInfo().uid;
+    const gid = typeof process.getgid === "function" ? process.getgid() : os.userInfo().gid;
+    const ids = { uid, gid };
+    workspaceUserIds.set(workspaceId, ids);
+    return ids;
+  }
   let uid = null;
   let gid = null;
   try {
@@ -601,12 +632,13 @@ const getWorkspaceUserIds = async (workspaceId) => {
 };
 
 const buildWorkspaceEnv = (workspaceId) => {
-  const home = path.join(workspaceHomeBase, workspaceId);
+  const home = isMonoUser ? os.homedir() : path.join(workspaceHomeBase, workspaceId);
+  const user = isMonoUser ? os.userInfo().username : workspaceId;
   return {
     ...process.env,
     HOME: home,
-    USER: workspaceId,
-    LOGNAME: workspaceId,
+    USER: user,
+    LOGNAME: user,
   };
 };
 
@@ -690,6 +722,9 @@ const pickDefaultProvider = (providers) => {
 };
 
 const ensureWorkspaceUser = async (workspaceId, homeDirPath, ids = null) => {
+  if (isMonoUser) {
+    return;
+  }
   try {
     await runCommandOutput("id", ["-u", workspaceId]);
     return;
@@ -726,6 +761,9 @@ const ensureWorkspaceIdsRecorded = async (workspaceId, ids, config = null) => {
 };
 
 const scanWorkspaceIds = async () => {
+  if (isMonoUser) {
+    return;
+  }
   if (workspaceIdsScanned) {
     return;
   }
@@ -799,6 +837,11 @@ const allocateWorkspaceIds = async () => {
 };
 
 const recoverWorkspaceIds = async (workspaceId) => {
+  if (isMonoUser) {
+    const uid = typeof process.getuid === "function" ? process.getuid() : os.userInfo().uid;
+    const gid = typeof process.getgid === "function" ? process.getgid() : os.userInfo().gid;
+    return { uid, gid };
+  }
   const homeDir = path.join(workspaceHomeBase, workspaceId);
   let config = null;
   try {
@@ -860,7 +903,7 @@ const decodeBase64 = (value) => {
 };
 
 const writeWorkspaceProviderAuth = async (workspaceId, providers) => {
-  const workspaceHome = path.join(workspaceHomeBase, workspaceId);
+  const workspaceHome = getWorkspacePaths(workspaceId).homeDir;
   const authPaths = getWorkspaceAuthPaths(workspaceHome);
 
   const codexConfig = providers?.codex;
@@ -935,6 +978,24 @@ const createWorkspace = async (providers) => {
   const validationError = validateProvidersConfig(providers);
   if (validationError) {
     throw new Error(validationError);
+  }
+  if (isMonoUser) {
+    const workspaceId = "default";
+    const paths = getWorkspacePaths(workspaceId);
+    await ensureWorkspaceDirs(workspaceId);
+    let secret = "";
+    try {
+      secret = await readWorkspaceSecret(workspaceId);
+    } catch {
+      secret = crypto.randomBytes(32).toString("hex");
+      await writeWorkspaceFile(workspaceId, paths.secretPath, secret, 0o600);
+    }
+    const ids = await getWorkspaceUserIds(workspaceId);
+    await writeWorkspaceProviderAuth(workspaceId, providers);
+    await writeWorkspaceConfig(workspaceId, providers, ids);
+    workspaces.set(workspaceId, { workspaceId, providers, paths });
+    await appendAuditLog(workspaceId, "workspace_created");
+    return { workspaceId, workspaceSecret: secret };
   }
   while (true) {
     const workspaceId = generateId("w");
