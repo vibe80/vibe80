@@ -11,6 +11,8 @@ import { spawn } from "child_process";
 import jwt from "jsonwebtoken";
 import * as pty from "node-pty";
 import { runAsCommand, runAsCommandOutput } from "./runAs.js";
+import storage from "./storage/index.js";
+import { getSessionRuntime, deleteSessionRuntime } from "./runtimeStore.js";
 import {
   DEFAULT_GIT_AUTHOR_EMAIL,
   DEFAULT_GIT_AUTHOR_NAME,
@@ -47,9 +49,6 @@ const terminalEnabled = !/^(0|false|no|off)$/i.test(
 const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : null;
 
 const cwd = process.cwd();
-const sessions = new Map();
-const workspaces = new Map();
-const workspaceUserIds = new Map();
 const deploymentMode = process.env.DEPLOYMENT_MODE;
 if (!deploymentMode) {
   console.error("DEPLOYMENT_MODE is required (mono_user or multi_user).");
@@ -62,6 +61,8 @@ if (deploymentMode !== "mono_user" && deploymentMode !== "multi_user") {
 
 const isMonoUser = deploymentMode === "mono_user";
 const isMultiUser = deploymentMode === "multi_user";
+
+await storage.init();
 
 const workspaceUidMin = Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
 const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
@@ -601,7 +602,7 @@ const writeWorkspaceFilePreserveMode = async (workspaceId, filePath, content) =>
 };
 
 const getWorkspaceUserIds = async (workspaceId) => {
-  const cached = workspaceUserIds.get(workspaceId);
+  const cached = await storage.getWorkspaceUserIds(workspaceId);
   if (cached) {
     return cached;
   }
@@ -609,7 +610,7 @@ const getWorkspaceUserIds = async (workspaceId) => {
     const uid = typeof process.getuid === "function" ? process.getuid() : os.userInfo().uid;
     const gid = typeof process.getgid === "function" ? process.getgid() : os.userInfo().gid;
     const ids = { uid, gid };
-    workspaceUserIds.set(workspaceId, ids);
+    await storage.saveWorkspaceUserIds(workspaceId, ids);
     return ids;
   }
   let uid = null;
@@ -627,7 +628,7 @@ const getWorkspaceUserIds = async (workspaceId) => {
     gid = recovered.gid;
   }
   const ids = { uid, gid };
-  workspaceUserIds.set(workspaceId, ids);
+  await storage.saveWorkspaceUserIds(workspaceId, ids);
   return ids;
 };
 
@@ -657,9 +658,11 @@ const appendAuditLog = async (workspaceId, event, details = {}) => {
   }
 };
 
-const touchSession = (session) => {
+const touchSession = async (session) => {
   if (!session) return;
-  session.lastActivityAt = Date.now();
+  const updated = { ...session, lastActivityAt: Date.now() };
+  await storage.saveSession(session.sessionId, updated);
+  return updated;
 };
 
 const allowedAuthTypes = new Set(["api_key", "auth_json_b64", "setup_token"]);
@@ -993,7 +996,6 @@ const createWorkspace = async (providers) => {
     const ids = await getWorkspaceUserIds(workspaceId);
     await writeWorkspaceProviderAuth(workspaceId, providers);
     await writeWorkspaceConfig(workspaceId, providers, ids);
-    workspaces.set(workspaceId, { workspaceId, providers, paths });
     await appendAuditLog(workspaceId, "workspace_created");
     return { workspaceId, workspaceSecret: secret };
   }
@@ -1012,7 +1014,6 @@ const createWorkspace = async (providers) => {
     await writeWorkspaceFile(workspaceId, paths.secretPath, secret, 0o600);
     await writeWorkspaceProviderAuth(workspaceId, providers);
     await writeWorkspaceConfig(workspaceId, providers, ids);
-    workspaces.set(workspaceId, { workspaceId, providers, paths });
     await appendAuditLog(workspaceId, "workspace_created");
     return { workspaceId, workspaceSecret: secret };
   }
@@ -1027,8 +1028,6 @@ const updateWorkspace = async (workspaceId, providers) => {
   const existing = await readWorkspaceConfig(workspaceId).catch(() => null);
   await writeWorkspaceProviderAuth(workspaceId, providers);
   const payload = await writeWorkspaceConfig(workspaceId, providers, ids, existing);
-  const paths = getWorkspacePaths(workspaceId);
-  workspaces.set(workspaceId, { workspaceId, providers, paths });
   await appendAuditLog(workspaceId, "workspace_updated");
   return payload;
 };
@@ -1080,46 +1079,63 @@ const stopClient = async (client) => {
 };
 
 const cleanupSession = async (sessionId, reason) => {
-  const session = sessions.get(sessionId);
+  const session = await storage.getSession(sessionId);
   if (!session) {
     return;
   }
-  for (const socket of session.sockets) {
-    try {
-      socket.close();
-    } catch {
-      // ignore
-    }
-  }
-  if (session.worktrees) {
-    for (const worktree of session.worktrees.values()) {
-      if (worktree.client) {
-        await stopClient(worktree.client);
+  const runtime = getSessionRuntime(sessionId);
+  if (runtime?.sockets) {
+    for (const socket of runtime.sockets) {
+      try {
+        socket.close();
+      } catch {
+        // ignore
       }
     }
   }
-  for (const client of Object.values(session.clients || {})) {
-    await stopClient(client);
+  if (runtime?.worktreeClients) {
+    for (const client of runtime.worktreeClients.values()) {
+      await stopClient(client);
+    }
+    runtime.worktreeClients.clear();
   }
+  if (runtime?.clients) {
+    for (const client of Object.values(runtime.clients || {})) {
+      await stopClient(client);
+    }
+  }
+
+  const worktrees = await storage.listWorktrees(sessionId);
+  for (const worktree of worktrees) {
+    if (worktree?.path) {
+      await runAsCommand(session.workspaceId, "/bin/rm", ["-rf", worktree.path]).catch(() => {});
+    }
+  }
+
   if (session.dir) {
     await runAsCommand(session.workspaceId, "/bin/rm", ["-rf", session.dir]).catch(() => {});
   }
   if (session.sshKeyPath) {
     await runAsCommand(session.workspaceId, "/bin/rm", ["-f", session.sshKeyPath]).catch(() => {});
   }
-  sessions.delete(sessionId);
+  await storage.deleteSession(sessionId, session.workspaceId);
+  deleteSessionRuntime(sessionId);
   await appendAuditLog(session.workspaceId, "session_removed", { sessionId, reason });
 };
 
 const runSessionGc = async () => {
   const now = Date.now();
-  for (const [sessionId, session] of sessions.entries()) {
+  const sessions = await storage.listSessions();
+  for (const session of sessions) {
+    if (!session?.sessionId) {
+      continue;
+    }
     const createdAt = session.createdAt || now;
     const lastActivity = session.lastActivityAt || createdAt;
     const expiredByIdle = sessionIdleTtlMs > 0 && now - lastActivity > sessionIdleTtlMs;
     const expiredByMax = sessionMaxTtlMs > 0 && now - createdAt > sessionMaxTtlMs;
     if (expiredByIdle || expiredByMax) {
-      await cleanupSession(sessionId, expiredByIdle ? "idle_timeout" : "max_ttl");
+      await cleanupSession(session.sessionId, expiredByIdle ? "idle_timeout" : "max_ttl");
     }
   }
 };
@@ -1336,7 +1352,7 @@ const createSession = async (workspaceId, repoUrl, auth) => {
           { env }
         );
       }
-      // Initialize session with multi-client structure
+      // Initialize session for storage
       const session = {
         sessionId,
         workspaceId,
@@ -1349,11 +1365,6 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         createdAt: Date.now(),
         lastActivityAt: Date.now(),
         sshKeyPath: sessionSshKeyPath,
-        clients: {
-          codex: null,
-          claude: null,
-        },
-        sockets: new Set(),
         messagesByProvider: {
           codex: [],
           claude: [],
@@ -1362,7 +1373,7 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         rpcLogs: [],
       };
       session.messages = session.messagesByProvider[defaultProvider];
-      sessions.set(sessionId, session);
+      await storage.saveSession(sessionId, session);
       sessionRecord = session;
       await appendAuditLog(workspaceId, "session_created", { sessionId, repoUrl });
 
@@ -1389,7 +1400,7 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         error: error?.message || error,
       });
       if (sessionRecord) {
-        sessions.delete(sessionId);
+        await storage.deleteSession(sessionId, sessionRecord.workspaceId);
       }
       if (sessionSshKeyPath) {
         await runAsCommand(workspaceId, "/bin/rm", ["-f", sessionSshKeyPath]).catch(() => {});
@@ -1402,8 +1413,11 @@ const createSession = async (workspaceId, repoUrl, auth) => {
   }
 };
 
-const getSession = (sessionId, workspaceId = null) => {
-  const session = sessionId ? sessions.get(sessionId) || null : null;
+const getSession = async (sessionId, workspaceId = null) => {
+  if (!sessionId) {
+    return null;
+  }
+  const session = await storage.getSession(sessionId);
   if (!session) {
     return null;
   }
@@ -1413,7 +1427,7 @@ const getSession = (sessionId, workspaceId = null) => {
   return session;
 };
 
-const getSessionFromRequest = (req) => {
+const getSessionFromRequest = async (req) => {
   if (!req?.url) {
     return null;
   }
@@ -1451,14 +1465,14 @@ const MAX_TREE_DEPTH = 8;
 const MAX_FILE_BYTES = 200 * 1024;
 const MAX_WRITE_BYTES = 500 * 1024;
 
-const resolveWorktreeRoot = (session, worktreeId) => {
+const resolveWorktreeRoot = async (session, worktreeId) => {
   if (!session) {
     return { rootPath: null, worktree: null };
   }
   if (!worktreeId || worktreeId === "main") {
     return { rootPath: session.repoDir, worktree: null };
   }
-  const worktree = getWorktree(session, worktreeId);
+  const worktree = await getWorktree(session, worktreeId);
   if (!worktree) {
     return { rootPath: null, worktree: null };
   }
@@ -1526,26 +1540,28 @@ const buildDirectoryTree = async (workspaceId, rootPath, options = {}) => {
   return { tree, total: count, truncated };
 };
 
-const appendSessionMessage = (sessionId, message) => {
-  const session = getSession(sessionId);
+const appendSessionMessage = async (sessionId, message) => {
+  const session = await getSession(sessionId);
   if (!session) {
     return;
   }
   const provider = message?.provider || session.activeProvider || "codex";
-  if (!session.messagesByProvider) {
-    session.messagesByProvider = {};
-    if (Array.isArray(session.messages) && session.messages.length > 0) {
-      session.messagesByProvider[session.activeProvider || "codex"] =
-        session.messages;
-    }
+  const messagesByProvider = { ...(session.messagesByProvider || {}) };
+  if (!Array.isArray(messagesByProvider[provider])) {
+    messagesByProvider[provider] = [];
   }
-  if (!Array.isArray(session.messagesByProvider[provider])) {
-    session.messagesByProvider[provider] = [];
-  }
-  session.messagesByProvider[provider].push(message);
-  if (session.activeProvider === provider) {
-    session.messages = session.messagesByProvider[provider];
-  }
+  messagesByProvider[provider] = [...messagesByProvider[provider], message];
+  const messages =
+    session.activeProvider === provider
+      ? messagesByProvider[provider]
+      : session.messages || messagesByProvider[session.activeProvider] || [];
+  const updated = {
+    ...session,
+    messagesByProvider,
+    messages,
+    lastActivityAt: Date.now(),
+  };
+  await storage.saveSession(sessionId, updated);
 };
 
 const getMessagesSince = (session, provider, lastSeenMessageId) => {
@@ -1561,22 +1577,24 @@ const getMessagesSince = (session, provider, lastSeenMessageId) => {
   return messages.slice(index + 1);
 };
 
-const appendRpcLog = (sessionId, entry) => {
+const appendRpcLog = async (sessionId, entry) => {
   if (!debugApiWsLog) {
     return;
   }
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
   if (!session) {
     return;
   }
-  session.rpcLogs.push(entry);
-  if (session.rpcLogs.length > 500) {
-    session.rpcLogs.splice(0, session.rpcLogs.length - 500);
+  const rpcLogs = Array.isArray(session.rpcLogs) ? [...session.rpcLogs, entry] : [entry];
+  if (rpcLogs.length > 500) {
+    rpcLogs.splice(0, rpcLogs.length - 500);
   }
+  const updated = { ...session, rpcLogs, lastActivityAt: Date.now() };
+  await storage.saveSession(sessionId, updated);
 };
 
 const broadcastRepoDiff = async (sessionId) => {
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
   if (!session) {
     return;
   }
@@ -1652,34 +1670,40 @@ const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
       const sessionId = req.query.session;
-      const session = getSession(sessionId, req.workspaceId);
-      if (!session) {
-        cb(new Error("Invalid session."));
-        return;
-      }
-      cb(null, uploadTempDir);
+      getSession(sessionId, req.workspaceId)
+        .then((session) => {
+          if (!session) {
+            cb(new Error("Invalid session."));
+            return;
+          }
+          cb(null, uploadTempDir);
+        })
+        .catch((error) => cb(error));
     },
-    filename: async (req, file, cb) => {
+    filename: (req, file, cb) => {
       const sessionId = req.query.session;
-      const session = getSession(sessionId, req.workspaceId);
-      if (!session) {
-        cb(new Error("Invalid session."));
-        return;
-      }
-      try {
-        const safeName = sanitizeFilename(file.originalname);
-        const reserved =
-          req._reservedFilenames || (req._reservedFilenames = new Set());
-        const uniqueName = await ensureUniqueFilename(
-          session.workspaceId,
-          session.attachmentsDir,
-          safeName,
-          reserved
-        );
-        cb(null, uniqueName);
-      } catch (error) {
-        cb(error);
-      }
+      getSession(sessionId, req.workspaceId)
+        .then(async (session) => {
+          if (!session) {
+            cb(new Error("Invalid session."));
+            return;
+          }
+          try {
+            const safeName = sanitizeFilename(file.originalname);
+            const reserved =
+              req._reservedFilenames || (req._reservedFilenames = new Set());
+            const uniqueName = await ensureUniqueFilename(
+              session.workspaceId,
+              session.attachmentsDir,
+              safeName,
+              reserved
+            );
+            cb(null, uniqueName);
+          } catch (error) {
+            cb(error);
+          }
+        })
+        .catch((error) => cb(error));
     },
   }),
   limits: { files: 20, fileSize: 50 * 1024 * 1024 },
@@ -1689,13 +1713,12 @@ const getProviderLabel = (session) =>
   session?.activeProvider === "claude" ? "Claude CLI" : "Codex app-server";
 
 function broadcastToSession(sessionId, payload) {
-  const session = getSession(sessionId);
-  if (!session) {
+  const runtime = getSessionRuntime(sessionId);
+  if (!runtime) {
     return;
   }
-  touchSession(session);
   const message = JSON.stringify(payload);
-  for (const socket of session.sockets) {
+  for (const socket of runtime.sockets) {
     if (socket.readyState === socket.OPEN) {
       socket.send(message);
     }
@@ -1703,24 +1726,25 @@ function broadcastToSession(sessionId, payload) {
 }
 
 function attachClientEvents(sessionId, client, provider) {
-  const session = getSession(sessionId);
-
-  client.on("ready", ({ threadId }) => {
-    // Only broadcast if this is the active provider
-    if (session?.activeProvider === provider) {
-      broadcastToSession(sessionId, { type: "ready", threadId, provider });
-    }
-  });
-
   // Track authentication errors from Codex stderr logs
   let lastAuthError = null;
 
+  client.on("ready", ({ threadId }) => {
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (session?.activeProvider === provider) {
+        broadcastToSession(sessionId, { type: "ready", threadId, provider });
+      }
+    })();
+  });
+
   client.on("log", (message) => {
-    if (message) {
-      console.log(`[codex:${sessionId}] ${message}`);
-      // Detect authentication errors and send to client
-      if (message.includes("401 Unauthorized") || message.includes("Unauthorized")) {
-        lastAuthError = "Erreur d'authentification Codex: vérifiez votre fichier auth.json";
+    if (!message) return;
+    console.log(`[codex:${sessionId}] ${message}`);
+    if (message.includes("401 Unauthorized") || message.includes("Unauthorized")) {
+      lastAuthError = "Erreur d'authentification Codex: vérifiez votre fichier auth.json";
+      void (async () => {
+        const session = await getSession(sessionId);
         if (session?.activeProvider === provider) {
           broadcastToSession(sessionId, {
             type: "error",
@@ -1728,186 +1752,192 @@ function attachClientEvents(sessionId, client, provider) {
             details: message,
           });
         }
-      }
+      })();
     }
   });
 
   client.on("exit", ({ code, signal }) => {
-    if (session?.activeProvider === provider) {
-      const errorMessage = lastAuthError || "Codex app-server stopped.";
-      broadcastToSession(sessionId, {
-        type: "error",
-        message: errorMessage,
-      });
-    }
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (session?.activeProvider === provider) {
+        const errorMessage = lastAuthError || "Codex app-server stopped.";
+        broadcastToSession(sessionId, { type: "error", message: errorMessage });
+      }
+    })();
     console.error("Codex app-server stopped.", { code, signal, sessionId });
   });
 
   client.on("notification", (message) => {
-    // Ignore notifications from inactive provider
-    if (session?.activeProvider !== provider) {
-      return;
-    }
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session || session.activeProvider !== provider) {
+        return;
+      }
 
-    switch (message.method) {
-      case "item/agentMessage/delta": {
-        const { delta, itemId, turnId } = message.params;
-        broadcastToSession(sessionId, {
-          type: "assistant_delta",
-          delta,
-          itemId,
-          turnId,
-          provider,
-        });
-        break;
-      }
-      case "item/commandExecution/outputDelta": {
-        const { delta, itemId, turnId, threadId } = message.params;
-        broadcastToSession(sessionId, {
-          type: "command_execution_delta",
-          delta,
-          itemId,
-          turnId,
-          threadId,
-          provider,
-        });
-        break;
-      }
-      case "item/completed": {
-        const { item, turnId } = message.params;
-        if (item?.type === "agentMessage") {
-          appendSessionMessage(sessionId, {
-            id: item.id,
-            role: "assistant",
-            text: item.text,
-            provider,
-          });
+      switch (message.method) {
+        case "item/agentMessage/delta": {
+          const { delta, itemId, turnId } = message.params;
           broadcastToSession(sessionId, {
-            type: "assistant_message",
-            text: item.text,
-            itemId: item.id,
+            type: "assistant_delta",
+            delta,
+            itemId,
             turnId,
             provider,
           });
-          void broadcastRepoDiff(sessionId);
+          break;
         }
-        if (item?.type === "commandExecution") {
-          appendSessionMessage(sessionId, {
-            id: item.id,
-            role: "tool_result",
-            text: item.aggregatedOutput || "",
-            provider,
-            toolResult: {
-              callId: item.id,
-              name: item.command || "command",
-              output: item.aggregatedOutput || "",
-              success: item.status === "completed",
-            },
-          });
+        case "item/commandExecution/outputDelta": {
+          const { delta, itemId, turnId, threadId } = message.params;
           broadcastToSession(sessionId, {
-            type: "command_execution_completed",
+            type: "command_execution_delta",
+            delta,
+            itemId,
+            turnId,
+            threadId,
+            provider,
+          });
+          break;
+        }
+        case "item/completed": {
+          const { item, turnId } = message.params;
+          if (item?.type === "agentMessage") {
+            await appendSessionMessage(sessionId, {
+              id: item.id,
+              role: "assistant",
+              text: item.text,
+              provider,
+            });
+            broadcastToSession(sessionId, {
+              type: "assistant_message",
+              text: item.text,
+              itemId: item.id,
+              turnId,
+              provider,
+            });
+            void broadcastRepoDiff(sessionId);
+          }
+          if (item?.type === "commandExecution") {
+            await appendSessionMessage(sessionId, {
+              id: item.id,
+              role: "tool_result",
+              text: item.aggregatedOutput || "",
+              provider,
+              toolResult: {
+                callId: item.id,
+                name: item.command || "command",
+                output: item.aggregatedOutput || "",
+                success: item.status === "completed",
+              },
+            });
+            broadcastToSession(sessionId, {
+              type: "command_execution_completed",
+              item,
+              itemId: item.id,
+              turnId,
+              provider,
+            });
+          }
+          break;
+        }
+        case "turn/completed": {
+          const { turn, threadId } = message.params;
+          broadcastToSession(sessionId, {
+            type: "turn_completed",
+            threadId,
+            turnId: turn.id,
+            status: turn.status,
+            error: turn.error || null,
+            provider,
+          });
+          break;
+        }
+        case "turn/started": {
+          const { turn, threadId } = message.params;
+          broadcastToSession(sessionId, {
+            type: "turn_started",
+            threadId,
+            turnId: turn.id,
+            status: turn.status,
+            provider,
+          });
+          break;
+        }
+        case "item/started": {
+          const { item, turnId, threadId } = message.params;
+          broadcastToSession(sessionId, {
+            type: "item_started",
+            threadId,
+            turnId,
             item,
-            itemId: item.id,
-            turnId,
             provider,
           });
+          break;
         }
-        break;
+        case "error": {
+          const { error, threadId, turnId, willRetry } = message.params;
+          broadcastToSession(sessionId, {
+            type: "turn_error",
+            threadId,
+            turnId,
+            willRetry,
+            message: error?.message || "Unknown error",
+            provider,
+          });
+          break;
+        }
+        case "account/login/completed": {
+          const { success, error, loginId } = message.params;
+          broadcastToSession(sessionId, {
+            type: "account_login_completed",
+            success: Boolean(success),
+            error: error || null,
+            loginId: loginId || null,
+            provider,
+          });
+          break;
+        }
+        default:
+          break;
       }
-      case "turn/completed": {
-        const { turn, threadId } = message.params;
-        broadcastToSession(sessionId, {
-          type: "turn_completed",
-          threadId,
-          turnId: turn.id,
-          status: turn.status,
-          error: turn.error || null,
-          provider,
-        });
-        break;
-      }
-      case "turn/started": {
-        const { turn, threadId } = message.params;
-        broadcastToSession(sessionId, {
-          type: "turn_started",
-          threadId,
-          turnId: turn.id,
-          status: turn.status,
-          provider,
-        });
-        break;
-      }
-      case "item/started": {
-        const { item, turnId, threadId } = message.params;
-        broadcastToSession(sessionId, {
-          type: "item_started",
-          threadId,
-          turnId,
-          item,
-          provider,
-        });
-        break;
-      }
-      case "error": {
-        const { error, threadId, turnId, willRetry } = message.params;
-        broadcastToSession(sessionId, {
-          type: "turn_error",
-          threadId,
-          turnId,
-          willRetry,
-          message: error?.message || "Unknown error",
-          provider,
-        });
-        break;
-      }
-      case "account/login/completed": {
-        const { success, error, loginId } = message.params;
-        broadcastToSession(sessionId, {
-          type: "account_login_completed",
-          success: Boolean(success),
-          error: error || null,
-          loginId: loginId || null,
-          provider,
-        });
-        break;
-      }
-      default:
-        break;
-    }
+    })();
   });
 
   client.on("rpc_out", (payload) => {
-    if (!debugApiWsLog) {
-      return;
-    }
-    const entry = {
-      direction: "stdin",
-      timestamp: Date.now(),
-      payload,
-      provider,
-    };
-    appendRpcLog(sessionId, entry);
-    broadcastToSession(sessionId, { type: "rpc_log", entry });
+    void (async () => {
+      if (!debugApiWsLog) {
+        return;
+      }
+      const entry = {
+        direction: "stdin",
+        timestamp: Date.now(),
+        payload,
+        provider,
+      };
+      await appendRpcLog(sessionId, entry);
+      broadcastToSession(sessionId, { type: "rpc_log", entry });
+    })();
   });
 
   client.on("rpc_in", (payload) => {
-    if (!debugApiWsLog) {
-      return;
-    }
-    const entry = {
-      direction: "stdout",
-      timestamp: Date.now(),
-      payload,
-      provider,
-    };
-    appendRpcLog(sessionId, entry);
-    broadcastToSession(sessionId, { type: "rpc_log", entry });
+    void (async () => {
+      if (!debugApiWsLog) {
+        return;
+      }
+      const entry = {
+        direction: "stdout",
+        timestamp: Date.now(),
+        payload,
+        provider,
+      };
+      await appendRpcLog(sessionId, entry);
+      broadcastToSession(sessionId, { type: "rpc_log", entry });
+    })();
   });
 }
 
 // Broadcast diff for a specific worktree
 const broadcastWorktreeDiff = async (sessionId, worktreeId) => {
-  const session = getSession(sessionId);
+  const session = await getSession(sessionId);
   if (!session) return;
 
   try {
@@ -1928,19 +1958,22 @@ const broadcastWorktreeDiff = async (sessionId, worktreeId) => {
 
 // Attach events to a Codex client for a worktree
 function attachClientEventsForWorktree(sessionId, worktree) {
-  const session = getSession(sessionId);
   const client = worktree.client;
   const worktreeId = worktree.id;
   const provider = worktree.provider;
 
   client.on("ready", ({ threadId }) => {
-    updateWorktreeStatus(session, worktreeId, "ready");
-    broadcastToSession(sessionId, {
-      type: "worktree_ready",
-      worktreeId,
-      threadId,
-      provider,
-    });
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      await updateWorktreeStatus(session, worktreeId, "ready");
+      broadcastToSession(sessionId, {
+        type: "worktree_ready",
+        worktreeId,
+        threadId,
+        provider,
+      });
+    })();
   });
 
   // Track authentication errors from Codex stderr logs for worktree
@@ -1957,18 +1990,25 @@ function attachClientEventsForWorktree(sessionId, worktree) {
   });
 
   client.on("exit", ({ code, signal }) => {
-    updateWorktreeStatus(session, worktreeId, "error");
-    broadcastToSession(sessionId, {
-      type: "worktree_status",
-      worktreeId,
-      status: "error",
-      error: lastAuthError || "Codex app-server stopped.",
-    });
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      await updateWorktreeStatus(session, worktreeId, "error");
+      broadcastToSession(sessionId, {
+        type: "worktree_status",
+        worktreeId,
+        status: "error",
+        error: lastAuthError || "Codex app-server stopped.",
+      });
+    })();
     console.error("Worktree Codex app-server stopped.", { code, signal, sessionId, worktreeId });
   });
 
   client.on("notification", (message) => {
-    switch (message.method) {
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      switch (message.method) {
       case "item/agentMessage/delta": {
         const { delta, itemId, turnId } = message.params;
         broadcastToSession(sessionId, {
@@ -1997,7 +2037,7 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       case "item/completed": {
         const { item, turnId } = message.params;
         if (item?.type === "agentMessage") {
-          appendWorktreeMessage(session, worktreeId, {
+          await appendWorktreeMessage(session, worktreeId, {
             id: item.id,
             role: "assistant",
             text: item.text,
@@ -2014,7 +2054,7 @@ function attachClientEventsForWorktree(sessionId, worktree) {
           void broadcastWorktreeDiff(sessionId, worktreeId);
         }
         if (item?.type === "commandExecution") {
-          appendWorktreeMessage(session, worktreeId, {
+          await appendWorktreeMessage(session, worktreeId, {
             id: item.id,
             role: "tool_result",
             text: item.aggregatedOutput || "",
@@ -2039,7 +2079,7 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       }
       case "turn/completed": {
         const { turn, threadId } = message.params;
-        updateWorktreeStatus(session, worktreeId, "ready");
+        await updateWorktreeStatus(session, worktreeId, "ready");
         broadcastToSession(sessionId, {
           type: "turn_completed",
           worktreeId,
@@ -2053,7 +2093,7 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       }
       case "turn/started": {
         const { turn, threadId } = message.params;
-        updateWorktreeStatus(session, worktreeId, "processing");
+        await updateWorktreeStatus(session, worktreeId, "processing");
         broadcastToSession(sessionId, {
           type: "turn_started",
           worktreeId,
@@ -2092,54 +2132,62 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       default:
         break;
     }
+    })();
   });
 
   client.on("rpc_out", (payload) => {
-    if (!debugApiWsLog) {
-      return;
-    }
-    const entry = {
-      direction: "stdin",
-      timestamp: Date.now(),
-      payload,
-      provider,
-      worktreeId,
-    };
-    appendRpcLog(sessionId, entry);
-    broadcastToSession(sessionId, { type: "rpc_log", entry });
+    void (async () => {
+      if (!debugApiWsLog) {
+        return;
+      }
+      const entry = {
+        direction: "stdin",
+        timestamp: Date.now(),
+        payload,
+        provider,
+        worktreeId,
+      };
+      await appendRpcLog(sessionId, entry);
+      broadcastToSession(sessionId, { type: "rpc_log", entry });
+    })();
   });
 
   client.on("rpc_in", (payload) => {
-    if (!debugApiWsLog) {
-      return;
-    }
-    const entry = {
-      direction: "stdout",
-      timestamp: Date.now(),
-      payload,
-      provider,
-      worktreeId,
-    };
-    appendRpcLog(sessionId, entry);
-    broadcastToSession(sessionId, { type: "rpc_log", entry });
+    void (async () => {
+      if (!debugApiWsLog) {
+        return;
+      }
+      const entry = {
+        direction: "stdout",
+        timestamp: Date.now(),
+        payload,
+        provider,
+        worktreeId,
+      };
+      await appendRpcLog(sessionId, entry);
+      broadcastToSession(sessionId, { type: "rpc_log", entry });
+    })();
   });
 }
 
 // Attach events to a Claude client for a worktree
 function attachClaudeEventsForWorktree(sessionId, worktree) {
-  const session = getSession(sessionId);
   const client = worktree.client;
   const worktreeId = worktree.id;
   const provider = worktree.provider;
 
   client.on("ready", ({ threadId }) => {
-    updateWorktreeStatus(session, worktreeId, "ready");
-    broadcastToSession(sessionId, {
-      type: "worktree_ready",
-      worktreeId,
-      threadId,
-      provider,
-    });
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      await updateWorktreeStatus(session, worktreeId, "ready");
+      broadcastToSession(sessionId, {
+        type: "worktree_ready",
+        worktreeId,
+        threadId,
+        provider,
+      });
+    })();
   });
 
   client.on("log", (message) => {
@@ -2149,66 +2197,85 @@ function attachClaudeEventsForWorktree(sessionId, worktree) {
   });
 
   client.on("stdout_json", ({ message }) => {
-    if (!debugApiWsLog) {
-      return;
-    }
-    const entry = {
-      direction: "stdout",
-      timestamp: Date.now(),
-      payload: message,
-      provider,
-      worktreeId,
-    };
-    appendRpcLog(sessionId, entry);
-    broadcastToSession(sessionId, { type: "rpc_log", entry });
+    void (async () => {
+      if (!debugApiWsLog) {
+        return;
+      }
+      const entry = {
+        direction: "stdout",
+        timestamp: Date.now(),
+        payload: message,
+        provider,
+        worktreeId,
+      };
+      await appendRpcLog(sessionId, entry);
+      broadcastToSession(sessionId, { type: "rpc_log", entry });
+    })();
   });
 
   client.on("assistant_message", ({ id, text, turnId }) => {
-    appendWorktreeMessage(session, worktreeId, { id, role: "assistant", text, provider });
-    broadcastToSession(sessionId, {
-      type: "assistant_message",
-      worktreeId,
-      text,
-      itemId: id,
-      turnId,
-      provider,
-    });
-    void broadcastWorktreeDiff(sessionId, worktreeId);
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      await appendWorktreeMessage(session, worktreeId, {
+        id,
+        role: "assistant",
+        text,
+        provider,
+      });
+      broadcastToSession(sessionId, {
+        type: "assistant_message",
+        worktreeId,
+        text,
+        itemId: id,
+        turnId,
+        provider,
+      });
+      void broadcastWorktreeDiff(sessionId, worktreeId);
+    })();
   });
 
   client.on("command_execution_completed", (payload) => {
-    appendWorktreeMessage(session, worktreeId, {
-      id: payload.itemId,
-      role: "tool_result",
-      text: payload.item?.aggregatedOutput || "",
-      provider,
-      toolResult: {
-        callId: payload.itemId,
-        name: payload.item?.command || "tool",
-        output: payload.item?.aggregatedOutput || "",
-        success: payload.item?.status === "completed",
-      },
-    });
-    broadcastToSession(sessionId, {
-      type: "command_execution_completed",
-      worktreeId,
-      item: payload.item,
-      itemId: payload.itemId,
-      turnId: payload.turnId,
-      provider,
-    });
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      await appendWorktreeMessage(session, worktreeId, {
+        id: payload.itemId,
+        role: "tool_result",
+        text: payload.item?.aggregatedOutput || "",
+        provider,
+        toolResult: {
+          callId: payload.itemId,
+          name: payload.item?.command || "tool",
+          output: payload.item?.aggregatedOutput || "",
+          success: payload.item?.status === "completed",
+        },
+      });
+      broadcastToSession(sessionId, {
+        type: "command_execution_completed",
+        worktreeId,
+        item: payload.item,
+        itemId: payload.itemId,
+        turnId: payload.turnId,
+        provider,
+      });
+    })();
   });
 
   client.on("turn_completed", ({ turnId, status }) => {
-    updateWorktreeStatus(session, worktreeId, "ready");
-    broadcastToSession(sessionId, {
-      type: "turn_completed",
-      worktreeId,
-      turnId,
-      status: status || "success",
-      error: null,
-      provider,
-    });
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      await updateWorktreeStatus(session, worktreeId, "ready");
+      broadcastToSession(sessionId, {
+        type: "turn_completed",
+        worktreeId,
+        turnId,
+        status: status || "success",
+        error: null,
+        provider,
+      });
+    })();
   });
 
   client.on("turn_error", ({ turnId, message }) => {
@@ -2223,12 +2290,13 @@ function attachClaudeEventsForWorktree(sessionId, worktree) {
 }
 
 function attachClaudeEvents(sessionId, client, provider) {
-  const session = getSession(sessionId);
-
   client.on("ready", ({ threadId }) => {
-    if (session?.activeProvider === provider) {
-      broadcastToSession(sessionId, { type: "ready", threadId, provider });
-    }
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (session?.activeProvider === provider) {
+        broadcastToSession(sessionId, { type: "ready", threadId, provider });
+      }
+    })();
   });
 
   client.on("log", (message) => {
@@ -2238,139 +2306,167 @@ function attachClaudeEvents(sessionId, client, provider) {
   });
 
   client.on("stdout_json", ({ message }) => {
-    if (!debugApiWsLog) {
-      return;
-    }
-    const entry = {
-      direction: "stdout",
-      timestamp: Date.now(),
-      payload: message,
-      provider,
-    };
-    appendRpcLog(sessionId, entry);
-    broadcastToSession(sessionId, { type: "rpc_log", entry });
+    void (async () => {
+      if (!debugApiWsLog) {
+        return;
+      }
+      const entry = {
+        direction: "stdout",
+        timestamp: Date.now(),
+        payload: message,
+        provider,
+      };
+      await appendRpcLog(sessionId, entry);
+      broadcastToSession(sessionId, { type: "rpc_log", entry });
+    })();
   });
 
   client.on("assistant_message", ({ id, text, turnId }) => {
-    if (session?.activeProvider !== provider) return;
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (session?.activeProvider !== provider) return;
 
-    appendSessionMessage(sessionId, { id, role: "assistant", text, provider });
-    broadcastToSession(sessionId, {
-      type: "assistant_message",
-      text,
-      itemId: id,
-      turnId,
-      provider,
-    });
-    void broadcastRepoDiff(sessionId);
+      await appendSessionMessage(sessionId, { id, role: "assistant", text, provider });
+      broadcastToSession(sessionId, {
+        type: "assistant_message",
+        text,
+        itemId: id,
+        turnId,
+        provider,
+      });
+      void broadcastRepoDiff(sessionId);
+    })();
   });
 
   client.on("command_execution_completed", (payload) => {
-    if (session?.activeProvider !== provider) return;
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (session?.activeProvider !== provider) return;
 
-    appendSessionMessage(sessionId, {
-      id: payload.itemId,
-      role: "tool_result",
-      text: payload.item?.aggregatedOutput || "",
-      provider,
-      toolResult: {
-        callId: payload.itemId,
-        name: payload.item?.command || "tool",
-        output: payload.item?.aggregatedOutput || "",
-        success: payload.item?.status === "completed",
-      },
-    });
-    broadcastToSession(sessionId, {
-      type: "command_execution_completed",
-      item: payload.item,
-      itemId: payload.itemId,
-      turnId: payload.turnId,
-      provider,
-    });
+      await appendSessionMessage(sessionId, {
+        id: payload.itemId,
+        role: "tool_result",
+        text: payload.item?.aggregatedOutput || "",
+        provider,
+        toolResult: {
+          callId: payload.itemId,
+          name: payload.item?.command || "tool",
+          output: payload.item?.aggregatedOutput || "",
+          success: payload.item?.status === "completed",
+        },
+      });
+      broadcastToSession(sessionId, {
+        type: "command_execution_completed",
+        item: payload.item,
+        itemId: payload.itemId,
+        turnId: payload.turnId,
+        provider,
+      });
+    })();
   });
 
   client.on("turn_completed", ({ turnId, status }) => {
-    if (session?.activeProvider !== provider) return;
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (session?.activeProvider !== provider) return;
 
-    broadcastToSession(sessionId, {
-      type: "turn_completed",
-      turnId,
-      status: status || "success",
-      error: null,
-      provider,
-    });
+      broadcastToSession(sessionId, {
+        type: "turn_completed",
+        turnId,
+        status: status || "success",
+        error: null,
+        provider,
+      });
+    })();
   });
 
   client.on("turn_error", ({ turnId, message }) => {
-    if (session?.activeProvider !== provider) return;
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (session?.activeProvider !== provider) return;
 
-    broadcastToSession(sessionId, {
-      type: "turn_error",
-      turnId,
-      message: message || "Claude CLI error.",
-      provider,
-    });
+      broadcastToSession(sessionId, {
+        type: "turn_error",
+        turnId,
+        message: message || "Claude CLI error.",
+        provider,
+      });
+    })();
   });
 }
 
 wss.on("connection", (socket, req) => {
-  attachWebSocketDebug(socket, req, "chat");
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const token = url.searchParams.get("token");
-  if (!token) {
-    socket.send(JSON.stringify({ type: "error", message: "Missing workspace token." }));
-    socket.close();
-    return;
-  }
-  let workspaceId = null;
-  try {
-    workspaceId = verifyWorkspaceToken(token);
-  } catch (error) {
-    socket.send(JSON.stringify({ type: "error", message: "Invalid workspace token." }));
-    socket.close();
-    return;
-  }
-  const sessionId = url.searchParams.get("session");
-  const session = getSession(sessionId, workspaceId);
-  if (!session) {
-    socket.send(
-      JSON.stringify({ type: "error", message: "Unknown session." })
-    );
-    socket.close();
-    return;
-  }
-  session.sockets.add(socket);
-
-  const activeClient = getActiveClient(session);
-  if (activeClient?.ready && activeClient?.threadId) {
-    socket.send(
-      JSON.stringify({
-        type: "ready",
-        threadId: activeClient.threadId,
-        provider: session.activeProvider,
-      })
-    );
-  } else {
-    socket.send(
-      JSON.stringify({
-        type: "status",
-        message: `Starting ${getProviderLabel(session)}...`,
-        provider: session.activeProvider,
-      })
-    );
-  }
-
-  socket.on("message", async (data) => {
-    touchSession(session);
-    let payload;
-    try {
-      payload = JSON.parse(data.toString());
-    } catch (error) {
-      socket.send(
-        JSON.stringify({ type: "error", message: "Invalid JSON message." })
-      );
+  void (async () => {
+    attachWebSocketDebug(socket, req, "chat");
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get("token");
+    if (!token) {
+      socket.send(JSON.stringify({ type: "error", message: "Missing workspace token." }));
+      socket.close();
       return;
     }
+    let workspaceId = null;
+    try {
+      workspaceId = verifyWorkspaceToken(token);
+    } catch (error) {
+      socket.send(JSON.stringify({ type: "error", message: "Invalid workspace token." }));
+      socket.close();
+      return;
+    }
+    const sessionId = url.searchParams.get("session");
+    const session = await getSession(sessionId, workspaceId);
+    if (!session) {
+      socket.send(
+        JSON.stringify({ type: "error", message: "Unknown session." })
+      );
+      socket.close();
+      return;
+    }
+    const runtime = getSessionRuntime(sessionId);
+    if (!runtime) {
+      socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
+      socket.close();
+      return;
+    }
+    runtime.sockets.add(socket);
+
+    const activeClient = getActiveClient(session);
+    if (activeClient?.ready && activeClient?.threadId) {
+      socket.send(
+        JSON.stringify({
+          type: "ready",
+          threadId: activeClient.threadId,
+          provider: session.activeProvider,
+        })
+      );
+    } else {
+      socket.send(
+        JSON.stringify({
+          type: "status",
+          message: `Starting ${getProviderLabel(session)}...`,
+          provider: session.activeProvider,
+        })
+      );
+    }
+
+    socket.on("message", async (data) => {
+      const session = await getSession(sessionId, workspaceId);
+      if (!session) {
+        socket.send(
+          JSON.stringify({ type: "error", message: "Unknown session." })
+        );
+        return;
+      }
+      await touchSession(session);
+      let payload;
+      try {
+        payload = JSON.parse(data.toString());
+      } catch (error) {
+        socket.send(
+          JSON.stringify({ type: "error", message: "Invalid JSON message." })
+        );
+        return;
+      }
 
     if (payload.type === "ping") {
       socket.send(JSON.stringify({ type: "pong" }));
@@ -2401,7 +2497,7 @@ wss.on("connection", (socket, req) => {
     // Send message to a specific worktree
     if (payload.type === "worktree_message") {
       const worktreeId = payload.worktreeId;
-      const worktree = getWorktree(session, worktreeId);
+      const worktree = await getWorktree(session, worktreeId);
 
       if (!worktree) {
         socket.send(
@@ -2427,7 +2523,7 @@ wss.on("connection", (socket, req) => {
 
       try {
         const result = await worktree.client.sendTurn(payload.text);
-        appendWorktreeMessage(session, worktreeId, {
+        await appendWorktreeMessage(session, worktreeId, {
           id: createMessageId(),
           role: "user",
           text: payload.displayText || payload.text,
@@ -2436,7 +2532,7 @@ wss.on("connection", (socket, req) => {
             : [],
           provider: worktree.provider,
         });
-        updateWorktreeStatus(session, worktreeId, "processing");
+        await updateWorktreeStatus(session, worktreeId, "processing");
         broadcastToSession(sessionId, {
           type: "turn_started",
           worktreeId,
@@ -2531,13 +2627,13 @@ wss.on("connection", (socket, req) => {
             // Send initial message if provided
             if (payload.text) {
               const result = await worktree.client.sendTurn(payload.text);
-              appendWorktreeMessage(session, worktree.id, {
+              await appendWorktreeMessage(session, worktree.id, {
                 id: createMessageId(),
                 role: "user",
                 text: payload.displayText || payload.text,
                 provider,
               });
-              updateWorktreeStatus(session, worktree.id, "processing");
+              await updateWorktreeStatus(session, worktree.id, "processing");
               broadcastToSession(sessionId, {
                 type: "turn_started",
                 worktreeId: worktree.id,
@@ -2550,7 +2646,7 @@ wss.on("connection", (socket, req) => {
 
           startClient().catch((error) => {
             console.error("Failed to start worktree client:", error);
-            updateWorktreeStatus(session, worktree.id, "error");
+            void updateWorktreeStatus(session, worktree.id, "error");
             broadcastToSession(sessionId, {
               type: "worktree_status",
               worktreeId: worktree.id,
@@ -2583,7 +2679,7 @@ wss.on("connection", (socket, req) => {
     // Interrupt a turn in a specific worktree
     if (payload.type === "worktree_turn_interrupt") {
       const worktreeId = payload.worktreeId;
-      const worktree = getWorktree(session, worktreeId);
+      const worktree = await getWorktree(session, worktreeId);
 
       if (!worktree) {
         socket.send(
@@ -2630,7 +2726,7 @@ wss.on("connection", (socket, req) => {
     // Sync messages for a specific worktree
     if (payload.type === "sync_worktree_messages") {
       const worktreeId = payload.worktreeId;
-      const worktree = getWorktree(session, worktreeId);
+      const worktree = await getWorktree(session, worktreeId);
 
       if (!worktree) {
         socket.send(
@@ -2656,7 +2752,7 @@ wss.on("connection", (socket, req) => {
 
     // List all worktrees
     if (payload.type === "list_worktrees") {
-      const worktrees = listWorktrees(session);
+      const worktrees = await listWorktrees(session);
       socket.send(
         JSON.stringify({
           type: "worktrees_list",
@@ -2683,7 +2779,7 @@ wss.on("connection", (socket, req) => {
       try {
         const provider = session.activeProvider;
         const result = await client.sendTurn(payload.text);
-        appendSessionMessage(sessionId, {
+        await appendSessionMessage(sessionId, {
           id: createMessageId(),
           role: "user",
           text: payload.displayText || payload.text,
@@ -2916,6 +3012,13 @@ wss.on("connection", (socket, req) => {
           session.messagesByProvider[newProvider] = [];
         }
         session.messages = session.messagesByProvider[newProvider];
+        await storage.saveSession(sessionId, {
+          ...session,
+          activeProvider: newProvider,
+          messagesByProvider: session.messagesByProvider,
+          messages: session.messages,
+          lastActivityAt: Date.now(),
+        });
 
         // Fetch models for the new provider
         let models = [];
@@ -2951,47 +3054,49 @@ wss.on("connection", (socket, req) => {
     }
   });
 
-  socket.on("close", () => {
-    session.sockets.delete(socket);
-  });
+    socket.on("close", () => {
+      runtime.sockets.delete(socket);
+    });
+  })();
 });
 
 if (terminalWss) {
   terminalWss.on("connection", (socket, req) => {
-  attachWebSocketDebug(socket, req, "terminal");
-  let workspaceId = null;
-  try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const token = url.searchParams.get("token");
-    if (!token) {
+  void (async () => {
+    attachWebSocketDebug(socket, req, "terminal");
+    let workspaceId = null;
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const token = url.searchParams.get("token");
+      if (!token) {
+        socket.close();
+        return;
+      }
+      workspaceId = verifyWorkspaceToken(token);
+    } catch {
       socket.close();
       return;
     }
-    workspaceId = verifyWorkspaceToken(token);
-  } catch {
-    socket.close();
-    return;
-  }
-  req.workspaceId = workspaceId;
-  const session = getSessionFromRequest(req);
-  if (!session) {
-    socket.close();
-    return;
-  }
-  touchSession(session);
-  let worktree = null;
-  try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const worktreeId = url.searchParams.get("worktreeId");
-    if (worktreeId && worktreeId !== "main") {
-      worktree = getWorktree(session, worktreeId) || null;
+    req.workspaceId = workspaceId;
+    const session = await getSessionFromRequest(req);
+    if (!session) {
+      socket.close();
+      return;
     }
-  } catch {
-    // Ignore invalid URL parsing; fall back to main repo.
-  }
-  const shell = "/bin/bash";
-  let term = null;
-  let closed = false;
+    await touchSession(session);
+    let worktree = null;
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const worktreeId = url.searchParams.get("worktreeId");
+      if (worktreeId && worktreeId !== "main") {
+        worktree = await getWorktree(session, worktreeId);
+      }
+    } catch {
+      // Ignore invalid URL parsing; fall back to main repo.
+    }
+    const shell = "/bin/bash";
+    let term = null;
+    let closed = false;
 
   const startTerminal = (cols = 80, rows = 24) => {
     if (term) {
@@ -3048,45 +3153,46 @@ if (terminalWss) {
     });
   };
 
-  socket.on("message", (raw) => {
-    let message = null;
-    try {
-      message = JSON.parse(raw.toString());
-    } catch {
-      return;
-    }
-    if (!message?.type) {
-      return;
-    }
-    if (message.type === "init") {
-      startTerminal(message.cols, message.rows);
-      return;
-    }
-    if (!term) {
-      startTerminal();
-    }
-    if (message.type === "resize") {
-      if (
-        Number.isFinite(message.cols) &&
-        Number.isFinite(message.rows) &&
-        term
-      ) {
-        term.resize(message.cols, message.rows);
+    socket.on("message", (raw) => {
+      let message = null;
+      try {
+        message = JSON.parse(raw.toString());
+      } catch {
+        return;
       }
-      return;
-    }
-    if (message.type === "input" && typeof message.data === "string" && term) {
-      term.write(message.data);
-    }
-  });
+      if (!message?.type) {
+        return;
+      }
+      if (message.type === "init") {
+        startTerminal(message.cols, message.rows);
+        return;
+      }
+      if (!term) {
+        startTerminal();
+      }
+      if (message.type === "resize") {
+        if (
+          Number.isFinite(message.cols) &&
+          Number.isFinite(message.rows) &&
+          term
+        ) {
+          term.resize(message.cols, message.rows);
+        }
+        return;
+      }
+      if (message.type === "input" && typeof message.data === "string" && term) {
+        term.write(message.data);
+      }
+    });
 
-  socket.on("close", () => {
-    closed = true;
-    if (term) {
-      term.kill();
-      term = null;
-    }
-  });
+    socket.on("close", () => {
+      closed = true;
+      if (term) {
+        term.kill();
+        term = null;
+      }
+    });
+  })();
   });
 }
 
@@ -3160,13 +3266,13 @@ app.delete("/api/workspaces/:workspaceId", async (req, res) => {
   res.status(501).json({ error: "Workspace deletion policy not implemented yet." });
 });
 
-app.get("/api/health", (req, res) => {
-  const session = getSession(req.query.session, req.workspaceId);
+app.get("/api/health", async (req, res) => {
+  const session = await getSession(req.query.session, req.workspaceId);
   if (!session) {
     res.json({ ok: true, ready: false, threadId: null });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   const activeClient = getActiveClient(session);
   res.json({
     ok: true,
@@ -3178,34 +3284,35 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/sessions", (req, res) => {
   const workspaceId = req.workspaceId;
-  const payload = [];
-  for (const session of sessions.values()) {
-    if (session.workspaceId !== workspaceId) {
-      continue;
-    }
-    payload.push({
-      sessionId: session.sessionId,
-      repoUrl: session.repoUrl || "",
-      createdAt: session.createdAt || null,
-      lastActivityAt: session.lastActivityAt || null,
-      activeProvider: session.activeProvider || null,
+  storage
+    .listSessions(workspaceId)
+    .then((sessions) => {
+      const payload = sessions.map((session) => ({
+        sessionId: session.sessionId,
+        repoUrl: session.repoUrl || "",
+        createdAt: session.createdAt || null,
+        lastActivityAt: session.lastActivityAt || null,
+        activeProvider: session.activeProvider || null,
+      }));
+      payload.sort((a, b) => {
+        const aTime = a.lastActivityAt || a.createdAt || 0;
+        const bTime = b.lastActivityAt || b.createdAt || 0;
+        return bTime - aTime;
+      });
+      res.json({ sessions: payload });
+    })
+    .catch((error) => {
+      res.status(500).json({ error: error?.message || "Failed to list sessions." });
     });
-  }
-  payload.sort((a, b) => {
-    const aTime = a.lastActivityAt || a.createdAt || 0;
-    const bTime = b.lastActivityAt || b.createdAt || 0;
-    return bTime - aTime;
-  });
-  res.json({ sessions: payload });
 });
 
 app.get("/api/session/:sessionId", async (req, res) => {
-  const session = getSession(req.params.sessionId, req.workspaceId);
+  const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   const repoDiff = await getRepoDiff(session);
   const activeProvider = session.activeProvider || "codex";
   const messages =
@@ -3226,12 +3333,12 @@ app.get("/api/session/:sessionId", async (req, res) => {
 });
 
 app.get("/api/session/:sessionId/last-commit", async (req, res) => {
-  const session = getSession(req.params.sessionId, req.workspaceId);
+  const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   try {
     const [branch, commit] = await Promise.all([
       getCurrentBranch(session),
@@ -3248,12 +3355,12 @@ app.get("/api/session/:sessionId/rpc-logs", async (req, res) => {
     res.status(403).json({ error: "Forbidden." });
     return;
   }
-  const session = getSession(req.params.sessionId, req.workspaceId);
+  const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   res.json({ rpcLogs: session.rpcLogs || [] });
 });
 
@@ -3267,12 +3374,12 @@ const readGitConfigValue = async (session, args) => {
 };
 
 app.get("/api/session/:sessionId/git-identity", async (req, res) => {
-  const session = getSession(req.params.sessionId, req.workspaceId);
+  const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   try {
     const [globalName, globalEmail, repoName, repoEmail] = await Promise.all([
       readGitConfigValue(session, ["config", "--global", "--get", "user.name"]),
@@ -3305,12 +3412,12 @@ app.get("/api/session/:sessionId/git-identity", async (req, res) => {
 });
 
 app.post("/api/session/:sessionId/git-identity", async (req, res) => {
-  const session = getSession(req.params.sessionId, req.workspaceId);
+  const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
   if (!name || !email) {
@@ -3339,31 +3446,31 @@ app.post("/api/session/:sessionId/git-identity", async (req, res) => {
 });
 
 app.get("/api/session/:sessionId/diff", async (req, res) => {
-  const session = getSession(req.params.sessionId, req.workspaceId);
+  const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   const repoDiff = await getRepoDiff(session);
   res.json(repoDiff);
 });
 
 app.post("/api/session/:sessionId/clear", async (req, res) => {
-  const session = getSession(req.params.sessionId, req.workspaceId);
+  const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   const worktreeId = req.body?.worktreeId;
   if (worktreeId) {
-    const worktree = getWorktree(session, worktreeId);
+    const worktree = await getWorktree(session, worktreeId);
     if (!worktree) {
       res.status(404).json({ error: "Worktree not found." });
       return;
     }
-    clearWorktreeMessages(session, worktreeId);
+    await clearWorktreeMessages(session, worktreeId);
     res.json({ ok: true, worktreeId });
     return;
   }
@@ -3377,6 +3484,12 @@ app.post("/api/session/:sessionId/clear", async (req, res) => {
   if (session.activeProvider === provider) {
     session.messages = session.messagesByProvider[provider];
   }
+  await storage.saveSession(session.sessionId, {
+    ...session,
+    messagesByProvider: session.messagesByProvider,
+    messages: session.messages,
+    lastActivityAt: Date.now(),
+  });
   res.json({ ok: true, provider });
 });
 
@@ -3412,12 +3525,12 @@ app.post("/api/session", async (req, res) => {
 
 app.get("/api/branches", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   try {
     const info = await getBranchInfo(session);
     res.json(info);
@@ -3431,13 +3544,13 @@ app.get("/api/branches", async (req, res) => {
 });
 
 app.get("/api/models", async (req, res) => {
-  const session = getSession(req.query?.session, req.workspaceId);
+  const session = await getSession(req.query?.session, req.workspaceId);
   const provider = req.query?.provider;
   if (!session) {
     res.status(404).json({ error: "Session not found." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   if (!isValidProvider(provider)) {
     res.status(400).json({ error: "Invalid provider. Must be 'codex' or 'claude'." });
     return;
@@ -3474,12 +3587,12 @@ app.get("/api/models", async (req, res) => {
 app.post("/api/branches/switch", async (req, res) => {
   const sessionId = req.body?.session;
   const target = req.body?.branch;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   if (!target || typeof target !== "string") {
     res.status(400).json({ error: "Branch is required." });
     return;
@@ -3555,14 +3668,14 @@ app.post("/api/branches/switch", async (req, res) => {
 
 app.get("/api/worktrees", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   try {
-    const worktrees = listWorktrees(session);
+    const worktrees = await listWorktrees(session);
     res.json({ worktrees });
   } catch (error) {
     console.error("Failed to list worktrees:", {
@@ -3575,12 +3688,12 @@ app.get("/api/worktrees", async (req, res) => {
 
 app.post("/api/worktree", async (req, res) => {
   const sessionId = req.body?.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
   const provider = req.body?.provider;
   if (!isValidProvider(provider)) {
@@ -3614,7 +3727,7 @@ app.post("/api/worktree", async (req, res) => {
       // Démarrer le client
       worktree.client.start().catch((error) => {
         console.error("Failed to start worktree client:", error);
-        updateWorktreeStatus(session, worktree.id, "error");
+        void updateWorktreeStatus(session, worktree.id, "error");
         broadcastToSession(sessionId, {
           type: "worktree_status",
           worktreeId: worktree.id,
@@ -3643,14 +3756,14 @@ app.post("/api/worktree", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
-  const worktree = getWorktree(session, req.params.worktreeId);
+  const worktree = await getWorktree(session, req.params.worktreeId);
   if (!worktree) {
     res.status(404).json({ error: "Worktree not found." });
     return;
@@ -3681,13 +3794,13 @@ app.get("/api/worktree/:worktreeId", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/tree", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
-  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  await touchSession(session);
+  const { rootPath } = await resolveWorktreeRoot(session, req.params.worktreeId);
   if (!rootPath) {
     res.status(404).json({ error: "Worktree not found." });
     return;
@@ -3710,13 +3823,13 @@ app.get("/api/worktree/:worktreeId/tree", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/file", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
-  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  await touchSession(session);
+  const { rootPath } = await resolveWorktreeRoot(session, req.params.worktreeId);
   if (!rootPath) {
     res.status(404).json({ error: "Worktree not found." });
     return;
@@ -3754,13 +3867,13 @@ app.get("/api/worktree/:worktreeId/file", async (req, res) => {
 
 app.post("/api/worktree/:worktreeId/file", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
-  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  await touchSession(session);
+  const { rootPath } = await resolveWorktreeRoot(session, req.params.worktreeId);
   if (!rootPath) {
     res.status(404).json({ error: "Worktree not found." });
     return;
@@ -3802,13 +3915,13 @@ app.post("/api/worktree/:worktreeId/file", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/status", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
-  const { rootPath } = resolveWorktreeRoot(session, req.params.worktreeId);
+  await touchSession(session);
+  const { rootPath } = await resolveWorktreeRoot(session, req.params.worktreeId);
   if (!rootPath) {
     res.status(404).json({ error: "Worktree not found." });
     return;
@@ -3851,12 +3964,12 @@ app.get("/api/worktree/:worktreeId/status", async (req, res) => {
 
 app.delete("/api/worktree/:worktreeId", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
   try {
     await removeWorktree(session, req.params.worktreeId);
@@ -3877,21 +3990,21 @@ app.delete("/api/worktree/:worktreeId", async (req, res) => {
 
 app.patch("/api/worktree/:worktreeId", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
-  const worktree = getWorktree(session, req.params.worktreeId);
+  const worktree = await getWorktree(session, req.params.worktreeId);
   if (!worktree) {
     res.status(404).json({ error: "Worktree not found." });
     return;
   }
 
   if (req.body?.name) {
-    renameWorktree(session, req.params.worktreeId, req.body.name);
+    await renameWorktree(session, req.params.worktreeId, req.body.name);
     broadcastToSession(sessionId, {
       type: "worktree_renamed",
       worktreeId: req.params.worktreeId,
@@ -3909,12 +4022,12 @@ app.patch("/api/worktree/:worktreeId", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/diff", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
   try {
     const diff = await getWorktreeDiff(session, req.params.worktreeId);
@@ -3931,12 +4044,12 @@ app.get("/api/worktree/:worktreeId/diff", async (req, res) => {
 
 app.get("/api/worktree/:worktreeId/commits", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
   try {
     const limit = parseInt(req.query.limit, 10) || 20;
@@ -3954,12 +4067,12 @@ app.get("/api/worktree/:worktreeId/commits", async (req, res) => {
 
 app.post("/api/worktree/:worktreeId/merge", async (req, res) => {
   const sessionId = req.body?.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
   const targetWorktreeId = req.body?.targetWorktreeId;
   if (!targetWorktreeId) {
@@ -3992,12 +4105,12 @@ app.post("/api/worktree/:worktreeId/merge", async (req, res) => {
 
 app.post("/api/worktree/:worktreeId/abort-merge", async (req, res) => {
   const sessionId = req.body?.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
   try {
     await abortMerge(session, req.params.worktreeId);
@@ -4014,12 +4127,12 @@ app.post("/api/worktree/:worktreeId/abort-merge", async (req, res) => {
 
 app.post("/api/worktree/:worktreeId/cherry-pick", async (req, res) => {
   const sessionId = req.body?.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
 
   const commitSha = req.body?.commitSha;
   if (!commitSha) {
@@ -4053,12 +4166,12 @@ app.post("/api/worktree/:worktreeId/cherry-pick", async (req, res) => {
 
 app.get("/api/attachments/file", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   const rawPath = req.query.path;
   const rawName = req.query.name;
   if (!rawPath && !rawName) {
@@ -4088,12 +4201,12 @@ app.get("/api/attachments/file", async (req, res) => {
 
 app.get("/api/attachments", async (req, res) => {
   const sessionId = req.query.session;
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(400).json({ error: "Invalid session." });
     return;
   }
-  touchSession(session);
+  await touchSession(session);
   try {
     const output = await runAsCommandOutput(
       session.workspaceId,
@@ -4124,12 +4237,12 @@ app.post(
   upload.array("files"),
   async (req, res) => {
     const sessionId = req.query.session;
-    const session = getSession(sessionId, req.workspaceId);
+    const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
       return;
     }
-    touchSession(session);
+    await touchSession(session);
     const uploaded = [];
     for (const file of req.files || []) {
       const targetPath = path.join(session.attachmentsDir, file.filename);

@@ -1,8 +1,9 @@
 import path from "path";
 import crypto from "crypto";
-import { CodexAppServerClient } from "./codexClient.js";
-import { ClaudeCliClient } from "./claudeClient.js";
 import { runAsCommand, runAsCommandOutput } from "./runAs.js";
+import storage from "./storage/index.js";
+import { getSessionRuntime } from "./runtimeStore.js";
+import { createWorktreeClient } from "./clientFactory.js";
 
 // Palette de couleurs pour distinguer les worktrees
 const WORKTREE_COLORS = [
@@ -19,7 +20,7 @@ const WORKTREE_COLORS = [
 let colorIndex = 0;
 const getNextColor = () => {
   const color = WORKTREE_COLORS[colorIndex % WORKTREE_COLORS.length];
-  colorIndex++;
+  colorIndex += 1;
   return color;
 };
 
@@ -65,10 +66,30 @@ const normalizeBranchName = (value, remote = "origin") => {
 };
 
 const resolveCurrentBranchName = async (session) => {
-  const output = await runSessionCommandOutput(session, "git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-    cwd: session.repoDir,
-  });
+  const output = await runSessionCommandOutput(
+    session,
+    "git",
+    ["rev-parse", "--abbrev-ref", "HEAD"],
+    { cwd: session.repoDir }
+  );
   return output.trim();
+};
+
+const serializeWorktree = (worktree) => {
+  if (!worktree) return null;
+  const { client, ...persisted } = worktree;
+  return persisted;
+};
+
+const touchSession = async (session) => {
+  const updated = { ...session, lastActivityAt: Date.now() };
+  await storage.saveSession(session.sessionId, updated);
+  return updated;
+};
+
+const loadWorktree = async (worktreeId) => {
+  if (!worktreeId) return null;
+  return storage.getWorktree(worktreeId);
 };
 
 /**
@@ -76,7 +97,6 @@ const resolveCurrentBranchName = async (session) => {
  */
 const generateWorktreeName = (text, index) => {
   if (text) {
-    // Prendre les 30 premiers caractères, nettoyer pour un nom de branche valide
     const cleaned = text
       .slice(0, 30)
       .toLowerCase()
@@ -91,50 +111,35 @@ const generateWorktreeName = (text, index) => {
 
 /**
  * Crée un nouveau worktree pour une session
- * @param {object} session - La session
- * @param {object} options - Options de création
- * @param {"codex" | "claude"} options.provider - Le provider LLM
- * @param {string} [options.name] - Nom personnalisé pour le worktree
- * @param {string} [options.parentWorktreeId] - ID du worktree parent (pour forker)
- * @param {string} [options.startingBranch] - Branche de départ (défaut: HEAD actuel)
- * @param {string} [options.model] - Modèle LLM (si supporté)
- * @param {string} [options.reasoningEffort] - Niveau de reasoning (si supporté)
- * @returns {Promise<object>} L'entrée worktree créée
  */
 export async function createWorktree(session, options) {
-  const { provider, name, parentWorktreeId, startingBranch, model, reasoningEffort } = options;
+  const { provider, name, parentWorktreeId, startingBranch, model, reasoningEffort } =
+    options;
 
-  // Initialiser la Map des worktrees si nécessaire
-  if (!session.worktrees) {
-    session.worktrees = new Map();
-  }
-
-  // Créer le répertoire worktrees s'il n'existe pas
   const worktreesDir = path.join(session.dir, "worktrees");
   await runAsCommand(session.workspaceId, "/bin/mkdir", ["-p", worktreesDir]);
   await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", worktreesDir]);
 
-  // Générer un ID unique
   const worktreeId = crypto.randomBytes(8).toString("hex");
-
-  const worktreeIndex = session.worktrees.size + 1;
+  const existingWorktrees = await storage.listWorktrees(session.sessionId);
+  const worktreeIndex = existingWorktrees.length + 1;
   const requestedBranchName = normalizeBranchName(name);
-
-  // Chemin du worktree
   const worktreePath = path.join(worktreesDir, worktreeId);
 
   let startCommit = "HEAD";
   let sourceBranchName = "";
-  if (parentWorktreeId && session.worktrees.has(parentWorktreeId)) {
-    const parent = session.worktrees.get(parentWorktreeId);
-    startCommit = await runSessionCommandOutput(
-      session,
-      "git",
-      ["rev-parse", "HEAD"],
-      { cwd: parent.path }
-    );
-    startCommit = startCommit.trim();
-    sourceBranchName = parent.branchName || "";
+  if (parentWorktreeId) {
+    const parent = await loadWorktree(parentWorktreeId);
+    if (parent) {
+      startCommit = await runSessionCommandOutput(
+        session,
+        "git",
+        ["rev-parse", "HEAD"],
+        { cwd: parent.path }
+      );
+      startCommit = startCommit.trim();
+      sourceBranchName = parent.branchName || "";
+    }
   } else if (startingBranch) {
     startCommit = resolveStartingRef(startingBranch) || startingBranch;
     sourceBranchName = normalizeBranchName(startingBranch);
@@ -152,19 +157,14 @@ export async function createWorktree(session, options) {
 
   const checkRemoteBranchExists = async (branch) => {
     const remoteRef = resolveStartingRef(branch);
-    if (!remoteRef) {
-      return false;
-    }
+    if (!remoteRef) return false;
     const remoteVerifyRef = remoteRef.startsWith("refs/")
       ? remoteRef
       : `refs/remotes/${remoteRef}`;
     try {
-      await runSessionCommand(
-        session,
-        "git",
-        ["show-ref", "--verify", remoteVerifyRef],
-        { cwd: session.repoDir }
-      );
+      await runSessionCommand(session, "git", ["show-ref", "--verify", remoteVerifyRef], {
+        cwd: session.repoDir,
+      });
       return true;
     } catch {
       return false;
@@ -197,25 +197,19 @@ export async function createWorktree(session, options) {
     });
   }
 
-  // Associer directement la branche locale au remote pour permettre `git push` sans -u.
   await runSessionCommand(
     session,
     "git",
     ["config", `branch.${branchName}.remote`, "origin"],
-    {
-      cwd: session.repoDir,
-    }
+    { cwd: session.repoDir }
   );
   await runSessionCommand(
     session,
     "git",
     ["config", `branch.${branchName}.merge`, `refs/heads/${branchName}`],
-    {
-      cwd: session.repoDir,
-    }
+    { cwd: session.repoDir }
   );
 
-  // Créer le worktree
   await runSessionCommand(
     session,
     "git",
@@ -224,9 +218,9 @@ export async function createWorktree(session, options) {
   );
   await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", worktreePath]);
 
-  // Créer l'entrée worktree
   const worktree = {
     id: worktreeId,
+    sessionId: session.sessionId,
     name: baseName,
     branchName,
     path: worktreePath,
@@ -235,40 +229,28 @@ export async function createWorktree(session, options) {
     reasoningEffort: reasoningEffort || null,
     startingBranch: startingBranch || null,
     workspaceId: session.workspaceId,
-    client: null,
     messages: [],
     status: "creating",
     parentWorktreeId: parentWorktreeId || null,
-    createdAt: new Date(),
-    lastActivityAt: new Date(),
+    createdAt: new Date().toISOString(),
+    lastActivityAt: new Date().toISOString(),
     color: getNextColor(),
   };
 
-  session.worktrees.set(worktreeId, worktree);
-  if (typeof session.lastActivityAt === "number") {
-    session.lastActivityAt = Date.now();
-  }
+  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(worktree));
+  await touchSession(session);
 
-  // Créer et démarrer le client LLM
   try {
-    const client =
-      provider === "claude"
-        ? new ClaudeCliClient({
-            cwd: worktreePath,
-            attachmentsDir: session.attachmentsDir,
-            env: process.env,
-            workspaceId: session.workspaceId,
-          })
-        : new CodexAppServerClient({
-            cwd: worktreePath,
-            env: process.env,
-            workspaceId: session.workspaceId,
-          });
-
+    const client = createWorktreeClient(worktree, session.attachmentsDir);
+    const runtime = getSessionRuntime(session.sessionId);
+    if (runtime) {
+      runtime.worktreeClients.set(worktreeId, client);
+    }
     worktree.client = client;
     worktree.status = "ready";
   } catch (error) {
     worktree.status = "error";
+    await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(worktree));
     throw error;
   }
 
@@ -277,30 +259,26 @@ export async function createWorktree(session, options) {
 
 /**
  * Supprime un worktree
- * @param {object} session - La session
- * @param {string} worktreeId - L'ID du worktree à supprimer
- * @param {boolean} [deleteBranch=true] - Supprimer aussi la branche git
  */
 export async function removeWorktree(session, worktreeId, deleteBranch = true) {
-  if (!session.worktrees?.has(worktreeId)) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree) {
     throw new Error("Worktree not found");
   }
 
-  const worktree = session.worktrees.get(worktreeId);
-
-  // Arrêter le client s'il est actif
-  if (worktree.client) {
+  const runtime = getSessionRuntime(session.sessionId);
+  const client = runtime?.worktreeClients?.get(worktreeId);
+  if (client) {
     try {
-      if (typeof worktree.client.stop === "function") {
-        await worktree.client.stop();
+      if (typeof client.stop === "function") {
+        await client.stop();
       }
     } catch (error) {
       console.error("Error stopping worktree client:", error);
     }
-    worktree.client = null;
+    runtime.worktreeClients.delete(worktreeId);
   }
 
-  // Supprimer le worktree git
   await runSessionCommand(
     session,
     "git",
@@ -308,64 +286,39 @@ export async function removeWorktree(session, worktreeId, deleteBranch = true) {
     { cwd: session.repoDir }
   );
 
-  // Supprimer la branche si demandé
   if (deleteBranch) {
     try {
-      await runSessionCommand(
-        session,
-        "git",
-        ["branch", "-D", worktree.branchName],
-        { cwd: session.repoDir }
-      );
-    } catch (error) {
-      // Ignorer si la branche n'existe plus
+      await runSessionCommand(session, "git", ["branch", "-D", worktree.branchName], {
+        cwd: session.repoDir,
+      });
+    } catch {
       console.warn("Could not delete branch:", worktree.branchName);
     }
   }
 
-  // Supprimer de la Map
-  session.worktrees.delete(worktreeId);
-  if (typeof session.lastActivityAt === "number") {
-    session.lastActivityAt = Date.now();
-  }
+  await storage.deleteWorktree(session.sessionId, worktreeId);
+  await touchSession(session);
 }
 
-/**
- * Obtient le diff d'un worktree spécifique
- * @param {object} session - La session
- * @param {string} worktreeId - L'ID du worktree
- * @returns {Promise<{status: string, diff: string}>}
- */
 export async function getWorktreeDiff(session, worktreeId) {
-  if (!session.worktrees?.has(worktreeId)) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree) {
     throw new Error("Worktree not found");
   }
-
-  const worktree = session.worktrees.get(worktreeId);
-
   const [status, diff] = await Promise.all([
     runSessionCommandOutput(session, "git", ["status", "--porcelain"], {
       cwd: worktree.path,
     }),
     runSessionCommandOutput(session, "git", ["diff"], { cwd: worktree.path }),
   ]);
-
   return { status, diff };
 }
 
-/**
- * Obtient les commits d'un worktree
- * @param {object} session - La session
- * @param {string} worktreeId - L'ID du worktree
- * @param {number} [limit=20] - Nombre max de commits
- * @returns {Promise<Array<{sha: string, message: string, date: string}>>}
- */
 export async function getWorktreeCommits(session, worktreeId, limit = 20) {
-  if (!session.worktrees?.has(worktreeId)) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree) {
     throw new Error("Worktree not found");
   }
-
-  const worktree = session.worktrees.get(worktreeId);
 
   const output = await runSessionCommandOutput(
     session,
@@ -384,125 +337,84 @@ export async function getWorktreeCommits(session, worktreeId, limit = 20) {
     });
 }
 
-/**
- * Fusionne un worktree dans un autre
- * @param {object} session - La session
- * @param {string} sourceWorktreeId - ID du worktree source
- * @param {string} targetWorktreeId - ID du worktree cible
- * @returns {Promise<{success: boolean, conflicts?: string[]}>}
- */
 export async function mergeWorktree(session, sourceWorktreeId, targetWorktreeId) {
-  if (!session.worktrees?.has(sourceWorktreeId)) {
+  const source = await loadWorktree(sourceWorktreeId);
+  if (!source) {
     throw new Error("Source worktree not found");
   }
-  if (!session.worktrees?.has(targetWorktreeId)) {
+  const target = await loadWorktree(targetWorktreeId);
+  if (!target) {
     throw new Error("Target worktree not found");
   }
 
-  const source = session.worktrees.get(sourceWorktreeId);
-  const target = session.worktrees.get(targetWorktreeId);
-
   try {
-    // Effectuer la fusion dans le worktree cible
     await runSessionCommand(session, "git", ["merge", source.branchName, "--no-edit"], {
       cwd: target.path,
     });
-
     return { success: true };
   } catch (error) {
-    // Vérifier s'il y a des conflits
     const status = await runSessionCommandOutput(
       session,
       "git",
       ["status", "--porcelain"],
       { cwd: target.path }
     );
-
     const conflicts = status
       .split("\n")
       .filter((line) => line.startsWith("UU") || line.startsWith("AA"))
       .map((line) => line.slice(3).trim());
-
     if (conflicts.length > 0) {
       return { success: false, conflicts };
     }
-
     throw error;
   }
 }
 
-/**
- * Annule une fusion en cours
- * @param {object} session - La session
- * @param {string} worktreeId - ID du worktree
- */
 export async function abortMerge(session, worktreeId) {
-  if (!session.worktrees?.has(worktreeId)) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree) {
     throw new Error("Worktree not found");
   }
-
-  const worktree = session.worktrees.get(worktreeId);
   await runSessionCommand(session, "git", ["merge", "--abort"], { cwd: worktree.path });
 }
 
-/**
- * Cherry-pick un commit dans un worktree
- * @param {object} session - La session
- * @param {string} commitSha - SHA du commit à cherry-pick
- * @param {string} targetWorktreeId - ID du worktree cible
- * @returns {Promise<{success: boolean, conflicts?: string[]}>}
- */
 export async function cherryPickCommit(session, commitSha, targetWorktreeId) {
-  if (!session.worktrees?.has(targetWorktreeId)) {
+  const target = await loadWorktree(targetWorktreeId);
+  if (!target) {
     throw new Error("Target worktree not found");
   }
-
-  const target = session.worktrees.get(targetWorktreeId);
-
   try {
     await runSessionCommand(session, "git", ["cherry-pick", commitSha], {
       cwd: target.path,
     });
     return { success: true };
   } catch (error) {
-    // Vérifier s'il y a des conflits
     const status = await runSessionCommandOutput(
       session,
       "git",
       ["status", "--porcelain"],
       { cwd: target.path }
     );
-
     const conflicts = status
       .split("\n")
       .filter((line) => line.startsWith("UU") || line.startsWith("AA"))
       .map((line) => line.slice(3).trim());
-
     if (conflicts.length > 0) {
       return { success: false, conflicts };
     }
-
     throw error;
   }
 }
 
-/**
- * Liste tous les worktrees d'une session
- * @param {object} session - La session
- * @returns {Array<object>} Liste des worktrees (sans le client)
- */
-export function listWorktrees(session) {
-  if (!session.worktrees) {
-    return [];
-  }
-
-  return Array.from(session.worktrees.values()).map((wt) => ({
+export async function listWorktrees(session) {
+  const worktrees = await storage.listWorktrees(session.sessionId);
+  return worktrees.map((wt) => ({
     id: wt.id,
     name: wt.name,
     branchName: wt.branchName,
     provider: wt.provider,
     status: wt.status,
-    messageCount: wt.messages.length,
+    messageCount: Array.isArray(wt.messages) ? wt.messages.length : 0,
     parentWorktreeId: wt.parentWorktreeId,
     createdAt: wt.createdAt,
     lastActivityAt: wt.lastActivityAt,
@@ -510,66 +422,58 @@ export function listWorktrees(session) {
   }));
 }
 
-/**
- * Obtient un worktree par son ID
- * @param {object} session - La session
- * @param {string} worktreeId - L'ID du worktree
- * @returns {object|null}
- */
-export function getWorktree(session, worktreeId) {
-  return session.worktrees?.get(worktreeId) || null;
+export async function getWorktree(session, worktreeId) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree) return null;
+  const runtime = getSessionRuntime(session.sessionId);
+  if (runtime?.worktreeClients?.has(worktreeId)) {
+    worktree.client = runtime.worktreeClients.get(worktreeId);
+  }
+  return worktree;
 }
 
-/**
- * Met à jour le statut d'un worktree
- * @param {object} session - La session
- * @param {string} worktreeId - L'ID du worktree
- * @param {"creating" | "ready" | "processing" | "completed" | "error"} status
- */
-export function updateWorktreeStatus(session, worktreeId, status) {
-  const worktree = session.worktrees?.get(worktreeId);
-  if (worktree) {
-    worktree.status = status;
-    worktree.lastActivityAt = new Date();
-  }
+export async function updateWorktreeStatus(session, worktreeId, status) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree) return;
+  const updated = {
+    ...worktree,
+    status,
+    lastActivityAt: new Date().toISOString(),
+  };
+  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
 }
 
-/**
- * Ajoute un message à un worktree
- * @param {object} session - La session
- * @param {string} worktreeId - L'ID du worktree
- * @param {object} message - Le message à ajouter
- */
-export function appendWorktreeMessage(session, worktreeId, message) {
-  const worktree = session.worktrees?.get(worktreeId);
-  if (worktree) {
-    worktree.messages.push(message);
-    worktree.lastActivityAt = new Date();
+export async function appendWorktreeMessage(session, worktreeId, message) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree) return;
+  const nextMessages = Array.isArray(worktree.messages)
+    ? [...worktree.messages, message]
+    : [message];
+  if (nextMessages.length > 200) {
+    nextMessages.splice(0, nextMessages.length - 200);
   }
+  const updated = {
+    ...worktree,
+    messages: nextMessages,
+    lastActivityAt: new Date().toISOString(),
+  };
+  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
 }
 
-/**
- * Efface les messages d'un worktree
- * @param {object} session - La session
- * @param {string} worktreeId - L'ID du worktree
- */
-export function clearWorktreeMessages(session, worktreeId) {
-  const worktree = session.worktrees?.get(worktreeId);
-  if (worktree) {
-    worktree.messages = [];
-    worktree.lastActivityAt = new Date();
-  }
+export async function clearWorktreeMessages(session, worktreeId) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree) return;
+  const updated = {
+    ...worktree,
+    messages: [],
+    lastActivityAt: new Date().toISOString(),
+  };
+  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
 }
 
-/**
- * Renomme un worktree
- * @param {object} session - La session
- * @param {string} worktreeId - L'ID du worktree
- * @param {string} newName - Le nouveau nom
- */
-export function renameWorktree(session, worktreeId, newName) {
-  const worktree = session.worktrees?.get(worktreeId);
-  if (worktree) {
-    worktree.name = newName;
-  }
+export async function renameWorktree(session, worktreeId, newName) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree || !newName) return;
+  const updated = { ...worktree, name: newName };
+  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
 }

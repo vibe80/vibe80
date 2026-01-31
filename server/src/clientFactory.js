@@ -1,5 +1,6 @@
 import { CodexAppServerClient } from "./codexClient.js";
 import { ClaudeCliClient } from "./claudeClient.js";
+import { getSessionRuntime } from "./runtimeStore.js";
 
 /**
  * Get an existing client or create a new one for the given provider.
@@ -10,8 +11,9 @@ import { ClaudeCliClient } from "./claudeClient.js";
  * @returns {Promise<CodexAppServerClient | ClaudeCliClient>}
  */
 export async function getOrCreateClient(session, provider) {
-  if (session.clients[provider]) {
-    return session.clients[provider];
+  const runtime = getSessionRuntime(session.sessionId);
+  if (runtime?.clients?.[provider]) {
+    return runtime.clients[provider];
   }
 
   const client =
@@ -28,7 +30,9 @@ export async function getOrCreateClient(session, provider) {
           workspaceId: session.workspaceId,
         });
 
-  session.clients[provider] = client;
+  if (runtime) {
+    runtime.clients[provider] = client;
+  }
 
   return client;
 }
@@ -67,7 +71,8 @@ export function createWorktreeClient(worktree, attachmentsDir) {
  * @returns {CodexAppServerClient | ClaudeCliClient | null}
  */
 export function getActiveClient(session) {
-  return session.clients[session.activeProvider] || null;
+  const runtime = getSessionRuntime(session.sessionId);
+  return runtime?.clients?.[session.activeProvider] || null;
 }
 
 /**
