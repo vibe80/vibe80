@@ -964,7 +964,7 @@ main.chat {
 }
 
 :root[data-theme="dark"] .diff-panel .diff-code {
-  background: #121514;
+  background: transparent;
 }
 
 :root[data-theme="dark"] .diff-panel .diff-gutter {
