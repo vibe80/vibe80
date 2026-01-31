@@ -7,11 +7,12 @@ const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
 const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
 
 export class CodexAppServerClient extends EventEmitter {
-  constructor({ cwd, attachmentsDir, repoDir, env, workspaceId }) {
+  constructor({ cwd, attachmentsDir, repoDir, internetAccess, env, workspaceId }) {
     super();
     this.cwd = cwd;
     this.attachmentsDir = attachmentsDir;
     this.repoDir = repoDir || cwd;
+    this.internetAccess = internetAccess ?? true;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
     this.proc = null;
@@ -217,7 +218,7 @@ export class CodexAppServerClient extends EventEmitter {
         {
           keyPath: "sandbox_workspace_write.network_access",
           mergeStrategy: "replace",
-          value: true,
+          value: Boolean(this.internetAccess),
         },
         {
           keyPath: "developer_instructions",

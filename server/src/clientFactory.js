@@ -49,13 +49,19 @@ export async function getOrCreateClient(session, provider) {
  * @param {string} [attachmentsDir] - The attachments directory
  * @returns {CodexAppServerClient | ClaudeCliClient}
  */
-export function createWorktreeClient(worktree, attachmentsDir, repoDir) {
+export function createWorktreeClient(
+  worktree,
+  attachmentsDir,
+  repoDir,
+  internetAccess
+) {
   const client =
     worktree.provider === "claude"
       ? new ClaudeCliClient({
           cwd: worktree.path,
           attachmentsDir,
           repoDir,
+          internetAccess,
           env: process.env,
           workspaceId: worktree.workspaceId,
         })
@@ -63,6 +69,7 @@ export function createWorktreeClient(worktree, attachmentsDir, repoDir) {
           cwd: worktree.path,
           attachmentsDir,
           repoDir,
+          internetAccess,
           env: process.env,
           workspaceId: worktree.workspaceId,
         });

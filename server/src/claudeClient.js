@@ -13,11 +13,12 @@ const createTurnId = () =>
     : crypto.randomBytes(16).toString("hex");
 
 export class ClaudeCliClient extends EventEmitter {
-  constructor({ cwd, attachmentsDir, repoDir, env, workspaceId }) {
+  constructor({ cwd, attachmentsDir, repoDir, internetAccess, env, workspaceId }) {
     super();
     this.cwd = cwd;
     this.attachmentsDir = attachmentsDir;
     this.repoDir = repoDir || cwd;
+    this.internetAccess = internetAccess ?? true;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
     this.ready = false;
@@ -46,6 +47,10 @@ export class ClaudeCliClient extends EventEmitter {
     ]
       .filter(Boolean)
       .filter((value, index, self) => self.indexOf(value) === index);
+    const allowedTools = ["Bash(git:*)"];
+    if (this.internetAccess) {
+      allowedTools.push("WebSearch");
+    }
     const args = [
       "--continue",
       "--verbose",
@@ -57,7 +62,7 @@ export class ClaudeCliClient extends EventEmitter {
       "--permission-mode",
       "acceptEdits",
       "--allowed-tools",
-      "Bash(git:*) WebSearch",
+      allowedTools.join(" "),
       "--append-system-prompt",
       this.systemPrompt,
     ];

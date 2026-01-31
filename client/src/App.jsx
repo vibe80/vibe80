@@ -2351,6 +2351,7 @@ function App() {
               name: payload.name,
               branchName: payload.branchName,
               provider: payload.provider,
+              internetAccess: Boolean(payload.internetAccess),
               status: payload.status || "creating",
               color: payload.color,
               messages: [],
@@ -3524,7 +3525,14 @@ function App() {
   // ============== Worktree Functions ==============
 
   const createWorktree = useCallback(
-    ({ name, provider: wtProvider, startingBranch, model, reasoningEffort }) => {
+    ({
+      name,
+      provider: wtProvider,
+      startingBranch,
+      model,
+      reasoningEffort,
+      internetAccess,
+    }) => {
       if (!socketRef.current || !connected) return;
 
       socketRef.current.send(
@@ -3537,6 +3545,7 @@ function App() {
           startingBranch: startingBranch || null,
           model: model || null,
           reasoningEffort: reasoningEffort ?? null,
+          internetAccess: Boolean(internetAccess),
         })
       );
     },

@@ -59,6 +59,7 @@ export default function WorktreeTabs({
   const [newProvider, setNewProvider] = useState(providerOptions[0]);
   const [newModel, setNewModel] = useState("");
   const [newReasoningEffort, setNewReasoningEffort] = useState("");
+  const [newInternetAccess, setNewInternetAccess] = useState(false);
   const editInputRef = useRef(null);
   const createInputRef = useRef(null);
 
@@ -77,6 +78,7 @@ export default function WorktreeTabs({
 
   useEffect(() => {
     if (!createDialogOpen) return;
+    setNewInternetAccess(false);
     if (!startingBranch) {
       setStartingBranch(defaultBranch || "");
     }
@@ -179,6 +181,7 @@ export default function WorktreeTabs({
         startingBranch: effectiveBranch || null,
         model: newModel || null,
         reasoningEffort: newReasoningEffort || null,
+        internetAccess: newInternetAccess,
       });
     }
     setNewName("");
@@ -186,6 +189,7 @@ export default function WorktreeTabs({
     setStartingBranch(defaultBranch || "");
     setNewModel("");
     setNewReasoningEffort("");
+    setNewInternetAccess(false);
     setCreateDialogOpen(false);
   };
 
@@ -449,6 +453,19 @@ export default function WorktreeTabs({
                 )}
               </>
             )}
+            <div className="worktree-create-field">
+              <label className="worktree-toggle">
+                <input
+                  type="checkbox"
+                  checked={newInternetAccess}
+                  onChange={(e) => setNewInternetAccess(e.target.checked)}
+                />
+                <span>Internet access</span>
+              </label>
+              <div className="worktree-field-hint">
+                Autoriser l&apos;accès internet pour ce worktree uniquement.
+              </div>
+            </div>
             <div className="worktree-create-actions">
               <button className="worktree-btn-cancel" onClick={() => setCreateDialogOpen(false)}>
                 Annuler
@@ -734,6 +751,19 @@ export default function WorktreeTabs({
           font-size: 13px;
           color: #6b7280;
           margin-bottom: 6px;
+        }
+
+        .worktree-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: inherit;
+          margin-bottom: 6px;
+        }
+
+        .worktree-toggle input {
+          accent-color: var(--accent, #ee5d3b);
         }
 
         .worktree-create-field input,

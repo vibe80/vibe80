@@ -113,8 +113,15 @@ const generateWorktreeName = (text, index) => {
  * Crée un nouveau worktree pour une session
  */
 export async function createWorktree(session, options) {
-  const { provider, name, parentWorktreeId, startingBranch, model, reasoningEffort } =
-    options;
+  const {
+    provider,
+    name,
+    parentWorktreeId,
+    startingBranch,
+    model,
+    reasoningEffort,
+    internetAccess,
+  } = options;
 
   const worktreesDir = path.join(session.dir, "worktrees");
   await runAsCommand(session.workspaceId, "/bin/mkdir", ["-p", worktreesDir]);
@@ -227,6 +234,7 @@ export async function createWorktree(session, options) {
     provider,
     model: model || null,
     reasoningEffort: reasoningEffort || null,
+    internetAccess: Boolean(internetAccess),
     startingBranch: startingBranch || null,
     workspaceId: session.workspaceId,
     messages: [],
@@ -244,7 +252,8 @@ export async function createWorktree(session, options) {
     const client = createWorktreeClient(
       worktree,
       session.attachmentsDir,
-      session.repoDir
+      session.repoDir,
+      worktree.internetAccess
     );
     const runtime = getSessionRuntime(session.sessionId);
     if (runtime) {
@@ -420,6 +429,7 @@ export async function listWorktrees(session) {
     status: wt.status,
     messageCount: Array.isArray(wt.messages) ? wt.messages.length : 0,
     parentWorktreeId: wt.parentWorktreeId,
+    internetAccess: Boolean(wt.internetAccess),
     createdAt: wt.createdAt,
     lastActivityAt: wt.lastActivityAt,
     color: wt.color,

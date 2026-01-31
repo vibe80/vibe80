@@ -2604,6 +2604,7 @@ wss.on("connection", (socket, req) => {
           startingBranch: startingBranch || null,
           model,
           reasoningEffort,
+          internetAccess: Boolean(payload.internetAccess),
         });
 
         // Attach events to the client
@@ -2662,6 +2663,7 @@ wss.on("connection", (socket, req) => {
           name: worktree.name,
           branchName: worktree.branchName,
           provider: worktree.provider,
+          internetAccess: Boolean(worktree.internetAccess),
           status: worktree.status,
           color: worktree.color,
         });
@@ -3715,6 +3717,7 @@ app.post("/api/worktree", async (req, res) => {
       name: req.body?.name || null,
       parentWorktreeId: req.body?.parentWorktreeId || null,
       startingBranch: req.body?.startingBranch || null,
+      internetAccess: Boolean(req.body?.internetAccess),
     });
 
     // Attacher les événements au client
@@ -3742,6 +3745,7 @@ app.post("/api/worktree", async (req, res) => {
       name: worktree.name,
       branchName: worktree.branchName,
       provider: worktree.provider,
+      internetAccess: Boolean(worktree.internetAccess),
       status: worktree.status,
       color: worktree.color,
     });
@@ -3776,6 +3780,7 @@ app.get("/api/worktree/:worktreeId", async (req, res) => {
       name: worktree.name,
       branchName: worktree.branchName,
       provider: worktree.provider,
+      internetAccess: Boolean(worktree.internetAccess),
       status: worktree.status,
       messages: worktree.messages,
       color: worktree.color,
