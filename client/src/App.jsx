@@ -666,6 +666,7 @@ function App() {
   const [backlog, setBacklog] = useState([]);
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [rpcLogs, setRpcLogs] = useState([]);
+  const [rpcLogsEnabled, setRpcLogsEnabled] = useState(true);
   const [logFilterByTab, setLogFilterByTab] = useState({ main: "all" });
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
@@ -755,6 +756,7 @@ function App() {
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
   const [debugMode, setDebugMode] = useState(() => readDebugMode());
   const socketRef = useRef(null);
+  const rpcLogsEnabledRef = useRef(true);
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const uploadInputRef = useRef(null);
@@ -1463,7 +1465,13 @@ function App() {
       if (data?.repoDiff) {
         setRepoDiff(data.repoDiff);
       }
-      if (Array.isArray(data?.rpcLogs)) {
+      if (typeof data?.rpcLogsEnabled === "boolean") {
+        setRpcLogsEnabled(data.rpcLogsEnabled);
+        if (!data.rpcLogsEnabled) {
+          setRpcLogs([]);
+        }
+      }
+      if (Array.isArray(data?.rpcLogs) && data?.rpcLogsEnabled !== false) {
         setRpcLogs(data.rpcLogs);
       }
       if (typeof data?.terminalEnabled === "boolean") {
@@ -1768,6 +1776,10 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [repoHistory]);
+
+  useEffect(() => {
+    rpcLogsEnabledRef.current = rpcLogsEnabled;
+  }, [rpcLogsEnabled]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId || !workspaceToken) {
@@ -2094,6 +2106,9 @@ function App() {
         }
 
         if (!isWorktreeScoped && payload.type === "rpc_log") {
+          if (!rpcLogsEnabledRef.current) {
+            return;
+          }
           if (payload.entry) {
             const entry = payload.entry;
             if (entry?.provider === "codex" && entry.payload?.method === "error") {
@@ -3074,7 +3089,12 @@ function App() {
     }
     applyMessages(attachmentSession.messages || []);
     setRepoDiff(attachmentSession.repoDiff || { status: "", diff: "" });
-    setRpcLogs(attachmentSession.rpcLogs || []);
+    const logsEnabled =
+      typeof attachmentSession.rpcLogsEnabled === "boolean"
+        ? attachmentSession.rpcLogsEnabled
+        : true;
+    setRpcLogsEnabled(logsEnabled);
+    setRpcLogs(logsEnabled ? attachmentSession.rpcLogs || [] : []);
     setStatus("Connexion...");
     setConnected(false);
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
@@ -3752,7 +3772,7 @@ function App() {
   }, [attachmentSession, attachmentsLoading]);
 
   const handleViewSelect = useCallback((nextPane) => {
-    if (!debugMode && nextPane === "logs") {
+    if ((!debugMode || !rpcLogsEnabled) && nextPane === "logs") {
       return;
     }
     if (!terminalEnabled && nextPane === "terminal") {
@@ -3764,7 +3784,7 @@ function App() {
       [key]: nextPane,
     }));
     setToolbarExportOpen(false);
-  }, [activeWorktreeId, debugMode, terminalEnabled]);
+  }, [activeWorktreeId, debugMode, rpcLogsEnabled, terminalEnabled]);
 
   const handleLeaveSession = useCallback(() => {
     setAttachmentSession(null);
@@ -3777,6 +3797,7 @@ function App() {
     setMessages([]);
     setRepoDiff({ status: "", diff: "" });
     setRpcLogs([]);
+    setRpcLogsEnabled(true);
     setCurrentTurnId(null);
     setActivity("");
     const url = new URL(window.location.href);
@@ -3826,10 +3847,10 @@ function App() {
   }, [activeWorktreeId, handleViewSelect]);
 
   useEffect(() => {
-    if (!debugMode && activePane === "logs") {
+    if ((!debugMode || !rpcLogsEnabled) && activePane === "logs") {
       handleViewSelect("chat");
     }
-  }, [debugMode, activePane, handleViewSelect]);
+  }, [debugMode, rpcLogsEnabled, activePane, handleViewSelect]);
 
   useEffect(() => {
     if (!terminalEnabled && activePane === "terminal") {
@@ -5096,7 +5117,7 @@ function App() {
                     <span className="chat-toolbar-label">Terminal</span>
                   </button>
                 )}
-                {debugMode && (
+                {debugMode && rpcLogsEnabled && (
                   <button
                     type="button"
                     className={`chat-toolbar-button ${

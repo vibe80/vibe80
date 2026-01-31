@@ -1551,6 +1551,9 @@ const getMessagesSince = (session, provider, lastSeenMessageId) => {
 };
 
 const appendRpcLog = (sessionId, entry) => {
+  if (!debugApiWsLog) {
+    return;
+  }
   const session = getSession(sessionId);
   if (!session) {
     return;
@@ -1863,6 +1866,9 @@ function attachClientEvents(sessionId, client, provider) {
   });
 
   client.on("rpc_out", (payload) => {
+    if (!debugApiWsLog) {
+      return;
+    }
     const entry = {
       direction: "stdin",
       timestamp: Date.now(),
@@ -1874,6 +1880,9 @@ function attachClientEvents(sessionId, client, provider) {
   });
 
   client.on("rpc_in", (payload) => {
+    if (!debugApiWsLog) {
+      return;
+    }
     const entry = {
       direction: "stdout",
       timestamp: Date.now(),
@@ -2075,6 +2084,9 @@ function attachClientEventsForWorktree(sessionId, worktree) {
   });
 
   client.on("rpc_out", (payload) => {
+    if (!debugApiWsLog) {
+      return;
+    }
     const entry = {
       direction: "stdin",
       timestamp: Date.now(),
@@ -2087,6 +2099,9 @@ function attachClientEventsForWorktree(sessionId, worktree) {
   });
 
   client.on("rpc_in", (payload) => {
+    if (!debugApiWsLog) {
+      return;
+    }
     const entry = {
       direction: "stdout",
       timestamp: Date.now(),
@@ -2123,6 +2138,9 @@ function attachClaudeEventsForWorktree(sessionId, worktree) {
   });
 
   client.on("stdout_json", ({ message }) => {
+    if (!debugApiWsLog) {
+      return;
+    }
     const entry = {
       direction: "stdout",
       timestamp: Date.now(),
@@ -2209,6 +2227,9 @@ function attachClaudeEvents(sessionId, client, provider) {
   });
 
   client.on("stdout_json", ({ message }) => {
+    if (!debugApiWsLog) {
+      return;
+    }
     const entry = {
       direction: "stdout",
       timestamp: Date.now(),
@@ -3150,9 +3171,24 @@ app.get("/api/session/:sessionId", async (req, res) => {
     providers: session.providers || [activeProvider],
     messages,
     repoDiff,
-    rpcLogs: session.rpcLogs || [],
+    rpcLogsEnabled: debugApiWsLog,
+    rpcLogs: debugApiWsLog ? session.rpcLogs || [] : [],
     terminalEnabled,
   });
+});
+
+app.get("/api/session/:sessionId/rpc-logs", async (req, res) => {
+  if (!debugApiWsLog) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
+  const session = getSession(req.params.sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  touchSession(session);
+  res.json({ rpcLogs: session.rpcLogs || [] });
 });
 
 const readGitConfigValue = async (session, args) => {
@@ -3295,6 +3331,7 @@ app.post("/api/session", async (req, res) => {
       default_provider: session.activeProvider || "codex",
       providers: session.providers || [],
       messages: [],
+      rpcLogsEnabled: debugApiWsLog,
       terminalEnabled,
     });
   } catch (error) {
