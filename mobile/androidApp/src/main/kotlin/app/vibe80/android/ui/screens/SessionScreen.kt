@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Visibility
@@ -38,6 +39,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SessionScreen(
     onSessionCreated: (String) -> Unit,
+    onOpenQrScanner: () -> Unit,
     viewModel: SessionViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -79,7 +81,15 @@ fun SessionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.session_title)) }
+                title = { Text(stringResource(R.string.session_title)) },
+                actions = {
+                    IconButton(onClick = onOpenQrScanner) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Scanner un QR code"
+                        )
+                    }
+                }
             )
         }
     ) { padding ->

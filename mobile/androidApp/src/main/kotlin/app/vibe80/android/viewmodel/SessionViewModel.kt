@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Base64
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 data class SessionUiState(
     val workspaceStep: Int = 1,
@@ -42,7 +44,9 @@ data class SessionUiState(
     val isCheckingExistingSession: Boolean = true,
     val error: String? = null,
     val sessionId: String? = null,
-    val hasSavedSession: Boolean = false
+    val hasSavedSession: Boolean = false,
+    val handoffBusy: Boolean = false,
+    val handoffError: String? = null
 )
 
 enum class AuthMethod {
@@ -76,6 +80,7 @@ class SessionViewModel(
 
     private val _uiState = MutableStateFlow(SessionUiState())
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
+    private val handoffJson = Json { ignoreUnknownKeys = true; isLenient = true }
     init {
         checkExistingSession()
         loadWorkspace()
@@ -473,4 +478,93 @@ class SessionViewModel(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+
+    fun clearHandoffError() {
+        _uiState.update { it.copy(handoffError = null) }
+    }
+
+    fun consumeHandoffPayload(payload: String, onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(handoffBusy = true, handoffError = null) }
+
+            val parsed = runCatching {
+                handoffJson.decodeFromString(HandoffQrPayload.serializer(), payload)
+            }.getOrNull()
+
+            val token = parsed?.handoffToken?.trim()
+            if (token.isNullOrBlank()) {
+                _uiState.update {
+                    it.copy(
+                        handoffBusy = false,
+                        handoffError = "QR code invalide."
+                    )
+                }
+                return@launch
+            }
+
+            val baseUrl = parsed.baseUrl?.trim()?.trimEnd('/')
+            if (!baseUrl.isNullOrBlank() &&
+                baseUrl != M5ChatApplication.BASE_URL.trimEnd('/')
+            ) {
+                _uiState.update {
+                    it.copy(
+                        handoffBusy = false,
+                        handoffError = "Ce QR code ne correspond pas a cet environnement."
+                    )
+                }
+                return@launch
+            }
+
+            val result = sessionRepository.consumeHandoffToken(token)
+            result.fold(
+                onSuccess = { response ->
+                    sessionRepository.setWorkspaceToken(response.workspaceToken)
+                    sessionPreferences.saveWorkspace(
+                        workspaceId = response.workspaceId,
+                        workspaceSecret = "",
+                        workspaceToken = response.workspaceToken
+                    )
+                    val sessionState = sessionRepository
+                        .reconnectSession(response.sessionId)
+                        .getOrNull()
+                    sessionPreferences.saveSession(
+                        sessionId = response.sessionId,
+                        repoUrl = sessionState?.repoUrl ?: "",
+                        provider = sessionState?.activeProvider?.name ?: "CODEX",
+                        baseUrl = M5ChatApplication.BASE_URL
+                    )
+                    _uiState.update {
+                        it.copy(
+                            workspaceId = response.workspaceId,
+                            workspaceIdInput = response.workspaceId,
+                            workspaceSecretInput = "",
+                            workspaceToken = response.workspaceToken,
+                            workspaceStep = 2,
+                            handoffBusy = false,
+                            handoffError = null,
+                            sessionId = response.sessionId
+                        )
+                    }
+                    onSuccess(response.sessionId)
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            handoffBusy = false,
+                            handoffError = error.message
+                                ?: "Impossible de reprendre la session."
+                        )
+                    }
+                }
+            )
+        }
+    }
 }
+
+@Serializable
+private data class HandoffQrPayload(
+    val handoffToken: String,
+    val baseUrl: String? = null,
+    val expiresAt: Long? = null,
+    val type: String? = null
+)
