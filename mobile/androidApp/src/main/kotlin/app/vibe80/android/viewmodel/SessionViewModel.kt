@@ -79,6 +79,28 @@ class SessionViewModel(
     init {
         checkExistingSession()
         loadWorkspace()
+        observeWorkspaceAuthInvalid()
+    }
+
+    private fun observeWorkspaceAuthInvalid() {
+        viewModelScope.launch {
+            sessionRepository.workspaceAuthInvalid.collect {
+                sessionRepository.setWorkspaceToken(null)
+                sessionPreferences.clearWorkspace()
+                _uiState.update { state ->
+                    state.copy(
+                        workspaceStep = 1,
+                        workspaceMode = WorkspaceMode.EXISTING,
+                        workspaceIdInput = "",
+                        workspaceSecretInput = "",
+                        workspaceId = null,
+                        workspaceToken = null,
+                        workspaceError = "Token workspace invalide. Merci de vous reconnecter.",
+                        workspaceBusy = false
+                    )
+                }
+            }
+        }
     }
 
     private fun loadWorkspace() {

@@ -124,15 +124,29 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    private val _workspaceAuthInvalidEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val workspaceAuthInvalidEvent: SharedFlow<Unit> = _workspaceAuthInvalidEvent.asSharedFlow()
+
     init {
         observeSessionState()
         observeWorkspaceToken()
+        observeWorkspaceAuthInvalid()
     }
 
     private fun observeWorkspaceToken() {
         viewModelScope.launch {
             sessionPreferences.savedWorkspace.collect { workspace ->
                 _uiState.update { it.copy(workspaceToken = workspace?.workspaceToken) }
+            }
+        }
+    }
+
+    private fun observeWorkspaceAuthInvalid() {
+        viewModelScope.launch {
+            sessionRepository.workspaceAuthInvalid.collect {
+                sessionRepository.setWorkspaceToken(null)
+                sessionPreferences.clearWorkspace()
+                _workspaceAuthInvalidEvent.tryEmit(Unit)
             }
         }
     }

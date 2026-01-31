@@ -10,6 +10,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 class ApiClient(
@@ -17,6 +18,11 @@ class ApiClient(
     private val baseUrl: String
 ) {
     private val json = Json { prettyPrint = false }
+    private val errorJson = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        prettyPrint = false
+    }
     @Volatile private var workspaceToken: String? = null
 
     fun setWorkspaceToken(token: String?) {
@@ -26,6 +32,33 @@ class ApiClient(
     private fun applyAuth(builder: HttpRequestBuilder) {
         val token = workspaceToken ?: return
         builder.header("Authorization", "Bearer $token")
+    }
+
+    private fun parseErrorPayload(bodyText: String): ApiErrorPayload? {
+        if (bodyText.isBlank()) return null
+        return try {
+            errorJson.decodeFromString(ApiErrorPayload.serializer(), bodyText)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private suspend fun buildApiException(
+        response: io.ktor.client.statement.HttpResponse,
+        url: String,
+        responseBodyOverride: String? = null
+    ): ApiResponseException {
+        val responseBody = responseBodyOverride
+            ?: runCatching { response.bodyAsText() }.getOrDefault("")
+        val payload = parseErrorPayload(responseBody)
+        return ApiResponseException(
+            statusCode = response.status.value,
+            statusDescription = response.status.description,
+            errorType = payload?.error_type,
+            errorMessage = payload?.error ?: payload?.message,
+            errorBody = responseBody,
+            url = url
+        )
     }
 
     /**
@@ -42,17 +75,23 @@ class ApiClient(
                 setBody(request)
                 applyAuth(this)
             }
-            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
             AppLogger.apiResponse("POST", url, response.status.value, responseBody)
 
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
+                val payload = parseErrorPayload(responseBody)
                 Result.failure(
                     SessionCreationException(
                         statusCode = response.status.value,
                         statusDescription = response.status.description,
                         errorBody = responseBody,
+                        errorType = payload?.error_type,
                         url = url
                     )
                 )
@@ -79,17 +118,23 @@ class ApiClient(
             val response = httpClient.get(url) {
                 applyAuth(this)
             }
-            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
             AppLogger.apiResponse("GET", url, response.status.value, responseBody)
 
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
+                val payload = parseErrorPayload(responseBody)
                 Result.failure(
                     SessionGetException(
                         statusCode = response.status.value,
                         statusDescription = response.status.description,
                         errorBody = responseBody,
+                        errorType = payload?.error_type,
                         url = url
                     )
                 )
@@ -117,11 +162,19 @@ class ApiClient(
      * Get list of remote branches
      */
     suspend fun getBranches(sessionId: String): Result<BranchInfo> {
-        return runCatching {
-            httpClient.get("$baseUrl/api/branches") {
+        val url = "$baseUrl/api/branches"
+        return try {
+            val response = httpClient.get(url) {
                 parameter("session", sessionId)
                 applyAuth(this)
-            }.body()
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -129,12 +182,20 @@ class ApiClient(
      * Fetch latest branches from remote
      */
     suspend fun fetchBranches(sessionId: String): Result<BranchInfo> {
-        return runCatching {
-            httpClient.post("$baseUrl/api/branches/fetch") {
+        val url = "$baseUrl/api/branches/fetch"
+        return try {
+            val response = httpClient.post(url) {
                 contentType(ContentType.Application.Json)
                 setBody(mapOf("session" to sessionId))
                 applyAuth(this)
-            }.body()
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -142,12 +203,20 @@ class ApiClient(
      * Switch to a different branch
      */
     suspend fun switchBranch(sessionId: String, branch: String): Result<BranchSwitchResponse> {
-        return runCatching {
-            httpClient.post("$baseUrl/api/branches/switch") {
+        val url = "$baseUrl/api/branches/switch"
+        return try {
+            val response = httpClient.post(url) {
                 contentType(ContentType.Application.Json)
                 setBody(BranchSwitchRequest(session = sessionId, branch = branch))
                 applyAuth(this)
-            }.body()
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -155,12 +224,20 @@ class ApiClient(
      * Get available models for a provider
      */
     suspend fun getModels(sessionId: String, provider: String): Result<ModelsResponse> {
-        return runCatching {
-            httpClient.get("$baseUrl/api/models") {
+        val url = "$baseUrl/api/models"
+        return try {
+            val response = httpClient.get(url) {
                 parameter("session", sessionId)
                 parameter("provider", provider)
                 applyAuth(this)
-            }.body()
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -168,11 +245,19 @@ class ApiClient(
      * Get worktree diff
      */
     suspend fun getWorktreeDiff(sessionId: String, worktreeId: String): Result<WorktreeDiffResponse> {
-        return runCatching {
-            httpClient.get("$baseUrl/api/worktree/$worktreeId/diff") {
+        val url = "$baseUrl/api/worktree/$worktreeId/diff"
+        return try {
+            val response = httpClient.get(url) {
                 parameter("session", sessionId)
                 applyAuth(this)
-            }.body()
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -180,11 +265,18 @@ class ApiClient(
      * Merge a worktree
      */
     suspend fun mergeWorktree(worktreeId: String): Result<Unit> {
-        return runCatching {
-            httpClient.post("$baseUrl/api/worktree/$worktreeId/merge") {
+        val url = "$baseUrl/api/worktree/$worktreeId/merge"
+        return try {
+            val response = httpClient.post(url) {
                 applyAuth(this)
             }
-            Unit
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -192,12 +284,19 @@ class ApiClient(
      * Delete a worktree
      */
     suspend fun deleteWorktree(sessionId: String, worktreeId: String): Result<Unit> {
-        return runCatching {
-            httpClient.delete("$baseUrl/api/worktree/$worktreeId") {
+        val url = "$baseUrl/api/worktree/$worktreeId"
+        return try {
+            val response = httpClient.delete(url) {
                 parameter("session", sessionId)
                 applyAuth(this)
             }
-            Unit
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -205,11 +304,18 @@ class ApiClient(
      * Abort a merge in progress
      */
     suspend fun abortMerge(worktreeId: String): Result<Unit> {
-        return runCatching {
-            httpClient.post("$baseUrl/api/worktree/$worktreeId/abort-merge") {
+        val url = "$baseUrl/api/worktree/$worktreeId/abort-merge"
+        return try {
+            val response = httpClient.post(url) {
                 applyAuth(this)
             }
-            Unit
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -217,11 +323,19 @@ class ApiClient(
      * List attachments for a session
      */
     suspend fun listAttachments(sessionId: String): Result<AttachmentListResponse> {
-        return runCatching {
-            httpClient.get("$baseUrl/api/attachments") {
+        val url = "$baseUrl/api/attachments"
+        return try {
+            val response = httpClient.get(url) {
                 parameter("session", sessionId)
                 applyAuth(this)
-            }.body()
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -251,12 +365,16 @@ class ApiClient(
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
-            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
             AppLogger.apiResponse("POST", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(Exception("Workspace creation failed: ${response.status.value} ${response.status.description}"))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
             AppLogger.apiError("POST", url, e)
@@ -272,12 +390,16 @@ class ApiClient(
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
-            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
             AppLogger.apiResponse("POST", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(Exception("Workspace login failed: ${response.status.value} ${response.status.description}"))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
             AppLogger.apiError("POST", url, e)
@@ -294,16 +416,73 @@ class ApiClient(
                 setBody(request)
                 applyAuth(this)
             }
-            val responseBody = try { response.bodyAsText() } catch (e: Exception) { "" }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
             AppLogger.apiResponse("PATCH", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(Exception("Workspace update failed: ${response.status.value} ${response.status.description}"))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
             AppLogger.apiError("PATCH", url, e)
             Result.failure(e)
+        }
+    }
+}
+
+@Serializable
+data class ApiErrorPayload(
+    val error: String? = null,
+    val message: String? = null,
+    val error_type: String? = null
+)
+
+class ApiResponseException(
+    val statusCode: Int? = null,
+    val statusDescription: String? = null,
+    val errorType: String? = null,
+    val errorMessage: String? = null,
+    val errorBody: String? = null,
+    val url: String,
+    cause: Throwable? = null
+) : Exception(buildMessage(statusCode, statusDescription, errorType, errorMessage, errorBody, url, cause), cause) {
+    companion object {
+        private fun buildMessage(
+            statusCode: Int?,
+            statusDescription: String?,
+            errorType: String?,
+            errorMessage: String?,
+            errorBody: String?,
+            url: String,
+            cause: Throwable?
+        ): String {
+            return buildString {
+                append("Échec requête API\n")
+                append("URL: $url\n")
+                if (statusCode != null) {
+                    append("Status: $statusCode")
+                    if (statusDescription != null) {
+                        append(" ($statusDescription)")
+                    }
+                    append("\n")
+                }
+                if (!errorType.isNullOrBlank()) {
+                    append("Type: $errorType\n")
+                }
+                if (!errorMessage.isNullOrBlank()) {
+                    append("Message: $errorMessage\n")
+                }
+                if (!errorBody.isNullOrBlank()) {
+                    append("Réponse: ${errorBody.take(500)}\n")
+                }
+                if (cause != null) {
+                    append("Cause: ${cause::class.simpleName}: ${cause.message}")
+                }
+            }.trim()
         }
     }
 }
@@ -315,13 +494,15 @@ class SessionCreationException(
     val statusCode: Int? = null,
     val statusDescription: String? = null,
     val errorBody: String? = null,
+    val errorType: String? = null,
     val url: String,
     cause: Throwable? = null
-) : Exception(buildMessage(statusCode, statusDescription, errorBody, url, cause), cause) {
+) : Exception(buildMessage(statusCode, statusDescription, errorType, errorBody, url, cause), cause) {
     companion object {
         private fun buildMessage(
             statusCode: Int?,
             statusDescription: String?,
+            errorType: String?,
             errorBody: String?,
             url: String,
             cause: Throwable?
@@ -335,6 +516,9 @@ class SessionCreationException(
                         append(" ($statusDescription)")
                     }
                     append("\n")
+                }
+                if (!errorType.isNullOrBlank()) {
+                    append("Type: $errorType\n")
                 }
                 if (!errorBody.isNullOrBlank()) {
                     append("Réponse: ${errorBody.take(500)}\n")
@@ -354,13 +538,15 @@ class SessionGetException(
     val statusCode: Int? = null,
     val statusDescription: String? = null,
     val errorBody: String? = null,
+    val errorType: String? = null,
     val url: String,
     cause: Throwable? = null
-) : Exception(buildMessage(statusCode, statusDescription, errorBody, url, cause), cause) {
+) : Exception(buildMessage(statusCode, statusDescription, errorType, errorBody, url, cause), cause) {
     companion object {
         private fun buildMessage(
             statusCode: Int?,
             statusDescription: String?,
+            errorType: String?,
             errorBody: String?,
             url: String,
             cause: Throwable?
@@ -374,6 +560,9 @@ class SessionGetException(
                         append(" ($statusDescription)")
                     }
                     append("\n")
+                }
+                if (!errorType.isNullOrBlank()) {
+                    append("Type: $errorType\n")
                 }
                 if (!errorBody.isNullOrBlank()) {
                     append("Réponse: ${errorBody.take(500)}\n")

@@ -75,6 +75,12 @@ fun ChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingCameraPhoto by remember { mutableStateOf<CameraPhoto?>(null) }
 
+    LaunchedEffect(Unit) {
+        viewModel.workspaceAuthInvalidEvent.collect {
+            onDisconnect()
+        }
+    }
+
     // Show error snackbar when error occurs
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
