@@ -452,24 +452,71 @@ const workspaceUserExists = async (workspaceId) => {
 };
 
 const listWorkspaceEntries = async (workspaceId, dirPath) => {
+  let output;
   try {
-    const output = await runAsCommandOutput(
+    output = await runAsCommandOutput(
       workspaceId,
       "/usr/bin/find",
       [dirPath, "-maxdepth", "1", "-mindepth", "1", "-printf", "%y\t%f\0"],
       { binary: true }
     );
-    return output
+    const parsed = output
       .toString("utf8")
       .split("\0")
       .filter(Boolean)
       .map((line) => {
         const [type, name] = line.split("\t");
         return { type, name };
-      });
-  } catch {
-    return [];
+      })
+      .filter((entry) => entry.type && entry.name);
+    if (parsed.length > 0) {
+      return parsed;
+    }
+  } catch (error) {
+    console.error("listWorkspaceEntries failed:", {
+      workspaceId,
+      dirPath,
+      error: error?.message || error,
+    });
   }
+
+  try {
+    const fallbackOutput = await runAsCommandOutput(workspaceId, "/usr/bin/find", [
+      dirPath,
+      "-maxdepth",
+      "1",
+      "-mindepth",
+      "1",
+      "-printf",
+      "%y\t%f\n",
+    ]);
+    const parsed = fallbackOutput
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [type, name] = line.split("\t");
+        return { type, name };
+      })
+      .filter((entry) => entry.type && entry.name);
+    if (parsed.length > 0) {
+      return parsed;
+    }
+    if (output) {
+      console.warn("listWorkspaceEntries empty parse:", {
+        workspaceId,
+        dirPath,
+        sample: output.toString("utf8").slice(0, 200),
+      });
+    }
+  } catch (error) {
+    console.error("listWorkspaceEntries fallback failed:", {
+      workspaceId,
+      dirPath,
+      error: error?.message || error,
+    });
+  }
+  return [];
 };
 
 const getWorkspaceStat = async (workspaceId, targetPath) => {
