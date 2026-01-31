@@ -432,6 +432,31 @@ class ApiClient(
             Result.failure(e)
         }
     }
+
+    suspend fun consumeHandoffToken(request: HandoffConsumeRequest): Result<HandoffConsumeResponse> {
+        val url = "$baseUrl/api/sessions/handoff/consume"
+        AppLogger.apiRequest("POST", url)
+        return try {
+            val response = httpClient.post(url) {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("POST", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url, responseBody))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("POST", url, e)
+            Result.failure(e)
+        }
+    }
 }
 
 @Serializable

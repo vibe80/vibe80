@@ -22,6 +22,7 @@ import {
   faFolderTree,
   faGear,
   faPaperclip,
+  faQrcode,
   faRightFromBracket,
   faTerminal,
   faTowerBroadcast,
@@ -29,6 +30,7 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
+import QRCode from "qrcode";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
@@ -613,6 +615,12 @@ function App() {
   const [workspaceSessions, setWorkspaceSessions] = useState([]);
   const [workspaceSessionsLoading, setWorkspaceSessionsLoading] = useState(false);
   const [workspaceSessionsError, setWorkspaceSessionsError] = useState("");
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [handoffQrDataUrl, setHandoffQrDataUrl] = useState("");
+  const [handoffExpiresAt, setHandoffExpiresAt] = useState(null);
+  const [handoffLoading, setHandoffLoading] = useState(false);
+  const [handoffError, setHandoffError] = useState("");
+  const [handoffRemaining, setHandoffRemaining] = useState(null);
   const [workspaceProviders, setWorkspaceProviders] = useState(() => ({
     codex: { enabled: false, authType: "api_key", authValue: "" },
     claude: { enabled: false, authType: "auth_json_b64", authValue: "" },
@@ -826,6 +834,91 @@ function App() {
     },
     [workspaceToken]
   );
+
+  const buildHandoffPayload = (token, expiresAt) =>
+    JSON.stringify({
+      type: "m5chat_handoff",
+      handoffToken: token,
+      baseUrl: window.location.origin,
+      expiresAt,
+    });
+
+  const requestHandoffQr = useCallback(async () => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    setHandoffLoading(true);
+    setHandoffError("");
+    try {
+      const response = await apiFetch("/api/sessions/handoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(
+          payload?.error || "Impossible de generer le QR code."
+        );
+      }
+      const data = await response.json();
+      const token = data?.handoffToken;
+      if (!token) {
+        throw new Error("Token de reprise invalide.");
+      }
+      const expiresAt = data?.expiresAt ?? null;
+      const payload = buildHandoffPayload(token, expiresAt);
+      const qrDataUrl = await QRCode.toDataURL(payload, {
+        width: 260,
+        margin: 1,
+      });
+      setHandoffQrDataUrl(qrDataUrl);
+      setHandoffExpiresAt(expiresAt);
+      setHandoffOpen(true);
+    } catch (error) {
+      setHandoffError(error?.message || "Erreur lors de la generation.");
+    } finally {
+      setHandoffLoading(false);
+    }
+  }, [attachmentSession?.sessionId, apiFetch]);
+
+  const closeHandoffQr = useCallback(() => {
+    setHandoffOpen(false);
+    setHandoffError("");
+    setHandoffQrDataUrl("");
+    setHandoffExpiresAt(null);
+    setHandoffRemaining(null);
+  }, []);
+
+  useEffect(() => {
+    if (!handoffOpen || !handoffExpiresAt) {
+      setHandoffRemaining(null);
+      return;
+    }
+    const expiresAtMs =
+      typeof handoffExpiresAt === "number"
+        ? handoffExpiresAt
+        : new Date(handoffExpiresAt).getTime();
+    if (!Number.isFinite(expiresAtMs)) {
+      setHandoffRemaining(null);
+      return;
+    }
+    const tick = () => {
+      const remainingMs = expiresAtMs - Date.now();
+      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+      setHandoffRemaining(remainingSeconds);
+    };
+    tick();
+    const intervalId = setInterval(tick, 1000);
+    return () => clearInterval(intervalId);
+  }, [handoffOpen, handoffExpiresAt]);
+
+  useEffect(() => {
+    if (!attachmentSession?.sessionId) {
+      closeHandoffQr();
+    }
+  }, [attachmentSession?.sessionId, closeHandoffQr]);
 
   const loadGitIdentity = useCallback(async () => {
     const sessionId = attachmentSession?.sessionId;
@@ -5334,6 +5427,16 @@ function App() {
           <button
             type="button"
             className="icon-button"
+            aria-label="Reprendre sur mobile"
+            title="Reprendre sur mobile"
+            onClick={requestHandoffQr}
+            disabled={!attachmentSession?.sessionId || handoffLoading}
+          >
+            <FontAwesomeIcon icon={faQrcode} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
             aria-label="Ouvrir les paramètres"
             onClick={handleOpenSettings}
           >
@@ -6892,6 +6995,68 @@ function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+      {handoffOpen ? (
+        <div
+          className="handoff-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeHandoffQr}
+        >
+          <div
+            className="handoff-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="handoff-modal-header">
+              <div className="handoff-modal-title">Continuer sur mobile</div>
+              <button
+                type="button"
+                className="handoff-modal-close"
+                aria-label="Fermer"
+                onClick={closeHandoffQr}
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </div>
+            <div className="handoff-modal-body">
+              <p className="handoff-modal-text">
+                Scannez ce QR code dans l'application Android pour reprendre la
+                session en cours.
+              </p>
+              {handoffError ? (
+                <div className="handoff-modal-error">{handoffError}</div>
+              ) : null}
+              {handoffQrDataUrl ? (
+                <div className="handoff-modal-qr">
+                  <img src={handoffQrDataUrl} alt="QR code" />
+                </div>
+              ) : (
+                <div className="handoff-modal-placeholder">
+                  {handoffLoading
+                    ? "Generation du QR code..."
+                    : "QR code indisponible."}
+                </div>
+              )}
+              {typeof handoffRemaining === "number" ? (
+                <div className="handoff-modal-meta">
+                  {handoffRemaining > 0
+                    ? `Expire dans ${handoffRemaining}s`
+                    : "QR code expire"}
+                </div>
+              ) : null}
+              <div className="handoff-modal-actions">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={requestHandoffQr}
+                  disabled={handoffLoading}
+                >
+                  Regenerer
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

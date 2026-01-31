@@ -14,6 +14,7 @@
     "@fortawesome/free-solid-svg-icons": "7.1.0",
     "@fortawesome/react-fontawesome": "3.1.1",
     "@uiw/react-md-editor": "^4.0.11",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-diff-view": "^3.3.2",
     "react-dom": "^18.3.1",

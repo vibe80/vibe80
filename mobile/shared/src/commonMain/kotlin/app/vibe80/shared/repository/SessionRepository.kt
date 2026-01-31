@@ -401,6 +401,12 @@ class SessionRepository(
         return result
     }
 
+    suspend fun consumeHandoffToken(handoffToken: String): Result<HandoffConsumeResponse> {
+        val result = apiClient.consumeHandoffToken(HandoffConsumeRequest(handoffToken))
+        result.onFailure { handleApiFailure(it, "consumeHandoffToken") }
+        return result
+    }
+
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
         AppLogger.info(LogSource.APP, "SessionRepository.sendMessage called", "text='$text', attachments=${attachments.size}, connectionState=${connectionState.value}")
 
