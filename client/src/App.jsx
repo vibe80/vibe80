@@ -579,6 +579,10 @@ function App() {
   const [workspaceCreated, setWorkspaceCreated] = useState(null);
   const [workspaceError, setWorkspaceError] = useState("");
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [sessionMode, setSessionMode] = useState("new");
+  const [workspaceSessions, setWorkspaceSessions] = useState([]);
+  const [workspaceSessionsLoading, setWorkspaceSessionsLoading] = useState(false);
+  const [workspaceSessionsError, setWorkspaceSessionsError] = useState("");
   const [workspaceProviders, setWorkspaceProviders] = useState(() => ({
     codex: { enabled: false, authType: "api_key", authValue: "" },
     claude: { enabled: false, authType: "auth_json_b64", authValue: "" },
@@ -1165,6 +1169,37 @@ function App() {
       setWorkspaceStep(1);
     }
   }, [workspaceToken]);
+
+  const loadWorkspaceSessions = useCallback(async () => {
+    if (!workspaceToken) {
+      return;
+    }
+    setWorkspaceSessionsLoading(true);
+    setWorkspaceSessionsError("");
+    try {
+      const response = await apiFetch("/api/sessions");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "Impossible de charger les sessions.");
+      }
+      const data = await response.json();
+      const list = Array.isArray(data?.sessions) ? data.sessions : [];
+      setWorkspaceSessions(list);
+    } catch (error) {
+      setWorkspaceSessionsError(
+        error.message || "Impossible de charger les sessions."
+      );
+    } finally {
+      setWorkspaceSessionsLoading(false);
+    }
+  }, [apiFetch, workspaceToken]);
+
+  useEffect(() => {
+    if (!workspaceToken || workspaceStep !== 3) {
+      return;
+    }
+    loadWorkspaceSessions();
+  }, [workspaceStep, workspaceToken, loadWorkspaceSessions]);
 
   useEffect(() => {
     try {
@@ -2830,7 +2865,7 @@ function App() {
   }, [workspaceToken, attachmentSession?.sessionId, apiFetch]);
 
   useEffect(() => {
-    if (!repoUrl || attachmentSession?.sessionId) {
+    if (!repoUrl || attachmentSession?.sessionId || sessionMode !== "new") {
       return;
     }
     const createAttachmentSession = async () => {
@@ -2910,7 +2945,7 @@ function App() {
     };
 
     createAttachmentSession();
-  }, [repoUrl, repoAuth, attachmentSession?.sessionId, apiFetch]);
+  }, [repoUrl, repoAuth, attachmentSession?.sessionId, apiFetch, sessionMode]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -3026,6 +3061,29 @@ function App() {
       setWorkspaceError(error.message || "Echec de la configuration du workspace.");
     } finally {
       setWorkspaceBusy(false);
+    }
+  };
+
+  const handleResumeSession = async (sessionId) => {
+    if (!sessionId) {
+      return;
+    }
+    try {
+      setSessionRequested(true);
+      setAttachmentsError("");
+      const response = await apiFetch(
+        `/api/session/${encodeURIComponent(sessionId)}`
+      );
+      if (!response.ok) {
+        throw new Error("Session introuvable.");
+      }
+      const data = await response.json();
+      setAttachmentSession(data);
+    } catch (error) {
+      setAttachmentsError(
+        error.message || "Impossible de reprendre la session."
+      );
+      setSessionRequested(false);
     }
   };
 
@@ -3788,6 +3846,10 @@ function App() {
     setWorkspaceCreated(null);
     setWorkspaceError("");
     setWorkspaceMode("existing");
+    setSessionMode("new");
+    setWorkspaceSessions([]);
+    setWorkspaceSessionsError("");
+    setWorkspaceSessionsLoading(false);
     setWorkspaceStep(1);
   }, []);
 
@@ -4416,7 +4478,8 @@ function App() {
 
   if (!attachmentSession?.sessionId) {
     const isRepoProvided = Boolean(repoUrl);
-    const isCloning = sessionRequested && isRepoProvided;
+    const isCloning =
+      sessionMode === "new" && sessionRequested && isRepoProvided;
     const repoDisplay = getTruncatedText(repoUrl, 72);
     const formDisabled = workspaceBusy || sessionRequested;
     const workspaceProvider = (providerKey) => workspaceProviders[providerKey] || {};
@@ -4634,7 +4697,7 @@ function App() {
           {showStep3 && (
             <>
               <p className="session-hint">
-                Workspace valide. Configurez le depot a cloner.
+                Workspace valide. Choisissez comment demarrer.
               </p>
               <div className="session-form-row">
                 <div />
@@ -4658,126 +4721,223 @@ function App() {
                   )}
                 </div>
               )}
-              {isCloning ? (
-                <div className="session-hint">
-                  Clonage du depot...
-                  {repoDisplay && (
-                    <div className="session-meta">{repoDisplay}</div>
-                  )}
-                </div>
-              ) : (
-                <form className="session-form" onSubmit={onRepoSubmit}>
-                  <div className="session-form-row">
+              <div className="session-auth">
+                <div className="session-auth-title">Session</div>
+                <div className="session-auth-options">
+                  <label className="session-auth-option">
                     <input
-                      type="text"
-                      placeholder="git@gitea.devops:mon-org/mon-repo.git"
-                      value={repoInput}
-                      onChange={(event) => {
-                        setRepoInput(event.target.value);
+                      type="radio"
+                      name="sessionMode"
+                      value="new"
+                      checked={sessionMode === "new"}
+                      onChange={() => {
+                        setSessionMode("new");
+                        setSessionRequested(false);
+                        setAttachmentsError("");
                       }}
                       disabled={formDisabled}
-                      required
-                      list={repoHistory.length > 0 ? "repo-history" : undefined}
                     />
-                    {repoHistory.length > 0 && (
-                      <datalist id="repo-history">
-                        {repoHistory.map((url) => (
-                          <option key={url} value={url}>
-                            {getTruncatedText(url, 72)}
-                          </option>
-                        ))}
-                      </datalist>
-                    )}
-                  </div>
-                  <div className="session-auth">
-                    <div className="session-auth-title">
-                      Authentification depot (optionnelle)
+                    Nouvelle session
+                  </label>
+                  <label className="session-auth-option">
+                    <input
+                      type="radio"
+                      name="sessionMode"
+                      value="existing"
+                      checked={sessionMode === "existing"}
+                      onChange={() => {
+                        setSessionMode("existing");
+                        setSessionRequested(false);
+                        setAttachmentsError("");
+                      }}
+                      disabled={formDisabled}
+                    />
+                    Reprendre une session existante
+                  </label>
+                </div>
+              </div>
+              {sessionMode === "existing" && (
+                <div className="session-auth">
+                  <div className="session-auth-title">Sessions existantes</div>
+                  {workspaceSessionsLoading ? (
+                    <div className="session-auth-hint">
+                      Chargement des sessions...
                     </div>
-                    <div className="session-auth-options">
-                      <label className="session-auth-option">
-                        <input
-                          type="radio"
-                          name="authMode"
-                          value="none"
-                          checked={authMode === "none"}
-                          onChange={() => setAuthMode("none")}
-                          disabled={formDisabled}
-                        />
-                        Aucune
-                      </label>
-                      <label className="session-auth-option">
-                        <input
-                          type="radio"
-                          name="authMode"
-                          value="ssh"
-                          checked={authMode === "ssh"}
-                          onChange={() => setAuthMode("ssh")}
-                          disabled={formDisabled}
-                        />
-                        Cle SSH privee
-                      </label>
-                      <label className="session-auth-option">
-                        <input
-                          type="radio"
-                          name="authMode"
-                          value="http"
-                          checked={authMode === "http"}
-                          onChange={() => setAuthMode("http")}
-                          disabled={formDisabled}
-                        />
-                        Identifiant + mot de passe
-                      </label>
+                  ) : workspaceSessions.length === 0 ? (
+                    <div className="session-auth-hint">
+                      Aucune session disponible.
                     </div>
-                    {authMode === "ssh" && (
-                      <>
-                        <textarea
-                          className="session-auth-textarea"
-                          placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                          value={sshKeyInput}
-                          onChange={(event) => setSshKeyInput(event.target.value)}
-                          disabled={formDisabled}
-                          rows={6}
-                          spellCheck={false}
-                        />
-                        <div className="session-auth-hint">
-                          La cle est stockee dans ~/.ssh pour le clonage.
-                        </div>
-                      </>
-                    )}
-                    {authMode === "http" && (
-                      <>
-                        <div className="session-auth-grid">
-                          <input
-                            type="text"
-                            placeholder="Utilisateur"
-                            value={httpUsername}
-                            onChange={(event) => setHttpUsername(event.target.value)}
-                            disabled={formDisabled}
-                            autoComplete="username"
-                          />
-                          <input
-                            type="password"
-                            placeholder="Mot de passe ou PAT"
-                            value={httpPassword}
-                            onChange={(event) => setHttpPassword(event.target.value)}
-                            disabled={formDisabled}
-                            autoComplete="current-password"
-                          />
-                        </div>
-                        <div className="session-auth-hint">
-                          Le mot de passe peut etre remplace par un PAT.
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div className="session-form-row">
-                    <div />
-                    <button type="submit" disabled={formDisabled}>
-                      {sessionRequested ? "Chargement..." : "Cloner"}
-                    </button>
-                  </div>
-                </form>
+                  ) : (
+                    <ul className="session-list">
+                      {workspaceSessions.map((session) => {
+                        const repoName = extractRepoName(session.repoUrl);
+                        const title = repoName || session.sessionId;
+                        const subtitle = session.repoUrl
+                          ? getTruncatedText(session.repoUrl, 72)
+                          : session.sessionId;
+                        const lastSeen = session.lastActivityAt
+                          ? new Date(session.lastActivityAt).toLocaleString("fr-FR")
+                          : session.createdAt
+                            ? new Date(session.createdAt).toLocaleString("fr-FR")
+                            : "";
+                        return (
+                          <li key={session.sessionId} className="session-item">
+                            <div className="session-item-meta">
+                              <div className="session-item-title">{title}</div>
+                              <div className="session-item-sub">{subtitle}</div>
+                              {lastSeen && (
+                                <div className="session-item-sub">
+                                  Derniere activite: {lastSeen}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              className="session-list-button"
+                              onClick={() =>
+                                handleResumeSession(session.sessionId)
+                              }
+                              disabled={formDisabled}
+                            >
+                              Reprendre
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {workspaceSessionsError && (
+                    <div className="attachments-error">
+                      {workspaceSessionsError}
+                    </div>
+                  )}
+                </div>
               )}
+              {sessionMode === "new" &&
+                (isCloning ? (
+                  <div className="session-hint">
+                    Clonage du depot...
+                    {repoDisplay && (
+                      <div className="session-meta">{repoDisplay}</div>
+                    )}
+                  </div>
+                ) : (
+                  <form className="session-form" onSubmit={onRepoSubmit}>
+                    <div className="session-form-row">
+                      <input
+                        type="text"
+                        placeholder="git@gitea.devops:mon-org/mon-repo.git"
+                        value={repoInput}
+                        onChange={(event) => {
+                          setRepoInput(event.target.value);
+                        }}
+                        disabled={formDisabled}
+                        required
+                        list={repoHistory.length > 0 ? "repo-history" : undefined}
+                      />
+                      {repoHistory.length > 0 && (
+                        <datalist id="repo-history">
+                          {repoHistory.map((url) => (
+                            <option key={url} value={url}>
+                              {getTruncatedText(url, 72)}
+                            </option>
+                          ))}
+                        </datalist>
+                      )}
+                    </div>
+                    <div className="session-auth">
+                      <div className="session-auth-title">
+                        Authentification depot (optionnelle)
+                      </div>
+                      <div className="session-auth-options">
+                        <label className="session-auth-option">
+                          <input
+                            type="radio"
+                            name="authMode"
+                            value="none"
+                            checked={authMode === "none"}
+                            onChange={() => setAuthMode("none")}
+                            disabled={formDisabled}
+                          />
+                          Aucune
+                        </label>
+                        <label className="session-auth-option">
+                          <input
+                            type="radio"
+                            name="authMode"
+                            value="ssh"
+                            checked={authMode === "ssh"}
+                            onChange={() => setAuthMode("ssh")}
+                            disabled={formDisabled}
+                          />
+                          Cle SSH privee
+                        </label>
+                        <label className="session-auth-option">
+                          <input
+                            type="radio"
+                            name="authMode"
+                            value="http"
+                            checked={authMode === "http"}
+                            onChange={() => setAuthMode("http")}
+                            disabled={formDisabled}
+                          />
+                          Identifiant + mot de passe
+                        </label>
+                      </div>
+                      {authMode === "ssh" && (
+                        <>
+                          <textarea
+                            className="session-auth-textarea"
+                            placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                            value={sshKeyInput}
+                            onChange={(event) => setSshKeyInput(event.target.value)}
+                            disabled={formDisabled}
+                            rows={6}
+                            spellCheck={false}
+                          />
+                          <div className="session-auth-hint">
+                            La cle est stockee dans ~/.ssh pour le clonage.
+                          </div>
+                        </>
+                      )}
+                      {authMode === "http" && (
+                        <>
+                          <div className="session-auth-grid">
+                            <input
+                              type="text"
+                              placeholder="Utilisateur"
+                              value={httpUsername}
+                              onChange={(event) =>
+                                setHttpUsername(event.target.value)
+                              }
+                              disabled={formDisabled}
+                              autoComplete="username"
+                            />
+                            <input
+                              type="password"
+                              placeholder="Mot de passe ou PAT"
+                              value={httpPassword}
+                              onChange={(event) =>
+                                setHttpPassword(event.target.value)
+                              }
+                              disabled={formDisabled}
+                              autoComplete="current-password"
+                            />
+                          </div>
+                          <div className="session-auth-hint">
+                            Le mot de passe peut etre remplace par un PAT.
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <div className="session-form-row">
+                      <div />
+                      <button type="submit" disabled={formDisabled}>
+                        {sessionRequested ? "Chargement..." : "Cloner"}
+                      </button>
+                    </div>
+                  </form>
+                ))}
               {attachmentsError && (
                 <div className="attachments-error">{attachmentsError}</div>
               )}

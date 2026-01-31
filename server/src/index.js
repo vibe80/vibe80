@@ -3130,6 +3130,29 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.get("/api/sessions", (req, res) => {
+  const workspaceId = req.workspaceId;
+  const payload = [];
+  for (const session of sessions.values()) {
+    if (session.workspaceId !== workspaceId) {
+      continue;
+    }
+    payload.push({
+      sessionId: session.sessionId,
+      repoUrl: session.repoUrl || "",
+      createdAt: session.createdAt || null,
+      lastActivityAt: session.lastActivityAt || null,
+      activeProvider: session.activeProvider || null,
+    });
+  }
+  payload.sort((a, b) => {
+    const aTime = a.lastActivityAt || a.createdAt || 0;
+    const bTime = b.lastActivityAt || b.createdAt || 0;
+    return bTime - aTime;
+  });
+  res.json({ sessions: payload });
+});
+
 app.get("/api/session/:sessionId", async (req, res) => {
   const session = getSession(req.params.sessionId, req.workspaceId);
   if (!session) {
