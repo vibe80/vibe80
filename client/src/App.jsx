@@ -5530,6 +5530,9 @@ function App() {
                           <div className="chat-meta-commit">
                             <span className="chat-meta-hash">{shortSha}</span>
                           </div>
+                          <div className="chat-meta-message">
+                            {activeCommit?.message || ""}
+                          </div>
                           {showInternetAccess && (
                             <div className="chat-meta-internet">
                               <span className="chat-meta-internet-icon" aria-hidden="true">
@@ -5538,9 +5541,6 @@ function App() {
                               <span>Accès internet activé</span>
                             </div>
                           )}
-                          <div className="chat-meta-message">
-                            {activeCommit?.message || ""}
-                          </div>
                         </div>
                       </div>
                     )}
