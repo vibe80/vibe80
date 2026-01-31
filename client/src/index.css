@@ -977,7 +977,7 @@ main.chat {
 }
 
 :root[data-theme="dark"] .diff-panel .diff-code-added {
-  background: rgba(46, 116, 64, 0.4);
+  background: rgba(48, 106, 204, 0.35);
 }
 
 :root[data-theme="dark"] .diff-panel .diff-code-deleted {
@@ -985,8 +985,8 @@ main.chat {
 }
 
 :root[data-theme="dark"] .diff-panel .diff-gutter-added {
-  background: rgba(46, 116, 64, 0.6);
-  color: #eaf6ef;
+  background: rgba(48, 106, 204, 0.6);
+  color: #e9f1ff;
 }
 
 :root[data-theme="dark"] .diff-panel .diff-gutter-deleted {
