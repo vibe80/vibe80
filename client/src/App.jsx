@@ -14,12 +14,16 @@ import {
   faChevronDown,
   faChevronRight,
   faClipboardList,
+  faComments,
+  faCodeCompare,
   faCopy,
+  faDownload,
   faFileLines,
   faFolderTree,
   faGear,
   faPaperclip,
   faRightFromBracket,
+  faTerminal,
   faTriangleExclamation,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -5001,7 +5005,7 @@ function App() {
               aria-pressed={activePane === "settings"}
             >
               <span className="side-footer-icon" aria-hidden="true">
-                ⚙
+                <FontAwesomeIcon icon={faGear} />
               </span>
               Paramètres
             </button>
@@ -5033,7 +5037,9 @@ function App() {
                   title="Messages"
                 >
                   <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon">💬</span>
+                    <span className="chat-toolbar-icon">
+                      <FontAwesomeIcon icon={faComments} />
+                    </span>
                   </span>
                   <span className="chat-toolbar-label">Messages</span>
                 </button>
@@ -5048,7 +5054,9 @@ function App() {
                   title="Diff"
                 >
                   <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon">Δ</span>
+                    <span className="chat-toolbar-icon">
+                      <FontAwesomeIcon icon={faCodeCompare} />
+                    </span>
                   </span>
                   <span className="chat-toolbar-label">Diff</span>
                 </button>
@@ -5081,7 +5089,9 @@ function App() {
                     title="Terminal"
                   >
                     <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                      <span className="chat-toolbar-icon">⌨</span>
+                      <span className="chat-toolbar-icon">
+                        <FontAwesomeIcon icon={faTerminal} />
+                      </span>
                     </span>
                     <span className="chat-toolbar-label">Terminal</span>
                   </button>
@@ -5125,15 +5135,17 @@ function App() {
                       aria-label="Export"
                       title="Export"
                       disabled={!hasMessages}
-                    >
-                      <span
-                        className="chat-toolbar-icon-wrap"
-                        aria-hidden="true"
                       >
-                        <span className="chat-toolbar-icon">⤓</span>
-                      </span>
-                      <span className="chat-toolbar-label">Exporter</span>
-                    </button>
+                        <span
+                          className="chat-toolbar-icon-wrap"
+                          aria-hidden="true"
+                        >
+                          <span className="chat-toolbar-icon">
+                            <FontAwesomeIcon icon={faDownload} />
+                          </span>
+                        </span>
+                        <span className="chat-toolbar-label">Exporter</span>
+                      </button>
                     {toolbarExportOpen && (
                       <div className="chat-toolbar-menu">
                         <button
