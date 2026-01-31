@@ -145,13 +145,15 @@ export const runAsCommand = (workspaceId, command, args, options = {}) =>
     const details = [
       "run-as failed",
       `mode=${DEPLOYMENT_MODE || "unknown"}`,
-      `sudo=${SUDO_PATH}`,
-      `helper=${RUN_AS_HELPER}`,
+      IS_MONO_USER ? null : `sudo=${SUDO_PATH}`,
+      IS_MONO_USER ? null : `helper=${RUN_AS_HELPER}`,
       `workspace=${workspaceId}`,
       `command=${command}`,
       `args=${JSON.stringify(args || [])}`,
       `error=${error?.message || error}`,
-    ].join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     throw new Error(details);
   });
 
@@ -177,12 +179,14 @@ export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
     const details = [
       "run-as output failed",
       `mode=${DEPLOYMENT_MODE || "unknown"}`,
-      `sudo=${SUDO_PATH}`,
-      `helper=${RUN_AS_HELPER}`,
+      IS_MONO_USER ? null : `sudo=${SUDO_PATH}`,
+      IS_MONO_USER ? null : `helper=${RUN_AS_HELPER}`,
       `workspace=${workspaceId}`,
       `command=${command}`,
       `args=${JSON.stringify(args || [])}`,
       `error=${error?.message || error}`,
-    ].join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     throw new Error(details);
   });
