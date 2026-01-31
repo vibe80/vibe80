@@ -678,6 +678,7 @@ function App() {
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [closeConfirm, setCloseConfirm] = useState(null);
   const [terminalEnabled, setTerminalEnabled] = useState(true);
+  const explorerRef = useRef({});
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
@@ -963,6 +964,10 @@ function App() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    explorerRef.current = explorerByTab;
+  }, [explorerByTab]);
   const choicesKey = useMemo(
     () =>
       attachmentSession?.sessionId
@@ -3840,8 +3845,11 @@ function App() {
       if (!sessionId || !tabId) {
         return;
       }
-      const existing = explorerByTab[tabId];
+      const existing = explorerRef.current[tabId];
       if (!force && existing?.tree && !existing?.error) {
+        return;
+      }
+      if (existing?.loading) {
         return;
       }
       updateExplorerState(tabId, { loading: true, error: "" });
@@ -3871,11 +3879,7 @@ function App() {
         });
       }
     },
-    [
-      attachmentSession?.sessionId,
-      explorerByTab,
-      updateExplorerState,
-    ]
+    [attachmentSession?.sessionId, updateExplorerState]
   );
 
   const requestExplorerStatus = useCallback(
@@ -3884,8 +3888,11 @@ function App() {
       if (!sessionId || !tabId) {
         return;
       }
-      const existing = explorerByTab[tabId];
+      const existing = explorerRef.current[tabId];
       if (!force && existing?.statusLoaded && !existing?.statusError) {
+        return;
+      }
+      if (existing?.statusLoading) {
         return;
       }
       updateExplorerState(tabId, { statusLoading: true, statusError: "" });
@@ -3921,11 +3928,7 @@ function App() {
         });
       }
     },
-    [
-      attachmentSession?.sessionId,
-      explorerByTab,
-      updateExplorerState,
-    ]
+    [attachmentSession?.sessionId, updateExplorerState]
   );
 
   const loadExplorerFile = useCallback(
