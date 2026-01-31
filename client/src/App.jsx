@@ -683,6 +683,7 @@ function App() {
   const [worktrees, setWorktrees] = useState(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
   const activePane = paneByTab[activeWorktreeId] || "chat";
+  const activeWorktreeIdRef = useRef("main");
   const lastPaneByTabRef = useRef(new Map());
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
@@ -968,6 +969,10 @@ function App() {
   useEffect(() => {
     explorerRef.current = explorerByTab;
   }, [explorerByTab]);
+
+  useEffect(() => {
+    activeWorktreeIdRef.current = activeWorktreeId;
+  }, [activeWorktreeId]);
   const choicesKey = useMemo(
     () =>
       attachmentSession?.sessionId
@@ -2288,7 +2293,7 @@ function App() {
             return next;
           });
           // If active worktree was removed, switch back to main
-          if (activeWorktreeId === payload.worktreeId) {
+          if (activeWorktreeIdRef.current === payload.worktreeId) {
             setActiveWorktreeId("main");
           }
         }
@@ -2338,8 +2343,8 @@ function App() {
               requestWorktreeMessages(wt.id);
             });
             if (
-              activeWorktreeId !== "main" &&
-              !payload.worktrees.some((wt) => wt.id === activeWorktreeId)
+              activeWorktreeIdRef.current !== "main" &&
+              !payload.worktrees.some((wt) => wt.id === activeWorktreeIdRef.current)
             ) {
               setActiveWorktreeId("main");
             }
@@ -3483,6 +3488,9 @@ function App() {
   const handleConfirmDelete = useCallback(async () => {
     if (!closeConfirm?.worktreeId) {
       return;
+    }
+    if (activeWorktreeIdRef.current === closeConfirm.worktreeId) {
+      setActiveWorktreeId("main");
     }
     await closeWorktree(closeConfirm.worktreeId);
     setCloseConfirm(null);
