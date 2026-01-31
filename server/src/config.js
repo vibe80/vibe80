@@ -1,6 +1,7 @@
 export const SYSTEM_PROMPT =
   process.env.SYSTEM_PROMPT ||
-  "output markdown format for inline generated text;When proposing possible next steps, use: " +
+  "output markdown format for inline generated text and markdpwn tables when appropriate;" +
+  "When proposing possible next steps, use: " +
   "<!-- vibecoder:choices <question?> --> then options (one per line), end with " +
   "<!-- /vibecoder:choices --> ; When complex user input is required, output ONLY a vibecoder form:  " +
   "<!-- vibecoder:form {question} --> input|textarea|radio|select|checkbox::field_id::Label::Default|Choices" +
