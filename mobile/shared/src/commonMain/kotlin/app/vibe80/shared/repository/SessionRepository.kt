@@ -207,9 +207,17 @@ class SessionRepository(
                 _messages.value = message.messages
             }
 
-            is MessagesSyncMessage -> {
-                if (message.messages.isNotEmpty()) {
-                    _messages.value = message.messages
+            is WorktreeMessagesSyncMessage -> {
+                if (message.worktreeId == Worktree.MAIN_WORKTREE_ID) {
+                    if (message.messages.isNotEmpty()) {
+                        _messages.value = message.messages
+                    }
+                } else {
+                    if (message.messages.isNotEmpty()) {
+                        _worktreeMessages.update { current ->
+                            current + (message.worktreeId to message.messages)
+                        }
+                    }
                 }
             }
 
@@ -566,36 +574,35 @@ class SessionRepository(
         syncOnConnectJob?.cancel()
     }
 
-    fun ensureWebSocketConnected(sessionId: String, provider: LLMProvider? = null) {
+    fun ensureWebSocketConnected(sessionId: String) {
         when (connectionState.value) {
             ConnectionState.CONNECTED,
             ConnectionState.CONNECTING,
             ConnectionState.RECONNECTING -> {
-                scheduleSyncOnConnected(provider)
+                scheduleSyncOnConnected()
                 return
             }
             ConnectionState.DISCONNECTED,
             ConnectionState.ERROR -> {
                 webSocketManager.connect(sessionId)
-                scheduleSyncOnConnected(provider)
+                scheduleSyncOnConnected()
             }
         }
     }
 
-    private fun scheduleSyncOnConnected(provider: LLMProvider?) {
+    private fun scheduleSyncOnConnected() {
         syncOnConnectJob?.cancel()
         syncOnConnectJob = scope.launch {
             connectionState.filter { it == ConnectionState.CONNECTED }.first()
-            syncMessages(provider)
+            syncMessages()
         }
     }
 
-    fun syncMessages(providerOverride: LLMProvider? = null) {
-        val provider = providerOverride ?: _sessionState.value?.activeProvider ?: LLMProvider.CODEX
+    fun syncMessages() {
         val lastSeenMessageId = _messages.value.lastOrNull()?.id
         scope.launch {
-            webSocketManager.send(SyncMessagesRequest(
-                provider = provider.name.lowercase(),
+            webSocketManager.send(SyncWorktreeMessagesRequest(
+                worktreeId = Worktree.MAIN_WORKTREE_ID,
                 lastSeenMessageId = lastSeenMessageId
             ))
         }

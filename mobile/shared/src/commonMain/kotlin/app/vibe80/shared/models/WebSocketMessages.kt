@@ -112,11 +112,12 @@ data class ProviderSwitchedMessage(
 ) : ServerMessage()
 
 @Serializable
-@SerialName("messages_sync")
-data class MessagesSyncMessage(
-    override val type: String = "messages_sync",
-    val provider: String,
-    val messages: List<ChatMessage> = emptyList()
+@SerialName("worktree_messages_sync")
+data class WorktreeMessagesSyncMessage(
+    override val type: String = "worktree_messages_sync",
+    val worktreeId: String,
+    val messages: List<ChatMessage> = emptyList(),
+    val status: WorktreeStatus? = null
 ) : ServerMessage()
 
 @Serializable
@@ -282,8 +283,8 @@ data class ListWorktreesRequest(
 ) : ClientMessage()
 
 @Serializable
-data class SyncMessagesRequest(
-    override val type: String = "sync_messages",
-    val provider: String,
+data class SyncWorktreeMessagesRequest(
+    override val type: String = "sync_worktree_messages",
+    val worktreeId: String,
     val lastSeenMessageId: String? = null
 ) : ClientMessage()

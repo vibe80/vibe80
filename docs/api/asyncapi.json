@@ -177,9 +177,6 @@
             "$ref": "#/components/messages/Ping"
           },
           {
-            "$ref": "#/components/messages/SyncMessages"
-          },
-          {
             "$ref": "#/components/messages/UserMessage"
           },
           {
@@ -227,9 +224,6 @@
           },
           {
             "$ref": "#/components/messages/Ready"
-          },
-          {
-            "$ref": "#/components/messages/MessagesSync"
           },
           {
             "$ref": "#/components/messages/TurnStarted"
@@ -402,52 +396,6 @@
           "additionalProperties": true
         }
       },
-      "SyncMessages": {
-        "name": "sync_messages",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "type": {
-              "const": "sync_messages"
-            },
-            "provider": {
-              "$ref": "#/components/schemas/Provider"
-            },
-            "lastSeenMessageId": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "type"
-          ],
-          "additionalProperties": true
-        }
-      },
-      "MessagesSync": {
-        "name": "messages_sync",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "type": {
-              "const": "messages_sync"
-            },
-            "provider": {
-              "$ref": "#/components/schemas/Provider"
-            },
-            "messages": {
-              "type": "array",
-              "items": {
-                "$ref": "#/components/schemas/Message"
-              }
-            }
-          },
-          "required": [
-            "type",
-            "messages"
-          ],
-          "additionalProperties": true
-        }
-      },
       "UserMessage": {
         "name": "user_message",
         "payload": {
@@ -579,6 +527,9 @@
               "const": "sync_worktree_messages"
             },
             "worktreeId": {
+              "type": "string"
+            },
+            "lastSeenMessageId": {
               "type": "string"
             }
           },
