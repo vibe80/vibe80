@@ -162,18 +162,18 @@ const extractVibecoderBlocks = (text) => {
   const pattern =
     /<!--\s*vibecoder:(choices|form)\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:\1\s*-->|<!--\s*vibecoder:yesno\s*([^>]*)-->/g;
   const filerefPattern = /<!--\s*vibecoder:fileref\s+([^>]+?)\s*-->/g;
+  const taskPattern = /<!--\s*vibecoder:task\s*[^>]*-->/g;
   const blocks = [];
   const filerefs = [];
-  const normalizedText = String(text || "").replace(
-    filerefPattern,
-    (_, filePath) => {
+  const normalizedText = String(text || "")
+    .replace(filerefPattern, (_, filePath) => {
       const trimmed = String(filePath || "").trim();
       if (trimmed) {
         filerefs.push(trimmed);
       }
       return "";
-    }
-  );
+    })
+    .replace(taskPattern, "");
   let cleaned = "";
   let lastIndex = 0;
   let match;
