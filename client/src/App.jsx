@@ -1725,13 +1725,67 @@ function App() {
     );
   }, [llmProvider]);
 
-  const requestWorktreesList = useCallback(() => {
-    const socket = socketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+  const applyWorktreesList = useCallback((worktreesList) => {
+    if (!Array.isArray(worktreesList)) {
       return;
     }
-    socket.send(JSON.stringify({ type: "list_worktrees" }));
-  }, []);
+    const nextMap = new Map();
+    worktreesList.forEach((wt) => {
+      nextMap.set(wt.id, {
+        ...wt,
+        messages: [],
+        activity: "",
+        currentTurnId: null,
+      });
+    });
+    setWorktrees(nextMap);
+    setPaneByTab((current) => {
+      const next = { ...current };
+      worktreesList.forEach((wt) => {
+        if (!next[wt.id]) {
+          next[wt.id] = "chat";
+        }
+      });
+      return next;
+    });
+    setLogFilterByTab((current) => {
+      const next = { ...current };
+      worktreesList.forEach((wt) => {
+        if (!next[wt.id]) {
+          next[wt.id] = "all";
+        }
+      });
+      return next;
+    });
+    worktreesList.forEach((wt) => {
+      requestWorktreeMessages(wt.id);
+    });
+    if (
+      activeWorktreeIdRef.current !== "main" &&
+      !worktreesList.some((wt) => wt.id === activeWorktreeIdRef.current)
+    ) {
+      setActiveWorktreeId("main");
+    }
+  }, [requestWorktreeMessages]);
+
+  const requestWorktreesList = useCallback(async () => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    try {
+      const response = await apiFetch(
+        `/api/worktrees?session=${encodeURIComponent(sessionId)}`
+      );
+      if (!response.ok) {
+        return;
+      }
+      const payload = await response.json();
+      applyWorktreesList(payload?.worktrees);
+    } catch (error) {
+      // Ignore worktree list failures (retry on next reconnect).
+    }
+  }, [attachmentSession?.sessionId, apiFetch, applyWorktreesList]);
 
   const requestWorktreeMessages = useCallback((worktreeId) => {
     const socket = socketRef.current;
@@ -2567,49 +2621,6 @@ function App() {
           });
         }
 
-        if (payload.type === "worktrees_list") {
-          if (Array.isArray(payload.worktrees)) {
-            const newMap = new Map();
-            payload.worktrees.forEach((wt) => {
-              newMap.set(wt.id, {
-                ...wt,
-                messages: [],
-                activity: "",
-                currentTurnId: null,
-              });
-            });
-            setWorktrees(newMap);
-            setPaneByTab((current) => {
-              const next = { ...current };
-              payload.worktrees.forEach((wt) => {
-                if (!next[wt.id]) {
-                  next[wt.id] = "chat";
-                }
-              });
-              return next;
-            });
-            setLogFilterByTab((current) => {
-              const next = { ...current };
-              payload.worktrees.forEach((wt) => {
-                if (!next[wt.id]) {
-                  next[wt.id] = "all";
-                }
-              });
-              return next;
-            });
-            payload.worktrees.forEach((wt) => {
-              requestWorktreeMessages(wt.id);
-            });
-            if (
-              activeWorktreeIdRef.current !== "main" &&
-              !payload.worktrees.some((wt) => wt.id === activeWorktreeIdRef.current)
-            ) {
-              setActiveWorktreeId("main");
-            }
-            // Keep activeWorktreeId as is, don't auto-switch
-          }
-        }
-
         if (payload.type === "worktree_messages_sync") {
           setWorktrees((current) => {
             const next = new Map(current);
@@ -2883,6 +2894,7 @@ function App() {
     requestMessageSync,
     requestWorktreesList,
     requestWorktreeMessages,
+    applyWorktreesList,
     resyncSession,
   ]);
 
