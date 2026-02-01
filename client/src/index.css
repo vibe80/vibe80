@@ -767,7 +767,7 @@ main.chat {
 
 .chat-meta-task {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   justify-content: flex-end;
   margin-top: 6px;
@@ -793,6 +793,7 @@ main.chat {
   border: 2px solid rgba(20, 19, 17, 0.18);
   border-top-color: var(--accent, #ee5d3b);
   animation: chat-meta-spin 0.9s linear infinite;
+  align-self: baseline;
 }
 
 .chat-meta-message {
