@@ -2024,6 +2024,30 @@ function attachClientEventsForWorktree(sessionId, worktree) {
   const worktreeId = worktree.id;
   const provider = worktree.provider;
 
+  const appendAssistantIfNew = async (text) => {
+    if (!text) return;
+    const session = await getSession(sessionId);
+    if (!session) return;
+    const current = await getWorktree(session, worktreeId);
+    if (!current) return;
+    const messages = Array.isArray(current.messages) ? current.messages : [];
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (message?.role === "assistant") {
+        if ((message.text || "").trim() === text.trim()) {
+          return;
+        }
+        break;
+      }
+    }
+    await appendWorktreeMessage(session, worktreeId, {
+      id: `assistant-${Date.now()}`,
+      role: "assistant",
+      text,
+      provider,
+    });
+  };
+
   client.on("ready", ({ threadId }) => {
     void (async () => {
       const session = await getSession(sessionId);
@@ -2090,6 +2114,20 @@ function attachClientEventsForWorktree(sessionId, worktree) {
             text,
             provider,
           });
+        }
+        break;
+      }
+      case "codex/event/agent_message": {
+        const text = message?.params?.msg?.message || "";
+        if (text) {
+          await appendAssistantIfNew(text);
+        }
+        break;
+      }
+      case "codex/event/task_complete": {
+        const text = message?.params?.msg?.last_agent_message || "";
+        if (text) {
+          await appendAssistantIfNew(text);
         }
         break;
       }
