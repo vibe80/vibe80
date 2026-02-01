@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "m5chat REST API",
+    "title": "vibe80 REST API",
     "version": "1.0.0",
     "description": "Spec (workspace auth, providers at workspace level)"
   },

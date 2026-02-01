@@ -1,8 +1,8 @@
-# M5Chat Mobile - Plan de Développement
+# Vibe80 Mobile - Plan de Développement
 
 ## Vue d'ensemble
 
-Application mobile native Android/iOS avec support futur WearOS, reproduisant les fonctionnalités essentielles de M5Chat.
+Application mobile native Android/iOS avec support futur WearOS, reproduisant les fonctionnalités essentielles de Vibe80.
 
 **Architecture**: Kotlin Multiplatform (KMP)
 **Exclusions**: Terminal, Logs JSONRPC, Diff avancé
@@ -241,7 +241,7 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [ ] Signing & capabilities
 
 #### 6.2 UI SwiftUI - Écrans Principaux
-- [x] `M5ChatApp` (point d'entrée + AppState)
+- [x] `Vibe80App` (point d'entrée + AppState)
 - [x] `ContentView` (navigation conditionnelle)
 - [x] `SessionView` (création session avec auth SSH/HTTP)
 - [x] `ChatView` (conversation avec toolbar)
@@ -353,7 +353,7 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [ ] Bouton ouvrir phone
 
 #### 8.4 Tile
-- [ ] `M5ChatTileService`
+- [ ] `Vibe80TileService`
 - [ ] Layout tile (status + message)
 - [ ] Refresh périodique
 - [ ] Click action
@@ -490,7 +490,7 @@ mobile/
 
 **Module Shared :**
 - `shared/build.gradle.kts` - Config KMP (Android + iOS)
-- `shared/src/commonMain/kotlin/app/m5chat/shared/`
+- `shared/src/commonMain/kotlin/app/vibe80/shared/`
   - `Platform.kt` - Interface plateforme
   - `models/ChatMessage.kt` - Messages et attachments
   - `models/Session.kt` - État session
@@ -506,8 +506,8 @@ mobile/
 **Module Android :**
 - `androidApp/build.gradle.kts` - Config Android + Compose
 - `androidApp/src/main/AndroidManifest.xml`
-- `androidApp/src/main/kotlin/app/m5chat/android/`
-  - `M5ChatApplication.kt` - Application avec Koin
+- `androidApp/src/main/kotlin/app/vibe80/android/`
+  - `Vibe80Application.kt` - Application avec Koin
   - `MainActivity.kt` - Activité principale
   - `di/AppModule.kt` - Module DI Android
   - `viewmodel/SessionViewModel.kt`
@@ -647,7 +647,7 @@ mobile/
 - `iosApp/iosApp/Info.plist` - Configuration app iOS
 
 **SwiftUI - App et Navigation :**
-- `M5ChatApp.swift` - Point d'entrée avec AppState
+- `Vibe80App.swift` - Point d'entrée avec AppState
 - `ContentView.swift` - Navigation conditionnelle session/chat
 
 **SwiftUI - Views :**
@@ -673,23 +673,23 @@ mobile/
 ### 2026-01-26 - Phase 6 Wrappers KMP/Swift
 
 **Nouveaux fichiers Kotlin (iosMain) :**
-- `shared/src/iosMain/kotlin/app/m5chat/shared/KoinHelper.kt`
+- `shared/src/iosMain/kotlin/app/vibe80/shared/KoinHelper.kt`
   - `KoinHelper.start(baseUrl)` - Initialise Koin depuis Swift
   - `KoinHelper.stop()` - Arrête Koin
   - `SharedDependencies` - Classe pour accéder aux dépendances injectées
 
-- `shared/src/iosMain/kotlin/app/m5chat/shared/FlowWrapper.kt`
+- `shared/src/iosMain/kotlin/app/vibe80/shared/FlowWrapper.kt`
   - `FlowWrapper<T>` - Wrapper pour observer StateFlow depuis Swift
   - `SharedFlowWrapper<T>` - Wrapper pour Flow régulier
   - Méthodes: `subscribe(onEach)`, `close()`, `value`
 
-- `shared/src/iosMain/kotlin/app/m5chat/shared/SuspendWrapper.kt`
+- `shared/src/iosMain/kotlin/app/vibe80/shared/SuspendWrapper.kt`
   - `SuspendWrapper<T>` - Execute suspend functions avec callbacks
   - `Coroutines.launch()` - Fire-and-forget pour suspend functions
   - `AsyncCall<T>` - Alternative callback-based
 
 **Fichiers Swift mis à jour :**
-- `M5ChatApp.swift`
+- `Vibe80App.swift`
   - Initialisation Koin via `KoinHelper.shared.start(baseUrl)`
   - `SharedDependencies` pour accéder au `SessionRepository`
   - Configuration URL serveur (env, UserDefaults, défaut)
@@ -707,7 +707,7 @@ mobile/
 ### 2026-01-26 - Phase 7.1 Gestion Erreurs
 
 **Nouveau modèle (commonMain) :**
-- `shared/src/commonMain/kotlin/app/m5chat/shared/models/AppError.kt`
+- `shared/src/commonMain/kotlin/app/vibe80/shared/models/AppError.kt`
   - `ErrorType` enum: WEBSOCKET, NETWORK, TURN_ERROR, UPLOAD, SEND_MESSAGE, etc.
   - `AppError` data class avec message, details, timestamp, canRetry
   - Factory methods: `websocket()`, `network()`, `turnError()`, `upload()`, etc.

@@ -2589,11 +2589,11 @@ main.chat {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.vibecoder-form {
+.vibe80-form {
   margin-top: 10px;
 }
 
-.vibecoder-form-button {
+.vibe80-form-button {
   width: 100%;
   text-align: left;
   padding: 10px 12px;
@@ -2609,19 +2609,19 @@ main.chat {
     background 0.2s ease, border-color 0.2s ease;
 }
 
-.vibecoder-form-button:hover {
+.vibe80-form-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 16px rgba(20, 19, 17, 0.08);
   background: rgba(20, 19, 17, 0.08);
 }
 
-.bubble.user .vibecoder-form-button {
+.bubble.user .vibe80-form-button {
   border-color: rgba(255, 255, 255, 0.4);
   background: rgba(255, 255, 255, 0.12);
   color: white;
 }
 
-.vibecoder-form-overlay {
+.vibe80-form-overlay {
   position: fixed;
   inset: 0;
   background: rgba(15, 15, 15, 0.4);
@@ -2632,7 +2632,7 @@ main.chat {
   z-index: 60;
 }
 
-.vibecoder-form-dialog {
+.vibe80-form-dialog {
   width: min(540px, 92vw);
   background: var(--surface);
   border-radius: 18px;
@@ -2646,20 +2646,20 @@ main.chat {
   grid-template-rows: auto 1fr;
 }
 
-.vibecoder-form-header {
+.vibe80-form-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.vibecoder-form-title {
+.vibe80-form-title {
   font-size: 16px;
   font-weight: 700;
   color: var(--ink);
 }
 
-.vibecoder-form-close {
+.vibe80-form-close {
   border: none;
   background: rgba(20, 19, 17, 0.08);
   color: var(--ink);
@@ -2670,7 +2670,7 @@ main.chat {
   cursor: pointer;
 }
 
-.vibecoder-form-body {
+.vibe80-form-body {
   display: grid;
   gap: 16px;
   overflow: auto;
@@ -2678,18 +2678,18 @@ main.chat {
   min-height: 0;
 }
 
-.vibecoder-form-field {
+.vibe80-form-field {
   display: grid;
   gap: 8px;
 }
 
-.vibecoder-form-label {
+.vibe80-form-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-muted);
 }
 
-.vibecoder-form-input {
+.vibe80-form-input {
   width: 100%;
   border: 1px solid var(--border-soft);
   border-radius: 10px;
@@ -2700,18 +2700,18 @@ main.chat {
   color: var(--ink);
 }
 
-.vibecoder-form-input:focus {
+.vibe80-form-input:focus {
   outline: none;
   border-color: rgba(238, 93, 59, 0.6);
   box-shadow: 0 0 0 3px rgba(238, 93, 59, 0.12);
 }
 
-.vibecoder-form-options {
+.vibe80-form-options {
   display: grid;
   gap: 8px;
 }
 
-.vibecoder-form-option {
+.vibe80-form-option {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2719,7 +2719,7 @@ main.chat {
   color: var(--ink);
 }
 
-.vibecoder-form-checkbox {
+.vibe80-form-checkbox {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2727,20 +2727,20 @@ main.chat {
   color: var(--ink);
 }
 
-.vibecoder-form-empty {
+.vibe80-form-empty {
   font-size: 13px;
   color: var(--ink-muted);
 }
 
-.vibecoder-form-actions {
+.vibe80-form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   padding-top: 4px;
 }
 
-.vibecoder-form-cancel,
-.vibecoder-form-submit {
+.vibe80-form-cancel,
+.vibe80-form-submit {
   border: none;
   border-radius: 999px;
   padding: 8px 16px;
@@ -2749,12 +2749,12 @@ main.chat {
   cursor: pointer;
 }
 
-.vibecoder-form-cancel {
+.vibe80-form-cancel {
   background: rgba(20, 19, 17, 0.08);
   color: var(--ink);
 }
 
-.vibecoder-form-submit {
+.vibe80-form-submit {
   background: var(--accent);
   color: white;
 }
@@ -3273,34 +3273,34 @@ main.chat {
 
 :root[data-theme="dark"] .attachment-card-type,
 :root[data-theme="dark"] .attachment-card-remove,
-:root[data-theme="dark"] .vibecoder-form-cancel,
-:root[data-theme="dark"] .vibecoder-form-close {
+:root[data-theme="dark"] .vibe80-form-cancel,
+:root[data-theme="dark"] .vibe80-form-close {
   background: rgba(255, 255, 255, 0.08);
 }
 
-:root[data-theme="dark"] .vibecoder-form-overlay {
+:root[data-theme="dark"] .vibe80-form-overlay {
   background: rgba(7, 8, 7, 0.7);
 }
 
-:root[data-theme="dark"] .vibecoder-form-dialog {
+:root[data-theme="dark"] .vibe80-form-dialog {
   background: var(--surface-elevated);
   border-color: var(--border-soft);
 }
 
-:root[data-theme="dark"] .vibecoder-form-select,
-:root[data-theme="dark"] .vibecoder-form-input {
+:root[data-theme="dark"] .vibe80-form-select,
+:root[data-theme="dark"] .vibe80-form-input {
   background: #111413;
   color: var(--ink);
   border-color: rgba(255, 255, 255, 0.14);
 }
 
-:root[data-theme="dark"] .vibecoder-form-input {
+:root[data-theme="dark"] .vibe80-form-input {
   background: #111413;
   border-color: rgba(255, 255, 255, 0.14);
   color: var(--ink);
 }
 
-:root[data-theme="dark"] .vibecoder-form-input::placeholder {
+:root[data-theme="dark"] .vibe80-form-input::placeholder {
   color: rgba(242, 237, 227, 0.5);
 }
 

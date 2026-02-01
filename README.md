@@ -1,4 +1,4 @@
-# m5chat
+# vibe80
 
 Application Node.js + React pour piloter des assistants (Codex app-server ou Claude CLI) sur un depot Git. Le serveur clone le depot, cree des worktrees pour chaque thread, et expose un chat en streaming avec diff/merge/terminal.
 

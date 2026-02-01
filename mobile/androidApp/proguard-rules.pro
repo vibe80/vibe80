@@ -13,13 +13,13 @@
 -keepclasseswithmembers class kotlinx.serialization.json.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class app.m5chat.**$$serializer { *; }
--keepclassmembers class app.m5chat.** {
+-keep,includedescriptorclasses class app.vibe80.**$$serializer { *; }
+-keepclassmembers class app.vibe80.** {
     *** Companion;
 }
--keepclasseswithmembers class app.m5chat.** {
+-keepclasseswithmembers class app.vibe80.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 
 # Keep shared module models
--keep class app.m5chat.shared.models.** { *; }
+-keep class app.vibe80.shared.models.** { *; }

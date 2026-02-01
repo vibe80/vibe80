@@ -2,8 +2,8 @@ import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import { SYSTEM_PROMPT } from "./config.js";
 
-const RUN_AS_HELPER = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
-const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
+const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
+const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
 const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
 
 export class CodexAppServerClient extends EventEmitter {
@@ -189,7 +189,7 @@ export class CodexAppServerClient extends EventEmitter {
   async #initialize() {
     await this.#sendRequest("initialize", {
       clientInfo: {
-        name: "m5chat",
+        name: "vibe80",
         version: "0.1.0",
       },
     });

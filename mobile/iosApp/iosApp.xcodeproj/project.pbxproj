@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		M5_001 /* M5ChatApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_101 /* M5ChatApp.swift */; };
+		M5_001 /* Vibe80App.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_101 /* Vibe80App.swift */; };
 		M5_002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_102 /* ContentView.swift */; };
 		M5_003 /* SessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_103 /* SessionView.swift */; };
 		M5_004 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_104 /* ChatView.swift */; };
@@ -22,7 +22,7 @@
 
 /* Begin PBXFileReference section */
 		M5_100 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		M5_101 /* M5ChatApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M5ChatApp.swift; sourceTree = "<group>"; };
+		M5_101 /* Vibe80App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vibe80App.swift; sourceTree = "<group>"; };
 		M5_102 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		M5_103 /* SessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionView.swift; sourceTree = "<group>"; };
 		M5_104 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
@@ -58,7 +58,7 @@
 		M5_301 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
-				M5_101 /* M5ChatApp.swift */,
+				M5_101 /* Vibe80App.swift */,
 				M5_102 /* ContentView.swift */,
 				M5_112 /* Info.plist */,
 				M5_303 /* Views */,
@@ -175,7 +175,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				M5_001 /* M5ChatApp.swift in Sources */,
+				M5_001 /* Vibe80App.swift in Sources */,
 				M5_002 /* ContentView.swift in Sources */,
 				M5_003 /* SessionView.swift in Sources */,
 				M5_004 /* ChatView.swift in Sources */,
@@ -326,7 +326,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.6.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.m5chat.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = app.vibe80.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -355,7 +355,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.6.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.m5chat.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = app.vibe80.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

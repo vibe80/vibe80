@@ -11,25 +11,25 @@ L'application a besoin d'actions root pour creer des workspaces (utilisateurs Li
 
 ## Helpers
 Deux executables root sont installes dans l'image:
-- `vibecoder-root`: cree l'utilisateur Linux et l'arborescence d'un workspace
-- `vibecoder-run-as`: execute une commande allowlist en tant qu'utilisateur workspace
+- `vibe80-root`: cree l'utilisateur Linux et l'arborescence d'un workspace
+- `vibe80-run-as`: execute une commande allowlist en tant qu'utilisateur workspace
 
-Ils sont appeles via `sudo -n` depuis le serveur (utilisateur `vibecoder`).
+Ils sont appeles via `sudo -n` depuis le serveur (utilisateur `vibe80`).
 
 ## Sudoers minimal
 Le serveur n'a le droit d'executer que ces deux binaires en root, sans mot de passe:
-- `vibecoder-root`
-- `vibecoder-run-as`
+- `vibe80-root`
+- `vibe80-run-as`
 
 Aucun autre binaire root n'est autorise.
 
-## Creation de workspace (vibecoder-root)
+## Creation de workspace (vibe80-root)
 Flux simplifie:
-1) Le serveur appelle `sudo vibecoder-root create-workspace --workspace-id <id>`
+1) Le serveur appelle `sudo vibe80-root create-workspace --workspace-id <id>`
 2) Le helper cree l'utilisateur Linux (si absent)
 3) Le helper cree l'arborescence:
-   - `/home/<workspaceId>/vibecoder_workspace/metadata`
-   - `/home/<workspaceId>/vibecoder_workspace/sessions`
+   - `/home/<workspaceId>/vibe80_workspace/metadata`
+   - `/home/<workspaceId>/vibe80_workspace/sessions`
 4) Permissions et ownership:
    - `chown` sur l'utilisateur workspace et le groupe du workspace
    - `chmod 02750` (setgid + groupe)
@@ -41,19 +41,19 @@ Schema de flux (ASCII):
 Client/REST
    |
    v
-Server (user: vibecoder)
-   | sudo -n vibecoder-root create-workspace --workspace-id wxxxx
+Server (user: vibe80)
+   | sudo -n vibe80-root create-workspace --workspace-id wxxxx
    v
-Root helper (vibecoder-root)
+Root helper (vibe80-root)
    | useradd + mkdir + chown + chmod
    v
-/home/wxxxx/vibecoder_workspace/...
+/home/wxxxx/vibe80_workspace/...
 ```
 
-## Execution de commandes (vibecoder-run-as)
+## Execution de commandes (vibe80-run-as)
 Le serveur passe toutes les commandes sensibles via:
 ```
-sudo -n vibecoder-run-as --workspace-id <id> --cwd <path> --env KEY=VALUE -- <cmd> <args>
+sudo -n vibe80-run-as --workspace-id <id> --cwd <path> --env KEY=VALUE -- <cmd> <args>
 ```
 
 Mecanismes de restriction:
@@ -68,8 +68,8 @@ Schema de flux (ASCII):
 Client/WS
    |
    v
-Server (user: vibecoder)
-   | sudo -n vibecoder-run-as --workspace-id wxxxx -- <cmd>
+Server (user: vibe80)
+   | sudo -n vibe80-run-as --workspace-id wxxxx -- <cmd>
    v
 Run-as helper
    | allowlist + env filter + cwd check
@@ -79,20 +79,20 @@ Commande executee en user workspace (UID/GID wxxxx)
 
 ## Variables d'environnement
 Le serveur peut redefinir les chemins suivants:
-- `VIBECODER_ROOT_HELPER` (defaut: `/usr/local/bin/vibecoder-root`)
-- `VIBECODER_RUN_AS_HELPER` (defaut: `/usr/local/bin/vibecoder-run-as`)
-- `VIBECODER_SUDO_PATH` (defaut: `sudo`)
+- `VIBE80_ROOT_HELPER` (defaut: `/usr/local/bin/vibe80-root`)
+- `VIBE80_RUN_AS_HELPER` (defaut: `/usr/local/bin/vibe80-run-as`)
+- `VIBE80_SUDO_PATH` (defaut: `sudo`)
 - `WORKSPACE_HOME_BASE` (defaut: `/home`)
-- `VIBECODER_SERVER_USER` (defaut: `vibecoder`)
+- `VIBE80_SERVER_USER` (defaut: `vibe80`)
 
 ## Points d'attention
 - Toute nouvelle commande doit etre ajoutee a l'allowlist Go puis redeployee
 - Toute variable d'environnement supplementaire doit etre whitelistee
 - Les permissions `02750` sont un choix de securite deliberate pour conserver l'acces serveur tout en evitant l'acces world-readable
-- Le helper `vibecoder-run-as` refuse toute commande non resolue ou hors allowlist
+- Le helper `vibe80-run-as` refuse toute commande non resolue ou hors allowlist
 
 ## Fichiers de reference
-- Helpers Go: `tools/vibecoder-root/main.go`, `tools/vibecoder-run-as/main.go`
+- Helpers Go: `tools/vibe80-root/main.go`, `tools/vibe80-run-as/main.go`
 - Wrapper Node: `server/src/runAs.js`
 - Integrations: `server/src/index.js`, `server/src/worktreeManager.js`, `server/src/codexClient.js`, `server/src/claudeClient.js`
 - Image et sudoers: `Dockerfile`

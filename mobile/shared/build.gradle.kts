@@ -49,7 +49,7 @@ kotlin {
 }
 
 android {
-    namespace = "app.m5chat.shared"
+    namespace = "app.vibe80.shared"
     compileSdk = 35
 
     defaultConfig {

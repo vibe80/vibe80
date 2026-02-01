@@ -112,7 +112,7 @@ const terminalWsUrl = (sessionId, worktreeId, token) => {
   return `${protocol}://${window.location.host}/terminal${suffix}`;
 };
 
-const normalizeVibecoderQuestion = (rawQuestion) => {
+const normalizeVibe80Question = (rawQuestion) => {
   const trimmed = rawQuestion?.trim();
   if (!trimmed) {
     return "";
@@ -158,11 +158,11 @@ const parseFormFields = (blockBody) => {
     .filter(Boolean);
 };
 
-const extractVibecoderBlocks = (text) => {
+const extractVibe80Blocks = (text) => {
   const pattern =
-    /<!--\s*vibecoder:(choices|form)\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibecoder:\1\s*-->|<!--\s*vibecoder:yesno\s*([^>]*)-->/g;
-  const filerefPattern = /<!--\s*vibecoder:fileref\s+([^>]+?)\s*-->/g;
-  const taskPattern = /<!--\s*vibecoder:task\s*[^>]*-->/g;
+    /<!--\s*vibe80:(choices|form)\s*([^>]*)-->([\s\S]*?)<!--\s*\/vibe80:\1\s*-->|<!--\s*vibe80:yesno\s*([^>]*)-->/g;
+  const filerefPattern = /<!--\s*vibe80:fileref\s+([^>]+?)\s*-->/g;
+  const taskPattern = /<!--\s*vibe80:task\s*[^>]*-->/g;
   const blocks = [];
   const filerefs = [];
   const normalizedText = String(text || "")
@@ -182,7 +182,7 @@ const extractVibecoderBlocks = (text) => {
     cleaned += normalizedText.slice(lastIndex, match.index);
     lastIndex = match.index + match[0].length;
     const blockType = match[1];
-    const question = normalizeVibecoderQuestion(match[2] || match[4]);
+    const question = normalizeVibe80Question(match[2] || match[4]);
     const body = match[3] || "";
 
     if (!blockType) {
@@ -219,13 +219,13 @@ const extractVibecoderBlocks = (text) => {
   return { cleanedText: cleaned.trim(), blocks, filerefs };
 };
 
-const extractVibecoderTask = (text) => {
-  const pattern = /<!--\s*vibecoder:task\s*([^>]*)-->/g;
+const extractVibe80Task = (text) => {
+  const pattern = /<!--\s*vibe80:task\s*([^>]*)-->/g;
   const raw = String(text || "");
   let label = "";
   let match;
   while ((match = pattern.exec(raw)) !== null) {
-    const normalized = normalizeVibecoderQuestion(match[1]);
+    const normalized = normalizeVibe80Question(match[1]);
     if (normalized) {
       label = normalized;
     }
@@ -2058,7 +2058,7 @@ function App() {
           if (typeof payload.text !== "string") {
             return;
           }
-          const taskLabel = extractVibecoderTask(payload.text);
+          const taskLabel = extractVibe80Task(payload.text);
           if (taskLabel) {
             setMainTaskLabel(taskLabel);
           }
@@ -2668,7 +2668,7 @@ function App() {
               return next;
             });
             if (payload.type === "assistant_message" && typeof payload.text === "string") {
-              const taskLabel = extractVibecoderTask(payload.text);
+              const taskLabel = extractVibe80Task(payload.text);
               if (taskLabel) {
                 setWorktrees((current) => {
                   const next = new Map(current);
@@ -3877,7 +3877,7 @@ function App() {
 
   // ============== End Worktree Functions ==============
 
-  const openVibecoderForm = useCallback((block, blockKey) => {
+  const openVibe80Form = useCallback((block, blockKey) => {
     if (!block?.fields?.length) {
       return;
     }
@@ -3895,7 +3895,7 @@ function App() {
     setActiveFormValues(defaults);
   }, []);
 
-  const closeVibecoderForm = useCallback(() => {
+  const closeVibe80Form = useCallback(() => {
     setActiveForm(null);
     setActiveFormValues({});
   }, []);
@@ -3935,9 +3935,9 @@ function App() {
         return `${field.id}=${value}`;
       });
       sendFormMessage(lines.join("\n"));
-      closeVibecoderForm();
+      closeVibe80Form();
     },
-    [activeForm, activeFormValues, sendFormMessage, closeVibecoderForm]
+    [activeForm, activeFormValues, sendFormMessage, closeVibe80Form]
   );
 
   const addToBacklog = () => {
@@ -4721,7 +4721,7 @@ function App() {
     return (
       <div className="session-gate">
         <div className="session-card">
-          <p className="eyebrow">m5chat</p>
+          <p className="eyebrow">vibe80</p>
           <h1>
             {showStep3
               ? "Cloner une session"
@@ -5261,7 +5261,7 @@ function App() {
         <div className="topbar-left">
           <div className="topbar-spacer" />
           <div className="topbar-brand">
-            <p className="eyebrow">m5chat</p>
+            <p className="eyebrow">vibe80</p>
             <div className="topbar-subtitle">
               {repoName || attachmentSession?.sessionId || "Session"}
             </div>
@@ -5788,7 +5788,7 @@ function App() {
                               const isWarning = rawText.startsWith("⚠️");
                               const warningText = rawText.replace(/^⚠️\s*/, "");
                               const { cleanedText, blocks, filerefs } =
-                                extractVibecoderBlocks(
+                                extractVibe80Blocks(
                                   isWarning ? warningText : rawText
                                 );
                               const content = (
@@ -5892,14 +5892,14 @@ function App() {
                                     if (block.type === "form") {
                                       return (
                                         <div
-                                          className="vibecoder-form"
+                                          className="vibe80-form"
                                           key={blockKey}
                                         >
                                           <button
                                             type="button"
-                                            className="vibecoder-form-button"
+                                            className="vibe80-form-button"
                                             onClick={() =>
-                                              openVibecoderForm(block, blockKey)
+                                              openVibe80Form(block, blockKey)
                                             }
                                           >
                                             {block.question ||
@@ -6703,36 +6703,36 @@ function App() {
       </div>
       {activeForm ? (
         <div
-          className="vibecoder-form-overlay"
+          className="vibe80-form-overlay"
           role="dialog"
           aria-modal="true"
-          onClick={closeVibecoderForm}
+          onClick={closeVibe80Form}
         >
           <div
-            className="vibecoder-form-dialog"
+            className="vibe80-form-dialog"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="vibecoder-form-header">
-              <div className="vibecoder-form-title">
+            <div className="vibe80-form-header">
+              <div className="vibe80-form-title">
                 {activeForm.question || "Formulaire"}
               </div>
               <button
                 type="button"
-                className="vibecoder-form-close"
+                className="vibe80-form-close"
                 aria-label="Fermer"
-                onClick={closeVibecoderForm}
+                onClick={closeVibe80Form}
               >
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
-            <form className="vibecoder-form-body" onSubmit={submitActiveForm}>
+            <form className="vibe80-form-body" onSubmit={submitActiveForm}>
               {activeForm.fields.map((field) => {
-                const fieldId = `vibecoder-${activeForm.key}-${field.id}`;
+                const fieldId = `vibe80-${activeForm.key}-${field.id}`;
                 const value = activeFormValues[field.id] ?? "";
                 if (field.type === "checkbox") {
                   return (
-                    <div className="vibecoder-form-field" key={field.id}>
-                      <label className="vibecoder-form-checkbox">
+                    <div className="vibe80-form-field" key={field.id}>
+                      <label className="vibe80-form-checkbox">
                         <input
                           type="checkbox"
                           checked={Boolean(activeFormValues[field.id])}
@@ -6750,13 +6750,13 @@ function App() {
                 }
                 if (field.type === "textarea") {
                   return (
-                    <div className="vibecoder-form-field" key={field.id}>
-                      <label className="vibecoder-form-label" htmlFor={fieldId}>
+                    <div className="vibe80-form-field" key={field.id}>
+                      <label className="vibe80-form-label" htmlFor={fieldId}>
                         {field.label}
                       </label>
                       <textarea
                         id={fieldId}
-                        className="vibecoder-form-input"
+                        className="vibe80-form-input"
                         rows={4}
                         value={value}
                         onChange={(event) =>
@@ -6768,14 +6768,14 @@ function App() {
                 }
                 if (field.type === "radio") {
                   return (
-                    <div className="vibecoder-form-field" key={field.id}>
-                      <div className="vibecoder-form-label">{field.label}</div>
-                      <div className="vibecoder-form-options">
+                    <div className="vibe80-form-field" key={field.id}>
+                      <div className="vibe80-form-label">{field.label}</div>
+                      <div className="vibe80-form-options">
                         {(field.choices || []).length ? (
                           field.choices.map((choice) => (
                             <label
                               key={`${field.id}-${choice}`}
-                              className="vibecoder-form-option"
+                              className="vibe80-form-option"
                             >
                               <input
                                 type="radio"
@@ -6790,7 +6790,7 @@ function App() {
                             </label>
                           ))
                         ) : (
-                          <div className="vibecoder-form-empty">
+                          <div className="vibe80-form-empty">
                             Aucune option.
                           </div>
                         )}
@@ -6800,13 +6800,13 @@ function App() {
                 }
                 if (field.type === "select") {
                   return (
-                    <div className="vibecoder-form-field" key={field.id}>
-                      <label className="vibecoder-form-label" htmlFor={fieldId}>
+                    <div className="vibe80-form-field" key={field.id}>
+                      <label className="vibe80-form-label" htmlFor={fieldId}>
                         {field.label}
                       </label>
                       <select
                         id={fieldId}
-                        className="vibecoder-form-input vibecoder-form-select"
+                        className="vibe80-form-input vibe80-form-select"
                         value={value}
                         onChange={(event) =>
                           updateActiveFormValue(field.id, event.target.value)
@@ -6826,13 +6826,13 @@ function App() {
                   );
                 }
                 return (
-                  <div className="vibecoder-form-field" key={field.id}>
-                    <label className="vibecoder-form-label" htmlFor={fieldId}>
+                  <div className="vibe80-form-field" key={field.id}>
+                    <label className="vibe80-form-label" htmlFor={fieldId}>
                       {field.label}
                     </label>
                     <input
                       id={fieldId}
-                      className="vibecoder-form-input"
+                      className="vibe80-form-input"
                       type="text"
                       value={value}
                       onChange={(event) =>
@@ -6842,15 +6842,15 @@ function App() {
                   </div>
                 );
               })}
-              <div className="vibecoder-form-actions">
+              <div className="vibe80-form-actions">
                 <button
                   type="button"
-                  className="vibecoder-form-cancel"
-                  onClick={closeVibecoderForm}
+                  className="vibe80-form-cancel"
+                  onClick={closeVibe80Form}
                 >
                   Annuler
                 </button>
-                <button type="submit" className="vibecoder-form-submit">
+                <button type="submit" className="vibe80-form-submit">
                   Envoyer
                 </button>
               </div>

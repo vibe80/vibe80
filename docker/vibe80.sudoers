@@ -1,0 +1,4 @@
+vibe80 ALL=(root) NOPASSWD: /usr/local/bin/vibe80-root
+vibe80 ALL=(root) NOPASSWD: /usr/local/bin/vibe80-run-as
+Defaults! /usr/local/bin/vibe80-root !requiretty
+Defaults! /usr/local/bin/vibe80-run-as !requiretty

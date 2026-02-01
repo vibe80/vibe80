@@ -1,3 +1,3 @@
-module vibecoder/helpers
+module vibe80/helpers
 
 go 1.22

@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "app.m5chat.android"
+    namespace = "app.vibe80.android"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "app.m5chat.android"
+        applicationId = "app.vibe80.android"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

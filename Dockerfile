@@ -2,12 +2,12 @@ FROM golang:1.22-bookworm AS helper-builder
 
 WORKDIR /src
 COPY tools/go.mod ./tools/go.mod
-COPY tools/vibecoder-root ./tools/vibecoder-root
-COPY tools/vibecoder-run-as ./tools/vibecoder-run-as
+COPY tools/vibe80-root ./tools/vibe80-root
+COPY tools/vibe80-run-as ./tools/vibe80-run-as
 
 WORKDIR /src/tools
-RUN go build -o /out/vibecoder-root ./vibecoder-root \
-    && go build -o /out/vibecoder-run-as ./vibecoder-run-as
+RUN go build -o /out/vibe80-root ./vibe80-root \
+    && go build -o /out/vibe80-run-as ./vibe80-run-as
 
 FROM node:25-trixie-slim
 
@@ -49,15 +49,15 @@ COPY . .
 
 RUN npm run build
 
-COPY --from=helper-builder /out/vibecoder-root /usr/local/bin/vibecoder-root
-COPY --from=helper-builder /out/vibecoder-run-as /usr/local/bin/vibecoder-run-as
-COPY docker/vibecoder.sudoers /etc/sudoers.d/vibecoder
+COPY --from=helper-builder /out/vibe80-root /usr/local/bin/vibe80-root
+COPY --from=helper-builder /out/vibe80-run-as /usr/local/bin/vibe80-run-as
+COPY docker/vibe80.sudoers /etc/sudoers.d/vibe80
 
-RUN useradd -m -d /var/lib/vibecoder -s /bin/bash vibecoder \
-    && mkdir -p /var/lib/vibecoder \
-    && chown -R vibecoder:vibecoder /app /var/lib/vibecoder \
-    && chmod 0755 /usr/local/bin/vibecoder-root /usr/local/bin/vibecoder-run-as \
-    && chmod 0440 /etc/sudoers.d/vibecoder
+RUN useradd -m -d /var/lib/vibe80 -s /bin/bash vibe80 \
+    && mkdir -p /var/lib/vibe80 \
+    && chown -R vibe80:vibe80 /app /var/lib/vibe80 \
+    && chmod 0755 /usr/local/bin/vibe80-root /usr/local/bin/vibe80-run-as \
+    && chmod 0440 /etc/sudoers.d/vibe80
 RUN chmod +x /app/start.sh
 
 # Install Claude code
@@ -67,8 +67,8 @@ RUN bash -c 'mv $(readlink /root/.local/bin/claude) /usr/bin/claude'
 
 EXPOSE 5179
 
-ENV VIBECODER_SERVER_USER=vibecoder
+ENV VIBE80_SERVER_USER=vibe80
 
-USER vibecoder
+USER vibe80
 
 CMD ["/app/start.sh"]

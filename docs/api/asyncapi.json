@@ -1,7 +1,7 @@
 {
   "asyncapi": "2.6.0",
   "info": {
-    "title": "m5chat WebSocket API",
+    "title": "vibe80 WebSocket API",
     "version": "1.0.0",
     "description": "Spec (workspace auth via JWT token in query)"
   },

@@ -70,14 +70,14 @@ const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 99
 const workspaceIdsUsed = new Set();
 let workspaceIdsScanned = false;
 const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
-const workspaceRootName = "vibecoder_workspace";
+const workspaceRootName = "vibe80_workspace";
 const workspaceMetadataDirName = "metadata";
 const workspaceSessionsDirName = "sessions";
-const rootHelperPath = process.env.VIBECODER_ROOT_HELPER || "/usr/local/bin/vibecoder-root";
-const runAsHelperPath = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
-const sudoPath = process.env.VIBECODER_SUDO_PATH || "sudo";
-const jwtKeyPath = process.env.JWT_KEY_PATH || "/var/lib/vibecoder/jwt.key";
-const jwtIssuer = process.env.JWT_ISSUER || "vibecoder";
+const rootHelperPath = process.env.VIBE80_ROOT_HELPER || "/usr/local/bin/vibe80-root";
+const runAsHelperPath = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
+const sudoPath = process.env.VIBE80_SUDO_PATH || "sudo";
+const jwtKeyPath = process.env.JWT_KEY_PATH || "/var/lib/vibe80/jwt.key";
+const jwtIssuer = process.env.JWT_ISSUER || "vibe80";
 const jwtAudience = process.env.JWT_AUDIENCE || "workspace";
 const sessionGcIntervalMs = Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
 const sessionIdleTtlMs = Number(process.env.SESSION_IDLE_TTL_MS) || 24 * 60 * 60 * 1000;
@@ -1664,7 +1664,7 @@ const ensureUniqueFilename = async (workspaceId, dir, filename, reserved) => {
   }
 };
 
-const uploadTempDir = path.join(os.tmpdir(), "vibecoder_uploads");
+const uploadTempDir = path.join(os.tmpdir(), "vibe80_uploads");
 fs.mkdirSync(uploadTempDir, { recursive: true, mode: 0o700 });
 
 const upload = multer({

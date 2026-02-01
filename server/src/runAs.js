@@ -2,8 +2,8 @@ import { spawn } from "child_process";
 import os from "os";
 import path from "path";
 
-const RUN_AS_HELPER = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
-const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
+const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
+const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
 const DEPLOYMENT_MODE = process.env.DEPLOYMENT_MODE;
 const IS_MONO_USER = DEPLOYMENT_MODE === "mono_user";
 const ALLOWED_ENV_KEYS = new Set([

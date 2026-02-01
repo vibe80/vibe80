@@ -13,7 +13,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "M5ChatMobile"
+rootProject.name = "Vibe80Mobile"
 
 include(":shared")
 include(":androidApp")

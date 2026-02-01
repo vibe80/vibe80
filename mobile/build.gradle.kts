@@ -8,7 +8,7 @@ plugins {
 }
 
 allprojects {
-    group = "app.m5chat.mobile"
+    group = "app.vibe80.mobile"
     version = "0.1.0"
 }
 

@@ -24,7 +24,7 @@ struct SessionView: View {
                 }
                 .padding()
             }
-            .navigationTitle("M5Chat")
+            .navigationTitle("Vibe80")
             .alert("Erreur", isPresented: $viewModel.showError) {
                 Button("OK", role: .cancel) {}
             } message: {

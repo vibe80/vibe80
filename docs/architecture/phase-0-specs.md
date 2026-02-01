@@ -17,7 +17,7 @@
     - `sub`: workspaceId
     - `exp`: now + 24h
     - `iat`: issued at
-    - `iss`: m5chat
+    - `iss`: vibe80
     - `aud`: workspace
     - `jti`: UUID (for future revocation)
 
@@ -52,7 +52,7 @@
 ```
 
 ## Storage Layout (Workspace Home)
-- `~/vibecoder_workspace/`
+- `~/vibe80_workspace/`
   - `metadata/`
     - `workspace.json` (providers + config)
     - `workspace.secret` (secret)
@@ -65,7 +65,7 @@
 
 ## Storage Layout (Server Global)
 - Global JWT signing key (shared for all workspaces)
-  - Suggested path: `/var/lib/m5chat/jwt.key`
+  - Suggested path: `/var/lib/vibe80/jwt.key`
 
 ## JWT Signing Key Strategy
 - Global signing key (shared for all workspaces)

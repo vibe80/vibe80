@@ -67,8 +67,8 @@ steps:
         # Prepare upload variables
         build_number="${DRONE_BUILD_NUMBER}"
         commit_sha="${DRONE_COMMIT_SHA:0:8}"
-        package_name="m5chat-android"
-        apk_name="m5chat-debug-${commit_sha}.apk"
+        package_name="vibe80-android"
+        apk_name="vibe80-debug-${commit_sha}.apk"
 
         echo "Uploading APK to package registry..."
         echo "Package: $package_name"
@@ -96,17 +96,17 @@ steps:
       password:
         from_secret: registry_token
       registry: git.lab.adho.app
-      repo: git.lab.adho.app/mont5piques/m5chat
+      repo: git.lab.adho.app/mont5piques/vibe80
       dockerfile: Dockerfile
       context: .
       mtu: 1440
       cache_from:
-        - git.lab.adho.app/mont5piques/m5chat:latest
+        - git.lab.adho.app/mont5piques/vibe80:latest
       tags:
         - ${DRONE_COMMIT_SHA:0:8}
         - latest
 
-  - name: update_gitops_vibecoder
+  - name: update_gitops_vibe80
     image: alpine:3.20
     when:
       branch:
@@ -127,15 +127,15 @@ steps:
       - export TAG="${DRONE_COMMIT_SHA:0:8}"
 
       - yq -i '
-          (select(.kind=="Deployment" and .metadata.name=="vibecoder")
-            .spec.template.spec.containers[] | select(.name=="vibecoder").image)
-          = "git.lab.adho.app/mont5piques/m5chat:" + strenv(TAG)
-        ' contabo/vibecoder/vibecoder.yml
+          (select(.kind=="Deployment" and .metadata.name=="vibe80")
+            .spec.template.spec.containers[] | select(.name=="vibe80").image)
+          = "git.lab.adho.app/mont5piques/vibe80:" + strenv(TAG)
+        ' contabo/vibe80/vibe80.yml
 
       - git config user.email "drone@company.local"
       - git config user.name "drone-ci"
-      - git add contabo/vibecoder/vibecoder.yml
-      - 'git commit -m "vibecoder: bump image to ${TAG}" || exit 0'
+      - git add contabo/vibe80/vibe80.yml
+      - 'git commit -m "vibe80: bump image to ${TAG}" || exit 0'
       - git push
 
 trigger:

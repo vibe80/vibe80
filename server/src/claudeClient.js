@@ -3,8 +3,8 @@ import { EventEmitter } from "events";
 import crypto from "crypto";
 import { SYSTEM_PROMPT } from "./config.js";
 
-const RUN_AS_HELPER = process.env.VIBECODER_RUN_AS_HELPER || "/usr/local/bin/vibecoder-run-as";
-const SUDO_PATH = process.env.VIBECODER_SUDO_PATH || "sudo";
+const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
+const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
 const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
 
 const createTurnId = () =>

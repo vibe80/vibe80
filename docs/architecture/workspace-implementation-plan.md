@@ -30,7 +30,7 @@
 - Enforce no cross-workspace access (tests)
 
 ## Phase 3 - Sessions (IN PROGRESS)
-- Store sessions under ~/vibecoder_workspace/sessions/{sessionId}
+- Store sessions under ~/vibe80_workspace/sessions/{sessionId}
 - Remove providers from session creation
 - Session inherits providers from workspace
 - Ensure clone per session (no shared repo)

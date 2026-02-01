@@ -26,8 +26,8 @@
 
 ## Storage Layout
 - Home: /home/w{hash}
-- Workspace root: ~/vibecoder_workspace/
-- Sessions: ~/vibecoder_workspace/sessions/{sessionId}/
+- Workspace root: ~/vibe80_workspace/
+- Sessions: ~/vibe80_workspace/sessions/{sessionId}/
   - repository/ (git clone)
   - attachments/
   - worktrees/
@@ -38,9 +38,9 @@
 
 ## Security Model (Strict Isolation)
 - One Linux user per workspace
-- Server runs unprivileged (`vibecoder`) and delegates privileged actions to root helpers
+- Server runs unprivileged (`vibe80`) and delegates privileged actions to root helpers
 - File permissions: directories 02750 (setgid + group for workspace), secrets 0600
-- All subprocesses (git/codex/claude/pty) run under workspace UID/GID via `vibecoder-run-as`
+- All subprocesses (git/codex/claude/pty) run under workspace UID/GID via `vibe80-run-as`
 - Cross-workspace access forbidden (must not be readable or visible)
 
 ## Storage Backend (Env)

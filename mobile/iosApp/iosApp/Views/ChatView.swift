@@ -68,7 +68,7 @@ struct ChatView: View {
                     onSend: viewModel.sendMessage
                 )
             }
-            .navigationTitle("M5Chat")
+            .navigationTitle("Vibe80")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {

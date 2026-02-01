@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">M5Chat</string>
+    <string name="app_name">Vibe80</string>
     <string name="session_title">New Session</string>
     <string name="repo_url_hint">Repository URL (e.g. github.com/user/repo)</string>
     <string name="ssh_key_hint">SSH Key (optional)</string>
@@ -40,6 +40,6 @@
     <string name="error_network">Network error. Check your connection.</string>
     <string name="error_unknown">An unexpected error occurred</string>
 
-    <string name="vibecoder_yes">Yes</string>
-    <string name="vibecoder_no">No</string>
+    <string name="vibe80_yes">Yes</string>
+    <string name="vibe80_no">No</string>
 </resources>
