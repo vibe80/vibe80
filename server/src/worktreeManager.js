@@ -122,6 +122,7 @@ export async function createWorktree(session, options) {
     reasoningEffort,
     internetAccess,
   } = options;
+  const nameProvided = Boolean(name && String(name).trim());
 
   const worktreesDir = path.join(session.dir, "worktrees");
   await runAsCommand(session.workspaceId, "/bin/mkdir", ["-p", worktreesDir]);
@@ -230,6 +231,7 @@ export async function createWorktree(session, options) {
     sessionId: session.sessionId,
     name: baseName,
     branchName,
+    nameProvided,
     path: worktreePath,
     provider,
     model: model || null,
@@ -425,6 +427,7 @@ export async function listWorktrees(session) {
     id: wt.id,
     name: wt.name,
     branchName: wt.branchName,
+    nameProvided: Boolean(wt.nameProvided),
     provider: wt.provider,
     status: wt.status,
     messageCount: Array.isArray(wt.messages) ? wt.messages.length : 0,
