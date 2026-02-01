@@ -2918,18 +2918,6 @@ wss.on("connection", (socket, req) => {
       return;
     }
 
-    // List all worktrees
-    if (payload.type === "list_worktrees") {
-      const worktrees = await listWorktrees(session);
-      socket.send(
-        JSON.stringify({
-          type: "worktrees_list",
-          worktrees,
-        })
-      );
-      return;
-    }
-
     // ============== End Worktree WebSocket Handlers ==============
 
     if (payload.type === "user_message") {
