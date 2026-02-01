@@ -3777,7 +3777,9 @@ function App() {
   const activeTaskLabel = isInWorktree
     ? activeWorktree?.taskLabel
     : mainTaskLabel;
-  const showInternetAccess = Boolean(activeWorktree?.internetAccess);
+  const showInternetAccess = isInWorktree
+    ? Boolean(activeWorktree?.internetAccess)
+    : Boolean(defaultInternetAccess);
   const showChatInfoPanel =
     !isMobileLayout &&
     activePane === "chat" &&
