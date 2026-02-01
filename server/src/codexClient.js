@@ -1,6 +1,5 @@
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
-import path from "path";
 import { SYSTEM_PROMPT } from "./config.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
@@ -203,10 +202,6 @@ export class CodexAppServerClient extends EventEmitter {
       this.attachmentsDir,
     ]
       .filter(Boolean)
-      .map((dir) => {
-        const relative = path.relative(this.cwd, dir);
-        return relative === "" ? "." : relative;
-      })
       .filter((value, index, self) => self.indexOf(value) === index);
     await this.#sendRequest("config/batchWrite", {
       edits: [
