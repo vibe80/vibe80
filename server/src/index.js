@@ -2337,6 +2337,55 @@ const ensureClaudeWorktreeClients = async (session) => {
   );
 };
 
+const ensureCodexWorktreeClients = async (session) => {
+  const runtime = getSessionRuntime(session.sessionId);
+  if (!runtime) {
+    return;
+  }
+  const worktrees = await storage.listWorktrees(session.sessionId);
+  const codexWorktrees = worktrees.filter((wt) => wt?.provider === "codex");
+  if (!codexWorktrees.length) {
+    return;
+  }
+  await Promise.all(
+    codexWorktrees.map(async (worktree) => {
+      let client = runtime.worktreeClients.get(worktree.id);
+      const procExited = client?.proc && client.proc.exitCode != null;
+      if (procExited) {
+        runtime.worktreeClients.delete(worktree.id);
+        client = null;
+      }
+      if (!client) {
+        client = createWorktreeClient(
+          worktree,
+          session.attachmentsDir,
+          session.repoDir,
+          worktree.internetAccess
+        );
+        runtime.worktreeClients.set(worktree.id, client);
+      }
+      worktree.client = client;
+      if (!client.listenerCount("ready")) {
+        attachClientEventsForWorktree(session.sessionId, worktree);
+      }
+      if (!client.ready && !client.proc) {
+        try {
+          await client.start();
+        } catch (error) {
+          console.error("Failed to start Codex worktree client:", error);
+          void updateWorktreeStatus(session, worktree.id, "error");
+          broadcastToSession(session.sessionId, {
+            type: "worktree_status",
+            worktreeId: worktree.id,
+            status: "error",
+            error: error?.message || "Codex app-server failed to start.",
+          });
+        }
+      }
+    })
+  );
+};
+
 function attachClaudeEvents(sessionId, client, provider) {
   client.on("ready", ({ threadId }) => {
     void (async () => {
@@ -2479,6 +2528,7 @@ wss.on("connection", (socket, req) => {
     runtime.sockets.add(socket);
 
     await ensureClaudeWorktreeClients(session);
+    await ensureCodexWorktreeClients(session);
 
     if (session.activeProvider === "codex") {
       const existingClient = getActiveClient(session);
