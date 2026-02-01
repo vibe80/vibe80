@@ -2020,6 +2020,17 @@ function attachClientEventsForWorktree(sessionId, worktree) {
   const worktreeId = worktree.id;
   const provider = worktree.provider;
 
+  const getDrafts = () => {
+    const runtime = getSessionRuntime(sessionId);
+    if (!runtime) return null;
+    let drafts = runtime.worktreeDrafts.get(worktreeId);
+    if (!drafts) {
+      drafts = new Map();
+      runtime.worktreeDrafts.set(worktreeId, drafts);
+    }
+    return drafts;
+  };
+
   client.on("ready", ({ threadId }) => {
     void (async () => {
       const session = await getSession(sessionId);
@@ -2088,6 +2099,12 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       }
       case "item/agentMessage/delta": {
         const { delta, itemId, turnId } = message.params;
+        if (itemId && typeof delta === "string") {
+          const drafts = getDrafts();
+          if (drafts) {
+            drafts.set(itemId, `${drafts.get(itemId) || ""}${delta}`);
+          }
+        }
         broadcastToSession(sessionId, {
           type: "assistant_delta",
           worktreeId,
@@ -2114,16 +2131,21 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       case "item/completed": {
         const { item, turnId } = message.params;
         if (item?.type === "agentMessage") {
+          const drafts = getDrafts();
+          const draftText = drafts?.get(item.id) || "";
+          if (drafts) {
+            drafts.delete(item.id);
+          }
           await appendWorktreeMessage(session, worktreeId, {
             id: item.id,
             role: "assistant",
-            text: item.text,
+            text: item.text || draftText,
             provider,
           });
           broadcastToSession(sessionId, {
             type: "assistant_message",
             worktreeId,
-            text: item.text,
+            text: item.text || draftText,
             itemId: item.id,
             turnId,
             provider,
@@ -2156,6 +2178,19 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       }
       case "turn/completed": {
         const { turn, threadId } = message.params;
+        const drafts = getDrafts();
+        if (drafts && drafts.size) {
+          for (const [itemId, draftText] of drafts.entries()) {
+            if (!draftText) continue;
+            await appendWorktreeMessage(session, worktreeId, {
+              id: itemId,
+              role: "assistant",
+              text: draftText,
+              provider,
+            });
+          }
+          drafts.clear();
+        }
         await updateWorktreeStatus(session, worktreeId, "ready");
         broadcastToSession(sessionId, {
           type: "turn_completed",
