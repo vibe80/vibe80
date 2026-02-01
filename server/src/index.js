@@ -1776,11 +1776,22 @@ function attachClientEvents(sessionId, client, provider) {
       }
 
       switch (message.method) {
-        case "item/agentMessage/delta": {
-          const { delta, itemId, turnId } = message.params;
+      case "codex/event/agent_reasoning": {
+        const text = message?.params?.msg?.text || "";
+        if (text) {
           broadcastToSession(sessionId, {
-            type: "assistant_delta",
-            delta,
+            type: "agent_reasoning",
+            text,
+            provider,
+          });
+        }
+        break;
+      }
+      case "item/agentMessage/delta": {
+        const { delta, itemId, turnId } = message.params;
+        broadcastToSession(sessionId, {
+          type: "assistant_delta",
+          delta,
             itemId,
             turnId,
             provider,
@@ -2010,6 +2021,18 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       const session = await getSession(sessionId);
       if (!session) return;
       switch (message.method) {
+      case "codex/event/agent_reasoning": {
+        const text = message?.params?.msg?.text || "";
+        if (text) {
+          broadcastToSession(sessionId, {
+            type: "agent_reasoning",
+            worktreeId,
+            text,
+            provider,
+          });
+        }
+        break;
+      }
       case "item/agentMessage/delta": {
         const { delta, itemId, turnId } = message.params;
         broadcastToSession(sessionId, {

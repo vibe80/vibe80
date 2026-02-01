@@ -233,6 +233,14 @@ const extractVibecoderTask = (text) => {
   return label;
 };
 
+const extractFirstLine = (text) => {
+  const raw = String(text || "");
+  if (!raw) {
+    return "";
+  }
+  return raw.split(/\r?\n/)[0].trim();
+};
+
 const copyTextToClipboard = async (text) => {
   if (!text) {
     return;
@@ -2146,6 +2154,13 @@ function App() {
           setMainTaskLabel("");
         }
 
+        if (!isWorktreeScoped && payload.type === "agent_reasoning") {
+          const label = extractFirstLine(payload.text);
+          if (label) {
+            setMainTaskLabel(label);
+          }
+        }
+
         if (!isWorktreeScoped && payload.type === "error") {
           setStatus(payload.message || "Erreur inattendue");
           setProcessing(false);
@@ -2715,6 +2730,19 @@ function App() {
               }
 
               next.set(wtId, { ...wt, messages });
+              return next;
+            });
+          }
+        }
+
+        if (payload.type === "agent_reasoning" && payload.worktreeId) {
+          const label = extractFirstLine(payload.text);
+          if (label) {
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(payload.worktreeId);
+              if (!wt) return current;
+              next.set(payload.worktreeId, { ...wt, taskLabel: label });
               return next;
             });
           }
@@ -5581,7 +5609,15 @@ function App() {
                           {activeTaskLabel && (
                             <div className="chat-meta-task">
                               <span className="chat-meta-task-loader" aria-hidden="true" />
-                              <span>{activeTaskLabel}</span>
+                              <ReactMarkdown
+                                className="chat-meta-task-text"
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  p: ({ children }) => <span>{children}</span>,
+                                }}
+                              >
+                                {activeTaskLabel}
+                              </ReactMarkdown>
                             </div>
                           )}
                         </div>

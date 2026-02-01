@@ -772,6 +772,16 @@ main.chat {
   font-weight: 600;
 }
 
+.chat-meta-task-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-meta-task-text p {
+  margin: 0;
+}
+
 .chat-meta-task-loader {
   width: 12px;
   height: 12px;
