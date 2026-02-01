@@ -134,8 +134,8 @@ steps:
 
       - git config user.email "drone@company.local"
       - git config user.name "drone-ci"
-      - git add contabo/vibe80/vibe80.yml
-      - 'git commit -m "vibe80: bump image to ${TAG}" || exit 0'
+      - git add contabo/vibecoder/vibecoder.yml
+      - 'git commit -m "vibecoder: bump image to ${TAG}" || exit 0'
       - git push
 
 trigger:
