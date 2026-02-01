@@ -2805,6 +2805,7 @@ wss.on("connection", (socket, req) => {
           type: "worktree_created",
           worktreeId: worktree.id,
           name: worktree.name,
+          originalName: worktree.originalName,
           branchName: worktree.branchName,
           provider: worktree.provider,
           internetAccess: Boolean(worktree.internetAccess),
@@ -3887,6 +3888,7 @@ app.post("/api/worktree", async (req, res) => {
     res.json({
       worktreeId: worktree.id,
       name: worktree.name,
+      originalName: worktree.originalName,
       branchName: worktree.branchName,
       provider: worktree.provider,
       internetAccess: Boolean(worktree.internetAccess),
@@ -3922,6 +3924,7 @@ app.get("/api/worktree/:worktreeId", async (req, res) => {
     res.json({
       id: worktree.id,
       name: worktree.name,
+      originalName: worktree.originalName,
       branchName: worktree.branchName,
       provider: worktree.provider,
       internetAccess: Boolean(worktree.internetAccess),

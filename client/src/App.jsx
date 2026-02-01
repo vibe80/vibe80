@@ -2386,6 +2386,7 @@ function App() {
             next.set(payload.worktreeId, {
               id: payload.worktreeId,
               name: payload.name,
+              originalName: payload.originalName || payload.name,
               branchName: payload.branchName,
               provider: payload.provider,
               internetAccess: Boolean(payload.internetAccess),
@@ -2467,7 +2468,11 @@ function App() {
             const next = new Map(current);
             const wt = next.get(payload.worktreeId);
             if (wt) {
-              next.set(payload.worktreeId, { ...wt, name: payload.name });
+              next.set(payload.worktreeId, {
+                ...wt,
+                name: payload.name,
+                originalName: payload.name,
+              });
             }
             return next;
           });
@@ -2479,6 +2484,7 @@ function App() {
             payload.worktrees.forEach((wt) => {
               newMap.set(wt.id, {
                 ...wt,
+                originalName: wt.originalName || wt.name,
                 messages: [],
                 activity: "",
                 currentTurnId: null,
