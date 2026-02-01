@@ -767,8 +767,8 @@ main.chat {
 
 .chat-meta-task {
   display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   justify-content: flex-end;
   margin-top: 6px;
   color: var(--ink-muted);
@@ -777,7 +777,7 @@ main.chat {
 }
 
 .chat-meta-task-text {
-  display: inline-flex;
+  display: inline;
   align-items: center;
   gap: 4px;
 }
@@ -787,13 +787,14 @@ main.chat {
 }
 
 .chat-meta-task-loader {
+  display: inline-block;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   border: 2px solid rgba(20, 19, 17, 0.18);
   border-top-color: var(--accent, #ee5d3b);
   animation: chat-meta-spin 0.9s linear infinite;
-  align-self: baseline;
+  flex: 0 0 auto;
 }
 
 .chat-meta-message {
