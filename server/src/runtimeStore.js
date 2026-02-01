@@ -10,7 +10,6 @@ export const getSessionRuntime = (sessionId) => {
       sockets: new Set(),
       clients: {},
       worktreeClients: new Map(),
-      worktreeDrafts: new Map(),
     };
     runtimeSessions.set(sessionId, runtime);
   }
