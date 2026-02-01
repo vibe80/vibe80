@@ -704,6 +704,10 @@ main.chat {
   min-width: 0;
   position: sticky;
   top: 12px;
+  margin-right: 10px;
+  border-right: 1px solid #ccc;
+  padding-right: 10px;
+  min-height: 150px;
 }
 
 .chat-meta-card {
