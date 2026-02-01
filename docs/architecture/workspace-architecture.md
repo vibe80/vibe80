@@ -47,7 +47,7 @@
 - `STORAGE_BACKEND` is mandatory: `redis` or `sqlite`
 - When `STORAGE_BACKEND=redis`:
   - `REDIS_URL` is required
-  - Optional: `REDIS_KEY_PREFIX` (default: `vc`)
+  - Optional: `REDIS_KEY_PREFIX` (default: `v80`)
 - When `STORAGE_BACKEND=sqlite`:
   - `SQLITE_PATH` is required (absolute or relative path to the DB file)
 
