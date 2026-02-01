@@ -195,11 +195,7 @@ export default function WorktreeTabs({
 
   const handleStartEdit = (wt) => {
     setEditingId(wt.id);
-    if (wt.id === "main") {
-      setEditingName(wt.name);
-      return;
-    }
-    setEditingName(wt.originalName || wt.name);
+    setEditingName(wt.name);
   };
 
   const handleFinishEdit = () => {
