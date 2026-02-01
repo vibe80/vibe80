@@ -2256,6 +2256,7 @@ main.chat {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  text-align: left;
   padding: 4px 8px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
