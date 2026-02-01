@@ -5656,7 +5656,7 @@ function App() {
                             </div>
                           )}
                           {activeTaskLabel && (
-                            <div className="chat-meta-task">
+                            <span className="chat-meta-task">
                               <span className="chat-meta-task-loader" aria-hidden="true" />
                               <ReactMarkdown
                                 className="chat-meta-task-text"
@@ -5667,7 +5667,7 @@ function App() {
                               >
                                 {activeTaskLabel}
                               </ReactMarkdown>
-                            </div>
+                            </span>
                           )}
                         </div>
                       </div>
