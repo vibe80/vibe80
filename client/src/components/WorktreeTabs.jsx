@@ -294,9 +294,13 @@ export default function WorktreeTabs({
                         handleStartEdit(wt);
                       }
                     }}
-                    title={`${wt.name} (${wt.branchName})`}
+                    title={
+                      wt.id === "main"
+                        ? wt.name
+                        : `${wt.name || wt.branchName} (${wt.branchName || "main"})`
+                    }
                   >
-                    {wt.name}
+                    {wt.id === "main" ? wt.name : (wt.name || wt.branchName)}
                   </span>
                 )}
 
