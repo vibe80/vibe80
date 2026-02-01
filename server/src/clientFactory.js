@@ -31,6 +31,7 @@ export async function getOrCreateClient(session, provider) {
           attachmentsDir: session.attachmentsDir,
           repoDir: session.repoDir,
           internetAccess: session.defaultInternetAccess,
+          threadId: session.threadId || null,
           env: process.env,
           workspaceId: session.workspaceId,
         });
@@ -55,7 +56,8 @@ export function createWorktreeClient(
   worktree,
   attachmentsDir,
   repoDir,
-  internetAccess
+  internetAccess,
+  threadId
 ) {
   const client =
     worktree.provider === "claude"
@@ -72,6 +74,7 @@ export function createWorktreeClient(
           attachmentsDir,
           repoDir,
           internetAccess,
+          threadId: threadId || worktree.threadId || null,
           env: process.env,
           workspaceId: worktree.workspaceId,
         });

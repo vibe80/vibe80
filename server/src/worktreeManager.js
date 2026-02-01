@@ -231,6 +231,7 @@ export async function createWorktree(session, options) {
     sessionId: session.sessionId,
     name: name && String(name).trim() ? baseName : defaultDisplayName,
     branchName,
+    threadId: null,
     path: worktreePath,
     provider,
     model: model || null,
@@ -254,7 +255,8 @@ export async function createWorktree(session, options) {
       worktree,
       session.attachmentsDir,
       session.repoDir,
-      worktree.internetAccess
+      worktree.internetAccess,
+      worktree.threadId
     );
     const runtime = getSessionRuntime(session.sessionId);
     if (runtime) {
@@ -453,6 +455,17 @@ export async function updateWorktreeStatus(session, worktreeId, status) {
   const updated = {
     ...worktree,
     status,
+    lastActivityAt: new Date().toISOString(),
+  };
+  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
+}
+
+export async function updateWorktreeThreadId(session, worktreeId, threadId) {
+  const worktree = await loadWorktree(worktreeId);
+  if (!worktree || !threadId) return;
+  const updated = {
+    ...worktree,
+    threadId,
     lastActivityAt: new Date().toISOString(),
   };
   await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));

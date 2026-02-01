@@ -7,7 +7,15 @@ const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
 const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
 
 export class CodexAppServerClient extends EventEmitter {
-  constructor({ cwd, attachmentsDir, repoDir, internetAccess, env, workspaceId }) {
+  constructor({
+    cwd,
+    attachmentsDir,
+    repoDir,
+    internetAccess,
+    threadId,
+    env,
+    workspaceId,
+  }) {
     super();
     this.cwd = cwd;
     this.attachmentsDir = attachmentsDir;
@@ -19,7 +27,7 @@ export class CodexAppServerClient extends EventEmitter {
     this.buffer = "";
     this.nextId = 1;
     this.pending = new Map();
-    this.threadId = null;
+    this.threadId = threadId || null;
     this.ready = false;
   }
 
@@ -201,20 +209,29 @@ export class CodexAppServerClient extends EventEmitter {
       this.attachmentsDir
     ]
 
-    const result = await this.#sendRequest("thread/start", {
+    const params = {
       cwd: this.cwd,
       config: {
         // Reserved for future usage
         // "developer_instructions": "",
         "sandbox_workspace_write.writable_roots": writableRoots,
         "sandbox_workspace_write.network_access": Boolean(this.internetAccess),
-        "web_search": this.internetAccess? "live":"disabled"
+        "web_search": this.internetAccess ? "live" : "disabled"
       },
-      includePlanTool: true,
       baseInstructions: SYSTEM_PROMPT,
       sandbox: "workspace-write",
       approvalPolicy: "never"
-    });
+    };
+
+    const result = this.threadId
+      ? await this.#sendRequest("thread/resume", {
+          ...params,
+          threadId: this.threadId,
+        })
+      : await this.#sendRequest("thread/start", {
+          ...params,
+          includePlanTool: true,
+        });
 
     this.threadId = result.thread.id;
   }

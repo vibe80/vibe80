@@ -34,6 +34,7 @@ import {
   listWorktrees,
   getWorktree,
   updateWorktreeStatus,
+  updateWorktreeThreadId,
   appendWorktreeMessage,
   clearWorktreeMessages,
   renameWorktree,
@@ -1375,6 +1376,7 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
         },
         messages: [],
         rpcLogs: [],
+        threadId: null,
       };
       session.messages = session.messagesByProvider[defaultProvider];
       await storage.saveSession(sessionId, session);
@@ -1779,6 +1781,14 @@ function attachClientEvents(sessionId, client, provider) {
       }
 
       switch (message.method) {
+      case "thread/started": {
+        const threadId = message?.params?.thread?.id;
+        if (threadId) {
+          const updated = { ...session, threadId, lastActivityAt: Date.now() };
+          await storage.saveSession(sessionId, updated);
+        }
+        break;
+      }
       case "codex/event/agent_reasoning": {
         const text = message?.params?.msg?.text || "";
         if (text) {
@@ -2024,6 +2034,13 @@ function attachClientEventsForWorktree(sessionId, worktree) {
       const session = await getSession(sessionId);
       if (!session) return;
       switch (message.method) {
+      case "thread/started": {
+        const threadId = message?.params?.thread?.id;
+        if (threadId) {
+          await updateWorktreeThreadId(session, worktreeId, threadId);
+        }
+        break;
+      }
       case "codex/event/agent_reasoning": {
         const text = message?.params?.msg?.text || "";
         if (text) {
@@ -2337,7 +2354,8 @@ const ensureClaudeWorktreeClients = async (session) => {
           worktree,
           session.attachmentsDir,
           session.repoDir,
-          worktree.internetAccess
+          worktree.internetAccess,
+          worktree.threadId
         );
         runtime.worktreeClients.set(worktree.id, client);
       }
@@ -2386,7 +2404,8 @@ const ensureCodexWorktreeClients = async (session) => {
           worktree,
           session.attachmentsDir,
           session.repoDir,
-          worktree.internetAccess
+          worktree.internetAccess,
+          worktree.threadId
         );
         runtime.worktreeClients.set(worktree.id, client);
       }
