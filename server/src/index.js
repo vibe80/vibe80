@@ -21,6 +21,7 @@ import {
   getOrCreateClient,
   getActiveClient,
   isValidProvider,
+  createWorktreeClient,
 } from "./clientFactory.js";
 import {
   createWorktree,
@@ -2289,6 +2290,53 @@ function attachClaudeEventsForWorktree(sessionId, worktree) {
   });
 }
 
+const ensureClaudeWorktreeClients = async (session) => {
+  const runtime = getSessionRuntime(session.sessionId);
+  if (!runtime) {
+    return;
+  }
+  const worktrees = await storage.listWorktrees(session.sessionId);
+  const claudeWorktrees = worktrees.filter((wt) => wt?.provider === "claude");
+  if (!claudeWorktrees.length) {
+    return;
+  }
+  await Promise.all(
+    claudeWorktrees.map(async (worktree) => {
+      let client = runtime.worktreeClients.get(worktree.id);
+      if (client?.ready) {
+        return;
+      }
+      if (!client) {
+        client = createWorktreeClient(
+          worktree,
+          session.attachmentsDir,
+          session.repoDir,
+          worktree.internetAccess
+        );
+        runtime.worktreeClients.set(worktree.id, client);
+      }
+      worktree.client = client;
+      if (!client.listenerCount("ready")) {
+        attachClaudeEventsForWorktree(session.sessionId, worktree);
+      }
+      if (!client.ready) {
+        try {
+          await client.start();
+        } catch (error) {
+          console.error("Failed to start Claude worktree client:", error);
+          void updateWorktreeStatus(session, worktree.id, "error");
+          broadcastToSession(session.sessionId, {
+            type: "worktree_status",
+            worktreeId: worktree.id,
+            status: "error",
+            error: error?.message || "Claude CLI failed to start.",
+          });
+        }
+      }
+    })
+  );
+};
+
 function attachClaudeEvents(sessionId, client, provider) {
   client.on("ready", ({ threadId }) => {
     void (async () => {
@@ -2429,6 +2477,8 @@ wss.on("connection", (socket, req) => {
       return;
     }
     runtime.sockets.add(socket);
+
+    await ensureClaudeWorktreeClients(session);
 
     if (session.activeProvider === "codex") {
       const existingClient = getActiveClient(session);
