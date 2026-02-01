@@ -609,6 +609,7 @@ function App() {
   const [workspaceError, setWorkspaceError] = useState("");
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [sessionMode, setSessionMode] = useState("new");
+  const [defaultInternetAccess, setDefaultInternetAccess] = useState(true);
   const [workspaceSessions, setWorkspaceSessions] = useState([]);
   const [workspaceSessionsLoading, setWorkspaceSessionsLoading] = useState(false);
   const [workspaceSessionsError, setWorkspaceSessionsError] = useState("");
@@ -3028,7 +3029,7 @@ function App() {
       try {
         setAttachmentsLoading(true);
         setAttachmentsError("");
-        const payload = { repoUrl };
+        const payload = { repoUrl, defaultInternetAccess };
         if (repoAuth) {
           payload.auth = repoAuth;
         }
@@ -3101,7 +3102,14 @@ function App() {
     };
 
     createAttachmentSession();
-  }, [repoUrl, repoAuth, attachmentSession?.sessionId, apiFetch, sessionMode]);
+  }, [
+    repoUrl,
+    repoAuth,
+    attachmentSession?.sessionId,
+    apiFetch,
+    sessionMode,
+    defaultInternetAccess,
+  ]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -3293,6 +3301,12 @@ function App() {
     setStatus("Connexion...");
     setConnected(false);
   }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
+
+  useEffect(() => {
+    if (typeof attachmentSession?.defaultInternetAccess === "boolean") {
+      setDefaultInternetAccess(attachmentSession.defaultInternetAccess);
+    }
+  }, [attachmentSession?.defaultInternetAccess]);
 
   useEffect(() => {
     if (!attachmentSession?.default_provider && !attachmentSession?.providers) {
@@ -5162,6 +5176,26 @@ function App() {
                         </>
                       )}
                     </div>
+                    <div className="session-auth">
+                      <div className="session-auth-title">Internet access</div>
+                      <div className="session-auth-options">
+                        <label className="session-auth-option">
+                          <input
+                            type="checkbox"
+                            checked={defaultInternetAccess}
+                            onChange={(event) =>
+                              setDefaultInternetAccess(event.target.checked)
+                            }
+                            disabled={formDisabled}
+                          />
+                          Internet access
+                        </label>
+                      </div>
+                      <div className="session-auth-hint">
+                        Autoriser l&apos;accès internet par defaut pour cette
+                        session.
+                      </div>
+                    </div>
                     <div className="session-form-row">
                       <div />
                       <button type="submit" disabled={formDisabled}>
@@ -5284,6 +5318,7 @@ function App() {
               defaultBranch={defaultBranch || currentBranch}
               branchLoading={branchLoading}
               branchError={branchError}
+              defaultInternetAccess={defaultInternetAccess}
               onRefreshBranches={loadBranches}
               providerModelState={providerModelState}
               onRequestProviderModels={loadProviderModels}

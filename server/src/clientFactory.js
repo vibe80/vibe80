@@ -22,6 +22,7 @@ export async function getOrCreateClient(session, provider) {
           cwd: session.repoDir,
           attachmentsDir: session.attachmentsDir,
           repoDir: session.repoDir,
+          internetAccess: session.defaultInternetAccess,
           env: process.env,
           workspaceId: session.workspaceId,
         })
@@ -29,6 +30,7 @@ export async function getOrCreateClient(session, provider) {
           cwd: session.repoDir,
           attachmentsDir: session.attachmentsDir,
           repoDir: session.repoDir,
+          internetAccess: session.defaultInternetAccess,
           env: process.env,
           workspaceId: session.workspaceId,
         });

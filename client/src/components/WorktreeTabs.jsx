@@ -38,6 +38,7 @@ export default function WorktreeTabs({
   defaultBranch,
   branchLoading,
   branchError,
+  defaultInternetAccess,
   onRefreshBranches,
   providerModelState,
   onRequestProviderModels,
@@ -59,7 +60,9 @@ export default function WorktreeTabs({
   const [newProvider, setNewProvider] = useState(providerOptions[0]);
   const [newModel, setNewModel] = useState("");
   const [newReasoningEffort, setNewReasoningEffort] = useState("");
-  const [newInternetAccess, setNewInternetAccess] = useState(false);
+  const [newInternetAccess, setNewInternetAccess] = useState(
+    Boolean(defaultInternetAccess)
+  );
   const editInputRef = useRef(null);
   const createInputRef = useRef(null);
 
@@ -78,7 +81,7 @@ export default function WorktreeTabs({
 
   useEffect(() => {
     if (!createDialogOpen) return;
-    setNewInternetAccess(false);
+    setNewInternetAccess(Boolean(defaultInternetAccess));
     if (!startingBranch) {
       setStartingBranch(defaultBranch || "");
     }
@@ -96,6 +99,7 @@ export default function WorktreeTabs({
     startingBranch,
     defaultBranch,
     branches,
+    defaultInternetAccess,
     onRefreshBranches,
     branchLoading,
     newProvider,
@@ -189,7 +193,7 @@ export default function WorktreeTabs({
     setStartingBranch(defaultBranch || "");
     setNewModel("");
     setNewReasoningEffort("");
-    setNewInternetAccess(false);
+    setNewInternetAccess(Boolean(defaultInternetAccess));
     setCreateDialogOpen(false);
   };
 

@@ -1260,13 +1260,15 @@ const ensureSshConfigEntry = async (workspaceId, host, keyPath, sshPaths) => {
   await writeWorkspaceFile(workspaceId, sshConfigPath, nextContent, 0o600);
 };
 
-const createSession = async (workspaceId, repoUrl, auth) => {
+const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) => {
   const workspaceConfig = await readWorkspaceConfig(workspaceId);
   const enabledProviders = listEnabledProviders(workspaceConfig?.providers || {});
   const defaultProvider = pickDefaultProvider(enabledProviders);
   if (!defaultProvider) {
     throw new Error("No providers enabled for this workspace.");
   }
+  const resolvedInternetAccess =
+    typeof defaultInternetAccess === "boolean" ? defaultInternetAccess : true;
   const workspacePaths = getWorkspacePaths(workspaceId);
   const sshPaths = getWorkspaceSshPaths(workspacePaths.homeDir);
   while (true) {
@@ -1363,6 +1365,7 @@ const createSession = async (workspaceId, repoUrl, auth) => {
         repoUrl,
         activeProvider: defaultProvider,
         providers: enabledProviders,
+        defaultInternetAccess: resolvedInternetAccess,
         createdAt: Date.now(),
         lastActivityAt: Date.now(),
         sshKeyPath: sessionSshKeyPath,
@@ -3470,6 +3473,10 @@ app.get("/api/session/:sessionId", async (req, res) => {
     repoUrl: session.repoUrl,
     default_provider: activeProvider,
     providers: session.providers || [activeProvider],
+    defaultInternetAccess:
+      typeof session.defaultInternetAccess === "boolean"
+        ? session.defaultInternetAccess
+        : true,
     messages,
     repoDiff,
     rpcLogsEnabled: debugApiWsLog,
@@ -3647,7 +3654,13 @@ app.post("/api/session", async (req, res) => {
   }
   try {
     const auth = req.body?.auth || null;
-    const session = await createSession(req.workspaceId, repoUrl, auth);
+    const defaultInternetAccess = req.body?.defaultInternetAccess;
+    const session = await createSession(
+      req.workspaceId,
+      repoUrl,
+      auth,
+      defaultInternetAccess
+    );
     res.json({
       sessionId: session.sessionId,
       workspaceId: session.workspaceId,
@@ -3655,6 +3668,10 @@ app.post("/api/session", async (req, res) => {
       repoUrl,
       default_provider: session.activeProvider || "codex",
       providers: session.providers || [],
+      defaultInternetAccess:
+        typeof session.defaultInternetAccess === "boolean"
+          ? session.defaultInternetAccess
+          : true,
       messages: [],
       rpcLogsEnabled: debugApiWsLog,
       terminalEnabled,
@@ -3856,12 +3873,18 @@ app.post("/api/worktree", async (req, res) => {
   }
 
   try {
+    const internetAccess =
+      typeof req.body?.internetAccess === "boolean"
+        ? req.body.internetAccess
+        : typeof session.defaultInternetAccess === "boolean"
+          ? session.defaultInternetAccess
+          : true;
     const worktree = await createWorktree(session, {
       provider,
       name: req.body?.name || null,
       parentWorktreeId: req.body?.parentWorktreeId || null,
       startingBranch: req.body?.startingBranch || null,
-      internetAccess: Boolean(req.body?.internetAccess),
+      internetAccess,
     });
 
     // Attacher les événements au client

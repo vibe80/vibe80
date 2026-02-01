@@ -1439,6 +1439,9 @@
           },
           "rpcLogsEnabled": {
             "type": "boolean"
+          },
+          "defaultInternetAccess": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1460,6 +1463,9 @@
           },
           "auth": {
             "type": "object"
+          },
+          "defaultInternetAccess": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1502,6 +1508,9 @@
             "pattern": "^w[0-9a-f]{24}$"
           },
           "rpcLogsEnabled": {
+            "type": "boolean"
+          },
+          "defaultInternetAccess": {
             "type": "boolean"
           }
         },
