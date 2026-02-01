@@ -1738,6 +1738,10 @@ function attachClientEvents(sessionId, client, provider) {
   client.on("ready", ({ threadId }) => {
     void (async () => {
       const session = await getSession(sessionId);
+      if (threadId && session) {
+        const updated = { ...session, threadId, lastActivityAt: Date.now() };
+        await storage.saveSession(sessionId, updated);
+      }
       if (session?.activeProvider === provider) {
         broadcastToSession(sessionId, { type: "ready", threadId, provider });
       }
@@ -2002,6 +2006,9 @@ function attachClientEventsForWorktree(sessionId, worktree) {
     void (async () => {
       const session = await getSession(sessionId);
       if (!session) return;
+      if (threadId) {
+        await updateWorktreeThreadId(session, worktreeId, threadId);
+      }
       await updateWorktreeStatus(session, worktreeId, "ready");
       broadcastToSession(sessionId, {
         type: "worktree_ready",
