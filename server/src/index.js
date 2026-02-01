@@ -2430,6 +2430,27 @@ wss.on("connection", (socket, req) => {
     }
     runtime.sockets.add(socket);
 
+    if (session.activeProvider === "codex") {
+      const existingClient = getActiveClient(session);
+      const procExited = existingClient?.proc && existingClient.proc.exitCode != null;
+      if (procExited && runtime.clients?.codex) {
+        delete runtime.clients.codex;
+      }
+      const client = await getOrCreateClient(session, "codex");
+      if (!client.listenerCount("ready")) {
+        attachClientEvents(sessionId, client, "codex");
+      }
+      if (!client.ready && !client.proc) {
+        client.start().catch((error) => {
+          console.error("Failed to restart Codex app-server:", error);
+          broadcastToSession(sessionId, {
+            type: "error",
+            message: "Codex app-server failed to start.",
+          });
+        });
+      }
+    }
+
     const activeClient = getActiveClient(session);
     if (activeClient?.ready && activeClient?.threadId) {
       socket.send(
