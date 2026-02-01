@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import crypto from "crypto";
+import path from "path";
 import { SYSTEM_PROMPT } from "./config.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
@@ -46,6 +47,10 @@ export class ClaudeCliClient extends EventEmitter {
       this.attachmentsDir,
     ]
       .filter(Boolean)
+      .map((dir) => {
+        const relative = path.relative(this.cwd, dir);
+        return relative === "" ? "." : relative;
+      })
       .filter((value, index, self) => self.indexOf(value) === index);
     const allowedTools = ["Bash(git:*)"];
     if (this.internetAccess) {
