@@ -2387,7 +2387,6 @@ function App() {
               id: payload.worktreeId,
               name: payload.name,
               branchName: payload.branchName,
-              nameProvided: Boolean(payload.nameProvided),
               provider: payload.provider,
               internetAccess: Boolean(payload.internetAccess),
               status: payload.status || "creating",

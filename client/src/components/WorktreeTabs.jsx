@@ -297,10 +297,10 @@ export default function WorktreeTabs({
                     title={
                       wt.id === "main"
                         ? wt.name
-                        : `${wt.nameProvided ? wt.name : wt.branchName} (${wt.branchName || "main"})`
+                        : `${wt.name || wt.branchName} (${wt.branchName || "main"})`
                     }
                   >
-                    {wt.id === "main" ? wt.name : (wt.nameProvided ? wt.name : wt.branchName)}
+                    {wt.id === "main" ? wt.name : (wt.name || wt.branchName)}
                   </span>
                 )}
 
