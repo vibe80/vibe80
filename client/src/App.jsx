@@ -1725,6 +1725,19 @@ function App() {
     );
   }, [llmProvider]);
 
+  const requestWorktreeMessages = useCallback((worktreeId) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (!worktreeId) {
+      return;
+    }
+    socket.send(
+      JSON.stringify({ type: "sync_worktree_messages", worktreeId })
+    );
+  }, []);
+
   const applyWorktreesList = useCallback((worktreesList) => {
     if (!Array.isArray(worktreesList)) {
       return;
@@ -1786,19 +1799,6 @@ function App() {
       // Ignore worktree list failures (retry on next reconnect).
     }
   }, [attachmentSession?.sessionId, apiFetch, applyWorktreesList]);
-
-  const requestWorktreeMessages = useCallback((worktreeId) => {
-    const socket = socketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    if (!worktreeId) {
-      return;
-    }
-    socket.send(
-      JSON.stringify({ type: "sync_worktree_messages", worktreeId })
-    );
-  }, []);
 
   const requestWorktreeDiff = useCallback(
     async (worktreeId) => {
