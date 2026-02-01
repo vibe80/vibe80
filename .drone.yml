@@ -130,7 +130,7 @@ steps:
           (select(.kind=="Deployment" and .metadata.name=="vibe80")
             .spec.template.spec.containers[] | select(.name=="vibe80").image)
           = "git.lab.adho.app/mont5piques/vibe80:" + strenv(TAG)
-        ' contabo/vibe80/vibe80.yml
+        ' contabo/vibecoder/vibecoder.yml
 
       - git config user.email "drone@company.local"
       - git config user.name "drone-ci"
