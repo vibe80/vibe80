@@ -729,6 +729,7 @@ function App() {
   const explorerRef = useRef({});
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
+  const worktreesRef = useRef(new Map());
   const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
   const [mainTaskLabel, setMainTaskLabel] = useState("");
   const activePane = paneByTab[activeWorktreeId] || "chat";
@@ -1108,6 +1109,10 @@ function App() {
   useEffect(() => {
     activeWorktreeIdRef.current = activeWorktreeId;
   }, [activeWorktreeId]);
+
+  useEffect(() => {
+    worktreesRef.current = worktrees;
+  }, [worktrees]);
   const choicesKey = useMemo(
     () =>
       attachmentSession?.sessionId
@@ -1701,29 +1706,32 @@ function App() {
     }
   }, [attachmentSession?.sessionId, applyMessages, llmProvider, apiFetch]);
 
+  const getLastSeenMessageId = useCallback((items) => {
+    if (!Array.isArray(items)) {
+      return null;
+    }
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      if (items[i]?.id) {
+        return items[i].id;
+      }
+    }
+    return null;
+  }, []);
+
   const requestMessageSync = useCallback(() => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return;
     }
-    const current = Array.isArray(messagesRef.current)
-      ? messagesRef.current
-      : [];
-    let lastSeenMessageId = null;
-    for (let i = current.length - 1; i >= 0; i -= 1) {
-      if (current[i]?.id) {
-        lastSeenMessageId = current[i].id;
-        break;
-      }
-    }
+    const lastSeenMessageId = getLastSeenMessageId(messagesRef.current);
     socket.send(
       JSON.stringify({
-        type: "sync_messages",
-        provider: llmProvider,
+        type: "sync_worktree_messages",
+        worktreeId: "main",
         lastSeenMessageId,
       })
     );
-  }, [llmProvider]);
+  }, [getLastSeenMessageId]);
 
   const requestWorktreeMessages = useCallback((worktreeId) => {
     const socket = socketRef.current;
@@ -1733,10 +1741,19 @@ function App() {
     if (!worktreeId) {
       return;
     }
+    const worktreesCurrent = worktreesRef.current;
+    const lastSeenMessageId =
+      worktreeId === "main"
+        ? getLastSeenMessageId(messagesRef.current)
+        : getLastSeenMessageId(worktreesCurrent.get(worktreeId)?.messages);
     socket.send(
-      JSON.stringify({ type: "sync_worktree_messages", worktreeId })
+      JSON.stringify({
+        type: "sync_worktree_messages",
+        worktreeId,
+        lastSeenMessageId,
+      })
     );
-  }, []);
+  }, [getLastSeenMessageId]);
 
   const applyWorktreesList = useCallback((worktreesList) => {
     if (!Array.isArray(worktreesList)) {
@@ -2522,10 +2539,6 @@ function App() {
           }
         }
 
-        if (!isWorktreeScoped && payload.type === "messages_sync") {
-          mergeAndApplyMessages(payload.messages || []);
-        }
-
         // ============== Worktree WebSocket Handlers ==============
 
         if (payload.type === "worktree_created") {
@@ -2622,21 +2635,36 @@ function App() {
         }
 
         if (payload.type === "worktree_messages_sync") {
+          if (payload.worktreeId === "main") {
+            mergeAndApplyMessages(payload.messages || []);
+            return;
+          }
           setWorktrees((current) => {
             const next = new Map(current);
             const wt = next.get(payload.worktreeId);
             if (wt) {
-              const normalizedMessages = (payload.messages || []).map(
-                (message, index) => ({
-                  ...message,
-                  id: message?.id || `history-${index}`,
-                  attachments: normalizeAttachments(message?.attachments || []),
-                  toolResult: message?.toolResult,
-                })
+              const incoming = (payload.messages || []).map((message, index) => ({
+                ...message,
+                id: message?.id || `history-${index}`,
+                attachments: normalizeAttachments(message?.attachments || []),
+                toolResult: message?.toolResult,
+              }));
+              const seen = new Set(
+                wt.messages.map((message) => message?.id).filter(Boolean)
               );
+              const merged = [...wt.messages];
+              incoming.forEach((message) => {
+                if (message?.id && seen.has(message.id)) {
+                  return;
+                }
+                if (message?.id) {
+                  seen.add(message.id);
+                }
+                merged.push(message);
+              });
               next.set(payload.worktreeId, {
                 ...wt,
-                messages: normalizedMessages,
+                messages: merged,
                 status: payload.status || wt.status,
               });
             }

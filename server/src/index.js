@@ -32,6 +32,7 @@ import {
   abortMerge,
   cherryPickCommit,
   listWorktrees,
+  listStoredWorktrees,
   getWorktree,
   updateWorktreeStatus,
   updateWorktreeThreadId,
@@ -1403,17 +1404,12 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
         createdAt: Date.now(),
         lastActivityAt: Date.now(),
         sshKeyPath: sessionSshKeyPath,
-        messagesByProvider: {
-          codex: [],
-          claude: [],
-        },
-        messages: [],
         rpcLogs: [],
         threadId: null,
       };
-      session.messages = session.messagesByProvider[defaultProvider];
       await storage.saveSession(sessionId, session);
       sessionRecord = session;
+      await getWorktree(session, "main");
       await appendAuditLog(workspaceId, "session_created", { sessionId, repoUrl });
 
       // Create and start the initial provider client
@@ -1579,33 +1575,17 @@ const buildDirectoryTree = async (workspaceId, rootPath, options = {}) => {
   return { tree, total: count, truncated };
 };
 
-const appendSessionMessage = async (sessionId, message) => {
-  const session = await getSession(sessionId);
+const appendMainMessage = async (session, message) => {
   if (!session) {
     return;
   }
-  const provider = message?.provider || session.activeProvider || "codex";
-  const messagesByProvider = { ...(session.messagesByProvider || {}) };
-  if (!Array.isArray(messagesByProvider[provider])) {
-    messagesByProvider[provider] = [];
-  }
-  messagesByProvider[provider] = [...messagesByProvider[provider], message];
-  const messages =
-    session.activeProvider === provider
-      ? messagesByProvider[provider]
-      : session.messages || messagesByProvider[session.activeProvider] || [];
-  const updated = {
-    ...session,
-    messagesByProvider,
-    messages,
-    lastActivityAt: Date.now(),
-  };
-  await storage.saveSession(sessionId, updated);
+  await appendWorktreeMessage(session, "main", message);
 };
 
-const getMessagesSince = (session, provider, lastSeenMessageId) => {
-  const messages =
-    session?.messagesByProvider?.[provider] || session?.messages || [];
+const getMessagesSince = (messages, lastSeenMessageId) => {
+  if (!Array.isArray(messages)) {
+    return [];
+  }
   if (!lastSeenMessageId) {
     return messages;
   }
@@ -1823,6 +1803,7 @@ function attachClientEvents(sessionId, client, provider) {
         if (threadId) {
           const updated = { ...session, threadId, lastActivityAt: Date.now() };
           await storage.saveSession(sessionId, updated);
+          await updateWorktreeThreadId(session, "main", threadId);
         }
         break;
       }
@@ -1863,7 +1844,7 @@ function attachClientEvents(sessionId, client, provider) {
         case "item/completed": {
           const { item, turnId } = message.params;
           if (item?.type === "agentMessage") {
-            await appendSessionMessage(sessionId, {
+            await appendMainMessage(session, {
               id: item.id,
               role: "assistant",
               text: item.text,
@@ -1879,7 +1860,7 @@ function attachClientEvents(sessionId, client, provider) {
             void broadcastRepoDiff(sessionId);
           }
           if (item?.type === "commandExecution") {
-            await appendSessionMessage(sessionId, {
+            await appendMainMessage(session, {
               id: item.id,
               role: "tool_result",
               text: item.aggregatedOutput || "",
@@ -2024,30 +2005,6 @@ function attachClientEventsForWorktree(sessionId, worktree) {
   const worktreeId = worktree.id;
   const provider = worktree.provider;
 
-  const appendAssistantIfNew = async (text) => {
-    if (!text) return;
-    const session = await getSession(sessionId);
-    if (!session) return;
-    const current = await getWorktree(session, worktreeId);
-    if (!current) return;
-    const messages = Array.isArray(current.messages) ? current.messages : [];
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const message = messages[i];
-      if (message?.role === "assistant") {
-        if ((message.text || "").trim() === text.trim()) {
-          return;
-        }
-        break;
-      }
-    }
-    await appendWorktreeMessage(session, worktreeId, {
-      id: `assistant-${Date.now()}`,
-      role: "assistant",
-      text,
-      provider,
-    });
-  };
-
   client.on("ready", ({ threadId }) => {
     void (async () => {
       const session = await getSession(sessionId);
@@ -2114,20 +2071,6 @@ function attachClientEventsForWorktree(sessionId, worktree) {
             text,
             provider,
           });
-        }
-        break;
-      }
-      case "codex/event/agent_message": {
-        const text = message?.params?.msg?.message || "";
-        if (text) {
-          await appendAssistantIfNew(text);
-        }
-        break;
-      }
-      case "codex/event/task_complete": {
-        const text = message?.params?.msg?.last_agent_message || "";
-        if (text) {
-          await appendAssistantIfNew(text);
         }
         break;
       }
@@ -2416,7 +2359,7 @@ const ensureClaudeWorktreeClients = async (session) => {
   if (!runtime) {
     return;
   }
-  const worktrees = await storage.listWorktrees(session.sessionId);
+  const worktrees = await listStoredWorktrees(session);
   const claudeWorktrees = worktrees.filter((wt) => wt?.provider === "claude");
   if (!claudeWorktrees.length) {
     return;
@@ -2464,7 +2407,7 @@ const ensureCodexWorktreeClients = async (session) => {
   if (!runtime) {
     return;
   }
-  const worktrees = await storage.listWorktrees(session.sessionId);
+  const worktrees = await listStoredWorktrees(session);
   const codexWorktrees = worktrees.filter((wt) => wt?.provider === "codex");
   if (!codexWorktrees.length) {
     return;
@@ -2546,7 +2489,7 @@ function attachClaudeEvents(sessionId, client, provider) {
       const session = await getSession(sessionId);
       if (session?.activeProvider !== provider) return;
 
-      await appendSessionMessage(sessionId, { id, role: "assistant", text, provider });
+      await appendMainMessage(session, { id, role: "assistant", text, provider });
       broadcastToSession(sessionId, {
         type: "assistant_message",
         text,
@@ -2563,7 +2506,7 @@ function attachClaudeEvents(sessionId, client, provider) {
       const session = await getSession(sessionId);
       if (session?.activeProvider !== provider) return;
 
-      await appendSessionMessage(sessionId, {
+      await appendMainMessage(session, {
         id: payload.itemId,
         role: "tool_result",
         text: payload.item?.aggregatedOutput || "",
@@ -2714,25 +2657,6 @@ wss.on("connection", (socket, req) => {
 
     if (payload.type === "ping") {
       socket.send(JSON.stringify({ type: "pong" }));
-      return;
-    }
-
-    if (payload.type === "sync_messages") {
-      const provider = isValidProvider(payload.provider)
-        ? payload.provider
-        : session.activeProvider || "codex";
-      const messages = getMessagesSince(
-        session,
-        provider,
-        payload.lastSeenMessageId || null
-      );
-      socket.send(
-        JSON.stringify({
-          type: "messages_sync",
-          provider,
-          messages,
-        })
-      );
       return;
     }
 
@@ -2985,12 +2909,23 @@ wss.on("connection", (socket, req) => {
         return;
       }
 
+      const messages = getMessagesSince(
+        worktree?.messages || [],
+        payload.lastSeenMessageId || null
+      );
+      const status =
+        worktreeId === "main"
+          ? getActiveClient(session)?.ready
+            ? "ready"
+            : "starting"
+          : worktree.status;
+
       socket.send(
         JSON.stringify({
           type: "worktree_messages_sync",
           worktreeId,
-          messages: worktree.messages,
-          status: worktree.status,
+          messages,
+          status,
         })
       );
       return;
@@ -3013,7 +2948,7 @@ wss.on("connection", (socket, req) => {
       try {
         const provider = session.activeProvider;
         const result = await client.sendTurn(payload.text);
-        await appendSessionMessage(sessionId, {
+        await appendMainMessage(session, {
           id: createMessageId(),
           role: "user",
           text: payload.displayText || payload.text,
@@ -3203,8 +3138,10 @@ wss.on("connection", (socket, req) => {
 
       if (session.activeProvider === newProvider) {
         // Already on this provider, just confirm
-        const messages =
-          session.messagesByProvider?.[newProvider] || session.messages || [];
+        const mainWorktree = await getWorktree(session, "main");
+        const messages = Array.isArray(mainWorktree?.messages)
+          ? mainWorktree.messages
+          : [];
         socket.send(
           JSON.stringify({
             type: "provider_switched",
@@ -3234,23 +3171,10 @@ wss.on("connection", (socket, req) => {
         }
 
         // Switch active provider
-        const previousProvider = session.activeProvider || "codex";
         session.activeProvider = newProvider;
-        if (!session.messagesByProvider) {
-          session.messagesByProvider = {};
-          if (Array.isArray(session.messages) && session.messages.length > 0) {
-            session.messagesByProvider[previousProvider] = session.messages;
-          }
-        }
-        if (!Array.isArray(session.messagesByProvider[newProvider])) {
-          session.messagesByProvider[newProvider] = [];
-        }
-        session.messages = session.messagesByProvider[newProvider];
         await storage.saveSession(sessionId, {
           ...session,
           activeProvider: newProvider,
-          messagesByProvider: session.messagesByProvider,
-          messages: session.messages,
           lastActivityAt: Date.now(),
         });
 
@@ -3270,11 +3194,15 @@ wss.on("connection", (socket, req) => {
         }
 
         // Broadcast to all connected sockets
+        const mainWorktree = await getWorktree(session, "main");
+        const messages = Array.isArray(mainWorktree?.messages)
+          ? mainWorktree.messages
+          : [];
         broadcastToSession(sessionId, {
           type: "provider_switched",
           provider: newProvider,
           models,
-          messages: session.messagesByProvider[newProvider],
+          messages,
           threadId: newClient.threadId || null,
         });
       } catch (error) {
@@ -3598,8 +3526,10 @@ app.get("/api/session/:sessionId", async (req, res) => {
   await touchSession(session);
   const repoDiff = await getRepoDiff(session);
   const activeProvider = session.activeProvider || "codex";
-  const messages =
-    session.messagesByProvider?.[activeProvider] || session.messages || [];
+  const mainWorktree = await getWorktree(session, "main");
+  const messages = Array.isArray(mainWorktree?.messages)
+    ? mainWorktree.messages
+    : [];
   res.json({
     sessionId: req.params.sessionId,
     workspaceId: session.workspaceId,
@@ -3761,23 +3691,8 @@ app.post("/api/session/:sessionId/clear", async (req, res) => {
     res.json({ ok: true, worktreeId });
     return;
   }
-  const provider = isValidProvider(req.body?.provider)
-    ? req.body.provider
-    : session.activeProvider || "codex";
-  if (!session.messagesByProvider) {
-    session.messagesByProvider = {};
-  }
-  session.messagesByProvider[provider] = [];
-  if (session.activeProvider === provider) {
-    session.messages = session.messagesByProvider[provider];
-  }
-  await storage.saveSession(session.sessionId, {
-    ...session,
-    messagesByProvider: session.messagesByProvider,
-    messages: session.messages,
-    lastActivityAt: Date.now(),
-  });
-  res.json({ ok: true, provider });
+  await clearWorktreeMessages(session, "main");
+  res.json({ ok: true, worktreeId: "main" });
 });
 
 app.post("/api/session", async (req, res) => {

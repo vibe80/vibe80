@@ -129,7 +129,7 @@ class WebSocketManager(
                                 is WorktreeMessageRequest -> "worktree_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
                                 is CreateWorktreeRequest -> "create_worktree" to json.encodeToString(CreateWorktreeRequest.serializer(), message)
                                 is ListWorktreesRequest -> "list_worktrees" to json.encodeToString(ListWorktreesRequest.serializer(), message)
-                                is SyncMessagesRequest -> "sync_messages" to json.encodeToString(SyncMessagesRequest.serializer(), message)
+                                is SyncWorktreeMessagesRequest -> "sync_worktree_messages" to json.encodeToString(SyncWorktreeMessagesRequest.serializer(), message)
                             }
                             AppLogger.wsSend(messageType, jsonString)
                             send(Frame.Text(jsonString))
@@ -211,7 +211,7 @@ class WebSocketManager(
                 "turn_error" -> json.decodeFromString<TurnErrorMessage>(text)
                 "error" -> json.decodeFromString<ErrorMessage>(text)
                 "provider_switched" -> json.decodeFromString<ProviderSwitchedMessage>(text)
-                "messages_sync" -> json.decodeFromString<MessagesSyncMessage>(text)
+                "worktree_messages_sync" -> json.decodeFromString<WorktreeMessagesSyncMessage>(text)
                 "worktree_created" -> parseWorktreeCreated(jsonObject, text)
                 "worktree_updated" -> json.decodeFromString<WorktreeUpdatedMessage>(text)
                 "worktree_message" -> json.decodeFromString<WorktreeMessageEvent>(text)

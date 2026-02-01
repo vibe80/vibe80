@@ -5,6 +5,23 @@ import storage from "./storage/index.js";
 import { getSessionRuntime } from "./runtimeStore.js";
 import { createWorktreeClient } from "./clientFactory.js";
 
+const MAIN_WORKTREE_SENTINEL = "main";
+const MAIN_WORKTREE_PREFIX = "main-";
+
+export const getMainWorktreeStorageId = (sessionId) =>
+  `${MAIN_WORKTREE_PREFIX}${sessionId}`;
+
+const resolveWorktreeStorageId = (session, worktreeId) => {
+  if (!worktreeId) return worktreeId;
+  if (worktreeId === MAIN_WORKTREE_SENTINEL) {
+    return getMainWorktreeStorageId(session.sessionId);
+  }
+  return worktreeId;
+};
+
+const isMainWorktreeStorageId = (session, worktreeId) =>
+  worktreeId === getMainWorktreeStorageId(session.sessionId);
+
 // Palette de couleurs pour distinguer les worktrees
 const WORKTREE_COLORS = [
   "#3b82f6", // blue
@@ -92,6 +109,38 @@ const loadWorktree = async (worktreeId) => {
   return storage.getWorktree(worktreeId);
 };
 
+const ensureMainWorktree = async (session) => {
+  const worktreeId = getMainWorktreeStorageId(session.sessionId);
+  const existing = await loadWorktree(worktreeId);
+  if (existing) return existing;
+  const branchName = await resolveCurrentBranchName(session);
+  const seedMessages = Array.isArray(session?.messages)
+    ? session.messages
+    : session?.messagesByProvider?.[session.activeProvider] || [];
+  const worktree = {
+    id: worktreeId,
+    sessionId: session.sessionId,
+    name: branchName || "main",
+    branchName: branchName || "main",
+    threadId: session.threadId || null,
+    path: session.repoDir,
+    provider: session.activeProvider || "codex",
+    model: null,
+    reasoningEffort: null,
+    internetAccess: Boolean(session.defaultInternetAccess),
+    startingBranch: branchName || null,
+    workspaceId: session.workspaceId,
+    messages: Array.isArray(seedMessages) ? seedMessages : [],
+    status: "ready",
+    parentWorktreeId: null,
+    createdAt: new Date().toISOString(),
+    lastActivityAt: new Date().toISOString(),
+    color: getNextColor(),
+  };
+  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(worktree));
+  return worktree;
+};
+
 /**
  * Génère un nom de worktree à partir du premier message ou un nom par défaut
  */
@@ -128,7 +177,7 @@ export async function createWorktree(session, options) {
   await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", worktreesDir]);
 
   const worktreeId = crypto.randomBytes(8).toString("hex");
-  const existingWorktrees = await storage.listWorktrees(session.sessionId);
+  const existingWorktrees = await listStoredWorktrees(session);
   const worktreeIndex = existingWorktrees.length + 1;
   const requestedBranchName = normalizeBranchName(name);
   const worktreePath = path.join(worktreesDir, worktreeId);
@@ -277,13 +326,17 @@ export async function createWorktree(session, options) {
  * Supprime un worktree
  */
 export async function removeWorktree(session, worktreeId, deleteBranch = true) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  if (isMainWorktreeStorageId(session, resolvedId)) {
+    throw new Error("Main worktree cannot be removed");
+  }
+  const worktree = await loadWorktree(resolvedId);
   if (!worktree) {
     throw new Error("Worktree not found");
   }
 
   const runtime = getSessionRuntime(session.sessionId);
-  const client = runtime?.worktreeClients?.get(worktreeId);
+  const client = runtime?.worktreeClients?.get(resolvedId);
   if (client) {
     try {
       if (typeof client.stop === "function") {
@@ -292,7 +345,7 @@ export async function removeWorktree(session, worktreeId, deleteBranch = true) {
     } catch (error) {
       console.error("Error stopping worktree client:", error);
     }
-    runtime.worktreeClients.delete(worktreeId);
+    runtime.worktreeClients.delete(resolvedId);
   }
 
   await runSessionCommand(
@@ -312,12 +365,13 @@ export async function removeWorktree(session, worktreeId, deleteBranch = true) {
     }
   }
 
-  await storage.deleteWorktree(session.sessionId, worktreeId);
+  await storage.deleteWorktree(session.sessionId, resolvedId);
   await touchSession(session);
 }
 
 export async function getWorktreeDiff(session, worktreeId) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  const worktree = await loadWorktree(resolvedId);
   if (!worktree) {
     throw new Error("Worktree not found");
   }
@@ -331,7 +385,8 @@ export async function getWorktreeDiff(session, worktreeId) {
 }
 
 export async function getWorktreeCommits(session, worktreeId, limit = 20) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  const worktree = await loadWorktree(resolvedId);
   if (!worktree) {
     throw new Error("Worktree not found");
   }
@@ -354,11 +409,11 @@ export async function getWorktreeCommits(session, worktreeId, limit = 20) {
 }
 
 export async function mergeWorktree(session, sourceWorktreeId, targetWorktreeId) {
-  const source = await loadWorktree(sourceWorktreeId);
+  const source = await loadWorktree(resolveWorktreeStorageId(session, sourceWorktreeId));
   if (!source) {
     throw new Error("Source worktree not found");
   }
-  const target = await loadWorktree(targetWorktreeId);
+  const target = await loadWorktree(resolveWorktreeStorageId(session, targetWorktreeId));
   if (!target) {
     throw new Error("Target worktree not found");
   }
@@ -387,7 +442,7 @@ export async function mergeWorktree(session, sourceWorktreeId, targetWorktreeId)
 }
 
 export async function abortMerge(session, worktreeId) {
-  const worktree = await loadWorktree(worktreeId);
+  const worktree = await loadWorktree(resolveWorktreeStorageId(session, worktreeId));
   if (!worktree) {
     throw new Error("Worktree not found");
   }
@@ -395,7 +450,7 @@ export async function abortMerge(session, worktreeId) {
 }
 
 export async function cherryPickCommit(session, commitSha, targetWorktreeId) {
-  const target = await loadWorktree(targetWorktreeId);
+  const target = await loadWorktree(resolveWorktreeStorageId(session, targetWorktreeId));
   if (!target) {
     throw new Error("Target worktree not found");
   }
@@ -422,8 +477,13 @@ export async function cherryPickCommit(session, commitSha, targetWorktreeId) {
   }
 }
 
-export async function listWorktrees(session) {
+export async function listStoredWorktrees(session) {
   const worktrees = await storage.listWorktrees(session.sessionId);
+  return worktrees.filter((wt) => !isMainWorktreeStorageId(session, wt?.id));
+}
+
+export async function listWorktrees(session) {
+  const worktrees = await listStoredWorktrees(session);
   return worktrees.map((wt) => ({
     id: wt.id,
     name: wt.name,
@@ -440,39 +500,50 @@ export async function listWorktrees(session) {
 }
 
 export async function getWorktree(session, worktreeId) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  if (isMainWorktreeStorageId(session, resolvedId)) {
+    const mainWorktree = await ensureMainWorktree(session);
+    return mainWorktree;
+  }
+  const worktree = await loadWorktree(resolvedId);
   if (!worktree) return null;
   const runtime = getSessionRuntime(session.sessionId);
-  if (runtime?.worktreeClients?.has(worktreeId)) {
-    worktree.client = runtime.worktreeClients.get(worktreeId);
+  if (runtime?.worktreeClients?.has(resolvedId)) {
+    worktree.client = runtime.worktreeClients.get(resolvedId);
   }
   return worktree;
 }
 
 export async function updateWorktreeStatus(session, worktreeId, status) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  const worktree = await loadWorktree(resolvedId);
   if (!worktree) return;
   const updated = {
     ...worktree,
     status,
     lastActivityAt: new Date().toISOString(),
   };
-  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
+  await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));
 }
 
 export async function updateWorktreeThreadId(session, worktreeId, threadId) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  const worktree = await loadWorktree(resolvedId);
   if (!worktree || !threadId) return;
   const updated = {
     ...worktree,
     threadId,
     lastActivityAt: new Date().toISOString(),
   };
-  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
+  await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));
 }
 
 export async function appendWorktreeMessage(session, worktreeId, message) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  let worktree = await loadWorktree(resolvedId);
+  if (!worktree && isMainWorktreeStorageId(session, resolvedId)) {
+    worktree = await ensureMainWorktree(session);
+  }
   if (!worktree) return;
   const nextMessages = Array.isArray(worktree.messages)
     ? [...worktree.messages, message]
@@ -485,23 +556,29 @@ export async function appendWorktreeMessage(session, worktreeId, message) {
     messages: nextMessages,
     lastActivityAt: new Date().toISOString(),
   };
-  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
+  await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));
 }
 
 export async function clearWorktreeMessages(session, worktreeId) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  let worktree = await loadWorktree(resolvedId);
+  if (!worktree && isMainWorktreeStorageId(session, resolvedId)) {
+    worktree = await ensureMainWorktree(session);
+  }
   if (!worktree) return;
   const updated = {
     ...worktree,
     messages: [],
     lastActivityAt: new Date().toISOString(),
   };
-  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
+  await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));
 }
 
 export async function renameWorktree(session, worktreeId, newName) {
-  const worktree = await loadWorktree(worktreeId);
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  if (isMainWorktreeStorageId(session, resolvedId)) return;
+  const worktree = await loadWorktree(resolvedId);
   if (!worktree || !newName) return;
   const updated = { ...worktree, name: newName };
-  await storage.saveWorktree(session.sessionId, worktreeId, serializeWorktree(updated));
+  await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));
 }
