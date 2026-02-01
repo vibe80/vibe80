@@ -996,6 +996,10 @@ main.chat {
   margin: 0;
 }
 
+.conversation.is-chat-full .composer {
+  max-width: none;
+}
+
 .pane-stack {
   flex: 1;
   min-height: 0;
@@ -3048,15 +3052,15 @@ main.chat {
   box-shadow: var(--shadow);
   align-items: stretch;
   position: relative;
-  width: max-content;
-  max-width: calc(100% - 24px);
+  width: 100%;
+  max-width: var(--chat-max-width);
 }
 
 .composer-inner {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: auto;
+  width: 100%;
 }
 
 .composer-attach-button {
@@ -3088,15 +3092,18 @@ main.chat {
 
 .composer--sticky {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 12px;
   z-index: 20;
-  transform: translateX(-50%);
+  transform: none;
   margin: 0;
+  display: flex;
+  justify-content: center;
 }
 
 .composer-input {
-  width: clamp(240px, 36vw, 520px);
+  width: 100%;
   min-height: var(--composer-control-height);
   border-radius: 16px;
   border: none;
@@ -3126,7 +3133,7 @@ main.chat {
 
 .composer-main {
   display: grid;
-  grid-template-columns: auto auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: flex-end;
 }
@@ -3615,10 +3622,13 @@ main.chat {
   }
 
   .layout.is-mobile .composer--sticky {
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    transform: none;
     bottom: calc(8px + env(safe-area-inset-bottom));
     margin: 0;
+    display: flex;
+    justify-content: center;
   }
 
   .layout.is-mobile .side {
@@ -3638,7 +3648,7 @@ main.chat {
   }
 
   .layout.is-mobile .composer-main {
-    grid-template-columns: auto auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 8px;
     align-items: center;
   }
@@ -3653,7 +3663,7 @@ main.chat {
 
   .layout.is-mobile .composer-input {
     min-height: var(--composer-control-height);
-    width: clamp(200px, 60vw, 420px);
+    width: 100%;
     padding: 10px 12px;
     overflow: auto;
   }
