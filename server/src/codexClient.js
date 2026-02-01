@@ -80,7 +80,6 @@ export class CodexAppServerClient extends EventEmitter {
 
     await spawnReady;
     await this.#initialize();
-    await this.#configureSandbox();
     await this.#startThread();
     this.ready = true;
     this.emit("ready", { threadId: this.threadId });
@@ -195,43 +194,24 @@ export class CodexAppServerClient extends EventEmitter {
     });
   }
 
-  async #configureSandbox() {
+  async #startThread() {
     const writableRoots = [
       this.cwd,
       this.repoDir,
-      this.attachmentsDir,
+      this.attachmentsDir
     ]
-      .filter(Boolean)
-      .filter((value, index, self) => self.indexOf(value) === index);
-    await this.#sendRequest("config/batchWrite", {
-      edits: [
-        {
-          keyPath: "sandbox_mode",
-          mergeStrategy: "replace",
-          value: "workspace-write",
-        },
-        {
-          keyPath: "sandbox_workspace_write.writable_roots",
-          mergeStrategy: "replace",
-          value: writableRoots,
-        },
-        {
-          keyPath: "sandbox_workspace_write.network_access",
-          mergeStrategy: "replace",
-          value: Boolean(this.internetAccess),
-        },
-        {
-          keyPath: "developer_instructions",
-          mergeStrategy: "replace",
-          value: SYSTEM_PROMPT,
-        },
-      ],
-    });
-  }
 
-  async #startThread() {
     const result = await this.#sendRequest("thread/start", {
       cwd: this.cwd,
+      config: {
+        // Reserved for future usage
+        // "developer_instructions": "",
+        "sandbox_workspace_write.writable_roots": writableRoots,
+        "sandbox_workspace_write.network_access": Boolean(this.internetAccess),
+        "web_search": this.internetAccess? "live":"disabled"
+      },
+      includePlanTool: true,
+      baseInstructions: SYSTEM_PROMPT,
       sandbox: "workspace-write",
       approvalPolicy: "never"
     });
