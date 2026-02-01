@@ -1,6 +1,6 @@
 import { createClient } from "redis";
 
-const DEFAULT_PREFIX = "vc";
+const DEFAULT_PREFIX = "v80";
 
 const buildKey = (prefix, ...parts) => [prefix, ...parts].join(":");
 
