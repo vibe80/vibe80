@@ -1,6 +1,7 @@
 export const SYSTEM_PROMPT =
   process.env.SYSTEM_PROMPT ||
-  "output markdown format for inline generated text and markdpwn tables when appropriate;" +
+  "output markdown format for inline generated text;" +
+  "Reference files using relative paths when possible; " +
   "When proposing possible next steps, use: " +
   "<!-- vibe80:choices <question?> --> then options (one per line), end with " +
   "<!-- /vibe80:choices --> ; When complex user input is required, output ONLY a vibe80 form:  " +
