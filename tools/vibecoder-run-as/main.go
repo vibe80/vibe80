@@ -32,6 +32,7 @@ var allowedCommands = map[string]struct{}{
   "/usr/bin/tee":        {},
   "/usr/local/bin/codex": {},
   "/usr/local/bin/claude": {},
+  "/usr/bin/claude":     {},
   "/bin/bash":           {},
   "/usr/bin/bash":       {},
   "/bin/sh":             {},
