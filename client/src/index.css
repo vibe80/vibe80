@@ -3104,6 +3104,7 @@ main.chat {
   z-index: 20;
   transform: translateX(-50%);
   margin: 0;
+  margin-left: 42px;
 }
 
 .composer-input {
