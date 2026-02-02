@@ -252,17 +252,6 @@ class ApiClient(
     }
 
     /**
-     * Get worktree state including messages
-     */
-    suspend fun getWorktree(sessionId: String, worktreeId: String): Result<WorktreeGetResponse> {
-        return runCatching {
-            httpClient.get("$baseUrl/api/worktree/$worktreeId") {
-                parameter("session", sessionId)
-            }.body()
-        }
-    }
-
-    /**
      * Get worktree diff
      */
     suspend fun getWorktreeDiff(sessionId: String, worktreeId: String): Result<WorktreeDiffResponse> {
