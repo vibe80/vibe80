@@ -709,6 +709,7 @@ function App() {
     secret: false,
   });
   const [toast, setToast] = useState(null);
+  const [workspaceProvidersEditing, setWorkspaceProvidersEditing] = useState(false);
   const [workspaceProviders, setWorkspaceProviders] = useState(() => ({
     codex: { enabled: false, authType: "api_key", authValue: "" },
     claude: { enabled: false, authType: "auth_json_b64", authValue: "" },
@@ -3384,6 +3385,7 @@ function App() {
         setWorkspaceStep(4);
         return;
       }
+      setWorkspaceProvidersEditing(false);
       setWorkspaceStep(2);
     } catch (error) {
       setWorkspaceError(error.message || "Echec de la configuration du workspace.");
@@ -3417,6 +3419,29 @@ function App() {
       });
       if (Object.keys(providersPayload).length === 0) {
         throw new Error("Selectionnez au moins un provider.");
+      }
+      if (workspaceProvidersEditing) {
+        const activeWorkspaceId = (workspaceId || workspaceIdInput || "").trim();
+        if (!activeWorkspaceId) {
+          throw new Error("Workspace ID requis.");
+        }
+        const updateResponse = await apiFetch(
+          `/api/workspaces/${encodeURIComponent(activeWorkspaceId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ providers: providersPayload }),
+          }
+        );
+        if (!updateResponse.ok) {
+          const payload = await updateResponse.json().catch(() => null);
+          throw new Error(payload?.error || "Echec de mise a jour du workspace.");
+        }
+        await updateResponse.json().catch(() => null);
+        setWorkspaceProvidersEditing(false);
+        setWorkspaceStep(4);
+        setToast({ type: "success", message: "Providers IA mis a jour." });
+        return;
       }
       const createResponse = await apiFetch("/api/workspaces", {
         method: "POST",
@@ -4418,6 +4443,7 @@ function App() {
     setWorkspaceSessionsError("");
     setWorkspaceSessionsLoading(false);
     setWorkspaceStep(1);
+    setWorkspaceProvidersEditing(false);
   }, []);
 
   const handleDiffSelect = useCallback(() => {
@@ -5073,7 +5099,7 @@ function App() {
     const formDisabled = workspaceBusy || sessionRequested;
     const workspaceProvider = (providerKey) => workspaceProviders[providerKey] || {};
     const showStep1 = workspaceStep === 1;
-    const showStep2 = workspaceStep === 2 && workspaceMode === "new";
+    const showStep2 = workspaceStep === 2;
     const showStep3 = workspaceStep === 3 && workspaceToken;
     const showStep4 = workspaceStep === 4 && workspaceToken;
     return (
@@ -5307,7 +5333,14 @@ function App() {
                   <button
                     type="button"
                     className="session-button secondary"
-                    onClick={() => setWorkspaceStep(1)}
+                    onClick={() => {
+                      if (workspaceProvidersEditing) {
+                        setWorkspaceProvidersEditing(false);
+                        setWorkspaceStep(4);
+                        return;
+                      }
+                      setWorkspaceStep(1);
+                    }}
                     disabled={formDisabled}
                   >
                     Retour
@@ -5317,7 +5350,11 @@ function App() {
                     className="session-button primary"
                     disabled={formDisabled}
                   >
-                    {workspaceBusy ? "Validation..." : "Continuer"}
+                    {workspaceBusy
+                      ? "Validation..."
+                      : workspaceProvidersEditing
+                        ? "Enregistrer"
+                        : "Continuer"}
                   </button>
                 </div>
               </form>
@@ -5665,14 +5702,25 @@ function App() {
                         session.
                       </div>
                     </div>
-                    <div className="session-form-row">
-                      <div />
+                    <div className="session-form-row is-actions">
                       <button
                         type="submit"
                         className="session-button primary"
                         disabled={formDisabled}
                       >
                         {sessionRequested ? "Chargement..." : "Cloner"}
+                      </button>
+                      <button
+                        type="button"
+                        className="session-button secondary"
+                        disabled={formDisabled}
+                        onClick={() => {
+                          setWorkspaceProvidersEditing(true);
+                          setWorkspaceError("");
+                          setWorkspaceStep(2);
+                        }}
+                      >
+                        Providers IA
                       </button>
                     </div>
                   </form>
