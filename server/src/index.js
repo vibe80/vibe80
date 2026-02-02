@@ -3549,6 +3549,21 @@ app.get("/api/session/:sessionId", async (req, res) => {
   });
 });
 
+app.delete("/api/session/:sessionId", async (req, res) => {
+  const sessionId = req.params.sessionId;
+  const session = await getSession(sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  try {
+    await cleanupSession(sessionId, "user_request");
+    res.json({ ok: true, sessionId });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete session." });
+  }
+});
+
 app.get("/api/session/:sessionId/last-commit", async (req, res) => {
   const session = await getSession(req.params.sessionId, req.workspaceId);
   if (!session) {

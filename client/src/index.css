@@ -233,9 +233,46 @@ body {
   cursor: pointer;
 }
 
+.session-list-button.is-danger {
+  background: #e05a4f;
+}
+
 .session-list-button:disabled {
   background: #d6c6b8;
   cursor: not-allowed;
+}
+
+.session-item-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.toast-container {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  background: var(--surface);
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 12px 24px rgba(20, 19, 17, 0.16);
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 320px;
+}
+
+.toast.is-success {
+  border-color: rgba(46, 125, 50, 0.4);
+  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.12);
 }
 
 .app {

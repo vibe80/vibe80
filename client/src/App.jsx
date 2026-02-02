@@ -615,6 +615,8 @@ function App() {
   const [workspaceSessions, setWorkspaceSessions] = useState([]);
   const [workspaceSessionsLoading, setWorkspaceSessionsLoading] = useState(false);
   const [workspaceSessionsError, setWorkspaceSessionsError] = useState("");
+  const [workspaceSessionDeletingId, setWorkspaceSessionDeletingId] = useState(null);
+  const [toast, setToast] = useState(null);
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [handoffQrDataUrl, setHandoffQrDataUrl] = useState("");
   const [handoffExpiresAt, setHandoffExpiresAt] = useState(null);
@@ -659,6 +661,7 @@ function App() {
     readComposerInputMode
   );
   const soundEnabled = notificationsEnabled;
+  const toastTimeoutRef = useRef(null);
   const [gitIdentityName, setGitIdentityName] = useState("");
   const [gitIdentityEmail, setGitIdentityEmail] = useState("");
   const [gitIdentityGlobal, setGitIdentityGlobal] = useState({
@@ -3393,6 +3396,70 @@ function App() {
     }
   };
 
+  const showToast = useCallback((message, type = "success") => {
+    setToast({ message, type });
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleDeleteSession = async (session) => {
+    const sessionId = session?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    const repoName = extractRepoName(session?.repoUrl || "");
+    const title = repoName || sessionId;
+    const shouldDelete = window.confirm(
+      `Supprimer la session "${title}" ? Cette action est irreversible.`
+    );
+    if (!shouldDelete) {
+      return;
+    }
+    try {
+      setWorkspaceSessionDeletingId(sessionId);
+      setWorkspaceSessionsError("");
+      const response = await apiFetch(
+        `/api/session/${encodeURIComponent(sessionId)}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) {
+        let details = "";
+        try {
+          const payload = await response.json();
+          if (typeof payload?.error === "string") {
+            details = payload.error;
+          }
+        } catch (error) {
+          // Ignore parse errors.
+        }
+        const suffix = details ? `: ${details}` : "";
+        throw new Error(`Impossible de supprimer la session${suffix}.`);
+      }
+      await loadWorkspaceSessions();
+      showToast(`Session "${title}" supprimee.`, "success");
+    } catch (error) {
+      setWorkspaceSessionsError(
+        error.message || "Impossible de supprimer la session."
+      );
+    } finally {
+      setWorkspaceSessionDeletingId(null);
+    }
+  };
+
   const onRepoSubmit = async (event) => {
     event.preventDefault();
     const hasSession = Boolean(attachmentSession?.sessionId);
@@ -5170,6 +5237,8 @@ function App() {
                           : session.createdAt
                             ? new Date(session.createdAt).toLocaleString("fr-FR")
                             : "";
+                        const isDeleting =
+                          workspaceSessionDeletingId === session.sessionId;
                         return (
                           <li key={session.sessionId} className="session-item">
                             <div className="session-item-meta">
@@ -5181,16 +5250,28 @@ function App() {
                                 </div>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              className="session-list-button"
-                              onClick={() =>
-                                handleResumeSession(session.sessionId)
-                              }
-                              disabled={formDisabled}
-                            >
-                              Reprendre
-                            </button>
+                            <div className="session-item-actions">
+                              <button
+                                type="button"
+                                className="session-list-button"
+                                onClick={() =>
+                                  handleResumeSession(session.sessionId)
+                                }
+                                disabled={formDisabled || isDeleting}
+                              >
+                                Reprendre
+                              </button>
+                              <button
+                                type="button"
+                                className="session-list-button is-danger"
+                                onClick={() =>
+                                  handleDeleteSession(session)
+                                }
+                                disabled={formDisabled || isDeleting}
+                              >
+                                {isDeleting ? "Suppression..." : "Supprimer"}
+                              </button>
+                            </div>
                           </li>
                         );
                       })}
@@ -5354,6 +5435,13 @@ function App() {
             </>
           )}
         </div>
+        {toast && (
+          <div className="toast-container">
+            <div className={`toast is-${toast.type || "success"}`}>
+              {toast.message}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
