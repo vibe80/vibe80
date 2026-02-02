@@ -1667,6 +1667,27 @@ function App() {
     [applyMessages]
   );
 
+  const loadMainWorktreeSnapshot = useCallback(async () => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return;
+    }
+    try {
+      const response = await apiFetch(
+        `/api/worktree/main?session=${encodeURIComponent(sessionId)}`
+      );
+      if (!response.ok) {
+        return;
+      }
+      const payload = await response.json().catch(() => ({}));
+      if (Array.isArray(payload?.messages)) {
+        applyMessages(payload.messages);
+      }
+    } catch (error) {
+      // Ignore snapshot failures; WS sync will retry.
+    }
+  }, [attachmentSession?.sessionId, apiFetch, applyMessages]);
+
   const resyncSession = useCallback(async () => {
     const sessionId = attachmentSession?.sessionId;
     if (!sessionId) {
@@ -1693,9 +1714,6 @@ function App() {
           setClaudeReady(filtered.includes("claude"));
         }
       }
-      if (Array.isArray(data?.messages)) {
-        applyMessages(data.messages);
-      }
       if (data?.repoDiff) {
         setRepoDiff(data.repoDiff);
       }
@@ -1711,10 +1729,16 @@ function App() {
       if (typeof data?.terminalEnabled === "boolean") {
         setTerminalEnabled(data.terminalEnabled);
       }
+      void loadMainWorktreeSnapshot();
     } catch (error) {
       // Ignore resync failures; reconnect loop will retry.
     }
-  }, [attachmentSession?.sessionId, applyMessages, llmProvider, apiFetch]);
+  }, [
+    attachmentSession?.sessionId,
+    llmProvider,
+    apiFetch,
+    loadMainWorktreeSnapshot,
+  ]);
 
   const getLastSeenMessageId = useCallback((items) => {
     if (!Array.isArray(items)) {
@@ -3533,7 +3557,7 @@ function App() {
     if (!attachmentSession?.sessionId) {
       return;
     }
-    applyMessages(attachmentSession.messages || []);
+    void loadMainWorktreeSnapshot();
     setRepoDiff(attachmentSession.repoDiff || { status: "", diff: "" });
     const logsEnabled =
       typeof attachmentSession.rpcLogsEnabled === "boolean"
@@ -3543,7 +3567,7 @@ function App() {
     setRpcLogs(logsEnabled ? attachmentSession.rpcLogs || [] : []);
     setStatus("Connexion...");
     setConnected(false);
-  }, [attachmentSession?.sessionId, applyMessages, messageIndex]);
+  }, [attachmentSession?.sessionId, loadMainWorktreeSnapshot, messageIndex]);
 
   useEffect(() => {
     if (typeof attachmentSession?.defaultInternetAccess === "boolean") {
