@@ -23,6 +23,7 @@ import {
   faGear,
   faPaperclip,
   faPlus,
+  faCheck,
   faRightFromBracket,
   faTerminal,
   faTowerBroadcast,
@@ -702,6 +703,10 @@ function App() {
   const [workspaceSessionsLoading, setWorkspaceSessionsLoading] = useState(false);
   const [workspaceSessionsError, setWorkspaceSessionsError] = useState("");
   const [workspaceSessionDeletingId, setWorkspaceSessionDeletingId] = useState(null);
+  const [workspaceCopied, setWorkspaceCopied] = useState({
+    id: false,
+    secret: false,
+  });
   const [toast, setToast] = useState(null);
   const [workspaceProviders, setWorkspaceProviders] = useState(() => ({
     codex: { enabled: false, authType: "api_key", authValue: "" },
@@ -810,6 +815,7 @@ function App() {
   const [closeConfirm, setCloseConfirm] = useState(null);
   const [terminalEnabled, setTerminalEnabled] = useState(true);
   const explorerRef = useRef({});
+  const workspaceCopyTimersRef = useRef({ id: null, secret: null });
   // Worktree states for parallel LLM requests
   const [worktrees, setWorktrees] = useState(new Map());
   const worktreesRef = useRef(new Map());
@@ -3418,6 +3424,32 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      Object.values(workspaceCopyTimersRef.current || {}).forEach((timer) => {
+        if (timer) {
+          clearTimeout(timer);
+        }
+      });
+    };
+  }, []);
+
+  const handleWorkspaceCopy = useCallback((key, value) => {
+    if (!value) {
+      return;
+    }
+    copyTextToClipboard(value);
+    setWorkspaceCopied((current) => ({ ...current, [key]: true }));
+    const timers = workspaceCopyTimersRef.current;
+    if (timers[key]) {
+      clearTimeout(timers[key]);
+    }
+    timers[key] = setTimeout(() => {
+      setWorkspaceCopied((current) => ({ ...current, [key]: false }));
+      timers[key] = null;
+    }, 2000);
+  }, []);
+
   const handleDeleteSession = async (session) => {
     const sessionId = session?.sessionId;
     if (!sessionId) {
@@ -5163,11 +5195,6 @@ function App() {
                             />
                           )}
                         </div>
-                        {config.authType === "auth_json_b64" && (
-                          <div className="session-auth-hint">
-                            Le JSON sera encode en base64 cote client.
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -5212,13 +5239,16 @@ function App() {
                     type="button"
                     className="workspace-created-copy"
                     onClick={() =>
-                      copyTextToClipboard(
+                      handleWorkspaceCopy(
+                        "id",
                         workspaceCreated?.workspaceId || workspaceId || ""
                       )
                     }
                     aria-label="Copier le workspace ID"
                   >
-                    <FontAwesomeIcon icon={faCopy} />
+                    <FontAwesomeIcon
+                      icon={workspaceCopied.id ? faCheck : faCopy}
+                    />
                   </button>
                 </div>
                 <div className="workspace-created-row">
@@ -5232,11 +5262,16 @@ function App() {
                     type="button"
                     className="workspace-created-copy"
                     onClick={() =>
-                      copyTextToClipboard(workspaceCreated?.workspaceSecret || "")
+                      handleWorkspaceCopy(
+                        "secret",
+                        workspaceCreated?.workspaceSecret || ""
+                      )
                     }
                     aria-label="Copier le workspace secret"
                   >
-                    <FontAwesomeIcon icon={faCopy} />
+                    <FontAwesomeIcon
+                      icon={workspaceCopied.secret ? faCheck : faCopy}
+                    />
                   </button>
                 </div>
               </div>
