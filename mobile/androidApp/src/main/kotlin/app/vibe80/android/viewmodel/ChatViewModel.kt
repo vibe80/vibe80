@@ -36,6 +36,7 @@ data class UploadedAttachment(
 
 data class ChatUiState(
     val sessionId: String = "",
+    val workspaceToken: String? = null,
     val messages: List<ChatMessage> = emptyList(),
     val currentStreamingMessage: String? = null,
     val activeProvider: LLMProvider = LLMProvider.CODEX,
@@ -123,8 +124,31 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    private val _workspaceAuthInvalidEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val workspaceAuthInvalidEvent: SharedFlow<Unit> = _workspaceAuthInvalidEvent.asSharedFlow()
+
     init {
         observeSessionState()
+        observeWorkspaceToken()
+        observeWorkspaceAuthInvalid()
+    }
+
+    private fun observeWorkspaceToken() {
+        viewModelScope.launch {
+            sessionPreferences.savedWorkspace.collect { workspace ->
+                _uiState.update { it.copy(workspaceToken = workspace?.workspaceToken) }
+            }
+        }
+    }
+
+    private fun observeWorkspaceAuthInvalid() {
+        viewModelScope.launch {
+            sessionRepository.workspaceAuthInvalid.collect {
+                sessionRepository.setWorkspaceToken(null)
+                sessionPreferences.clearWorkspace()
+                _workspaceAuthInvalidEvent.tryEmit(Unit)
+            }
+        }
     }
 
     private fun observeSessionState() {
@@ -332,7 +356,8 @@ class ChatViewModel(
             val uris = _uiState.value.pendingAttachments.map { Uri.parse(it.uri) }
             val uploaded = attachmentUploader.uploadFiles(
                 _uiState.value.sessionId,
-                uris
+                uris,
+                _uiState.value.workspaceToken
             )
             return uploaded.map { UploadedAttachment(it.name, it.path, it.size ?: 0) }
         } finally {

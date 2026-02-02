@@ -26,8 +26,6 @@ enum class LLMProvider {
 @Serializable
 data class SessionCreateRequest(
     val repoUrl: String,
-    val provider: String = "codex",
-    val providers: List<String> = listOf("codex", "claude"),
     val auth: SessionAuth? = null
 )
 
@@ -44,7 +42,8 @@ data class SessionCreateResponse(
     val sessionId: String,
     val path: String,
     val repoUrl: String,
-    val provider: String,
+    @SerialName("default_provider")
+    val defaultProvider: String,
     val providers: List<String>,
     val messages: List<ChatMessage> = emptyList()
 )
@@ -52,7 +51,10 @@ data class SessionCreateResponse(
 @Serializable
 data class SessionGetResponse(
     val rpcLogs: List<RpcLogEntry> = emptyList(),
-    val repoDiff: RepoDiff? = null
+    val repoDiff: RepoDiff? = null,
+    @SerialName("default_provider")
+    val defaultProvider: String? = null,
+    val providers: List<String> = emptyList()
 )
 
 @Serializable

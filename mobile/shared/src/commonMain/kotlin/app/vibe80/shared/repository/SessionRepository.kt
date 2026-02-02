@@ -4,6 +4,7 @@ import app.vibe80.shared.logging.AppLogger
 import app.vibe80.shared.logging.LogSource
 import app.vibe80.shared.models.*
 import app.vibe80.shared.network.ApiClient
+import app.vibe80.shared.network.ApiResponseException
 import app.vibe80.shared.network.ConnectionState
 import app.vibe80.shared.network.WebSocketManager
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +60,9 @@ class SessionRepository(
     private val _lastError = MutableStateFlow<AppError?>(null)
     val lastError: StateFlow<AppError?> = _lastError.asStateFlow()
 
+    private val _workspaceAuthInvalid = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val workspaceAuthInvalid: SharedFlow<String> = _workspaceAuthInvalid.asSharedFlow()
+
     val connectionState: StateFlow<ConnectionState> = webSocketManager.connectionState
 
     init {
@@ -66,6 +70,27 @@ class SessionRepository(
         observeWebSocketErrors()
     }
 
+    fun setWorkspaceToken(token: String?) {
+        apiClient.setWorkspaceToken(token)
+        webSocketManager.setWorkspaceToken(token)
+    }
+
+    private fun extractErrorType(error: Throwable): String? {
+        return when (error) {
+            is ApiResponseException -> error.errorType
+            is app.vibe80.shared.network.SessionCreationException -> error.errorType
+            is app.vibe80.shared.network.SessionGetException -> error.errorType
+            else -> null
+        }
+    }
+
+    private fun handleApiFailure(error: Throwable, context: String) {
+        val errorType = extractErrorType(error)
+        if (errorType == "WORKSPACE_TOKEN_INVALID") {
+            AppLogger.warning(LogSource.APP, "Invalid workspace token detected", "context=$context")
+            _workspaceAuthInvalid.tryEmit("Token workspace invalide. Merci de vous reconnecter.")
+        }
+    }
     private fun observeWebSocketErrors() {
         scope.launch {
             webSocketManager.errors.collect { throwable ->
@@ -326,7 +351,6 @@ class SessionRepository(
 
     suspend fun createSession(
         repoUrl: String,
-        provider: LLMProvider = LLMProvider.CODEX,
         sshKey: String? = null,
         httpUser: String? = null,
         httpPassword: String? = null
@@ -344,16 +368,16 @@ class SessionRepository(
 
         val request = SessionCreateRequest(
             repoUrl = repoUrl,
-            provider = provider.name.lowercase(),
-            providers = listOf("codex", "claude"),
             auth = auth
         )
 
-        return apiClient.createSession(request).map { response ->
+        val result = apiClient.createSession(request)
+        result.onFailure { handleApiFailure(it, "createSession") }
+        return result.map { response ->
             val state = SessionState(
                 sessionId = response.sessionId,
                 repoUrl = response.repoUrl,
-                activeProvider = LLMProvider.valueOf(response.provider.uppercase()),
+                activeProvider = LLMProvider.valueOf(response.defaultProvider.uppercase()),
                 providers = response.providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
             _sessionState.value = state
@@ -364,6 +388,30 @@ class SessionRepository(
 
             state
         }
+    }
+
+    suspend fun createWorkspace(request: WorkspaceCreateRequest): Result<WorkspaceCreateResponse> {
+        val result = apiClient.createWorkspace(request)
+        result.onFailure { handleApiFailure(it, "createWorkspace") }
+        return result
+    }
+
+    suspend fun loginWorkspace(request: WorkspaceLoginRequest): Result<WorkspaceLoginResponse> {
+        val result = apiClient.loginWorkspace(request)
+        result.onFailure { handleApiFailure(it, "loginWorkspace") }
+        return result
+    }
+
+    suspend fun updateWorkspace(workspaceId: String, request: WorkspaceUpdateRequest): Result<WorkspaceUpdateResponse> {
+        val result = apiClient.updateWorkspace(workspaceId, request)
+        result.onFailure { handleApiFailure(it, "updateWorkspace") }
+        return result
+    }
+
+    suspend fun consumeHandoffToken(handoffToken: String): Result<HandoffConsumeResponse> {
+        val result = apiClient.consumeHandoffToken(HandoffConsumeRequest(handoffToken))
+        result.onFailure { handleApiFailure(it, "consumeHandoffToken") }
+        return result
     }
 
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
@@ -394,7 +442,9 @@ class SessionRepository(
         sessionId: String,
         files: List<Pair<String, String>> // uri to name
     ): List<Attachment> {
-        return apiClient.uploadAttachments(sessionId, files).getOrDefault(emptyList())
+        val result = apiClient.uploadAttachments(sessionId, files)
+        result.onFailure { handleApiFailure(it, "uploadAttachments") }
+        return result.getOrDefault(emptyList())
     }
 
     suspend fun switchProvider(provider: LLMProvider) {
@@ -403,51 +453,67 @@ class SessionRepository(
 
     suspend fun loadBranches() {
         val sessionId = _sessionState.value?.sessionId ?: return
-        apiClient.getBranches(sessionId).onSuccess { branchInfo ->
+        apiClient.getBranches(sessionId)
+            .onSuccess { branchInfo ->
             _branches.value = branchInfo
-        }
+            }
+            .onFailure { handleApiFailure(it, "loadBranches") }
     }
 
     suspend fun fetchBranches(): Result<BranchInfo> {
         val sessionId = _sessionState.value?.sessionId
             ?: return Result.failure(IllegalStateException("No active session"))
-        return apiClient.fetchBranches(sessionId).onSuccess { branchInfo ->
+        val result = apiClient.fetchBranches(sessionId).onSuccess { branchInfo ->
             _branches.value = branchInfo
         }
+        result.onFailure { handleApiFailure(it, "fetchBranches") }
+        return result
     }
 
     suspend fun switchBranch(branch: String): Result<BranchSwitchResponse> {
         val sessionId = _sessionState.value?.sessionId
             ?: return Result.failure(IllegalStateException("No active session"))
-        return apiClient.switchBranch(sessionId, branch).onSuccess {
+        val result = apiClient.switchBranch(sessionId, branch).onSuccess {
             // Reload branches after switch to update current
             loadBranches()
             // Reload diff after branch switch
             loadDiff()
         }
+        result.onFailure { handleApiFailure(it, "switchBranch") }
+        return result
     }
 
     suspend fun loadDiff() {
         val sessionId = _sessionState.value?.sessionId ?: return
         val worktreeId = _activeWorktreeId.value
-        apiClient.getWorktreeDiff(sessionId, worktreeId).onSuccess { response ->
+        apiClient.getWorktreeDiff(sessionId, worktreeId)
+            .onSuccess { response ->
             _repoDiff.value = RepoDiff(
                 status = response.status,
                 diff = response.diff
             )
-        }
+            }
+            .onFailure { handleApiFailure(it, "loadDiff") }
     }
 
     /**
      * Reconnect to an existing session
      */
     suspend fun reconnectSession(sessionId: String): Result<SessionState> {
-        return apiClient.getSession(sessionId).map { response ->
+        val result = apiClient.getSession(sessionId)
+        result.onFailure { handleApiFailure(it, "reconnectSession") }
+        return result.map { response ->
+            val providerValue = response.defaultProvider?.uppercase() ?: "CODEX"
+            val providers = if (response.providers.isNotEmpty()) {
+                response.providers
+            } else {
+                listOf("codex", "claude")
+            }
             val state = SessionState(
                 sessionId = sessionId,
                 repoUrl = "", // Not returned by getSession
-                activeProvider = LLMProvider.CODEX, // Default, will be updated by WebSocket
-                providers = listOf(LLMProvider.CODEX, LLMProvider.CLAUDE)
+                activeProvider = LLMProvider.valueOf(providerValue),
+                providers = providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
             _sessionState.value = state
             val worktreeSnapshot = apiClient
@@ -508,9 +574,11 @@ class SessionRepository(
     suspend fun loadProviderModels(provider: String): Result<List<ProviderModel>> {
         val sessionId = _sessionState.value?.sessionId
             ?: return Result.failure(IllegalStateException("No active session"))
-        return apiClient.getModels(sessionId, provider).map { response ->
+        val result = apiClient.getModels(sessionId, provider).map { response ->
             response.models
         }
+        result.onFailure { handleApiFailure(it, "loadProviderModels") }
+        return result
     }
 
     suspend fun sendWorktreeMessage(
@@ -538,7 +606,8 @@ class SessionRepository(
     suspend fun closeWorktree(worktreeId: String) {
         if (worktreeId == Worktree.MAIN_WORKTREE_ID) return // Cannot close main
         val sessionId = _sessionState.value?.sessionId ?: return
-        apiClient.deleteWorktree(sessionId, worktreeId).onSuccess {
+        apiClient.deleteWorktree(sessionId, worktreeId)
+            .onSuccess {
             _worktrees.update { it - worktreeId }
             _worktreeMessages.update { it - worktreeId }
             _worktreeStreamingMessages.update { it - worktreeId }
@@ -546,7 +615,8 @@ class SessionRepository(
             if (_activeWorktreeId.value == worktreeId) {
                 _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
             }
-        }
+            }
+            .onFailure { handleApiFailure(it, "closeWorktree") }
     }
 
     suspend fun mergeWorktree(worktreeId: String) {

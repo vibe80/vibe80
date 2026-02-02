@@ -54,13 +54,17 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
 
         appScope.launch {
             val savedSession = sessionPreferences.savedSession.first()
-            if (savedSession != null) {
+            val savedWorkspace = sessionPreferences.savedWorkspace.first()
+            if (!savedWorkspace?.workspaceToken.isNullOrBlank()) {
+                sessionRepository.setWorkspaceToken(savedWorkspace.workspaceToken)
+            }
+            if (savedSession != null && !savedWorkspace?.workspaceToken.isNullOrBlank()) {
                 val provider = try {
                     LLMProvider.valueOf(savedSession.provider.uppercase())
                 } catch (e: Exception) {
                     LLMProvider.CODEX
                 }
-                sessionRepository.ensureWebSocketConnected(savedSession.sessionId, provider)
+                sessionRepository.ensureWebSocketConnected(savedSession.sessionId)
             }
         }
     }

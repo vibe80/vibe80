@@ -65,10 +65,9 @@ class SessionViewModel: ObservableObject {
         createSessionCall = SuspendWrapper<SessionState>()
 
         createSessionCall?.execute(
-            suspendBlock: { [repoUrl, selectedProvider, sshKeyParam, httpUserParam, httpPasswordParam] in
+            suspendBlock: { [repoUrl, sshKeyParam, httpUserParam, httpPasswordParam] in
                 try await repository.createSession(
                     repoUrl: repoUrl,
-                    provider: selectedProvider,
                     sshKey: sshKeyParam,
                     httpUser: httpUserParam,
                     httpPassword: httpPasswordParam

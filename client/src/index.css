@@ -117,7 +117,6 @@ body {
 .session-form-row.is-actions .session-button {
   width: auto;
 }
-
 .session-form-row > div:empty {
   display: none;
 }
@@ -3120,6 +3119,108 @@ main.chat {
   border: 1px solid rgba(214, 62, 36, 0.3);
 }
 
+.handoff-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 15, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 63;
+}
+
+.handoff-modal {
+  width: min(420px, 92vw);
+  background: var(--surface);
+  border-radius: 18px;
+  border: 1px solid rgba(20, 19, 17, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+  padding: 18px 20px 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.handoff-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.handoff-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.handoff-modal-close {
+  border: none;
+  background: rgba(20, 19, 17, 0.08);
+  color: var(--ink);
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.handoff-modal-body {
+  display: grid;
+  gap: 12px;
+}
+
+.handoff-modal-text {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.handoff-modal-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(20, 19, 17, 0.04);
+}
+
+.handoff-modal-qr img {
+  width: 260px;
+  height: 260px;
+  object-fit: contain;
+}
+
+.handoff-modal-placeholder {
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 13px;
+  padding: 24px 12px;
+  background: rgba(20, 19, 17, 0.04);
+  border-radius: 12px;
+}
+
+.handoff-modal-meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.handoff-modal-error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.handoff-modal-actions {
+  display: flex;
+  justify-content: center;
+}
+
 :root[data-theme="dark"] .worktree-close-confirm-overlay {
   background: rgba(7, 8, 7, 0.7);
 }
@@ -3132,6 +3233,26 @@ main.chat {
 
 :root[data-theme="dark"] .worktree-close-confirm-title {
   color: var(--ink);
+}
+
+:root[data-theme="dark"] .handoff-modal-overlay {
+  background: rgba(7, 8, 7, 0.7);
+}
+
+:root[data-theme="dark"] .handoff-modal {
+  background: var(--surface-elevated);
+  border-color: var(--border-soft);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-theme="dark"] .handoff-modal-qr,
+:root[data-theme="dark"] .handoff-modal-placeholder {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme="dark"] .handoff-modal-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
 }
 
 :root[data-theme="dark"] .worktree-close-confirm-close {

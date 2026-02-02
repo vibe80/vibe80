@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import app.vibe80.android.R
 import app.vibe80.android.ui.components.CreateWorktreeSheet
 import app.vibe80.android.ui.components.DiffSheetContent
@@ -55,6 +57,10 @@ import app.vibe80.shared.models.LLMProvider
 import app.vibe80.shared.models.Worktree
 import app.vibe80.shared.network.ConnectionState
 import org.koin.androidx.compose.koinViewModel
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +73,13 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingCameraPhoto by remember { mutableStateOf<CameraPhoto?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.workspaceAuthInvalidEvent.collect {
+            onDisconnect()
+        }
+    }
 
     // Show error snackbar when error occurs
     LaunchedEffect(uiState.error) {
@@ -110,6 +123,26 @@ fun ChatScreen(
                 )
             )
         }
+    }
+
+    // Camera launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        val photo = pendingCameraPhoto
+        if (success && photo != null) {
+            viewModel.addPendingAttachment(
+                PendingAttachment(
+                    uri = photo.uri.toString(),
+                    name = photo.name,
+                    mimeType = "image/jpeg",
+                    size = photo.file.length()
+                )
+            )
+        } else {
+            photo?.file?.delete()
+        }
+        pendingCameraPhoto = null
     }
 
     // Auto-scroll to bottom on new messages
@@ -305,6 +338,7 @@ fun ChatScreen(
                     MessageBubble(
                         message = message,
                         sessionId = uiState.sessionId,
+                        workspaceToken = uiState.workspaceToken,
                         formsSubmitted = uiState.submittedFormMessageIds.contains(message.id),
                         yesNoSubmitted = uiState.submittedYesNoMessageIds.contains(message.id),
                         onChoiceSelected = { choice ->
@@ -332,7 +366,8 @@ fun ChatScreen(
                             message = null,
                             streamingText = streamingText,
                             isStreaming = true,
-                            sessionId = uiState.sessionId
+                            sessionId = uiState.sessionId,
+                            workspaceToken = uiState.workspaceToken
                         )
                     }
                 }
@@ -430,6 +465,30 @@ fun ChatScreen(
                                 Icon(
                                     imageVector = Icons.Default.AttachFile,
                                     contentDescription = "Joindre un fichier"
+                                )
+                            }
+
+                            // Camera button
+                            IconButton(
+                                onClick = {
+                                    val photoFile = createTempImageFile(context)
+                                    val photoUri = FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        photoFile
+                                    )
+                                    pendingCameraPhoto = CameraPhoto(
+                                        uri = photoUri,
+                                        name = photoFile.name,
+                                        file = photoFile
+                                    )
+                                    cameraLauncher.launch(photoUri)
+                                },
+                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhotoCamera,
+                                    contentDescription = "Appareil photo"
                                 )
                             }
 
@@ -594,4 +653,19 @@ private fun getFileSize(context: android.content.Context, uri: Uri): Long {
             cursor.getLong(sizeIndex)
         } else 0L
     } ?: 0L
+}
+
+private data class CameraPhoto(
+    val uri: Uri,
+    val name: String,
+    val file: File
+)
+
+private fun createTempImageFile(context: android.content.Context): File {
+    val cameraDir = File(context.cacheDir, "camera")
+    if (!cameraDir.exists()) {
+        cameraDir.mkdirs()
+    }
+    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    return File.createTempFile("photo_$timestamp", ".jpg", cameraDir)
 }

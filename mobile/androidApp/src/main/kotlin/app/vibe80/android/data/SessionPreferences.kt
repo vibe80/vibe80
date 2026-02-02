@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "session_prefs")
@@ -19,8 +18,9 @@ class SessionPreferences(private val context: Context) {
         private val KEY_REPO_URL = stringPreferencesKey("repo_url")
         private val KEY_PROVIDER = stringPreferencesKey("provider")
         private val KEY_BASE_URL = stringPreferencesKey("base_url")
-        private val KEY_CLAUDE_CONFIG = stringPreferencesKey("claude_config")
-        private val KEY_CODEX_CONFIG = stringPreferencesKey("codex_config")
+        private val KEY_WORKSPACE_ID = stringPreferencesKey("workspace_id")
+        private val KEY_WORKSPACE_SECRET = stringPreferencesKey("workspace_secret")
+        private val KEY_WORKSPACE_TOKEN = stringPreferencesKey("workspace_token")
     }
 
     data class SavedSession(
@@ -30,9 +30,10 @@ class SessionPreferences(private val context: Context) {
         val baseUrl: String
     )
 
-    data class LLMConfig(
-        val claudeConfig: String? = null,
-        val codexConfig: String? = null
+    data class SavedWorkspace(
+        val workspaceId: String,
+        val workspaceSecret: String,
+        val workspaceToken: String? = null
     )
 
     val savedSession: Flow<SavedSession?> = context.dataStore.data.map { preferences ->
@@ -48,11 +49,15 @@ class SessionPreferences(private val context: Context) {
         }
     }
 
-    val llmConfig: Flow<LLMConfig> = context.dataStore.data.map { preferences ->
-        LLMConfig(
-            claudeConfig = preferences[KEY_CLAUDE_CONFIG],
-            codexConfig = preferences[KEY_CODEX_CONFIG]
-        )
+    val savedWorkspace: Flow<SavedWorkspace?> = context.dataStore.data.map { preferences ->
+        val workspaceId = preferences[KEY_WORKSPACE_ID]
+        val workspaceSecret = preferences[KEY_WORKSPACE_SECRET]
+        val workspaceToken = preferences[KEY_WORKSPACE_TOKEN]
+        if (workspaceId != null && workspaceSecret != null) {
+            SavedWorkspace(workspaceId, workspaceSecret, workspaceToken)
+        } else {
+            null
+        }
     }
 
     suspend fun saveSession(
@@ -69,36 +74,38 @@ class SessionPreferences(private val context: Context) {
         }
     }
 
-    suspend fun saveClaudeConfig(configJson: String) {
+    suspend fun saveWorkspace(
+        workspaceId: String,
+        workspaceSecret: String,
+        workspaceToken: String?
+    ) {
         context.dataStore.edit { preferences ->
-            preferences[KEY_CLAUDE_CONFIG] = configJson
+            preferences[KEY_WORKSPACE_ID] = workspaceId
+            preferences[KEY_WORKSPACE_SECRET] = workspaceSecret
+            if (workspaceToken.isNullOrBlank()) {
+                preferences.remove(KEY_WORKSPACE_TOKEN)
+            } else {
+                preferences[KEY_WORKSPACE_TOKEN] = workspaceToken
+            }
         }
     }
 
-    suspend fun saveCodexConfig(configJson: String) {
+    suspend fun saveWorkspaceToken(workspaceToken: String?) {
         context.dataStore.edit { preferences ->
-            preferences[KEY_CODEX_CONFIG] = configJson
+            if (workspaceToken.isNullOrBlank()) {
+                preferences.remove(KEY_WORKSPACE_TOKEN)
+            } else {
+                preferences[KEY_WORKSPACE_TOKEN] = workspaceToken
+            }
         }
     }
 
-    suspend fun clearClaudeConfig() {
+    suspend fun clearWorkspace() {
         context.dataStore.edit { preferences ->
-            preferences.remove(KEY_CLAUDE_CONFIG)
+            preferences.remove(KEY_WORKSPACE_ID)
+            preferences.remove(KEY_WORKSPACE_SECRET)
+            preferences.remove(KEY_WORKSPACE_TOKEN)
         }
-    }
-
-    suspend fun clearCodexConfig() {
-        context.dataStore.edit { preferences ->
-            preferences.remove(KEY_CODEX_CONFIG)
-        }
-    }
-
-    suspend fun getClaudeConfig(): String? {
-        return context.dataStore.data.first()[KEY_CLAUDE_CONFIG]
-    }
-
-    suspend fun getCodexConfig(): String? {
-        return context.dataStore.data.first()[KEY_CODEX_CONFIG]
     }
 
     suspend fun clearSession() {

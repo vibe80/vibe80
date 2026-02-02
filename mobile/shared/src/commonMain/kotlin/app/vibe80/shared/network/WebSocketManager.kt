@@ -32,6 +32,7 @@ class WebSocketManager(
     private var reconnectJob: Job? = null
     private var connectionJob: Job? = null
     private var sessionId: String? = null
+    @Volatile private var workspaceToken: String? = null
 
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -48,6 +49,10 @@ class WebSocketManager(
     private val maxReconnectAttempts = 10
     private val initialReconnectDelay = 1000L
     private val maxReconnectDelay = 30000L
+
+    fun setWorkspaceToken(token: String?) {
+        workspaceToken = token?.takeIf { it.isNotBlank() }
+    }
 
     fun connect(sessionId: String) {
         if (this.sessionId == sessionId &&
@@ -69,6 +74,12 @@ class WebSocketManager(
 
     private suspend fun doConnect() {
         val currentSessionId = sessionId ?: return
+        val token = workspaceToken
+        if (token.isNullOrBlank()) {
+            _connectionState.value = ConnectionState.ERROR
+            _errors.tryEmit(IllegalStateException("Missing workspace token for WebSocket connection"))
+            return
+        }
 
         _connectionState.value = if (reconnectAttempt > 0) {
             ConnectionState.RECONNECTING
@@ -81,7 +92,7 @@ class WebSocketManager(
                 .replace("http://", "ws://")
                 .replace("https://", "wss://")
 
-            val fullWsUrl = "$wsUrl/ws?session=$currentSessionId"
+            val fullWsUrl = "$wsUrl/ws?session=$currentSessionId&token=$token"
             AppLogger.wsConnecting(fullWsUrl)
             AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Starting WebSocket connection", "url=$fullWsUrl")
 
