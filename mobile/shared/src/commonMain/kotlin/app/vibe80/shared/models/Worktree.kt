@@ -75,6 +75,14 @@ data class WorktreeDiffResponse(
 )
 
 @Serializable
+data class WorktreeFileResponse(
+    val path: String,
+    val content: String,
+    val truncated: Boolean = false,
+    val binary: Boolean = false
+)
+
+@Serializable
 data class WorktreeMergeResponse(
     val success: Boolean,
     val message: String? = null,

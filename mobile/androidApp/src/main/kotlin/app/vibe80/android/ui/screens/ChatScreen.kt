@@ -44,6 +44,7 @@ import androidx.core.content.FileProvider
 import app.vibe80.android.R
 import app.vibe80.android.ui.components.CreateWorktreeSheet
 import app.vibe80.android.ui.components.DiffSheetContent
+import app.vibe80.android.ui.components.FileSheetContent
 import app.vibe80.android.ui.components.LogsSheetContent
 import app.vibe80.android.ui.components.MessageBubble
 import app.vibe80.android.ui.components.Vibe80FormField
@@ -341,6 +342,9 @@ fun ChatScreen(
                         workspaceToken = uiState.workspaceToken,
                         formsSubmitted = uiState.submittedFormMessageIds.contains(message.id),
                         yesNoSubmitted = uiState.submittedYesNoMessageIds.contains(message.id),
+                        onFileRefSelected = { path ->
+                            viewModel.openFileRef(path)
+                        },
                         onChoiceSelected = { choice ->
                             viewModel.updateInputText(choice)
                             viewModel.sendMessage()
@@ -537,6 +541,23 @@ fun ChatScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             LogsSheetContent()
+        }
+    }
+
+    // File Sheet
+    if (uiState.showFileSheet) {
+        ModalBottomSheet(
+            onDismissRequest = viewModel::hideFileSheet,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            FileSheetContent(
+                path = uiState.fileSheetPath,
+                content = uiState.fileSheetContent,
+                loading = uiState.fileSheetLoading,
+                error = uiState.fileSheetError,
+                binary = uiState.fileSheetBinary,
+                truncated = uiState.fileSheetTruncated
+            )
         }
     }
 

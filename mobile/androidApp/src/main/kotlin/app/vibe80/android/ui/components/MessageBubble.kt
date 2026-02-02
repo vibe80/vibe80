@@ -55,6 +55,7 @@ fun MessageBubble(
     sessionId: String? = null,
     workspaceToken: String? = null,
     onChoiceSelected: ((String) -> Unit)? = null,
+    onFileRefSelected: ((String) -> Unit)? = null,
     onFormSubmit: ((Map<String, String>, List<Vibe80FormField>) -> Unit)? = null,
     formsSubmitted: Boolean = false,
     yesNoSubmitted: Boolean = false,
@@ -69,6 +70,11 @@ fun MessageBubble(
         if (!isUser && !isStreaming) parseVibe80Choices(displayText) else emptyList()
     }
 
+    // Parse vibe80:fileref blocks for assistant messages
+    val fileRefs = remember(displayText, isUser) {
+        if (!isUser && !isStreaming) parseVibe80FileRefs(displayText) else emptyList()
+    }
+
     // Parse vibe80:form blocks for assistant messages
     val formBlocks = remember(displayText, isUser) {
         if (!isUser && !isStreaming) parseVibe80Forms(displayText) else emptyList()
@@ -79,8 +85,9 @@ fun MessageBubble(
         if (!isUser && !isStreaming) parseVibe80YesNo(displayText) else emptyList()
     }
 
-    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks, formsSubmitted, yesNoSubmitted) {
+    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks, fileRefs, formsSubmitted, yesNoSubmitted) {
         var result = displayText
+        if (fileRefs.isNotEmpty()) result = removeVibe80FileRefs(result)
         if (choicesBlocks.isNotEmpty()) result = removeVibe80Choices(result)
         if (yesNoBlocks.isNotEmpty()) {
             result = if (yesNoSubmitted) {
@@ -166,6 +173,35 @@ fun MessageBubble(
                             markdown = text,
                             modifier = Modifier.fillMaxWidth()
                         )
+                    }
+                }
+
+                if (fileRefs.isNotEmpty() && onFileRefSelected != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        fileRefs.forEach { path ->
+                            AssistChip(
+                                onClick = { onFileRefSelected(path) },
+                                label = {
+                                    Text(
+                                        text = path,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Description,
+                                        contentDescription = null
+                                    )
+                                },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            )
+                        }
                     }
                 }
 

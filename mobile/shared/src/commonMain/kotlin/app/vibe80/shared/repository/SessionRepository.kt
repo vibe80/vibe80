@@ -496,6 +496,16 @@ class SessionRepository(
             .onFailure { handleApiFailure(it, "loadDiff") }
     }
 
+    suspend fun getWorktreeFile(
+        sessionId: String,
+        worktreeId: String,
+        path: String
+    ): Result<WorktreeFileResponse> {
+        val result = apiClient.getWorktreeFile(sessionId, worktreeId, path)
+        result.onFailure { handleApiFailure(it, "getWorktreeFile") }
+        return result
+    }
+
     /**
      * Reconnect to an existing session
      */

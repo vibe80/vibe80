@@ -283,6 +283,31 @@ class ApiClient(
     }
 
     /**
+     * Get a worktree file content
+     */
+    suspend fun getWorktreeFile(
+        sessionId: String,
+        worktreeId: String,
+        path: String
+    ): Result<WorktreeFileResponse> {
+        val url = "$baseUrl/api/worktree/$worktreeId/file"
+        return try {
+            val response = httpClient.get(url) {
+                parameter("session", sessionId)
+                parameter("path", path)
+                applyAuth(this)
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Merge a worktree
      */
     suspend fun mergeWorktree(worktreeId: String): Result<Unit> {

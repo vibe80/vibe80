@@ -48,6 +48,13 @@ data class ChatUiState(
     val inputText: String = "",
     val showDiffSheet: Boolean = false,
     val showLogsSheet: Boolean = false,
+    val showFileSheet: Boolean = false,
+    val fileSheetPath: String? = null,
+    val fileSheetContent: String = "",
+    val fileSheetTruncated: Boolean = false,
+    val fileSheetBinary: Boolean = false,
+    val fileSheetLoading: Boolean = false,
+    val fileSheetError: String? = null,
     val pendingAttachments: List<PendingAttachment> = emptyList(),
     val uploadingAttachments: Boolean = false,
     // Worktrees
@@ -332,6 +339,60 @@ class ChatViewModel(
 
     fun hideLogsSheet() {
         _uiState.update { it.copy(showLogsSheet = false) }
+    }
+
+    fun openFileRef(path: String) {
+        val sessionId = _uiState.value.sessionId
+        if (sessionId.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    showFileSheet = true,
+                    fileSheetPath = path,
+                    fileSheetLoading = false,
+                    fileSheetError = "Session inactive."
+                )
+            }
+            return
+        }
+        val worktreeId = _uiState.value.activeWorktreeId
+        _uiState.update {
+            it.copy(
+                showFileSheet = true,
+                fileSheetPath = path,
+                fileSheetContent = "",
+                fileSheetTruncated = false,
+                fileSheetBinary = false,
+                fileSheetLoading = true,
+                fileSheetError = null
+            )
+        }
+        viewModelScope.launch {
+            val result = sessionRepository.getWorktreeFile(sessionId, worktreeId, path)
+            result.fold(
+                onSuccess = { response ->
+                    _uiState.update {
+                        it.copy(
+                            fileSheetLoading = false,
+                            fileSheetContent = response.content,
+                            fileSheetTruncated = response.truncated,
+                            fileSheetBinary = response.binary
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            fileSheetLoading = false,
+                            fileSheetError = error.message ?: "Impossible de charger le fichier."
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    fun hideFileSheet() {
+        _uiState.update { it.copy(showFileSheet = false) }
     }
 
     fun addPendingAttachment(attachment: PendingAttachment) {
