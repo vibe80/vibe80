@@ -1694,9 +1694,6 @@ function App() {
       });
       return next;
     });
-    worktreesList.forEach((wt) => {
-      requestWorktreeMessages(wt.id);
-    });
     if (
       activeWorktreeIdRef.current !== "main" &&
       !worktreesList.some((wt) => wt.id === activeWorktreeIdRef.current)
@@ -1762,6 +1759,17 @@ function App() {
       }
     },
     [attachmentSession?.sessionId, apiFetch]
+  );
+
+  const handleSelectWorktree = useCallback(
+    (worktreeId) => {
+      if (!worktreeId) {
+        return;
+      }
+      setActiveWorktreeId(worktreeId);
+      requestWorktreeMessages(worktreeId);
+    },
+    [requestWorktreeMessages]
   );
 
   const requestRepoDiff = useCallback(async () => {
@@ -5346,7 +5354,7 @@ function App() {
             <WorktreeTabs
               worktrees={allTabs}
               activeWorktreeId={activeWorktreeId}
-              onSelect={setActiveWorktreeId}
+              onSelect={handleSelectWorktree}
               onCreate={createWorktree}
               onClose={openCloseConfirm}
               onRename={renameWorktreeHandler}
