@@ -2412,6 +2412,12 @@ main.chat {
   margin-bottom: 0;
 }
 
+.bubble hr {
+  border: none;
+  border-top: 1px #eee dashed;
+  margin: 15px 0;
+}
+
 .bubble code {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.9em;
