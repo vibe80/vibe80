@@ -83,6 +83,7 @@ body {
   box-shadow: var(--shadow);
   display: grid;
   gap: 16px;
+  position: relative;
 }
 
 .session-card h1 {
@@ -204,6 +205,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
+  margin-bottom: 14px;
 }
 
 .session-workspace-option {
@@ -296,10 +298,10 @@ body {
   position: relative;
 }
 
-.session-step-action {
+.session-card-action {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 16px;
+  right: 16px;
 }
 
 .session-panel {

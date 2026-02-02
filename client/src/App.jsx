@@ -5079,6 +5079,17 @@ function App() {
     return (
       <div className="session-gate">
         <div className="session-card">
+          {showStep4 && (
+            <button
+              type="button"
+              className="icon-button session-card-action"
+              onClick={handleLeaveWorkspace}
+              aria-label="Leave workspace"
+              title="Leave workspace"
+            >
+              <FontAwesomeIcon icon={faRightFromBracket} />
+            </button>
+          )}
           <p className="eyebrow">vibe80</p>
           <h1>
             {showStep4
@@ -5383,16 +5394,7 @@ function App() {
           )}
 
           {showStep4 && (
-            <div className="session-step session-step-with-action">
-              <button
-                type="button"
-                className="icon-button session-step-action"
-                onClick={handleLeaveWorkspace}
-                aria-label="Leave workspace"
-                title="Leave workspace"
-              >
-                <FontAwesomeIcon icon={faRightFromBracket} />
-              </button>
+            <div className="session-step">
               <p className="session-hint">
                 Workspace valide. Choisissez comment demarrer.
               </p>
