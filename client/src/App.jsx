@@ -29,6 +29,7 @@ import {
   faTriangleExclamation,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
+import Editor from "@monaco-editor/react";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import QRCode from "qrcode";
 
@@ -581,6 +582,81 @@ const extractRepoName = (url) => {
   const withoutQuery = trimmed.split(/[?#]/)[0];
   const match = withoutQuery.match(/([^/:]+)$/);
   return match ? match[1] : "";
+};
+
+const getLanguageForPath = (filePath) => {
+  if (!filePath) {
+    return "plaintext";
+  }
+  const baseName = filePath.split("/").pop() || "";
+  if (baseName.toLowerCase() === "dockerfile") {
+    return "dockerfile";
+  }
+  const match = filePath.toLowerCase().match(/\.([a-z0-9]+)$/);
+  const ext = match ? match[1] : "";
+  switch (ext) {
+    case "js":
+    case "cjs":
+    case "mjs":
+      return "javascript";
+    case "jsx":
+      return "javascript";
+    case "ts":
+      return "typescript";
+    case "tsx":
+      return "typescript";
+    case "json":
+      return "json";
+    case "md":
+    case "markdown":
+      return "markdown";
+    case "css":
+      return "css";
+    case "scss":
+      return "scss";
+    case "less":
+      return "less";
+    case "html":
+    case "htm":
+      return "html";
+    case "yml":
+    case "yaml":
+      return "yaml";
+    case "sh":
+    case "bash":
+    case "zsh":
+      return "shell";
+    case "py":
+      return "python";
+    case "go":
+      return "go";
+    case "java":
+      return "java";
+    case "c":
+      return "c";
+    case "cc":
+    case "cpp":
+    case "cxx":
+    case "hpp":
+    case "h":
+      return "cpp";
+    case "rs":
+      return "rust";
+    case "rb":
+      return "ruby";
+    case "php":
+      return "php";
+    case "sql":
+      return "sql";
+    case "toml":
+      return "toml";
+    case "xml":
+      return "xml";
+    case "dockerfile":
+      return "dockerfile";
+    default:
+      return "plaintext";
+  }
 };
 
 function App() {
@@ -4462,7 +4538,7 @@ function App() {
         fileBinary: false,
         fileSaveError: "",
         fileSaving: false,
-        editMode: false,
+        editMode: true,
         isDirty: false,
       });
       try {
@@ -6452,21 +6528,6 @@ function App() {
                       {activeExplorer.selectedPath && !activeExplorer.fileBinary && (
                         <button
                           type="button"
-                          className="explorer-action"
-                          onClick={() =>
-                            toggleExplorerEditMode(
-                              activeWorktreeId || "main",
-                              !activeExplorer.editMode
-                            )
-                          }
-                          disabled={activeExplorer.fileLoading}
-                        >
-                          {activeExplorer.editMode ? "Lecture" : "Editer"}
-                        </button>
-                      )}
-                      {activeExplorer.editMode && (
-                        <button
-                          type="button"
                           className="explorer-action primary"
                           onClick={() =>
                             saveExplorerFile(activeWorktreeId || "main")
@@ -6495,23 +6556,31 @@ function App() {
                     </div>
                   ) : activeExplorer.selectedPath ? (
                     <>
-                      {activeExplorer.editMode ? (
-                        <textarea
-                          className="explorer-editor-input"
-                          value={activeExplorer.draftContent}
-                          onChange={(event) =>
+                      <div className="explorer-editor-input">
+                        <Editor
+                          key={activeExplorer.selectedPath}
+                          value={activeExplorer.draftContent || ""}
+                          onChange={(value) =>
                             updateExplorerDraft(
                               activeWorktreeId || "main",
-                              event.target.value
+                              value || ""
                             )
                           }
-                          spellCheck={false}
+                          language={getLanguageForPath(
+                            activeExplorer.selectedPath
+                          )}
+                          theme={themeMode === "dark" ? "vs-dark" : "light"}
+                          options={{
+                            minimap: { enabled: false },
+                            fontSize: 12,
+                            lineHeight: 18,
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            wordWrap: "off",
+                            readOnly: false,
+                          }}
                         />
-                      ) : (
-                        <pre className="explorer-editor-content">
-                          {activeExplorer.fileContent}
-                        </pre>
-                      )}
+                      </div>
                       {activeExplorer.fileSaveError && (
                         <div className="explorer-truncated">
                           {activeExplorer.fileSaveError}
