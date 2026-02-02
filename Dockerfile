@@ -6,6 +6,7 @@ COPY tools/vibe80-root ./tools/vibe80-root
 COPY tools/vibe80-run-as ./tools/vibe80-run-as
 
 WORKDIR /src/tools
+RUN go mod tidy
 RUN go build -o /out/vibe80-root ./vibe80-root \
     && go build -o /out/vibe80-run-as ./vibe80-run-as
 
