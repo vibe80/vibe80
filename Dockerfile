@@ -1,4 +1,4 @@
-FROM golang:1.22-bookworm AS helper-builder
+FROM golang:1.23-bookworm AS helper-builder
 
 WORKDIR /src
 COPY tools/go.mod ./tools/go.mod
