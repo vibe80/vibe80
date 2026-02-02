@@ -1402,15 +1402,11 @@ main.chat {
 
 .explorer-editor-input {
   flex: 1;
-  border: none;
+  min-height: 0;
   background: transparent;
   margin: 0;
-  padding: 12px;
-  resize: none;
-  outline: none;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 12px;
-  line-height: 1.6;
+  padding: 0;
+  display: flex;
 }
 
 .explorer-tree-list {
