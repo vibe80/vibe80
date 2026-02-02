@@ -533,6 +533,26 @@ class SessionRepository(
 
     fun setActiveWorktree(worktreeId: String) {
         _activeWorktreeId.value = worktreeId
+        val sessionId = _sessionState.value?.sessionId ?: return
+        scope.launch {
+            apiClient.getWorktree(sessionId, worktreeId).onSuccess { snapshot ->
+                if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+                    _messages.value = snapshot.messages
+                } else {
+                    _worktreeMessages.update { current ->
+                        current + (worktreeId to snapshot.messages)
+                    }
+                    val status = snapshot.status
+                    if (status != null) {
+                        _worktrees.update { current ->
+                            current[worktreeId]?.let { worktree ->
+                                current + (worktreeId to worktree.copy(status = status))
+                            } ?: current
+                        }
+                    }
+                }
+            }
+        }
     }
 
     suspend fun createWorktree(
