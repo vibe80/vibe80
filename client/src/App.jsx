@@ -5396,16 +5396,6 @@ function App() {
               <p className="session-hint">
                 Workspace valide. Choisissez comment demarrer.
               </p>
-              {(workspaceCreated?.workspaceId || workspaceId) && (
-                <div className="session-meta">
-                  Workspace: {workspaceCreated?.workspaceId || workspaceId}
-                  {workspaceCreated?.workspaceSecret && (
-                    <div className="session-meta">
-                      Secret: {workspaceCreated.workspaceSecret}
-                    </div>
-                  )}
-                </div>
-              )}
               <div className="session-workspace-options">
                 <button
                   type="button"
