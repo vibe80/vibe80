@@ -1285,6 +1285,7 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
       await runAsCommand(workspaceId, "/bin/mkdir", ["-p", attachmentsDir]);
       await runAsCommand(workspaceId, "/bin/chmod", ["2750", attachmentsDir]);
       const repoDir = path.join(dir, "repository");
+      const gitCredsDir = path.join(dir, "git");
       const env = {};
       if (auth?.type === "ssh" && auth.privateKey) {
         await ensureWorkspaceDir(workspaceId, sshPaths.sshDir, 0o700);
@@ -1301,9 +1302,11 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
         if (!authInfo) {
           throw new Error("Invalid HTTP repository URL for credential auth.");
         }
-        const gitConfigPath = path.join(dir, "gitconfig");
-        const credFile = path.join(dir, "git-credentials");
-        const credInputPath = path.join(dir, "git-credential-input");
+        await runAsCommand(workspaceId, "/bin/mkdir", ["-p", gitCredsDir]);
+        await runAsCommand(workspaceId, "/bin/chmod", ["2750", gitCredsDir]);
+        const gitConfigPath = path.join(gitCredsDir, "gitconfig");
+        const credFile = path.join(gitCredsDir, "git-credentials");
+        const credInputPath = path.join(gitCredsDir, "git-credential-input");
         env.GIT_CONFIG_GLOBAL = gitConfigPath;
         env.GIT_TERMINAL_PROMPT = "0";
         await writeWorkspaceFile(workspaceId, credFile, "", 0o600);
@@ -1353,7 +1356,14 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
         await runAsCommand(
           workspaceId,
           "git",
-          ["-C", repoDir, "config", "--add", "credential.helper", "store --file ../git-credentials"],
+          [
+            "-C",
+            repoDir,
+            "config",
+            "--add",
+            "credential.helper",
+            "store --file ../git/git-credentials",
+          ],
           { env }
         );
       }
