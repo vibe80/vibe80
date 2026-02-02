@@ -5383,22 +5383,19 @@ function App() {
           )}
 
           {showStep4 && (
-            <>
+            <div className="session-step session-step-with-action">
+              <button
+                type="button"
+                className="icon-button session-step-action"
+                onClick={handleLeaveWorkspace}
+                aria-label="Leave workspace"
+                title="Leave workspace"
+              >
+                <FontAwesomeIcon icon={faRightFromBracket} />
+              </button>
               <p className="session-hint">
                 Workspace valide. Choisissez comment demarrer.
               </p>
-              <div className="session-form-row">
-                <div />
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={handleLeaveWorkspace}
-                  aria-label="Leave workspace"
-                  title="Leave workspace"
-                >
-                  <FontAwesomeIcon icon={faRightFromBracket} />
-                </button>
-              </div>
               {(workspaceCreated?.workspaceId || workspaceId) && (
                 <div className="session-meta">
                   Workspace: {workspaceCreated?.workspaceId || workspaceId}
@@ -5695,7 +5692,7 @@ function App() {
               {attachmentsError && (
                 <div className="attachments-error">{attachmentsError}</div>
               )}
-            </>
+            </div>
           )}
         </div>
         {toast && (

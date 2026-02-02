@@ -292,6 +292,16 @@ body {
   gap: 12px;
 }
 
+.session-step {
+  position: relative;
+}
+
+.session-step-action {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
 .session-panel {
   overflow: hidden;
   max-height: 0;
