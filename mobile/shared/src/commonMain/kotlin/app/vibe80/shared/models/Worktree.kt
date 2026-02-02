@@ -87,3 +87,13 @@ data class WorktreeCloseResponse(
     val success: Boolean,
     val message: String? = null
 )
+
+@Serializable
+data class WorktreeGetResponse(
+    val id: String,
+    val name: String? = null,
+    val branchName: String? = null,
+    val provider: LLMProvider? = null,
+    val status: WorktreeStatus? = null,
+    val messages: List<ChatMessage> = emptyList()
+)

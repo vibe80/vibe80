@@ -50,7 +50,6 @@ data class SessionCreateResponse(
 
 @Serializable
 data class SessionGetResponse(
-    val messages: List<ChatMessage> = emptyList(),
     val rpcLogs: List<RpcLogEntry> = emptyList(),
     val repoDiff: RepoDiff? = null,
     @SerialName("default_provider")
