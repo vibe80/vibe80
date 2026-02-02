@@ -3528,10 +3528,6 @@ app.get("/api/session/:sessionId", async (req, res) => {
   await touchSession(session);
   const repoDiff = await getRepoDiff(session);
   const activeProvider = session.activeProvider || "codex";
-  const mainWorktree = await getWorktree(session, "main");
-  const messages = Array.isArray(mainWorktree?.messages)
-    ? mainWorktree.messages
-    : [];
   res.json({
     sessionId: req.params.sessionId,
     workspaceId: session.workspaceId,
@@ -3543,7 +3539,6 @@ app.get("/api/session/:sessionId", async (req, res) => {
       typeof session.defaultInternetAccess === "boolean"
         ? session.defaultInternetAccess
         : true,
-    messages,
     repoDiff,
     rpcLogsEnabled: debugApiWsLog,
     rpcLogs: debugApiWsLog ? session.rpcLogs || [] : [],
