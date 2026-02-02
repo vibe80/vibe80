@@ -24,6 +24,7 @@ export class ClaudeCliClient extends EventEmitter {
     this.ready = false;
     this.threadId = "claude-session";
     this.modelInfo = null;
+    this.defaultModel = null;
     this.toolUses = new Map();
     this.buffer = "";
     this.systemPrompt = SYSTEM_PROMPT;
@@ -55,6 +56,7 @@ export class ClaudeCliClient extends EventEmitter {
       "--continue",
       "--verbose",
       "-p",
+      ...(this.defaultModel ? ["--model", this.defaultModel] : []),
       "--output-format",
       "stream-json",
       "--input-format",
@@ -169,8 +171,14 @@ export class ClaudeCliClient extends EventEmitter {
     };
   }
 
-  async setDefaultModel() {
-    return { ok: false };
+  async setDefaultModel(model) {
+    if (typeof model === "string" && model.trim()) {
+      this.defaultModel = model.trim();
+      this.modelInfo = { model: this.defaultModel };
+      return { ok: true };
+    }
+    this.defaultModel = null;
+    return { ok: true };
   }
 
   async startAccountLogin() {
