@@ -450,7 +450,10 @@ class SessionRepository(
                 providers = listOf(LLMProvider.CODEX, LLMProvider.CLAUDE)
             )
             _sessionState.value = state
-            _messages.value = response.messages
+            val worktreeSnapshot = apiClient
+                .getWorktree(sessionId, Worktree.MAIN_WORKTREE_ID)
+                .getOrNull()
+            _messages.value = worktreeSnapshot?.messages ?: emptyList()
 
             // Connect WebSocket
             ensureWebSocketConnected(sessionId)
