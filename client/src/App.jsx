@@ -5395,9 +5395,6 @@ function App() {
 
           {showStep4 && (
             <div className="session-step">
-              <p className="session-hint">
-                Workspace valide. Choisissez comment demarrer.
-              </p>
               <div className="session-workspace-options">
                 <button
                   type="button"
