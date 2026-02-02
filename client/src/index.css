@@ -202,6 +202,7 @@ body {
   gap: 12px;
   text-align: left;
   cursor: pointer;
+  font-family: "Space Grotesk", system-ui, sans-serif;
   box-shadow: 0 6px 18px rgba(20, 19, 17, 0.08);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
