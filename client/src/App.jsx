@@ -2020,6 +2020,7 @@ function App() {
           return;
         }
         socket.send(JSON.stringify({ type: "ping" }));
+        requestWorktreeMessages(activeWorktreeIdRef.current || "main");
       }, SOCKET_PING_INTERVAL_MS);
     };
 
