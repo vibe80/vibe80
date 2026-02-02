@@ -522,7 +522,7 @@ class SessionRepository(
             _messages.value = worktreeSnapshot?.messages ?: emptyList()
 
             // Connect WebSocket
-            ensureWebSocketConnected(sessionId, state.activeProvider)
+            ensureWebSocketConnected(sessionId)
 
             state
         }
