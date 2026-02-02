@@ -772,6 +772,9 @@ export default function WorktreeTabs({
 
         .worktree-toggle input {
           accent-color: var(--accent, #ee5d3b);
+          width: auto;
+          flex: 0 0 auto;
+          margin: 0;
         }
 
         .worktree-create-field input,
