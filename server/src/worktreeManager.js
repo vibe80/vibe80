@@ -489,6 +489,8 @@ export async function listWorktrees(session) {
     name: wt.name,
     branchName: wt.branchName,
     provider: wt.provider,
+    model: wt.model || null,
+    reasoningEffort: wt.reasoningEffort || null,
     status: wt.status,
     messageCount: Array.isArray(wt.messages) ? wt.messages.length : 0,
     parentWorktreeId: wt.parentWorktreeId,

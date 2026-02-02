@@ -659,6 +659,16 @@ const getLanguageForPath = (filePath) => {
   }
 };
 
+const formatProviderLabel = (provider) => {
+  if (provider === "codex") {
+    return "Codex";
+  }
+  if (provider === "claude") {
+    return "Claude";
+  }
+  return provider || "";
+};
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -2637,6 +2647,8 @@ function App() {
               name: payload.name,
               branchName: payload.branchName,
               provider: payload.provider,
+              model: payload.model || null,
+              reasoningEffort: payload.reasoningEffort || null,
               internetAccess: Boolean(payload.internetAccess),
               status: payload.status || "creating",
               color: payload.color,
@@ -4065,6 +4077,11 @@ function App() {
   const showInternetAccess = isInWorktree
     ? Boolean(activeWorktree?.internetAccess)
     : Boolean(defaultInternetAccess);
+  const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
+  const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
+  const activeProviderLabel = formatProviderLabel(activeProvider);
+  const activeModelLabel = activeModel || "default";
+  const showProviderMeta = Boolean(activeProviderLabel && activeModelLabel);
   const showChatInfoPanel =
     !isMobileLayout &&
     activePane === "chat" &&
@@ -5951,6 +5968,17 @@ function App() {
                           <div className="chat-meta-message">
                             {activeCommit?.message || ""}
                           </div>
+                          {showProviderMeta && (
+                            <div className="chat-meta-provider">
+                              <span className="chat-meta-provider-label">
+                                {activeProviderLabel}
+                              </span>
+                              <span className="chat-meta-provider-sep">•</span>
+                              <span className="chat-meta-provider-model">
+                                {activeModelLabel}
+                              </span>
+                            </div>
+                          )}
                           {showInternetAccess && (
                             <div className="chat-meta-internet">
                               <span className="chat-meta-internet-icon" aria-hidden="true">

@@ -784,6 +784,25 @@ main.chat {
   font-weight: 600;
 }
 
+.chat-meta-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.chat-meta-provider-label {
+  color: var(--ink);
+}
+
+.chat-meta-provider-sep {
+  opacity: 0.6;
+}
+
 .chat-meta-internet {
   display: inline-flex;
   align-items: center;
