@@ -127,8 +127,8 @@ steps:
       - export TAG="${DRONE_COMMIT_SHA:0:8}"
 
       - yq -i '
-          (select(.kind=="Deployment" and .metadata.name=="vibe80")
-            .spec.template.spec.containers[] | select(.name=="vibe80").image)
+          (select(.kind=="Deployment" and .metadata.name=="vibecoder")
+            .spec.template.spec.containers[] | select(.name=="vibecoder").image)
           = "git.lab.adho.app/mont5piques/vibe80:" + strenv(TAG)
         ' contabo/vibecoder/vibecoder.yml
 
