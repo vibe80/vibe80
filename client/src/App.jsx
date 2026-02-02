@@ -25,7 +25,6 @@ import {
   faQrcode,
   faPlus,
   faCheck,
-  faQrcode,
   faRightFromBracket,
   faTerminal,
   faTowerBroadcast,
@@ -37,9 +36,6 @@ import Editor from "@monaco-editor/react";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import QRCode from "qrcode";
 import vibe80Logo from "./assets/logo_small.png";
-import QRCode from "qrcode";
-import vibe80Logo from "./assets/logo_small.png";
-import QRCode from "qrcode";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
