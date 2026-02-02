@@ -1,5 +1,6 @@
 package app.vibe80.android.ui.components
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -106,18 +107,35 @@ fun Vibe80ChoicesView(
         }
 
         // Options as buttons
+        val useFilledStyle = isSystemInDarkTheme()
         block.options.forEach { option ->
-            OutlinedButton(
-                onClick = { onOptionSelected(option) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Text(
-                    text = option,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            if (useFilledStyle) {
+                Button(
+                    onClick = { onOptionSelected(option) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Text(
+                        text = option,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            } else {
+                OutlinedButton(
+                    onClick = { onOptionSelected(option) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        text = option,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
     }
