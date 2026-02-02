@@ -5107,7 +5107,12 @@ function App() {
                     </span>
                   </button>
                 </div>
-                {workspaceMode === "existing" && (
+                <div
+                  className={`session-panel ${
+                    workspaceMode === "existing" ? "is-visible" : "is-hidden"
+                  }`}
+                  aria-hidden={workspaceMode !== "existing"}
+                >
                   <div className="session-workspace-form">
                     <div className="session-workspace-form-labels">
                       <span>Nom du workspace</span>
@@ -5134,7 +5139,7 @@ function App() {
                       />
                     </div>
                   </div>
-                )}
+                </div>
                 <div className="session-form-row">
                   <div />
                   <button type="submit" disabled={formDisabled}>
@@ -5359,42 +5364,64 @@ function App() {
                   )}
                 </div>
               )}
-              <div className="session-auth">
-                <div className="session-auth-title">Session</div>
-                <div className="session-auth-options">
-                  <label className="session-auth-option">
-                    <input
-                      type="radio"
-                      name="sessionMode"
-                      value="new"
-                      checked={sessionMode === "new"}
-                      onChange={() => {
-                        setSessionMode("new");
-                        setSessionRequested(false);
-                        setAttachmentsError("");
-                      }}
-                      disabled={formDisabled}
-                    />
-                    Nouvelle session
-                  </label>
-                  <label className="session-auth-option">
-                    <input
-                      type="radio"
-                      name="sessionMode"
-                      value="existing"
-                      checked={sessionMode === "existing"}
-                      onChange={() => {
-                        setSessionMode("existing");
-                        setSessionRequested(false);
-                        setAttachmentsError("");
-                      }}
-                      disabled={formDisabled}
-                    />
-                    Reprendre une session existante
-                  </label>
-                </div>
+              <div className="session-workspace-options">
+                <button
+                  type="button"
+                  className={`session-workspace-option ${
+                    sessionMode === "new" ? "is-selected" : ""
+                  }`}
+                  onClick={() => {
+                    setSessionMode("new");
+                    setSessionRequested(false);
+                    setAttachmentsError("");
+                  }}
+                  disabled={formDisabled}
+                  aria-pressed={sessionMode === "new"}
+                >
+                  <span className="session-workspace-icon is-create" aria-hidden="true">
+                    <FontAwesomeIcon icon={faPlus} />
+                  </span>
+                  <span className="session-workspace-option-text">
+                    <span className="session-workspace-option-title">
+                      Nouvelle session
+                    </span>
+                    <span className="session-workspace-option-subtitle">
+                      Cloner un depot pour demarrer une nouvelle session
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`session-workspace-option ${
+                    sessionMode === "existing" ? "is-selected" : ""
+                  }`}
+                  onClick={() => {
+                    setSessionMode("existing");
+                    setSessionRequested(false);
+                    setAttachmentsError("");
+                  }}
+                  disabled={formDisabled}
+                  aria-pressed={sessionMode === "existing"}
+                >
+                  <span className="session-workspace-icon is-join" aria-hidden="true">
+                    <FontAwesomeIcon icon={faUser} />
+                  </span>
+                  <span className="session-workspace-option-text">
+                    <span className="session-workspace-option-title">
+                      Reprendre une session existante
+                    </span>
+                    <span className="session-workspace-option-subtitle">
+                      Reprendre un worktree deja configure
+                    </span>
+                  </span>
+                </button>
               </div>
-              {sessionMode === "existing" && (
+              <div
+                className={`session-panel ${
+                  sessionMode === "existing" ? "is-visible" : "is-hidden"
+                }`}
+                aria-hidden={sessionMode !== "existing"}
+              >
                 <div className="session-auth">
                   <div className="session-auth-title">Sessions existantes</div>
                   {workspaceSessionsLoading ? (
@@ -5464,9 +5491,14 @@ function App() {
                     </div>
                   )}
                 </div>
-              )}
-              {sessionMode === "new" &&
-                (isCloning ? (
+              </div>
+              <div
+                className={`session-panel ${
+                  sessionMode === "new" ? "is-visible" : "is-hidden"
+                }`}
+                aria-hidden={sessionMode !== "new"}
+              >
+                {isCloning ? (
                   <div className="session-hint">
                     Clonage du depot...
                     {repoDisplay && (
@@ -5609,7 +5641,8 @@ function App() {
                       </button>
                     </div>
                   </form>
-                ))}
+                )}
+              </div>
               {attachmentsError && (
                 <div className="attachments-error">{attachmentsError}</div>
               )}

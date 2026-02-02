@@ -212,9 +212,9 @@ body {
 }
 
 .session-workspace-option.is-selected {
-  border-color: rgba(96, 165, 250, 0.6);
-  box-shadow: 0 10px 24px rgba(96, 165, 250, 0.18);
-  background: #f3f8ff;
+  border-color: rgba(243, 166, 107, 0.7);
+  box-shadow: 0 10px 24px rgba(243, 166, 107, 0.22);
+  background: rgba(243, 166, 107, 0.15);
 }
 
 .session-workspace-icon {
@@ -275,6 +275,22 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+}
+
+.session-panel {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: max-height 0.3s ease, opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+
+.session-panel.is-visible {
+  max-height: 800px;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .workspace-created-card {
