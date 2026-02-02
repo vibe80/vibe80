@@ -741,6 +741,13 @@ body {
   font-size: 12px;
 }
 
+.brand-logo {
+  display: block;
+  height: 18px;
+  width: auto;
+  object-fit: contain;
+}
+
 .header h1 {
   margin: 8px 0 0;
   font-size: clamp(28px, 3vw, 40px);

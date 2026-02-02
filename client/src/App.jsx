@@ -35,6 +35,9 @@ import {
 import Editor from "@monaco-editor/react";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import QRCode from "qrcode";
+import vibe80Logo from "./assets/logo_small.png";
+import QRCode from "qrcode";
+import vibe80Logo from "./assets/logo_small.png";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
@@ -5111,7 +5114,7 @@ function App() {
               <FontAwesomeIcon icon={faRightFromBracket} />
             </button>
           )}
-          <p className="eyebrow">vibe80</p>
+          <img className="brand-logo" src={vibe80Logo} alt="vibe80" />
           <h1>
             {showStep4
               ? "Cloner une session"
@@ -5797,7 +5800,7 @@ function App() {
         <div className="topbar-left">
           <div className="topbar-spacer" />
           <div className="topbar-brand">
-            <p className="eyebrow">vibe80</p>
+            <img className="brand-logo" src={vibe80Logo} alt="vibe80" />
             <div className="topbar-subtitle">
               {repoName || attachmentSession?.sessionId || "Session"}
             </div>
