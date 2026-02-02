@@ -3480,13 +3480,13 @@ app.get("/api/sessions", (req, res) => {
     });
 });
 
-app.post("/api/sessions/handoff", (req, res) => {
+app.post("/api/sessions/handoff", async (req, res) => {
   const sessionId = req.body?.sessionId;
   if (!sessionId || typeof sessionId !== "string") {
     res.status(400).json({ error: "Session ID required.", error_type: "SESSION_ID_REQUIRED" });
     return;
   }
-  const session = getSession(sessionId, req.workspaceId);
+  const session = await getSession(sessionId, req.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found.", error_type: "SESSION_NOT_FOUND" });
     return;
@@ -3495,7 +3495,7 @@ app.post("/api/sessions/handoff", (req, res) => {
   res.json({ handoffToken: record.token, expiresAt: record.expiresAt });
 });
 
-app.post("/api/sessions/handoff/consume", (req, res) => {
+app.post("/api/sessions/handoff/consume", async (req, res) => {
   const handoffToken = req.body?.handoffToken;
   if (!handoffToken || typeof handoffToken !== "string") {
     res.status(400).json({ error: "Handoff token required.", error_type: "HANDOFF_TOKEN_REQUIRED" });
@@ -3515,7 +3515,7 @@ app.post("/api/sessions/handoff/consume", (req, res) => {
     res.status(410).json({ error: "Handoff token expired.", error_type: "HANDOFF_TOKEN_EXPIRED" });
     return;
   }
-  const session = getSession(record.sessionId, record.workspaceId);
+  const session = await getSession(record.sessionId, record.workspaceId);
   if (!session) {
     res.status(404).json({ error: "Session not found.", error_type: "SESSION_NOT_FOUND" });
     return;
