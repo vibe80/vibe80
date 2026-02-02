@@ -1,10 +1,26 @@
 {
-  "name": "vibe80",
-  "private": true,
+  "name": "@vibe80/vibe80",
+  "version": "0.1.0",
+  "private": false,
   "workspaces": [
     "server",
     "client"
   ],
+  "bin": {
+    "vibe80": "bin/vibe80.js"
+  },
+  "files": [
+    "bin",
+    "server",
+    "client",
+    "package.json",
+    "package-lock.json",
+    "README.md",
+    "docs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "concurrently -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "npm --workspace server run dev",
@@ -12,7 +28,7 @@
     "build": "npm --workspace client run build",
     "start": "npm --workspace server run start"
   },
-  "devDependencies": {
+  "dependencies": {
     "concurrently": "^8.2.2"
   }
 }
