@@ -940,7 +940,7 @@ function App() {
 
   const buildHandoffPayload = (token, expiresAt) =>
     JSON.stringify({
-      type: "m5chat_handoff",
+      type: "vibe80_handoff",
       handoffToken: token,
       baseUrl: window.location.origin,
       expiresAt,
