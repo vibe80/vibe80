@@ -1390,11 +1390,16 @@ function App() {
   }, [workspaceId]);
 
   useEffect(() => {
-    if (workspaceToken) {
-      setWorkspaceStep(3);
-    } else {
+    if (!workspaceToken) {
       setWorkspaceStep(1);
+      return;
     }
+    setWorkspaceStep((current) => {
+      if (current >= 3) {
+        return current;
+      }
+      return 4;
+    });
   }, [workspaceToken]);
 
   const loadWorkspaceSessions = useCallback(async () => {
@@ -3391,7 +3396,7 @@ function App() {
         const data = await response.json();
         setWorkspaceToken(data.workspaceToken || "");
         setWorkspaceId(workspaceIdValue);
-        setWorkspaceStep(3);
+        setWorkspaceStep(4);
         return;
       }
       setWorkspaceStep(2);
@@ -5038,13 +5043,16 @@ function App() {
     const showStep1 = workspaceStep === 1;
     const showStep2 = workspaceStep === 2 && workspaceMode === "new";
     const showStep3 = workspaceStep === 3 && workspaceToken;
+    const showStep4 = workspaceStep === 4 && workspaceToken;
     return (
       <div className="session-gate">
         <div className="session-card">
           <p className="eyebrow">vibe80</p>
           <h1>
-            {showStep3
+            {showStep4
               ? "Cloner une session"
+              : showStep3
+                ? "Workspace cree"
               : showStep2
                 ? "Configurer les providers IA"
                 : "Configurer le workspace"}
@@ -5268,6 +5276,63 @@ function App() {
           )}
 
           {showStep3 && (
+            <>
+              <p className="session-hint">
+                Votre workspace a ete cree avec succes. Gardez ces identifiants
+                scrupuleusement pour un futur acces.
+              </p>
+              <div className="workspace-created-card">
+                <div className="workspace-created-row">
+                  <span className="workspace-created-label">Workspace ID</span>
+                  <span className="workspace-created-value">
+                    {workspaceCreated?.workspaceId || workspaceId}
+                  </span>
+                  <button
+                    type="button"
+                    className="workspace-created-copy"
+                    onClick={() =>
+                      copyTextToClipboard(
+                        workspaceCreated?.workspaceId || workspaceId || ""
+                      )
+                    }
+                    aria-label="Copier le workspace ID"
+                  >
+                    <FontAwesomeIcon icon={faCopy} />
+                  </button>
+                </div>
+                <div className="workspace-created-row">
+                  <span className="workspace-created-label">
+                    Workspace Secret
+                  </span>
+                  <span className="workspace-created-value">
+                    {workspaceCreated?.workspaceSecret || ""}
+                  </span>
+                  <button
+                    type="button"
+                    className="workspace-created-copy"
+                    onClick={() =>
+                      copyTextToClipboard(workspaceCreated?.workspaceSecret || "")
+                    }
+                    aria-label="Copier le workspace secret"
+                  >
+                    <FontAwesomeIcon icon={faCopy} />
+                  </button>
+                </div>
+              </div>
+              <div className="session-form-row">
+                <div />
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceStep(4)}
+                  disabled={formDisabled}
+                >
+                  Continuer
+                </button>
+              </div>
+            </>
+          )}
+
+          {showStep4 && (
             <>
               <p className="session-hint">
                 Workspace valide. Choisissez comment demarrer.

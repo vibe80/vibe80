@@ -277,6 +277,58 @@ body {
   gap: 12px;
 }
 
+.workspace-created-card {
+  background: rgba(20, 19, 17, 0.04);
+  border-radius: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.workspace-created-row {
+  display: grid;
+  grid-template-columns: minmax(0, 140px) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.workspace-created-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.workspace-created-value {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+.workspace-created-copy {
+  border: none;
+  background: rgba(238, 93, 59, 0.12);
+  color: var(--accent-dark);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-created-copy:hover:not(:disabled) {
+  background: rgba(238, 93, 59, 0.2);
+}
+
 .session-list {
   list-style: none;
   padding: 0;
