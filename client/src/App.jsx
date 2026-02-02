@@ -700,6 +700,7 @@ function App() {
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [sessionMode, setSessionMode] = useState("new");
   const [defaultInternetAccess, setDefaultInternetAccess] = useState(true);
+  const [defaultShareGitCredentials, setDefaultShareGitCredentials] = useState(false);
   const [workspaceSessions, setWorkspaceSessions] = useState([]);
   const [workspaceSessionsLoading, setWorkspaceSessionsLoading] = useState(false);
   const [workspaceSessionsError, setWorkspaceSessionsError] = useState("");
@@ -2643,6 +2644,7 @@ function App() {
               model: payload.model || null,
               reasoningEffort: payload.reasoningEffort || null,
               internetAccess: Boolean(payload.internetAccess),
+              shareGitCredentials: Boolean(payload.shareGitCredentials),
               status: payload.status || "creating",
               color: payload.color,
               messages: [],
@@ -3255,7 +3257,11 @@ function App() {
       try {
         setAttachmentsLoading(true);
         setAttachmentsError("");
-        const payload = { repoUrl, defaultInternetAccess };
+        const payload = {
+          repoUrl,
+          defaultInternetAccess,
+          defaultShareGitCredentials,
+        };
         if (repoAuth) {
           payload.auth = repoAuth;
         }
@@ -3335,6 +3341,7 @@ function App() {
     apiFetch,
     sessionMode,
     defaultInternetAccess,
+    defaultShareGitCredentials,
   ]);
 
   useEffect(() => {
@@ -3647,6 +3654,12 @@ function App() {
       setDefaultInternetAccess(attachmentSession.defaultInternetAccess);
     }
   }, [attachmentSession?.defaultInternetAccess]);
+
+  useEffect(() => {
+    if (typeof attachmentSession?.defaultShareGitCredentials === "boolean") {
+      setDefaultShareGitCredentials(attachmentSession.defaultShareGitCredentials);
+    }
+  }, [attachmentSession?.defaultShareGitCredentials]);
 
   useEffect(() => {
     if (!attachmentSession?.default_provider && !attachmentSession?.providers) {
@@ -3970,6 +3983,7 @@ function App() {
       model,
       reasoningEffort,
       internetAccess,
+      shareGitCredentials,
     }) => {
       if (!socketRef.current || !connected) return;
 
@@ -3984,6 +3998,7 @@ function App() {
           model: model || null,
           reasoningEffort: reasoningEffort ?? null,
           internetAccess: Boolean(internetAccess),
+          shareGitCredentials: Boolean(shareGitCredentials),
         })
       );
     },
@@ -5702,6 +5717,26 @@ function App() {
                         session.
                       </div>
                     </div>
+                    <div className="session-auth">
+                      <div className="session-auth-title">Share git credentials</div>
+                      <div className="session-auth-options">
+                        <label className="session-auth-option">
+                          <input
+                            type="checkbox"
+                            checked={defaultShareGitCredentials}
+                            onChange={(event) =>
+                              setDefaultShareGitCredentials(event.target.checked)
+                            }
+                            disabled={formDisabled}
+                          />
+                          Share git credentials
+                        </label>
+                      </div>
+                      <div className="session-auth-hint">
+                        Autoriser le partage du dossier Git pour la branche
+                        principale par defaut.
+                      </div>
+                    </div>
                     <div className="session-form-row is-actions">
                       <button
                         type="submit"
@@ -5848,6 +5883,7 @@ function App() {
               branchLoading={branchLoading}
               branchError={branchError}
               defaultInternetAccess={defaultInternetAccess}
+              defaultShareGitCredentials={defaultShareGitCredentials}
               onRefreshBranches={loadBranches}
               providerModelState={providerModelState}
               onRequestProviderModels={loadProviderModels}

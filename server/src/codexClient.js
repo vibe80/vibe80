@@ -12,6 +12,8 @@ export class CodexAppServerClient extends EventEmitter {
     attachmentsDir,
     repoDir,
     internetAccess,
+    shareGitCredentials,
+    gitDir,
     threadId,
     env,
     workspaceId,
@@ -21,6 +23,8 @@ export class CodexAppServerClient extends EventEmitter {
     this.attachmentsDir = attachmentsDir;
     this.repoDir = repoDir || cwd;
     this.internetAccess = internetAccess ?? true;
+    this.shareGitCredentials = shareGitCredentials ?? false;
+    this.gitDir = gitDir || null;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
     this.proc = null;
@@ -206,8 +210,9 @@ export class CodexAppServerClient extends EventEmitter {
     const writableRoots = [
       this.cwd,
       this.repoDir,
-      this.attachmentsDir
-    ]
+      this.attachmentsDir,
+      this.shareGitCredentials ? this.gitDir : null,
+    ].filter(Boolean);
 
     const params = {
       cwd: this.cwd,

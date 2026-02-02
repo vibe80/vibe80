@@ -1262,7 +1262,13 @@ const ensureSshConfigEntry = async (workspaceId, host, keyPath, sshPaths) => {
   await writeWorkspaceFile(workspaceId, sshConfigPath, nextContent, 0o600);
 };
 
-const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) => {
+const createSession = async (
+  workspaceId,
+  repoUrl,
+  auth,
+  defaultInternetAccess,
+  defaultShareGitCredentials
+) => {
   const workspaceConfig = await readWorkspaceConfig(workspaceId);
   const enabledProviders = listEnabledProviders(workspaceConfig?.providers || {});
   const defaultProvider = pickDefaultProvider(enabledProviders);
@@ -1271,6 +1277,10 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
   }
   const resolvedInternetAccess =
     typeof defaultInternetAccess === "boolean" ? defaultInternetAccess : true;
+  const resolvedShareGitCredentials =
+    typeof defaultShareGitCredentials === "boolean"
+      ? defaultShareGitCredentials
+      : false;
   const workspacePaths = getWorkspacePaths(workspaceId);
   const sshPaths = getWorkspaceSshPaths(workspacePaths.homeDir);
   while (true) {
@@ -1286,6 +1296,13 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
       await runAsCommand(workspaceId, "/bin/chmod", ["2750", attachmentsDir]);
       const repoDir = path.join(dir, "repository");
       const gitCredsDir = path.join(dir, "git");
+      const needsGitCredsDir =
+        resolvedShareGitCredentials ||
+        (auth?.type === "http" && auth.username && auth.password);
+      if (needsGitCredsDir) {
+        await runAsCommand(workspaceId, "/bin/mkdir", ["-p", gitCredsDir]);
+        await runAsCommand(workspaceId, "/bin/chmod", ["2750", gitCredsDir]);
+      }
       const env = {};
       if (auth?.type === "ssh" && auth.privateKey) {
         await ensureWorkspaceDir(workspaceId, sshPaths.sshDir, 0o700);
@@ -1302,8 +1319,6 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
         if (!authInfo) {
           throw new Error("Invalid HTTP repository URL for credential auth.");
         }
-        await runAsCommand(workspaceId, "/bin/mkdir", ["-p", gitCredsDir]);
-        await runAsCommand(workspaceId, "/bin/chmod", ["2750", gitCredsDir]);
         const gitConfigPath = path.join(gitCredsDir, "gitconfig");
         const credFile = path.join(gitCredsDir, "git-credentials");
         const credInputPath = path.join(gitCredsDir, "git-credential-input");
@@ -1378,6 +1393,8 @@ const createSession = async (workspaceId, repoUrl, auth, defaultInternetAccess) 
         activeProvider: defaultProvider,
         providers: enabledProviders,
         defaultInternetAccess: resolvedInternetAccess,
+        defaultShareGitCredentials: resolvedShareGitCredentials,
+        gitDir: gitCredsDir,
         createdAt: Date.now(),
         lastActivityAt: Date.now(),
         sshKeyPath: sessionSshKeyPath,
@@ -2353,7 +2370,8 @@ const ensureClaudeWorktreeClients = async (session) => {
           session.attachmentsDir,
           session.repoDir,
           worktree.internetAccess,
-          worktree.threadId
+          worktree.threadId,
+          session.gitDir || path.join(session.dir, "git")
         );
         runtime.worktreeClients.set(worktree.id, client);
       }
@@ -2403,7 +2421,8 @@ const ensureCodexWorktreeClients = async (session) => {
           session.attachmentsDir,
           session.repoDir,
           worktree.internetAccess,
-          worktree.threadId
+          worktree.threadId,
+          session.gitDir || path.join(session.dir, "git")
         );
         runtime.worktreeClients.set(worktree.id, client);
       }
@@ -2750,6 +2769,10 @@ wss.on("connection", (socket, req) => {
           model,
           reasoningEffort,
           internetAccess: Boolean(payload.internetAccess),
+          shareGitCredentials:
+            typeof payload.shareGitCredentials === "boolean"
+              ? payload.shareGitCredentials
+              : Boolean(session.defaultShareGitCredentials),
         });
 
         // Attach events to the client
@@ -2811,6 +2834,7 @@ wss.on("connection", (socket, req) => {
           model: worktree.model || null,
           reasoningEffort: worktree.reasoningEffort || null,
           internetAccess: Boolean(worktree.internetAccess),
+          shareGitCredentials: Boolean(worktree.shareGitCredentials),
           status: worktree.status,
           color: worktree.color,
         });
@@ -3467,6 +3491,10 @@ app.get("/api/session/:sessionId", async (req, res) => {
       typeof session.defaultInternetAccess === "boolean"
         ? session.defaultInternetAccess
         : true,
+    defaultShareGitCredentials:
+      typeof session.defaultShareGitCredentials === "boolean"
+        ? session.defaultShareGitCredentials
+        : false,
     repoDiff,
     rpcLogsEnabled: debugApiWsLog,
     rpcLogs: debugApiWsLog ? session.rpcLogs || [] : [],
@@ -3644,11 +3672,13 @@ app.post("/api/session", async (req, res) => {
   try {
     const auth = req.body?.auth || null;
     const defaultInternetAccess = req.body?.defaultInternetAccess;
+    const defaultShareGitCredentials = req.body?.defaultShareGitCredentials;
     const session = await createSession(
       req.workspaceId,
       repoUrl,
       auth,
-      defaultInternetAccess
+      defaultInternetAccess,
+      defaultShareGitCredentials
     );
     res.json({
       sessionId: session.sessionId,
@@ -3661,6 +3691,10 @@ app.post("/api/session", async (req, res) => {
         typeof session.defaultInternetAccess === "boolean"
           ? session.defaultInternetAccess
           : true,
+      defaultShareGitCredentials:
+        typeof session.defaultShareGitCredentials === "boolean"
+          ? session.defaultShareGitCredentials
+          : false,
       messages: [],
       rpcLogsEnabled: debugApiWsLog,
       terminalEnabled,
@@ -3868,12 +3902,19 @@ app.post("/api/worktree", async (req, res) => {
         : typeof session.defaultInternetAccess === "boolean"
           ? session.defaultInternetAccess
           : true;
+    const shareGitCredentials =
+      typeof req.body?.shareGitCredentials === "boolean"
+        ? req.body.shareGitCredentials
+        : typeof session.defaultShareGitCredentials === "boolean"
+          ? session.defaultShareGitCredentials
+          : false;
     const worktree = await createWorktree(session, {
       provider,
       name: req.body?.name || null,
       parentWorktreeId: req.body?.parentWorktreeId || null,
       startingBranch: req.body?.startingBranch || null,
       internetAccess,
+      shareGitCredentials,
     });
 
     // Attacher les événements au client
@@ -3902,6 +3943,7 @@ app.post("/api/worktree", async (req, res) => {
       branchName: worktree.branchName,
       provider: worktree.provider,
       internetAccess: Boolean(worktree.internetAccess),
+      shareGitCredentials: Boolean(worktree.shareGitCredentials),
       status: worktree.status,
       color: worktree.color,
     });
@@ -3939,6 +3981,7 @@ app.get("/api/worktree/:worktreeId", async (req, res) => {
       model: worktree.model || null,
       reasoningEffort: worktree.reasoningEffort || null,
       internetAccess: Boolean(worktree.internetAccess),
+      shareGitCredentials: Boolean(worktree.shareGitCredentials),
       status: worktree.status,
       messages: worktree.messages,
       color: worktree.color,

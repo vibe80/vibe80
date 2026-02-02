@@ -1,3 +1,4 @@
+import path from "path";
 import { CodexAppServerClient } from "./codexClient.js";
 import { ClaudeCliClient } from "./claudeClient.js";
 import { getSessionRuntime } from "./runtimeStore.js";
@@ -23,6 +24,8 @@ export async function getOrCreateClient(session, provider) {
           attachmentsDir: session.attachmentsDir,
           repoDir: session.repoDir,
           internetAccess: session.defaultInternetAccess,
+          shareGitCredentials: Boolean(session.defaultShareGitCredentials),
+          gitDir: session.gitDir || path.join(session.dir, "git"),
           env: process.env,
           workspaceId: session.workspaceId,
         })
@@ -31,6 +34,8 @@ export async function getOrCreateClient(session, provider) {
           attachmentsDir: session.attachmentsDir,
           repoDir: session.repoDir,
           internetAccess: session.defaultInternetAccess,
+          shareGitCredentials: Boolean(session.defaultShareGitCredentials),
+          gitDir: session.gitDir || path.join(session.dir, "git"),
           threadId: session.threadId || null,
           env: process.env,
           workspaceId: session.workspaceId,
@@ -57,7 +62,8 @@ export function createWorktreeClient(
   attachmentsDir,
   repoDir,
   internetAccess,
-  threadId
+  threadId,
+  gitDir
 ) {
   const client =
     worktree.provider === "claude"
@@ -66,6 +72,8 @@ export function createWorktreeClient(
           attachmentsDir,
           repoDir,
           internetAccess,
+          shareGitCredentials: Boolean(worktree.shareGitCredentials),
+          gitDir,
           env: process.env,
           workspaceId: worktree.workspaceId,
         })
@@ -74,6 +82,8 @@ export function createWorktreeClient(
           attachmentsDir,
           repoDir,
           internetAccess,
+          shareGitCredentials: Boolean(worktree.shareGitCredentials),
+          gitDir,
           threadId: threadId || worktree.threadId || null,
           env: process.env,
           workspaceId: worktree.workspaceId,

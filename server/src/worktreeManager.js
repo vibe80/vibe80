@@ -47,6 +47,16 @@ const runSessionCommand = (session, command, args, options = {}) =>
 const runSessionCommandOutput = (session, command, args, options = {}) =>
   runAsCommandOutput(session.workspaceId, command, args, options);
 
+const resolveSessionGitDir = (session) =>
+  session?.gitDir || path.join(session.dir, "git");
+
+const ensureSessionGitDir = async (session) => {
+  const gitDir = resolveSessionGitDir(session);
+  await runAsCommand(session.workspaceId, "/bin/mkdir", ["-p", gitDir]);
+  await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", gitDir]);
+  return gitDir;
+};
+
 const resolveStartingRef = (startingBranch, remote = "origin") => {
   if (!startingBranch || typeof startingBranch !== "string") {
     return null;
@@ -128,6 +138,7 @@ const ensureMainWorktree = async (session) => {
     model: null,
     reasoningEffort: null,
     internetAccess: Boolean(session.defaultInternetAccess),
+    shareGitCredentials: Boolean(session.defaultShareGitCredentials),
     startingBranch: branchName || null,
     workspaceId: session.workspaceId,
     messages: Array.isArray(seedMessages) ? seedMessages : [],
@@ -170,6 +181,7 @@ export async function createWorktree(session, options) {
     model,
     reasoningEffort,
     internetAccess,
+    shareGitCredentials,
   } = options;
 
   const worktreesDir = path.join(session.dir, "worktrees");
@@ -275,6 +287,10 @@ export async function createWorktree(session, options) {
   );
   await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", worktreePath]);
 
+  if (shareGitCredentials) {
+    await ensureSessionGitDir(session);
+  }
+
   const worktree = {
     id: worktreeId,
     sessionId: session.sessionId,
@@ -286,6 +302,7 @@ export async function createWorktree(session, options) {
     model: model || null,
     reasoningEffort: reasoningEffort || null,
     internetAccess: Boolean(internetAccess),
+    shareGitCredentials: Boolean(shareGitCredentials),
     startingBranch: startingBranch || null,
     workspaceId: session.workspaceId,
     messages: [],
@@ -305,7 +322,8 @@ export async function createWorktree(session, options) {
       session.attachmentsDir,
       session.repoDir,
       worktree.internetAccess,
-      worktree.threadId
+      worktree.threadId,
+      resolveSessionGitDir(session)
     );
     const runtime = getSessionRuntime(session.sessionId);
     if (runtime) {
@@ -495,6 +513,7 @@ export async function listWorktrees(session) {
     messageCount: Array.isArray(wt.messages) ? wt.messages.length : 0,
     parentWorktreeId: wt.parentWorktreeId,
     internetAccess: Boolean(wt.internetAccess),
+    shareGitCredentials: Boolean(wt.shareGitCredentials),
     createdAt: wt.createdAt,
     lastActivityAt: wt.lastActivityAt,
     color: wt.color,

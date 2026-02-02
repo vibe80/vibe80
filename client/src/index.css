@@ -3164,6 +3164,7 @@ main.chat {
   background: var(--accent);
   color: white;
   border-bottom-right-radius: 6px;
+  max-width: 100%;
 }
 
 .bubble.assistant {

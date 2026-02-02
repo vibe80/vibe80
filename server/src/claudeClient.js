@@ -13,12 +13,23 @@ const createTurnId = () =>
     : crypto.randomBytes(16).toString("hex");
 
 export class ClaudeCliClient extends EventEmitter {
-  constructor({ cwd, attachmentsDir, repoDir, internetAccess, env, workspaceId }) {
+  constructor({
+    cwd,
+    attachmentsDir,
+    repoDir,
+    internetAccess,
+    shareGitCredentials,
+    gitDir,
+    env,
+    workspaceId,
+  }) {
     super();
     this.cwd = cwd;
     this.attachmentsDir = attachmentsDir;
     this.repoDir = repoDir || cwd;
     this.internetAccess = internetAccess ?? true;
+    this.shareGitCredentials = shareGitCredentials ?? false;
+    this.gitDir = gitDir || null;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
     this.ready = false;
@@ -45,6 +56,7 @@ export class ClaudeCliClient extends EventEmitter {
       this.cwd,
       this.repoDir,
       this.attachmentsDir,
+      this.shareGitCredentials ? this.gitDir : null,
     ]
       .filter(Boolean)
       .filter((value, index, self) => self.indexOf(value) === index);

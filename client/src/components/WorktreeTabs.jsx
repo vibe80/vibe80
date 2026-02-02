@@ -39,6 +39,7 @@ export default function WorktreeTabs({
   branchLoading,
   branchError,
   defaultInternetAccess,
+  defaultShareGitCredentials,
   onRefreshBranches,
   providerModelState,
   onRequestProviderModels,
@@ -63,6 +64,9 @@ export default function WorktreeTabs({
   const [newInternetAccess, setNewInternetAccess] = useState(
     Boolean(defaultInternetAccess)
   );
+  const [newShareGitCredentials, setNewShareGitCredentials] = useState(
+    Boolean(defaultShareGitCredentials)
+  );
   const editInputRef = useRef(null);
   const createInputRef = useRef(null);
 
@@ -82,6 +86,7 @@ export default function WorktreeTabs({
   useEffect(() => {
     if (!createDialogOpen) return;
     setNewInternetAccess(Boolean(defaultInternetAccess));
+    setNewShareGitCredentials(Boolean(defaultShareGitCredentials));
     if (!startingBranch) {
       setStartingBranch(defaultBranch || "");
     }
@@ -100,6 +105,7 @@ export default function WorktreeTabs({
     defaultBranch,
     branches,
     defaultInternetAccess,
+    defaultShareGitCredentials,
     onRefreshBranches,
     branchLoading,
     newProvider,
@@ -186,6 +192,7 @@ export default function WorktreeTabs({
         model: newModel || null,
         reasoningEffort: newReasoningEffort || null,
         internetAccess: newInternetAccess,
+        shareGitCredentials: newShareGitCredentials,
       });
     }
     setNewName("");
@@ -194,6 +201,7 @@ export default function WorktreeTabs({
     setNewModel("");
     setNewReasoningEffort("");
     setNewInternetAccess(Boolean(defaultInternetAccess));
+    setNewShareGitCredentials(Boolean(defaultShareGitCredentials));
     setCreateDialogOpen(false);
   };
 
@@ -469,6 +477,19 @@ export default function WorktreeTabs({
               </label>
               <div className="worktree-field-hint">
                 Autoriser l&apos;accès internet pour ce worktree uniquement.
+              </div>
+            </div>
+            <div className="worktree-create-field">
+              <label className="worktree-toggle">
+                <input
+                  type="checkbox"
+                  checked={newShareGitCredentials}
+                  onChange={(e) => setNewShareGitCredentials(e.target.checked)}
+                />
+                <span>Share git credentials</span>
+              </label>
+              <div className="worktree-field-hint">
+                Partager le dossier Git avec ce worktree.
               </div>
             </div>
             <div className="worktree-create-actions">

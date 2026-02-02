@@ -1442,6 +1442,9 @@
           },
           "defaultInternetAccess": {
             "type": "boolean"
+          },
+          "defaultShareGitCredentials": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1465,6 +1468,9 @@
             "type": "object"
           },
           "defaultInternetAccess": {
+            "type": "boolean"
+          },
+          "defaultShareGitCredentials": {
             "type": "boolean"
           }
         },
@@ -1511,6 +1517,9 @@
             "type": "boolean"
           },
           "defaultInternetAccess": {
+            "type": "boolean"
+          },
+          "defaultShareGitCredentials": {
             "type": "boolean"
           }
         },
@@ -1640,6 +1649,9 @@
           },
           "internetAccess": {
             "type": "boolean"
+          },
+          "shareGitCredentials": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1695,6 +1707,9 @@
           },
           "internetAccess": {
             "type": "boolean"
+          },
+          "shareGitCredentials": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1725,6 +1740,9 @@
             "type": "string"
           },
           "internetAccess": {
+            "type": "boolean"
+          },
+          "shareGitCredentials": {
             "type": "boolean"
           }
         },
@@ -1775,6 +1793,9 @@
             "$ref": "#/components/schemas/RepoDiff"
           },
           "internetAccess": {
+            "type": "boolean"
+          },
+          "shareGitCredentials": {
             "type": "boolean"
           }
         },
