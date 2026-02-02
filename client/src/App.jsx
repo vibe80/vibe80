@@ -23,10 +23,12 @@ import {
   faGear,
   faPaperclip,
   faQrcode,
+  faPlus,
   faRightFromBracket,
   faTerminal,
   faTowerBroadcast,
   faTriangleExclamation,
+  faUser,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import Editor from "@monaco-editor/react";
@@ -5053,36 +5055,57 @@ function App() {
                 Selectionnez un workspace existant ou creez-en un nouveau.
               </p>
               <form className="session-form" onSubmit={handleWorkspaceSubmit}>
-                <div className="session-auth">
-                  <div className="session-auth-title">Workspace</div>
-                  <div className="session-auth-options">
-                    <label className="session-auth-option">
-                      <input
-                        type="radio"
-                        name="workspaceMode"
-                        value="existing"
-                        checked={workspaceMode === "existing"}
-                        onChange={() => setWorkspaceMode("existing")}
-                        disabled={formDisabled}
-                      />
-                      Utiliser un workspace existant
-                    </label>
-                    <label className="session-auth-option">
-                      <input
-                        type="radio"
-                        name="workspaceMode"
-                        value="new"
-                        checked={workspaceMode === "new"}
-                        onChange={() => setWorkspaceMode("new")}
-                        disabled={formDisabled}
-                      />
-                      Creer un nouveau workspace
-                    </label>
-                  </div>
+                <div className="session-workspace-options">
+                  <button
+                    type="button"
+                    className={`session-workspace-option ${
+                      workspaceMode === "existing" ? "is-selected" : ""
+                    }`}
+                    onClick={() => setWorkspaceMode("existing")}
+                    disabled={formDisabled}
+                    aria-pressed={workspaceMode === "existing"}
+                  >
+                    <span className="session-workspace-icon is-join" aria-hidden="true">
+                      <FontAwesomeIcon icon={faUser} />
+                    </span>
+                    <span className="session-workspace-option-text">
+                      <span className="session-workspace-option-title">
+                        Rejoindre un workspace
+                      </span>
+                      <span className="session-workspace-option-subtitle">
+                        Accedez a un espace existant avec vos identifiants
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`session-workspace-option ${
+                      workspaceMode === "new" ? "is-selected" : ""
+                    }`}
+                    onClick={() => setWorkspaceMode("new")}
+                    disabled={formDisabled}
+                    aria-pressed={workspaceMode === "new"}
+                  >
+                    <span className="session-workspace-icon is-create" aria-hidden="true">
+                      <FontAwesomeIcon icon={faPlus} />
+                    </span>
+                    <span className="session-workspace-option-text">
+                      <span className="session-workspace-option-title">
+                        Creer un workspace
+                      </span>
+                      <span className="session-workspace-option-subtitle">
+                        Creez un nouvel espace pour vous ou votre equipe
+                      </span>
+                    </span>
+                  </button>
                 </div>
                 {workspaceMode === "existing" && (
-                  <div className="session-auth">
-                    <div className="session-auth-grid">
+                  <div className="session-workspace-form">
+                    <div className="session-workspace-form-labels">
+                      <span>Nom du workspace</span>
+                      <span>Secret</span>
+                    </div>
+                    <div className="session-workspace-form-grid">
                       <input
                         type="text"
                         placeholder="workspaceId (ex: w...)"
