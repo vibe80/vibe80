@@ -64,7 +64,7 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
                 } catch (e: Exception) {
                     LLMProvider.CODEX
                 }
-                sessionRepository.ensureWebSocketConnected(savedSession.sessionId, provider)
+                sessionRepository.ensureWebSocketConnected(savedSession.sessionId)
             }
         }
     }

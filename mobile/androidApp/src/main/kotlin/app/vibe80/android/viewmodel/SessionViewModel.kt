@@ -48,9 +48,6 @@ data class SessionUiState(
     val hasSavedSession: Boolean = false,
     val handoffBusy: Boolean = false,
     val handoffError: String? = null
-    val hasSavedSession: Boolean = false,
-    val handoffBusy: Boolean = false,
-    val handoffError: String? = null
 )
 
 enum class AuthMethod {
@@ -509,7 +506,7 @@ class SessionViewModel(
 
             val baseUrl = parsed.baseUrl?.trim()?.trimEnd('/')
             if (!baseUrl.isNullOrBlank() &&
-                baseUrl != M5ChatApplication.BASE_URL.trimEnd('/')
+                baseUrl != Vibe80Application.BASE_URL.trimEnd('/')
             ) {
                 _uiState.update {
                     it.copy(
@@ -536,7 +533,7 @@ class SessionViewModel(
                         sessionId = response.sessionId,
                         repoUrl = sessionState?.repoUrl ?: "",
                         provider = sessionState?.activeProvider?.name ?: "CODEX",
-                        baseUrl = M5ChatApplication.BASE_URL
+                        baseUrl = Vibe80Application.BASE_URL
                     )
                     _uiState.update {
                         it.copy(
