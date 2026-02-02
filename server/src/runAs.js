@@ -12,6 +12,46 @@ const ALLOWED_ENV_KEYS = new Set([
   "GIT_TERMINAL_PROMPT",
   "TERM",
 ]);
+export const DEFAULT_ALLOW_RO = ["/bin", "/etc", "/usr/bin"];
+
+const normalizePaths = (paths = []) => {
+  const seen = new Set();
+  const result = [];
+  for (const entry of paths) {
+    if (!entry) {
+      continue;
+    }
+    const resolved = path.resolve(entry);
+    if (seen.has(resolved)) {
+      continue;
+    }
+    seen.add(resolved);
+    result.push(resolved);
+  }
+  return result;
+};
+
+export const buildSandboxArgs = (options = {}) => {
+  const allowRo = normalizePaths([
+    ...(options.allowRo || DEFAULT_ALLOW_RO),
+  ]);
+  const allowRw = normalizePaths([
+    ...(options.allowRw || []),
+    options.repoDir,
+    options.cwd,
+    options.attachmentsDir,
+  ]);
+  const args = [];
+  if (allowRo.length) {
+    args.push("--allow-ro", allowRo.join(","));
+  }
+  if (allowRw.length) {
+    args.push("--allow-rw", allowRw.join(","));
+  }
+  args.push("--net", options.internetAccess === false ? "none" : "tcp:53,443");
+  args.push("--seccomp", options.seccomp || "default");
+  return args;
+};
 
 const buildRunAsArgs = (workspaceId, command, args, options = {}) => {
   const result = ["--workspace-id", workspaceId];
@@ -25,6 +65,9 @@ const buildRunAsArgs = (workspaceId, command, args, options = {}) => {
       }
       result.push("--env", `${key}=${value}`);
     }
+  }
+  if (options.sandbox) {
+    result.push(...buildSandboxArgs(options));
   }
   result.push("--", command, ...args);
   return result;

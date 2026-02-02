@@ -11,6 +11,9 @@ import (
   "strconv"
   "strings"
   "syscall"
+
+  landlock "github.com/landlock-lsm/go-landlock/landlock"
+  seccomp "github.com/seccomp/libseccomp-golang"
 )
 
 var workspaceIDPattern = regexp.MustCompile(`^w[0-9a-f]{24}$`)
@@ -55,6 +58,10 @@ func main() {
   envPairs := []string{}
   command := ""
   commandArgs := []string{}
+  allowRO := []string{}
+  allowRW := []string{}
+  netMode := ""
+  seccompMode := ""
 
   for i := 0; i < len(args); i++ {
     arg := args[i]
@@ -76,6 +83,30 @@ func main() {
         fail("missing env value")
       }
       envPairs = append(envPairs, args[i+1])
+      i++
+    case "--allow-ro":
+      if i+1 >= len(args) {
+        fail("missing allow-ro value")
+      }
+      allowRO = append(allowRO, splitList(args[i+1])...)
+      i++
+    case "--allow-rw":
+      if i+1 >= len(args) {
+        fail("missing allow-rw value")
+      }
+      allowRW = append(allowRW, splitList(args[i+1])...)
+      i++
+    case "--net":
+      if i+1 >= len(args) {
+        fail("missing net value")
+      }
+      netMode = strings.TrimSpace(args[i+1])
+      i++
+    case "--seccomp":
+      if i+1 >= len(args) {
+        fail("missing seccomp value")
+      }
+      seccompMode = strings.TrimSpace(args[i+1])
       i++
     case "--":
       if i+1 >= len(args) {
@@ -150,6 +181,18 @@ func main() {
   cmd.Stderr = os.Stderr
   cmd.SysProcAttr = &syscall.SysProcAttr{
     Credential: &syscall.Credential{Uid: uid, Gid: gid},
+  }
+
+  allowRO = uniqueStrings(allowRO)
+  allowRW = uniqueStrings(allowRW)
+  if len(allowRO) > 0 || len(allowRW) > 0 {
+    allowRO = ensureBaseReadPaths(allowRO, resolved)
+  }
+  if err := applyLandlock(allowRO, allowRW, netMode); err != nil {
+    fail("landlock failed")
+  }
+  if err := applySeccomp(seccompMode, netMode); err != nil {
+    fail("seccomp failed")
   }
 
   if err := cmd.Run(); err != nil {
@@ -248,4 +291,179 @@ func readIDsFromConfig(workspaceID string) (uint32, uint32, error) {
 func fail(message string) {
   fmt.Fprintln(os.Stderr, message)
   os.Exit(1)
+}
+
+func splitList(value string) []string {
+  if value == "" {
+    return nil
+  }
+  parts := strings.Split(value, ",")
+  results := []string{}
+  for _, part := range parts {
+    cleaned := strings.TrimSpace(part)
+    if cleaned == "" {
+      continue
+    }
+    if !filepath.IsAbs(cleaned) {
+      cleaned = filepath.Clean(cleaned)
+    }
+    results = append(results, cleaned)
+  }
+  return results
+}
+
+func uniqueStrings(values []string) []string {
+  seen := map[string]struct{}{}
+  result := []string{}
+  for _, value := range values {
+    if value == "" {
+      continue
+    }
+    if _, ok := seen[value]; ok {
+      continue
+    }
+    seen[value] = struct{}{}
+    result = append(result, value)
+  }
+  return result
+}
+
+func ensureBaseReadPaths(paths []string, resolvedCommand string) []string {
+  base := []string{
+    filepath.Dir(resolvedCommand),
+    "/lib",
+    "/lib64",
+    "/usr/lib",
+    "/usr/lib64",
+    "/usr/local/bin",
+    "/usr/local/lib",
+  }
+  return uniqueStrings(append(paths, base...))
+}
+
+func applyLandlock(allowRO, allowRW []string, netMode string) error {
+  if len(allowRO) == 0 && len(allowRW) == 0 && netMode == "" {
+    return nil
+  }
+  ruleset := landlock.V6.BestEffort()
+  if len(allowRO) > 0 || len(allowRW) > 0 {
+    if err := ruleset.RestrictPaths(
+      landlock.RODirs(allowRO...),
+      landlock.RWDirs(allowRW...),
+    ); err != nil {
+      return err
+    }
+  }
+  if netMode == "" {
+    return nil
+  }
+  netRules, err := buildNetRules(netMode)
+  if err != nil {
+    return err
+  }
+  if err := ruleset.RestrictNet(netRules...); err != nil {
+    return err
+  }
+  return nil
+}
+
+func buildNetRules(netMode string) ([]landlock.Rule, error) {
+  if netMode == "" || netMode == "none" {
+    return nil, nil
+  }
+  if strings.HasPrefix(netMode, "tcp:") {
+    portsRaw := strings.TrimPrefix(netMode, "tcp:")
+    ports, err := parsePorts(portsRaw)
+    if err != nil {
+      return nil, err
+    }
+    rules := []landlock.Rule{}
+    for _, port := range ports {
+      rules = append(rules, landlock.ConnectTCP(uint16(port)))
+    }
+    return rules, nil
+  }
+  if strings.HasPrefix(netMode, "bind:") {
+    portsRaw := strings.TrimPrefix(netMode, "bind:")
+    ports, err := parsePorts(portsRaw)
+    if err != nil {
+      return nil, err
+    }
+    rules := []landlock.Rule{}
+    for _, port := range ports {
+      rules = append(rules, landlock.BindTCP(uint16(port)))
+    }
+    return rules, nil
+  }
+  return nil, fmt.Errorf("unsupported net mode")
+}
+
+func parsePorts(raw string) ([]int, error) {
+  if raw == "" {
+    return nil, nil
+  }
+  parts := strings.Split(raw, ",")
+  result := []int{}
+  for _, part := range parts {
+    trimmed := strings.TrimSpace(part)
+    if trimmed == "" {
+      continue
+    }
+    port, err := strconv.Atoi(trimmed)
+    if err != nil || port <= 0 || port > 65535 {
+      return nil, fmt.Errorf("invalid port")
+    }
+    result = append(result, port)
+  }
+  return result, nil
+}
+
+func applySeccomp(mode string, netMode string) error {
+  if mode == "" || mode == "off" {
+    return nil
+  }
+  filter, err := seccomp.NewFilter(seccomp.ActAllow)
+  if err != nil {
+    return err
+  }
+  if netMode == "none" {
+    if err := blockNetworkSyscalls(filter); err != nil {
+      return err
+    }
+  }
+  return filter.Load()
+}
+
+func blockNetworkSyscalls(filter *seccomp.ScmpFilter) error {
+  blocked := []string{
+    "socket",
+    "socketpair",
+    "connect",
+    "accept",
+    "accept4",
+    "bind",
+    "listen",
+    "sendto",
+    "sendmsg",
+    "sendmmsg",
+    "recvfrom",
+    "recvmsg",
+    "recvmmsg",
+    "shutdown",
+    "getsockopt",
+    "setsockopt",
+    "getpeername",
+    "getsockname",
+  }
+  action := seccomp.ActErrno.SetReturnCode(int16(syscall.EPERM))
+  for _, name := range blocked {
+    syscallID, err := seccomp.GetSyscallFromName(name)
+    if err != nil {
+      continue
+    }
+    if err := filter.AddRule(syscallID, action); err != nil {
+      return err
+    }
+  }
+  return nil
 }

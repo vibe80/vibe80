@@ -2,6 +2,7 @@ import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import crypto from "crypto";
 import { SYSTEM_PROMPT } from "./config.js";
+import { buildSandboxArgs } from "./runAs.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
@@ -95,6 +96,12 @@ export class ClaudeCliClient extends EventEmitter {
           this.workspaceId,
           "--cwd",
           this.cwd,
+          ...buildSandboxArgs({
+            cwd: this.cwd,
+            repoDir: this.repoDir,
+            attachmentsDir: this.attachmentsDir,
+            internetAccess: this.internetAccess,
+          }),
           "--",
           command,
           ...args,
