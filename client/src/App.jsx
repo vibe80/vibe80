@@ -3879,6 +3879,27 @@ function App() {
     await uploadFiles(files);
   };
 
+  const onDragOverComposer = (event) => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    if (event.dataTransfer?.types?.includes("Files")) {
+      event.preventDefault();
+    }
+  };
+
+  const onDropAttachments = async (event) => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    const files = Array.from(event.dataTransfer?.files || []);
+    if (!files.length) {
+      return;
+    }
+    event.preventDefault();
+    await uploadFiles(files);
+  };
+
   const removeDraftAttachment = (identifier) => {
     if (!identifier) {
       return;
@@ -7193,6 +7214,8 @@ function App() {
                     value={input}
                     onChange={handleInputChange}
                     onKeyDown={handleComposerKeyDown}
+                    onDragOver={onDragOverComposer}
+                    onDrop={onDropAttachments}
                     onPaste={onPasteAttachments}
                     placeholder="Écris ton message…"
                     rows={composerInputMode === "single" ? 1 : 2}
