@@ -245,7 +245,7 @@ export default function WorktreeTabs({
             >
               {worktreeList.map((wt) => (
                 <option key={wt.id} value={wt.id}>
-                  {wt.name} · {wt.provider}
+                  {wt.name}
                 </option>
               ))}
             </select>
@@ -307,9 +307,6 @@ export default function WorktreeTabs({
                     {wt.id === "main" ? wt.name : (wt.name || wt.branchName)}
                   </span>
                 )}
-
-                <span className="worktree-tab-provider">{wt.provider}</span>
-
                 {/* Don't show close button for "main" tab */}
                 {wt.id !== "main" && (
                   <button
@@ -588,12 +585,6 @@ export default function WorktreeTabs({
           outline: none;
         }
 
-        .worktree-tab-provider {
-          font-size: 10px;
-          color: #9ca3af;
-          text-transform: uppercase;
-        }
-
         .worktree-tab-close {
           background: none;
           border: none;
@@ -661,10 +652,6 @@ export default function WorktreeTabs({
           background: rgba(255, 255, 255, 0.22);
           border-color: var(--tab-accent, #3b82f6);
           box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-        }
-
-        :root[data-theme="dark"] .worktree-tab-provider {
-          color: #b7ada1;
         }
 
         :root[data-theme="dark"] .worktree-tab-close {
