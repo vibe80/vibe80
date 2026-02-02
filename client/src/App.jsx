@@ -1688,6 +1688,54 @@ function App() {
     }
   }, [attachmentSession?.sessionId, apiFetch, applyMessages]);
 
+  const loadWorktreeSnapshot = useCallback(
+    async (worktreeId) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !worktreeId) {
+        return;
+      }
+      if (worktreeId === "main") {
+        await loadMainWorktreeSnapshot();
+        return;
+      }
+      try {
+        const response = await apiFetch(
+          `/api/worktree/${encodeURIComponent(
+            worktreeId
+          )}?session=${encodeURIComponent(sessionId)}`
+        );
+        if (!response.ok) {
+          return;
+        }
+        const payload = await response.json().catch(() => ({}));
+        if (!Array.isArray(payload?.messages)) {
+          return;
+        }
+        const normalizedMessages = payload.messages.map((message, index) => ({
+          ...message,
+          id: message?.id || `history-${index}`,
+          attachments: normalizeAttachments(message?.attachments || []),
+          toolResult: message?.toolResult,
+        }));
+        setWorktrees((current) => {
+          const next = new Map(current);
+          const wt = next.get(worktreeId);
+          if (wt) {
+            next.set(worktreeId, {
+              ...wt,
+              messages: normalizedMessages,
+              status: payload.status || wt.status,
+            });
+          }
+          return next;
+        });
+      } catch (error) {
+        // Ignore snapshot failures; WS sync will retry.
+      }
+    },
+    [attachmentSession?.sessionId, apiFetch, loadMainWorktreeSnapshot]
+  );
+
   const resyncSession = useCallback(async () => {
     const sessionId = attachmentSession?.sessionId;
     if (!sessionId) {
@@ -1894,9 +1942,9 @@ function App() {
         return;
       }
       setActiveWorktreeId(worktreeId);
-      requestWorktreeMessages(worktreeId);
+      void loadWorktreeSnapshot(worktreeId);
     },
-    [requestWorktreeMessages]
+    [loadWorktreeSnapshot]
   );
 
   const requestRepoDiff = useCallback(async () => {
