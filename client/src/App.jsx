@@ -5049,7 +5049,11 @@ function App() {
                 </div>
                 <div className="session-form-row">
                   <div />
-                  <button type="submit" disabled={formDisabled}>
+                  <button
+                    type="submit"
+                    className="session-button primary"
+                    disabled={formDisabled}
+                  >
                     {workspaceBusy ? "Validation..." : "Continuer"}
                   </button>
                 </div>
@@ -5070,7 +5074,7 @@ function App() {
                   <div className="session-auth-title">
                     Providers IA (obligatoire)
                   </div>
-                  <div className="session-auth-options">
+                  <div className="session-auth-options is-inline">
                     {["codex", "claude"].map((provider) => {
                       const config = workspaceProvider(provider);
                       const label = provider === "codex" ? "Codex" : "Claude";
@@ -5171,12 +5175,17 @@ function App() {
                 <div className="session-form-row">
                   <button
                     type="button"
+                    className="session-button secondary"
                     onClick={() => setWorkspaceStep(1)}
                     disabled={formDisabled}
                   >
                     Retour
                   </button>
-                  <button type="submit" disabled={formDisabled}>
+                  <button
+                    type="submit"
+                    className="session-button primary"
+                    disabled={formDisabled}
+                  >
                     {workspaceBusy ? "Validation..." : "Continuer"}
                   </button>
                 </div>
@@ -5235,6 +5244,7 @@ function App() {
                 <div />
                 <button
                   type="button"
+                  className="session-button primary"
                   onClick={() => setWorkspaceStep(4)}
                   disabled={formDisabled}
                 >
@@ -5543,7 +5553,11 @@ function App() {
                     </div>
                     <div className="session-form-row">
                       <div />
-                      <button type="submit" disabled={formDisabled}>
+                      <button
+                        type="submit"
+                        className="session-button primary"
+                        disabled={formDisabled}
+                      >
                         {sessionRequested ? "Chargement..." : "Cloner"}
                       </button>
                     </div>
