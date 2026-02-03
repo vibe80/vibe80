@@ -1420,6 +1420,10 @@ function App() {
     setWorkspaceSessionsError("");
     try {
       const response = await apiFetch("/api/sessions");
+      if (response.status === 401) {
+        handleLeaveWorkspace();
+        return;
+      }
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error || "Impossible de charger les sessions.");
@@ -1434,7 +1438,7 @@ function App() {
     } finally {
       setWorkspaceSessionsLoading(false);
     }
-  }, [apiFetch, workspaceToken]);
+  }, [apiFetch, workspaceToken, handleLeaveWorkspace]);
 
   useEffect(() => {
     if (!workspaceToken || workspaceStep !== 4) {
@@ -3345,6 +3349,10 @@ function App() {
         const response = await apiFetch(
           `/api/session/${encodeURIComponent(sessionId)}`
         );
+        if (response.status === 401) {
+          handleLeaveWorkspace();
+          return;
+        }
         if (!response.ok) {
           throw new Error("Session introuvable.");
         }
@@ -3359,7 +3367,7 @@ function App() {
     };
 
     resumeSession();
-  }, [workspaceToken, attachmentSession?.sessionId, apiFetch]);
+  }, [workspaceToken, attachmentSession?.sessionId, apiFetch, handleLeaveWorkspace]);
 
   useEffect(() => {
     if (!repoUrl || attachmentSession?.sessionId || sessionMode !== "new") {
