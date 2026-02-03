@@ -91,6 +91,10 @@ const sessionGcIntervalMs = Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60
 const sessionIdleTtlMs = Number(process.env.SESSION_IDLE_TTL_MS) || 24 * 60 * 60 * 1000;
 const sessionMaxTtlMs = Number(process.env.SESSION_MAX_TTL_MS) || 7 * 24 * 60 * 60 * 1000;
 const handoffTokenTtlMs = Number(process.env.HANDOFF_TOKEN_TTL_MS) || 120 * 1000;
+const accessTokenTtlSeconds = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 60 * 60;
+const refreshTokenTtlMs =
+  Number(process.env.REFRESH_TOKEN_TTL_MS) || 30 * 24 * 60 * 60 * 1000;
+const refreshTokenTtlSeconds = Math.floor(refreshTokenTtlMs / 1000);
 const debugApiWsLog = /^(1|true|yes|on)$/i.test(
   process.env.DEBUG_API_WS_LOG || ""
 );
@@ -433,6 +437,30 @@ const jwtKey = loadJwtKey();
 const generateId = (prefix) => `${prefix}${crypto.randomBytes(12).toString("hex")}`;
 
 const generateSessionName = () => dockerNames.getRandomName();
+
+const hashRefreshToken = (token) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const generateRefreshToken = () => crypto.randomBytes(32).toString("hex");
+
+const issueWorkspaceTokens = async (workspaceId) => {
+  const workspaceToken = createWorkspaceToken(workspaceId);
+  const refreshToken = generateRefreshToken();
+  const tokenHash = hashRefreshToken(refreshToken);
+  const expiresAt = Date.now() + refreshTokenTtlMs;
+  await storage.saveWorkspaceRefreshToken(
+    workspaceId,
+    tokenHash,
+    expiresAt,
+    refreshTokenTtlMs
+  );
+  return {
+    workspaceToken,
+    refreshToken,
+    expiresIn: accessTokenTtlSeconds,
+    refreshExpiresIn: refreshTokenTtlSeconds,
+  };
+};
 
 const createHandoffToken = (session) => {
   const now = Date.now();
@@ -1075,7 +1103,7 @@ const updateWorkspace = async (workspaceId, providers) => {
 const createWorkspaceToken = (workspaceId) =>
   jwt.sign({}, jwtKey, {
     algorithm: "HS256",
-    expiresIn: "24h",
+    expiresIn: `${accessTokenTtlSeconds}s`,
     subject: workspaceId,
     issuer: jwtIssuer,
     audience: jwtAudience,
@@ -3437,12 +3465,38 @@ app.post("/api/workspaces/login", async (req, res) => {
       return;
     }
     await getWorkspaceUserIds(workspaceId);
-    const token = createWorkspaceToken(workspaceId);
+    const tokens = await issueWorkspaceTokens(workspaceId);
     await appendAuditLog(workspaceId, "workspace_login_success");
-    res.json({ workspaceToken: token, expiresIn: 60 * 60 * 24 });
+    res.json(tokens);
   } catch (error) {
     await appendAuditLog(workspaceId, "workspace_login_failed");
     res.status(403).json({ error: "Invalid workspace credentials." });
+  }
+});
+
+app.post("/api/workspaces/refresh", async (req, res) => {
+  const refreshToken = req.body?.refreshToken;
+  if (!refreshToken || typeof refreshToken !== "string") {
+    res.status(400).json({ error: "refreshToken is required." });
+    return;
+  }
+  try {
+    const tokenHash = hashRefreshToken(refreshToken);
+    const record = await storage.getWorkspaceRefreshToken(tokenHash);
+    if (!record?.workspaceId) {
+      res.status(401).json({ error: "Invalid refresh token." });
+      return;
+    }
+    if (record.expiresAt && record.expiresAt <= Date.now()) {
+      await storage.deleteWorkspaceRefreshToken(tokenHash);
+      res.status(401).json({ error: "Refresh token expired." });
+      return;
+    }
+    await storage.deleteWorkspaceRefreshToken(tokenHash);
+    const tokens = await issueWorkspaceTokens(record.workspaceId);
+    res.json(tokens);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to refresh workspace token." });
   }
 });
 
@@ -3560,10 +3614,13 @@ app.post("/api/sessions/handoff/consume", async (req, res) => {
     return;
   }
   record.usedAt = Date.now();
-  const workspaceToken = createWorkspaceToken(record.workspaceId);
+  const tokens = await issueWorkspaceTokens(record.workspaceId);
   res.json({
     workspaceId: record.workspaceId,
-    workspaceToken,
+    workspaceToken: tokens.workspaceToken,
+    refreshToken: tokens.refreshToken,
+    expiresIn: tokens.expiresIn,
+    refreshExpiresIn: tokens.refreshExpiresIn,
     sessionId: record.sessionId,
   });
 });

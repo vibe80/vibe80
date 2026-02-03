@@ -21,6 +21,7 @@ class SessionPreferences(private val context: Context) {
         private val KEY_WORKSPACE_ID = stringPreferencesKey("workspace_id")
         private val KEY_WORKSPACE_SECRET = stringPreferencesKey("workspace_secret")
         private val KEY_WORKSPACE_TOKEN = stringPreferencesKey("workspace_token")
+        private val KEY_WORKSPACE_REFRESH_TOKEN = stringPreferencesKey("workspace_refresh_token")
     }
 
     data class SavedSession(
@@ -33,7 +34,8 @@ class SessionPreferences(private val context: Context) {
     data class SavedWorkspace(
         val workspaceId: String,
         val workspaceSecret: String,
-        val workspaceToken: String? = null
+        val workspaceToken: String? = null,
+        val workspaceRefreshToken: String? = null
     )
 
     val savedSession: Flow<SavedSession?> = context.dataStore.data.map { preferences ->
@@ -53,8 +55,9 @@ class SessionPreferences(private val context: Context) {
         val workspaceId = preferences[KEY_WORKSPACE_ID]
         val workspaceSecret = preferences[KEY_WORKSPACE_SECRET]
         val workspaceToken = preferences[KEY_WORKSPACE_TOKEN]
+        val workspaceRefreshToken = preferences[KEY_WORKSPACE_REFRESH_TOKEN]
         if (workspaceId != null && workspaceSecret != null) {
-            SavedWorkspace(workspaceId, workspaceSecret, workspaceToken)
+            SavedWorkspace(workspaceId, workspaceSecret, workspaceToken, workspaceRefreshToken)
         } else {
             null
         }
@@ -77,7 +80,8 @@ class SessionPreferences(private val context: Context) {
     suspend fun saveWorkspace(
         workspaceId: String,
         workspaceSecret: String,
-        workspaceToken: String?
+        workspaceToken: String?,
+        workspaceRefreshToken: String? = null
     ) {
         context.dataStore.edit { preferences ->
             preferences[KEY_WORKSPACE_ID] = workspaceId
@@ -87,15 +91,25 @@ class SessionPreferences(private val context: Context) {
             } else {
                 preferences[KEY_WORKSPACE_TOKEN] = workspaceToken
             }
+            if (workspaceRefreshToken.isNullOrBlank()) {
+                preferences.remove(KEY_WORKSPACE_REFRESH_TOKEN)
+            } else {
+                preferences[KEY_WORKSPACE_REFRESH_TOKEN] = workspaceRefreshToken
+            }
         }
     }
 
-    suspend fun saveWorkspaceToken(workspaceToken: String?) {
+    suspend fun saveWorkspaceToken(workspaceToken: String?, refreshToken: String? = null) {
         context.dataStore.edit { preferences ->
             if (workspaceToken.isNullOrBlank()) {
                 preferences.remove(KEY_WORKSPACE_TOKEN)
             } else {
                 preferences[KEY_WORKSPACE_TOKEN] = workspaceToken
+            }
+            if (refreshToken.isNullOrBlank()) {
+                preferences.remove(KEY_WORKSPACE_REFRESH_TOKEN)
+            } else {
+                preferences[KEY_WORKSPACE_REFRESH_TOKEN] = refreshToken
             }
         }
     }
@@ -105,6 +119,7 @@ class SessionPreferences(private val context: Context) {
             preferences.remove(KEY_WORKSPACE_ID)
             preferences.remove(KEY_WORKSPACE_SECRET)
             preferences.remove(KEY_WORKSPACE_TOKEN)
+            preferences.remove(KEY_WORKSPACE_REFRESH_TOKEN)
         }
     }
 

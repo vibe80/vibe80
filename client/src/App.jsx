@@ -54,11 +54,20 @@ const getInitialRepoUrl = () => {
 };
 
 const WORKSPACE_TOKEN_KEY = "workspaceToken";
+const WORKSPACE_REFRESH_TOKEN_KEY = "workspaceRefreshToken";
 const WORKSPACE_ID_KEY = "workspaceId";
 
 const readWorkspaceToken = () => {
   try {
     return localStorage.getItem(WORKSPACE_TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+};
+
+const readWorkspaceRefreshToken = () => {
+  try {
+    return localStorage.getItem(WORKSPACE_REFRESH_TOKEN_KEY) || "";
   } catch {
     return "";
   }
@@ -697,6 +706,9 @@ function App() {
   const [workspaceIdInput, setWorkspaceIdInput] = useState(readWorkspaceId());
   const [workspaceSecretInput, setWorkspaceSecretInput] = useState("");
   const [workspaceToken, setWorkspaceToken] = useState(readWorkspaceToken());
+  const [workspaceRefreshToken, setWorkspaceRefreshToken] = useState(
+    readWorkspaceRefreshToken()
+  );
   const [workspaceId, setWorkspaceId] = useState(readWorkspaceId());
   const [workspaceCreated, setWorkspaceCreated] = useState(null);
   const [workspaceError, setWorkspaceError] = useState("");
@@ -926,15 +938,66 @@ function App() {
   const lastPongRef = useRef(0);
   const messagesRef = useRef([]);
 
+  const refreshInFlightRef = useRef(null);
+
+  const refreshWorkspaceToken = useCallback(async () => {
+    if (!workspaceRefreshToken) {
+      return null;
+    }
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current;
+    }
+    const promise = (async () => {
+      try {
+        const response = await fetch("/api/workspaces/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: workspaceRefreshToken }),
+        });
+        if (!response.ok) {
+          handleLeaveWorkspace();
+          return null;
+        }
+        const data = await response.json();
+        const nextToken = data?.workspaceToken || "";
+        const nextRefresh = data?.refreshToken || "";
+        if (nextToken) {
+          setWorkspaceToken(nextToken);
+        }
+        if (nextRefresh) {
+          setWorkspaceRefreshToken(nextRefresh);
+        }
+        return nextToken || null;
+      } catch {
+        handleLeaveWorkspace();
+        return null;
+      } finally {
+        refreshInFlightRef.current = null;
+      }
+    })();
+    refreshInFlightRef.current = promise;
+    return promise;
+  }, [workspaceRefreshToken, handleLeaveWorkspace]);
+
   const apiFetch = useCallback(
-    (input, init = {}) => {
+    async (input, init = {}) => {
       const headers = new Headers(init.headers || {});
       if (workspaceToken) {
         headers.set("Authorization", `Bearer ${workspaceToken}`);
       }
-      return fetch(input, { ...init, headers });
+      const response = await fetch(input, { ...init, headers });
+      if (response.status !== 401) {
+        return response;
+      }
+      const refreshedToken = await refreshWorkspaceToken();
+      if (!refreshedToken) {
+        return response;
+      }
+      const retryHeaders = new Headers(init.headers || {});
+      retryHeaders.set("Authorization", `Bearer ${refreshedToken}`);
+      return fetch(input, { ...init, headers: retryHeaders });
     },
-    [workspaceToken]
+    [workspaceToken, refreshWorkspaceToken]
   );
 
   const buildHandoffPayload = (token, expiresAt) =>
@@ -1386,6 +1449,18 @@ function App() {
       // Ignore storage errors (private mode, quota).
     }
   }, [workspaceToken]);
+
+  useEffect(() => {
+    try {
+      if (workspaceRefreshToken) {
+        localStorage.setItem(WORKSPACE_REFRESH_TOKEN_KEY, workspaceRefreshToken);
+      } else {
+        localStorage.removeItem(WORKSPACE_REFRESH_TOKEN_KEY);
+      }
+    } catch (error) {
+      // Ignore storage errors (private mode, quota).
+    }
+  }, [workspaceRefreshToken]);
 
   useEffect(() => {
     try {
@@ -3513,6 +3588,7 @@ function App() {
         }
         const data = await response.json();
         setWorkspaceToken(data.workspaceToken || "");
+        setWorkspaceRefreshToken(data.refreshToken || "");
         setWorkspaceId(workspaceIdValue);
         setWorkspaceStep(4);
         return;
@@ -3602,6 +3678,7 @@ function App() {
       }
       const loginData = await loginResponse.json();
       setWorkspaceToken(loginData.workspaceToken || "");
+      setWorkspaceRefreshToken(loginData.refreshToken || "");
       setWorkspaceStep(3);
     } catch (error) {
       setWorkspaceError(error.message || "Echec de la configuration du workspace.");
@@ -4581,6 +4658,7 @@ function App() {
 
   const handleLeaveWorkspace = useCallback(() => {
     setWorkspaceToken("");
+    setWorkspaceRefreshToken("");
     setWorkspaceId("");
     setWorkspaceIdInput("");
     setWorkspaceSecretInput("");

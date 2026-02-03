@@ -11,5 +11,8 @@ data class HandoffConsumeRequest(
 data class HandoffConsumeResponse(
     val workspaceId: String,
     val workspaceToken: String,
+    val refreshToken: String,
+    val expiresIn: Long,
+    val refreshExpiresIn: Long,
     val sessionId: String
 )

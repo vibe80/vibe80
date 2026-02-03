@@ -9,6 +9,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -24,14 +26,72 @@ class ApiClient(
         prettyPrint = false
     }
     @Volatile private var workspaceToken: String? = null
+    @Volatile private var refreshToken: String? = null
+    private val refreshMutex = Mutex()
+    private var tokenRefreshListener: ((WorkspaceTokenUpdate) -> Unit)? = null
+
+    data class WorkspaceTokenUpdate(
+        val workspaceToken: String,
+        val refreshToken: String
+    )
 
     fun setWorkspaceToken(token: String?) {
         workspaceToken = token?.takeIf { it.isNotBlank() }
     }
 
+    fun setRefreshToken(token: String?) {
+        refreshToken = token?.takeIf { it.isNotBlank() }
+    }
+
+    fun setTokenRefreshListener(listener: ((WorkspaceTokenUpdate) -> Unit)?) {
+        tokenRefreshListener = listener
+    }
+
     private fun applyAuth(builder: HttpRequestBuilder) {
         val token = workspaceToken ?: return
         builder.header("Authorization", "Bearer $token")
+    }
+
+    private suspend fun refreshWorkspaceToken(): Boolean {
+        val token = refreshToken ?: return false
+        return refreshMutex.withLock {
+            val currentToken = refreshToken ?: return@withLock false
+            val url = "$baseUrl/api/workspaces/refresh"
+            return@withLock try {
+                val response = httpClient.post(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(WorkspaceRefreshRequest(refreshToken = currentToken))
+                }
+                if (response.status.isSuccess()) {
+                    val payload: WorkspaceRefreshResponse = response.body()
+                    setWorkspaceToken(payload.workspaceToken)
+                    setRefreshToken(payload.refreshToken)
+                    tokenRefreshListener?.invoke(
+                        WorkspaceTokenUpdate(payload.workspaceToken, payload.refreshToken)
+                    )
+                    true
+                } else {
+                    false
+                }
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    private suspend fun executeWithRefresh(
+        url: String,
+        request: suspend () -> io.ktor.client.statement.HttpResponse
+    ): io.ktor.client.statement.HttpResponse {
+        val response = request()
+        if (response.status.value != 401) {
+            return response
+        }
+        val refreshed = refreshWorkspaceToken()
+        if (!refreshed) {
+            return response
+        }
+        return request()
     }
     private fun parseErrorPayload(bodyText: String): ApiErrorPayload? {
         if (bodyText.isBlank()) return null
@@ -69,10 +129,12 @@ class ApiClient(
         AppLogger.apiRequest("POST", url, requestBody)
 
         return try {
-            val response = httpClient.post(url) {
-                contentType(ContentType.Application.Json)
-                setBody(request)
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.post(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                    applyAuth(this)
+                }
             }
             val responseBody = if (!response.status.isSuccess()) {
                 try { response.bodyAsText() } catch (_: Exception) { "" }
@@ -114,8 +176,10 @@ class ApiClient(
         AppLogger.apiRequest("GET", url)
 
         return try {
-            val response = httpClient.get(url) {
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    applyAuth(this)
+                }
             }
             val responseBody = if (!response.status.isSuccess()) {
                 try { response.bodyAsText() } catch (_: Exception) { "" }
@@ -149,9 +213,12 @@ class ApiClient(
      */
     suspend fun checkHealth(sessionId: String): Result<Boolean> {
         return runCatching {
-            val response = httpClient.get("$baseUrl/api/health") {
-                parameter("session", sessionId)
-                applyAuth(this)
+            val url = "$baseUrl/api/health"
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    parameter("session", sessionId)
+                    applyAuth(this)
+                }
             }
             response.status.value in 200..299
         }
@@ -163,9 +230,11 @@ class ApiClient(
     suspend fun getBranches(sessionId: String): Result<BranchInfo> {
         val url = "$baseUrl/api/branches"
         return try {
-            val response = httpClient.get(url) {
-                parameter("session", sessionId)
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    parameter("session", sessionId)
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
@@ -183,10 +252,12 @@ class ApiClient(
     suspend fun fetchBranches(sessionId: String): Result<BranchInfo> {
         val url = "$baseUrl/api/branches/fetch"
         return try {
-            val response = httpClient.post(url) {
-                contentType(ContentType.Application.Json)
-                setBody(mapOf("session" to sessionId))
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.post(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(mapOf("session" to sessionId))
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
@@ -204,10 +275,12 @@ class ApiClient(
     suspend fun switchBranch(sessionId: String, branch: String): Result<BranchSwitchResponse> {
         val url = "$baseUrl/api/branches/switch"
         return try {
-            val response = httpClient.post(url) {
-                contentType(ContentType.Application.Json)
-                setBody(BranchSwitchRequest(session = sessionId, branch = branch))
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.post(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(BranchSwitchRequest(session = sessionId, branch = branch))
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
@@ -225,10 +298,12 @@ class ApiClient(
     suspend fun getModels(sessionId: String, provider: String): Result<ModelsResponse> {
         val url = "$baseUrl/api/models"
         return try {
-            val response = httpClient.get(url) {
-                parameter("session", sessionId)
-                parameter("provider", provider)
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    parameter("session", sessionId)
+                    parameter("provider", provider)
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
@@ -244,10 +319,21 @@ class ApiClient(
      * Get worktree state including messages
      */
     suspend fun getWorktree(sessionId: String, worktreeId: String): Result<WorktreeGetResponse> {
-        return runCatching {
-            httpClient.get("$baseUrl/api/worktree/$worktreeId") {
-                parameter("session", sessionId)
-            }.body()
+        val url = "$baseUrl/api/worktree/$worktreeId"
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    parameter("session", sessionId)
+                    applyAuth(this)
+                }
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -257,9 +343,11 @@ class ApiClient(
     suspend fun getWorktreeDiff(sessionId: String, worktreeId: String): Result<WorktreeDiffResponse> {
         val url = "$baseUrl/api/worktree/$worktreeId/diff"
         return try {
-            val response = httpClient.get(url) {
-                parameter("session", sessionId)
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    parameter("session", sessionId)
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
@@ -281,10 +369,12 @@ class ApiClient(
     ): Result<WorktreeFileResponse> {
         val url = "$baseUrl/api/worktree/$worktreeId/file"
         return try {
-            val response = httpClient.get(url) {
-                parameter("session", sessionId)
-                parameter("path", path)
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    parameter("session", sessionId)
+                    parameter("path", path)
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
@@ -302,8 +392,10 @@ class ApiClient(
     suspend fun mergeWorktree(worktreeId: String): Result<Unit> {
         val url = "$baseUrl/api/worktree/$worktreeId/merge"
         return try {
-            val response = httpClient.post(url) {
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.post(url) {
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(Unit)
@@ -321,9 +413,11 @@ class ApiClient(
     suspend fun deleteWorktree(sessionId: String, worktreeId: String): Result<Unit> {
         val url = "$baseUrl/api/worktree/$worktreeId"
         return try {
-            val response = httpClient.delete(url) {
-                parameter("session", sessionId)
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.delete(url) {
+                    parameter("session", sessionId)
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(Unit)
@@ -341,8 +435,10 @@ class ApiClient(
     suspend fun abortMerge(worktreeId: String): Result<Unit> {
         val url = "$baseUrl/api/worktree/$worktreeId/abort-merge"
         return try {
-            val response = httpClient.post(url) {
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.post(url) {
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(Unit)
@@ -360,9 +456,11 @@ class ApiClient(
     suspend fun listAttachments(sessionId: String): Result<AttachmentListResponse> {
         val url = "$baseUrl/api/attachments"
         return try {
-            val response = httpClient.get(url) {
-                parameter("session", sessionId)
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    parameter("session", sessionId)
+                    applyAuth(this)
+                }
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
@@ -446,10 +544,12 @@ class ApiClient(
         val url = "$baseUrl/api/workspaces/$workspaceId"
         AppLogger.apiRequest("PATCH", url)
         return try {
-            val response = httpClient.patch(url) {
-                contentType(ContentType.Application.Json)
-                setBody(request)
-                applyAuth(this)
+            val response = executeWithRefresh(url) {
+                httpClient.patch(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                    applyAuth(this)
+                }
             }
             val responseBody = if (!response.status.isSuccess()) {
                 try { response.bodyAsText() } catch (_: Exception) { "" }

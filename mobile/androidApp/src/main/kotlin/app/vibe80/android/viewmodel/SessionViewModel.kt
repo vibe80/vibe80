@@ -27,6 +27,7 @@ data class SessionUiState(
     val workspaceSecretInput: String = "",
     val workspaceId: String? = null,
     val workspaceToken: String? = null,
+    val workspaceRefreshToken: String? = null,
     val workspaceCreatedId: String? = null,
     val workspaceCreatedSecret: String? = null,
     val workspaceError: String? = null,
@@ -87,12 +88,31 @@ class SessionViewModel(
         checkExistingSession()
         loadWorkspace()
         observeWorkspaceAuthInvalid()
+        observeWorkspaceTokenUpdates()
+    }
+
+    private fun observeWorkspaceTokenUpdates() {
+        viewModelScope.launch {
+            sessionRepository.workspaceTokenUpdates.collect { update ->
+                sessionPreferences.saveWorkspaceToken(
+                    workspaceToken = update.workspaceToken,
+                    refreshToken = update.refreshToken
+                )
+                _uiState.update { state ->
+                    state.copy(
+                        workspaceToken = update.workspaceToken,
+                        workspaceRefreshToken = update.refreshToken
+                    )
+                }
+            }
+        }
     }
 
     private fun observeWorkspaceAuthInvalid() {
         viewModelScope.launch {
             sessionRepository.workspaceAuthInvalid.collect {
                 sessionRepository.setWorkspaceToken(null)
+                sessionRepository.setRefreshToken(null)
                 sessionPreferences.clearWorkspace()
                 _uiState.update { state ->
                     state.copy(
@@ -102,6 +122,7 @@ class SessionViewModel(
                         workspaceSecretInput = "",
                         workspaceId = null,
                         workspaceToken = null,
+                        workspaceRefreshToken = null,
                         workspaceError = "Token workspace invalide. Merci de vous reconnecter.",
                         workspaceBusy = false
                     )
@@ -130,11 +151,15 @@ class SessionViewModel(
                     workspaceIdInput = saved.workspaceId,
                     workspaceSecretInput = saved.workspaceSecret,
                     workspaceToken = saved.workspaceToken,
+                    workspaceRefreshToken = saved.workspaceRefreshToken,
                     workspaceStep = 2
                 )
             }
             if (!saved.workspaceToken.isNullOrBlank()) {
                 sessionRepository.setWorkspaceToken(saved.workspaceToken)
+                if (!saved.workspaceRefreshToken.isNullOrBlank()) {
+                    sessionRepository.setRefreshToken(saved.workspaceRefreshToken)
+                }
             } else {
                 loginWorkspace(saved.workspaceId, saved.workspaceSecret, auto = true)
             }
@@ -179,6 +204,7 @@ class SessionViewModel(
                 return@launch
             }
             sessionRepository.setWorkspaceToken(token)
+            sessionRepository.setRefreshToken(_uiState.value.workspaceRefreshToken)
             _uiState.update {
                 it.copy(
                     isLoading = true,
@@ -354,15 +380,18 @@ class SessionViewModel(
         result.fold(
             onSuccess = { response ->
                 sessionRepository.setWorkspaceToken(response.workspaceToken)
+                sessionRepository.setRefreshToken(response.refreshToken)
                 sessionPreferences.saveWorkspace(
                     workspaceId = workspaceId,
                     workspaceSecret = workspaceSecret,
-                    workspaceToken = response.workspaceToken
+                    workspaceToken = response.workspaceToken,
+                    workspaceRefreshToken = response.refreshToken
                 )
                 _uiState.update {
                     it.copy(
                         workspaceId = workspaceId,
                         workspaceToken = response.workspaceToken,
+                        workspaceRefreshToken = response.refreshToken,
                         workspaceStep = 2,
                         workspaceBusy = false,
                         workspaceError = null
@@ -424,6 +453,7 @@ class SessionViewModel(
                 return@launch
             }
             sessionRepository.setWorkspaceToken(state.workspaceToken)
+            sessionRepository.setRefreshToken(state.workspaceRefreshToken)
             _uiState.update {
                 it.copy(
                     isLoading = true,
@@ -521,10 +551,12 @@ class SessionViewModel(
             result.fold(
                 onSuccess = { response ->
                     sessionRepository.setWorkspaceToken(response.workspaceToken)
+                    sessionRepository.setRefreshToken(response.refreshToken)
                     sessionPreferences.saveWorkspace(
                         workspaceId = response.workspaceId,
                         workspaceSecret = "",
-                        workspaceToken = response.workspaceToken
+                        workspaceToken = response.workspaceToken,
+                        workspaceRefreshToken = response.refreshToken
                     )
                     val sessionState = sessionRepository
                         .reconnectSession(response.sessionId)
@@ -541,6 +573,7 @@ class SessionViewModel(
                             workspaceIdInput = response.workspaceId,
                             workspaceSecretInput = "",
                             workspaceToken = response.workspaceToken,
+                            workspaceRefreshToken = response.refreshToken,
                             workspaceStep = 2,
                             handoffBusy = false,
                             handoffError = null,

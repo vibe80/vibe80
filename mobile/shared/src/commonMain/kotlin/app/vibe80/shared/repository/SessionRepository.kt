@@ -63,16 +63,29 @@ class SessionRepository(
     private val _workspaceAuthInvalid = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val workspaceAuthInvalid: SharedFlow<String> = _workspaceAuthInvalid.asSharedFlow()
 
+    private val _workspaceTokenUpdates =
+        MutableSharedFlow<ApiClient.WorkspaceTokenUpdate>(extraBufferCapacity = 1)
+    val workspaceTokenUpdates: SharedFlow<ApiClient.WorkspaceTokenUpdate> =
+        _workspaceTokenUpdates.asSharedFlow()
+
     val connectionState: StateFlow<ConnectionState> = webSocketManager.connectionState
 
     init {
         observeWebSocketMessages()
         observeWebSocketErrors()
+        apiClient.setTokenRefreshListener { update ->
+            webSocketManager.setWorkspaceToken(update.workspaceToken)
+            _workspaceTokenUpdates.tryEmit(update)
+        }
     }
 
     fun setWorkspaceToken(token: String?) {
         apiClient.setWorkspaceToken(token)
         webSocketManager.setWorkspaceToken(token)
+    }
+
+    fun setRefreshToken(token: String?) {
+        apiClient.setRefreshToken(token)
     }
 
     private fun extractErrorType(error: Throwable): String? {

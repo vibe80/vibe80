@@ -30,6 +30,9 @@ export const createRedisStorage = () => {
   const worktreeKey = (worktreeId) => buildKey(prefix, "worktree", worktreeId);
   const workspaceUserIdsKey = (workspaceId) =>
     buildKey(prefix, "workspaceUserIds", workspaceId);
+  const workspaceRefreshTokenKey = (workspaceId) =>
+    buildKey(prefix, "workspaceRefreshToken", workspaceId);
+  const refreshTokenKey = (tokenHash) => buildKey(prefix, "refreshToken", tokenHash);
   const globalSessionsKey = () => buildKey(prefix, "sessions");
 
   const sessionTtlMs = Number.parseInt(process.env.SESSION_MAX_TTL_MS, 10) || 0;
@@ -154,6 +157,38 @@ export const createRedisStorage = () => {
     return fromJson(raw);
   };
 
+  const saveWorkspaceRefreshToken = async (
+    workspaceId,
+    tokenHash,
+    expiresAt,
+    ttlMs
+  ) => {
+    await ensureConnected();
+    const existingHash = await client.get(workspaceRefreshTokenKey(workspaceId));
+    if (existingHash && existingHash !== tokenHash) {
+      await client.del(refreshTokenKey(existingHash));
+    }
+    const payload = { workspaceId, tokenHash, expiresAt };
+    if (ttlMs && ttlMs > 0) {
+      await client.set(refreshTokenKey(tokenHash), toJson(payload), { PX: ttlMs });
+      await client.set(workspaceRefreshTokenKey(workspaceId), tokenHash, { PX: ttlMs });
+    } else {
+      await client.set(refreshTokenKey(tokenHash), toJson(payload));
+      await client.set(workspaceRefreshTokenKey(workspaceId), tokenHash);
+    }
+  };
+
+  const getWorkspaceRefreshToken = async (tokenHash) => {
+    await ensureConnected();
+    const raw = await client.get(refreshTokenKey(tokenHash));
+    return fromJson(raw);
+  };
+
+  const deleteWorkspaceRefreshToken = async (tokenHash) => {
+    await ensureConnected();
+    await client.del(refreshTokenKey(tokenHash));
+  };
+
   return {
     init: ensureConnected,
     close: async () => {
@@ -172,5 +207,8 @@ export const createRedisStorage = () => {
     listWorktrees,
     saveWorkspaceUserIds,
     getWorkspaceUserIds,
+    saveWorkspaceRefreshToken,
+    getWorkspaceRefreshToken,
+    deleteWorkspaceRefreshToken,
   };
 };

@@ -887,6 +887,43 @@
         "security": []
       }
     },
+    "/api/workspaces/refresh": {
+      "post": {
+        "summary": "Refresh workspace token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceRefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workspace token refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceRefreshResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "security": []
+      }
+    },
     "/api/workspaces/{workspaceId}": {
       "delete": {
         "summary": "Delete workspace (policy TBD)",
@@ -2212,13 +2249,56 @@
           "workspaceToken": {
             "type": "string"
           },
+          "refreshToken": {
+            "type": "string"
+          },
           "expiresIn": {
             "type": "integer",
-            "description": "Seconds until expiration (24h)"
+            "description": "Seconds until expiration (1h)"
+          },
+          "refreshExpiresIn": {
+            "type": "integer",
+            "description": "Seconds until refresh expiration (30d)"
           }
         },
         "required": [
           "workspaceToken"
+        ],
+        "additionalProperties": true
+      },
+      "WorkspaceRefreshRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ],
+        "additionalProperties": false
+      },
+      "WorkspaceRefreshResponse": {
+        "type": "object",
+        "properties": {
+          "workspaceToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "description": "Seconds until expiration (1h)"
+          },
+          "refreshExpiresIn": {
+            "type": "integer",
+            "description": "Seconds until refresh expiration (30d)"
+          }
+        },
+        "required": [
+          "workspaceToken",
+          "refreshToken"
         ],
         "additionalProperties": true
       },

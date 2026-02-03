@@ -58,6 +58,9 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
             if (!savedWorkspace?.workspaceToken.isNullOrBlank()) {
                 sessionRepository.setWorkspaceToken(savedWorkspace.workspaceToken)
             }
+            if (!savedWorkspace?.workspaceRefreshToken.isNullOrBlank()) {
+                sessionRepository.setRefreshToken(savedWorkspace.workspaceRefreshToken)
+            }
             if (savedSession != null && !savedWorkspace?.workspaceToken.isNullOrBlank()) {
                 val provider = try {
                     LLMProvider.valueOf(savedSession.provider.uppercase())

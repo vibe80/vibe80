@@ -112,6 +112,19 @@ export const createSqliteStorage = () => {
         data TEXT NOT NULL
       );`
     );
+    await run(
+      db,
+      `CREATE TABLE IF NOT EXISTS workspace_refresh_tokens (
+        workspaceId TEXT PRIMARY KEY,
+        tokenHash TEXT UNIQUE,
+        expiresAt INTEGER
+      );`
+    );
+    await run(
+      db,
+      `CREATE INDEX IF NOT EXISTS workspace_refresh_tokens_hash_idx
+       ON workspace_refresh_tokens (tokenHash);`
+    );
   };
 
   const saveSession = async (sessionId, data) => {
@@ -233,6 +246,48 @@ export const createSqliteStorage = () => {
     return fromJson(row?.data);
   };
 
+  const saveWorkspaceRefreshToken = async (
+    workspaceId,
+    tokenHash,
+    expiresAt,
+    _ttlMs = null
+  ) => {
+    await ensureConnected();
+    await run(
+      db,
+      `INSERT INTO workspace_refresh_tokens (workspaceId, tokenHash, expiresAt)
+       VALUES (?, ?, ?)
+       ON CONFLICT(workspaceId) DO UPDATE SET
+         tokenHash=excluded.tokenHash,
+         expiresAt=excluded.expiresAt;`,
+      [workspaceId, tokenHash, expiresAt]
+    );
+  };
+
+  const getWorkspaceRefreshToken = async (tokenHash) => {
+    await ensureConnected();
+    const row = await get(
+      db,
+      "SELECT workspaceId, tokenHash, expiresAt FROM workspace_refresh_tokens WHERE tokenHash = ?",
+      [tokenHash]
+    );
+    if (!row) return null;
+    return {
+      workspaceId: row.workspaceId,
+      tokenHash: row.tokenHash,
+      expiresAt: row.expiresAt,
+    };
+  };
+
+  const deleteWorkspaceRefreshToken = async (tokenHash) => {
+    await ensureConnected();
+    await run(
+      db,
+      "DELETE FROM workspace_refresh_tokens WHERE tokenHash = ?",
+      [tokenHash]
+    );
+  };
+
   return {
     init: ensureConnected,
     close: async () => {
@@ -259,5 +314,8 @@ export const createSqliteStorage = () => {
     listWorktrees,
     saveWorkspaceUserIds,
     getWorkspaceUserIds,
+    saveWorkspaceRefreshToken,
+    getWorkspaceRefreshToken,
+    deleteWorkspaceRefreshToken,
   };
 };
