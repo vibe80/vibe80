@@ -51,12 +51,26 @@ export const buildSandboxArgs = (options = {}) => {
     options.cwd,
     options.attachmentsDir,
   ]);
+  const allowRoFiles = normalizePaths([
+    ...(options.allowRoFiles || []),
+    ...(options.extraAllowRoFiles || []),
+  ]);
+  const allowRwFiles = normalizePaths([
+    ...(options.allowRwFiles || []),
+    ...(options.extraAllowRwFiles || []),
+  ]);
   const args = [];
   if (allowRo.length) {
     args.push("--allow-ro", allowRo.join(","));
   }
   if (allowRw.length) {
     args.push("--allow-rw", allowRw.join(","));
+  }
+  if (allowRoFiles.length) {
+    args.push("--allow-ro-file", allowRoFiles.join(","));
+  }
+  if (allowRwFiles.length) {
+    args.push("--allow-rw-file", allowRwFiles.join(","));
   }
   args.push("--net", options.internetAccess === false ? "none" : "tcp:53,443");
   args.push("--seccomp", options.seccomp || "default");

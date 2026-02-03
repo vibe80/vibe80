@@ -60,6 +60,8 @@ func main() {
   commandArgs := []string{}
   allowRO := []string{}
   allowRW := []string{}
+  allowROFiles := []string{}
+  allowRWFiles := []string{}
   netMode := ""
   seccompMode := ""
 
@@ -95,6 +97,18 @@ func main() {
         fail("missing allow-rw value")
       }
       allowRW = append(allowRW, splitList(args[i+1])...)
+      i++
+    case "--allow-ro-file":
+      if i+1 >= len(args) {
+        fail("missing allow-ro-file value")
+      }
+      allowROFiles = append(allowROFiles, splitList(args[i+1])...)
+      i++
+    case "--allow-rw-file":
+      if i+1 >= len(args) {
+        fail("missing allow-rw-file value")
+      }
+      allowRWFiles = append(allowRWFiles, splitList(args[i+1])...)
       i++
     case "--net":
       if i+1 >= len(args) {
@@ -185,10 +199,12 @@ func main() {
 
   allowRO = uniqueStrings(allowRO)
   allowRW = uniqueStrings(allowRW)
-  if len(allowRO) > 0 || len(allowRW) > 0 {
+  allowROFiles = uniqueStrings(allowROFiles)
+  allowRWFiles = uniqueStrings(allowRWFiles)
+  if len(allowRO) > 0 || len(allowRW) > 0 || len(allowROFiles) > 0 || len(allowRWFiles) > 0 {
     allowRO = ensureBaseReadPaths(allowRO, resolved)
   }
-  if err := applyLandlock(allowRO, allowRW, netMode); err != nil {
+  if err := applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles, netMode); err != nil {
     fail("landlock failed")
   }
   if err := applySeccomp(seccompMode, netMode); err != nil {
@@ -341,15 +357,17 @@ func ensureBaseReadPaths(paths []string, resolvedCommand string) []string {
   return uniqueStrings(append(paths, base...))
 }
 
-func applyLandlock(allowRO, allowRW []string, netMode string) error {
-  if len(allowRO) == 0 && len(allowRW) == 0 && netMode == "" {
+func applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles []string, netMode string) error {
+  if len(allowRO) == 0 && len(allowRW) == 0 && len(allowROFiles) == 0 && len(allowRWFiles) == 0 && netMode == "" {
     return nil
   }
   ruleset := landlock.V6.BestEffort()
-  if len(allowRO) > 0 || len(allowRW) > 0 {
+  if len(allowRO) > 0 || len(allowRW) > 0 || len(allowROFiles) > 0 || len(allowRWFiles) > 0 {
     if err := ruleset.RestrictPaths(
       landlock.RODirs(allowRO...),
       landlock.RWDirs(allowRW...),
+      landlock.ROFiles(allowROFiles...),
+      landlock.RWFiles(allowRWFiles...),
     ); err != nil {
       return err
     }

@@ -105,6 +105,9 @@ export class ClaudeCliClient extends EventEmitter {
             extraAllowRw: [
               path.join(getWorkspaceHome(this.workspaceId), ".claude"),
             ],
+            extraAllowRwFiles: [
+              path.join(getWorkspaceHome(this.workspaceId), ".claude.json"),
+            ],
           }),
           "--",
           command,
