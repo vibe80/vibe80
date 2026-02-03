@@ -18,8 +18,10 @@ export const DEFAULT_ALLOW_RO = [
   "/lib",
   "/lib64",
   "/usr",
-  "/dev",
   "/proc",
+];
+export const DEFAULT_ALLOW_RW = [
+  "/dev",
 ];
 
 const normalizePaths = (paths = []) => {
@@ -45,7 +47,7 @@ export const buildSandboxArgs = (options = {}) => {
     ...(options.extraAllowRo || []),
   ]);
   const allowRw = normalizePaths([
-    ...(options.allowRw || []),
+    ...(options.allowRw || DEFAULT_ALLOW_RW),
     ...(options.extraAllowRw || []),
     options.repoDir,
     options.cwd,
