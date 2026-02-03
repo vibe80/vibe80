@@ -377,9 +377,6 @@ export default function WorktreeTabs({
                     <option key={branch} value={branch} />
                   ))}
                 </datalist>
-                <div className="worktree-field-hint">
-                  Branche distante. Par defaut: {defaultBranch || "main"}.
-                </div>
                 {!isBranchValid && (
                   <div className="worktree-field-error">
                     Selectionnez une branche distante valide.
