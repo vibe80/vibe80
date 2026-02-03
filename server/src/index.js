@@ -10,6 +10,7 @@ import { WebSocketServer } from "ws";
 import { spawn } from "child_process";
 import jwt from "jsonwebtoken";
 import * as pty from "node-pty";
+import dockerNames from "docker-names";
 import { runAsCommand, runAsCommandOutput } from "./runAs.js";
 import storage from "./storage/index.js";
 import { getSessionRuntime, deleteSessionRuntime } from "./runtimeStore.js";
@@ -430,45 +431,7 @@ const jwtKey = loadJwtKey();
 
 const generateId = (prefix) => `${prefix}${crypto.randomBytes(12).toString("hex")}`;
 
-const SESSION_NAME_ADJECTIVES = [
-  "modest",
-  "flamboyant",
-  "brave",
-  "curious",
-  "eager",
-  "gentle",
-  "mighty",
-  "nimble",
-  "proud",
-  "serene",
-  "swift",
-  "vivid",
-];
-
-const SESSION_NAME_SCIENTISTS = [
-  "einstein",
-  "margulis",
-  "curie",
-  "tesla",
-  "turing",
-  "lovelace",
-  "hopper",
-  "noether",
-  "galilei",
-  "fermi",
-  "newton",
-  "franklin",
-];
-
-const generateSessionName = () => {
-  const randomIndex = (length) =>
-    typeof crypto.randomInt === "function"
-      ? crypto.randomInt(length)
-      : Math.floor(Math.random() * length);
-  const adjective = SESSION_NAME_ADJECTIVES[randomIndex(SESSION_NAME_ADJECTIVES.length)];
-  const scientist = SESSION_NAME_SCIENTISTS[randomIndex(SESSION_NAME_SCIENTISTS.length)];
-  return `${adjective}_${scientist}`;
-};
+const generateSessionName = () => dockerNames.getRandomName();
 
 const createHandoffToken = (session) => {
   const now = Date.now();
