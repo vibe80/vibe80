@@ -8,6 +8,7 @@ import {
   faPlus,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
+import { useI18n } from "../i18n";
 
 const STATUS_ICONS = {
   creating: faCircleNotch,
@@ -46,6 +47,7 @@ export default function WorktreeTabs({
   disabled,
   isMobile,
 }) {
+  const { t } = useI18n();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
@@ -66,6 +68,16 @@ export default function WorktreeTabs({
   );
   const [newShareGitCredentials, setNewShareGitCredentials] = useState(
     Boolean(defaultShareGitCredentials)
+  );
+  const statusLabels = useMemo(
+    () => ({
+      creating: t("Creation"),
+      ready: t("Pret"),
+      processing: t("En cours"),
+      completed: t("Termine"),
+      error: t("Erreur"),
+    }),
+    [t]
   );
   const editInputRef = useRef(null);
   const createInputRef = useRef(null);
@@ -251,7 +263,7 @@ export default function WorktreeTabs({
               className="worktree-select"
               value={activeWorktreeId}
               onChange={(event) => !disabled && onSelect?.(event.target.value)}
-              aria-label="Selectionner une branche"
+              aria-label={t("Selectionner une branche")}
               disabled={disabled}
             >
               {worktreeList.map((wt) => (
@@ -264,8 +276,8 @@ export default function WorktreeTabs({
               className="worktree-tab-add"
               onClick={() => setCreateDialogOpen(true)}
               disabled={disabled || worktreeList.length >= 5}
-              title="Nouvelle branche parallèle"
-              aria-label="Nouvelle branche parallèle"
+              title={t("Nouvelle branche parallèle")}
+              aria-label={t("Nouvelle branche parallèle")}
             >
               <FontAwesomeIcon icon={faPlus} />
             </button>
@@ -284,7 +296,7 @@ export default function WorktreeTabs({
                 <span
                   className={`worktree-status ${wt.status === "processing" ? "pulse" : ""}`}
                   style={{ color: STATUS_COLORS[wt.status] || STATUS_COLORS.ready }}
-                  title={wt.status}
+                  title={statusLabels[wt.status] || wt.status}
                 >
                   <FontAwesomeIcon icon={STATUS_ICONS[wt.status] || STATUS_ICONS.ready} />
                 </span>
@@ -326,7 +338,7 @@ export default function WorktreeTabs({
                       e.stopPropagation();
                       onClose?.(wt.id);
                     }}
-                    title="Fermer"
+                    title={t("Fermer")}
                   >
                     <FontAwesomeIcon icon={faXmark} />
                   </button>
@@ -338,7 +350,7 @@ export default function WorktreeTabs({
               className="worktree-tab-add"
               onClick={() => setCreateDialogOpen(true)}
               disabled={disabled || worktreeList.length >= 5}
-              title="Nouvelle branche parallèle"
+              title={t("Nouvelle branche parallèle")}
             >
               <FontAwesomeIcon icon={faPlus} />
             </button>
@@ -349,21 +361,21 @@ export default function WorktreeTabs({
       {createDialogOpen && (
         <div className="worktree-create-dialog-overlay" onClick={() => setCreateDialogOpen(false)}>
           <div className="worktree-create-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>Nouvelle branche parallèle</h3>
+            <h3>{t("Nouvelle branche parallèle")}</h3>
             <div className="worktree-create-grid">
               <div className="worktree-create-field">
-                <label>Nom (optionnel)</label>
+                <label>{t("Nom (optionnel)")}</label>
                 <input
                   ref={createInputRef}
                   type="text"
-                  placeholder="ex: refactor-auth"
+                  placeholder={t("ex: refactor-auth")}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={handleKeyDownCreate}
                 />
               </div>
               <div className="worktree-create-field">
-                <label>Branche source</label>
+                <label>{t("Branche source")}</label>
                 <input
                   type="text"
                   list="worktree-branch-options"
@@ -379,23 +391,23 @@ export default function WorktreeTabs({
                 </datalist>
                 {!isBranchValid && (
                   <div className="worktree-field-error">
-                    Selectionnez une branche distante valide.
+                    {t("Selectionnez une branche distante valide.")}
                   </div>
                 )}
                 {branchError && <div className="worktree-field-error">{branchError}</div>}
               </div>
               <div className="worktree-create-field is-full">
-                <label>Provider</label>
+                <label>{t("Provider")}</label>
                 <select
                   value={newProvider}
                   onChange={(e) => setNewProvider(e.target.value)}
                   disabled={providerOptions.length <= 1}
                 >
                   {providerOptions.includes("codex") && (
-                    <option value="codex">Codex (OpenAI)</option>
+                    <option value="codex">{t("Codex (OpenAI)")}</option>
                   )}
                   {providerOptions.includes("claude") && (
-                    <option value="claude">Claude</option>
+                    <option value="claude">{t("Claude")}</option>
                   )}
                 </select>
               </div>
@@ -406,13 +418,13 @@ export default function WorktreeTabs({
                       showReasoningField ? "" : "is-full"
                     }`}
                   >
-                    <label>Modele</label>
+                    <label>{t("Modele")}</label>
                     <select
                       value={newModel}
                       onChange={(e) => setNewModel(e.target.value)}
                       disabled={providerState.loading || availableModels.length === 0}
                     >
-                      <option value="">Modele par defaut</option>
+                      <option value="">{t("Modele par defaut")}</option>
                       {availableModels.map((model) => (
                         <option key={model.id} value={model.model}>
                           {model.displayName || model.model}
@@ -425,13 +437,13 @@ export default function WorktreeTabs({
                   </div>
                   {showReasoningField && (
                     <div className="worktree-create-field">
-                      <label>Reasoning</label>
+                      <label>{t("Reasoning")}</label>
                       <select
                         value={newReasoningEffort}
                         onChange={(e) => setNewReasoningEffort(e.target.value)}
                         disabled={providerState.loading || !selectedModelDetails}
                       >
-                        <option value="">Reasoning par defaut</option>
+                        <option value="">{t("Reasoning par defaut")}</option>
                         {(selectedModelDetails?.supportedReasoningEfforts || []).map(
                           (effort) => (
                             <option
@@ -454,7 +466,7 @@ export default function WorktreeTabs({
                     checked={newInternetAccess}
                     onChange={(e) => setNewInternetAccess(e.target.checked)}
                   />
-                  <span>Internet access</span>
+                  <span>{t("Internet access")}</span>
                 </label>
               </div>
               <div className="worktree-create-field worktree-toggle-field">
@@ -464,20 +476,23 @@ export default function WorktreeTabs({
                     checked={newShareGitCredentials}
                     onChange={(e) => setNewShareGitCredentials(e.target.checked)}
                   />
-                  <span>Share git credentials</span>
+                  <span>{t("Share git credentials")}</span>
                 </label>
               </div>
             </div>
             <div className="worktree-create-actions">
-              <button className="worktree-btn-cancel" onClick={() => setCreateDialogOpen(false)}>
-                Annuler
+              <button
+                className="worktree-btn-cancel"
+                onClick={() => setCreateDialogOpen(false)}
+              >
+                {t("Annuler")}
               </button>
               <button
                 className="worktree-btn-create"
                 onClick={handleCreate}
                 disabled={!isBranchValid}
               >
-                Créer
+                {t("Créer")}
               </button>
             </div>
           </div>
