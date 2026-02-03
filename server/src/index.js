@@ -10,6 +10,7 @@ import { WebSocketServer } from "ws";
 import { spawn } from "child_process";
 import jwt from "jsonwebtoken";
 import * as pty from "node-pty";
+import { buildSandboxArgs } from "./runAs.js";
 import dockerNames from "docker-names";
 import { runAsCommand, runAsCommandOutput } from "./runAs.js";
 import storage from "./storage/index.js";
@@ -3331,6 +3332,11 @@ if (terminalWss) {
         cwd,
         "--env",
         "TERM=xterm-256color",
+        ...buildSandboxArgs({
+          cwd,
+          repoDir: cwd,
+          internetAccess: session.defaultInternetAccess,
+        }),
         "--",
         shell,
       ];
