@@ -36,7 +36,7 @@ import Editor from "@monaco-editor/react";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import QRCode from "qrcode";
 import vibe80Logo from "./assets/logo_small.png";
-import { useI18n } from "./i18n";
+import { useI18n } from "./i18n.jsx";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");

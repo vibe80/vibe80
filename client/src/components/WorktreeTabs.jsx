@@ -8,7 +8,7 @@ import {
   faPlus,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import { useI18n } from "../i18n";
+import { useI18n } from "../i18n.jsx";
 
 const STATUS_ICONS = {
   creating: faCircleNotch,
