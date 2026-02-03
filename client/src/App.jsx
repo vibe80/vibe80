@@ -206,7 +206,7 @@ const extractVibe80Blocks = (text, t = (value) => value) => {
       blocks.push({
         type: "yesno",
         question,
-        choices: [t("Oui"), t("Non")],
+        choices: [t("Yes"), t("No")],
       });
       continue;
     }
@@ -352,14 +352,14 @@ const formatAttachmentSize = (bytes, t = (value) => value) => {
     return "";
   }
   if (bytes < 1024) {
-    return t("{{count}} o", { count: bytes });
+    return t("{{count}} B", { count: bytes });
   }
   const kb = bytes / 1024;
   if (kb < 1024) {
-    return t("{{count}} Ko", { count: Math.round(kb) });
+    return t("{{count}} KB", { count: Math.round(kb) });
   }
   const mb = kb / 1024;
-  return t("{{count}} Mo", { count: mb.toFixed(1) });
+  return t("{{count}} MB", { count: mb.toFixed(1) });
 };
 
 const normalizeAttachments = (attachments) => {
@@ -687,7 +687,7 @@ function App() {
   const { t, language, setLanguage, locale } = useI18n();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [status, setStatus] = useState(() => t("Connexion..."));
+  const [status, setStatus] = useState(() => t("Connecting..."));
   const [processing, setProcessing] = useState(false);
   const [activity, setActivity] = useState("");
   const [connected, setConnected] = useState(false);
@@ -894,20 +894,20 @@ function App() {
     }
     if (item.type === "commandExecution") {
       const command =
-        item.commandActions?.command || item.command || t("Commande");
-      return t("Commande: {{command}}", { command });
+        item.commandActions?.command || item.command || t("Command");
+      return t("Command: {{command}}", { command });
     }
     if (item.type === "fileChange") {
-      return t("Application de modifications...");
+      return t("Applying changes...");
     }
     if (item.type === "mcpToolCall") {
-      return t("Outil: {{tool}}", { tool: item.tool });
+      return t("Tool: {{tool}}", { tool: item.tool });
     }
     if (item.type === "reasoning") {
-      return t("Raisonnement...");
+      return t("Reasoning...");
     }
     if (item.type === "agentMessage") {
-      return t("Generation de reponse...");
+      return t("Generating response...");
     }
     return "";
   };
@@ -1044,13 +1044,13 @@ function App() {
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(
-          payload?.error || t("Impossible de generer le QR code.")
+          payload?.error || t("Unable to generate the QR code.")
         );
       }
       const data = await response.json();
       const token = data?.handoffToken;
       if (!token) {
-        throw new Error(t("Token de reprise invalide."));
+        throw new Error(t("Invalid resume token."));
       }
       const expiresAt = data?.expiresAt ?? null;
       const payload = buildHandoffPayload(token, expiresAt);
@@ -1062,7 +1062,7 @@ function App() {
       setHandoffExpiresAt(expiresAt);
       setHandoffOpen(true);
     } catch (error) {
-      setHandoffError(error?.message || t("Erreur lors de la generation."));
+      setHandoffError(error?.message || t("Error during generation."));
     } finally {
       setHandoffLoading(false);
     }
@@ -1118,7 +1118,7 @@ function App() {
         `/api/session/${encodeURIComponent(sessionId)}/git-identity`
       );
       if (!response.ok) {
-        throw new Error(t("Impossible de charger l'identité Git."));
+        throw new Error(t("Unable to load Git identity."));
       }
       const payload = await response.json();
       const globalName = payload?.global?.name || "";
@@ -1130,7 +1130,7 @@ function App() {
       setGitIdentityName(repoName || globalName);
       setGitIdentityEmail(repoEmail || globalEmail);
     } catch (error) {
-      setGitIdentityError(error?.message || t("Erreur lors du chargement."));
+      setGitIdentityError(error?.message || t("Error during loading."));
     } finally {
       setGitIdentityLoading(false);
     }
@@ -1144,7 +1144,7 @@ function App() {
     const name = gitIdentityName.trim();
     const email = gitIdentityEmail.trim();
     if (!name || !email) {
-      setGitIdentityError(t("Nom et email requis."));
+      setGitIdentityError(t("Name and email required."));
       return;
     }
     setGitIdentitySaving(true);
@@ -1161,15 +1161,15 @@ function App() {
       );
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || t("Echec de la mise à jour."));
+        throw new Error(payload?.error || t("Update failed."));
       }
       const payload = await response.json().catch(() => ({}));
       const repoName = payload?.repo?.name || name;
       const repoEmail = payload?.repo?.email || email;
       setGitIdentityRepo({ name: repoName, email: repoEmail });
-      setGitIdentityMessage(t("Identité Git du dépôt mise à jour."));
+      setGitIdentityMessage(t("Repository Git identity updated."));
     } catch (error) {
-      setGitIdentityError(error?.message || t("Echec de la mise à jour."));
+      setGitIdentityError(error?.message || t("Update failed."));
     } finally {
       setGitIdentitySaving(false);
     }
@@ -1240,7 +1240,7 @@ function App() {
                   {url ? (
                     <img
                       src={url}
-                      alt={name || t("Image jointe")}
+                      alt={name || t("Attached image")}
                       className="attachment-thumb"
                       loading="lazy"
                     />
@@ -1521,14 +1521,14 @@ function App() {
       }
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error || t("Impossible de charger les sessions."));
+        throw new Error(payload?.error || t("Unable to load sessions."));
       }
       const data = await response.json();
       const list = Array.isArray(data?.sessions) ? data.sessions : [];
       setWorkspaceSessions(list);
     } catch (error) {
       setWorkspaceSessionsError(
-        error.message || t("Impossible de charger les sessions.")
+        error.message || t("Unable to load sessions.")
       );
     } finally {
       setWorkspaceSessionsLoading(false);
@@ -1665,7 +1665,7 @@ function App() {
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || t("Impossible de charger les branches."));
+        throw new Error(payload.error || t("Unable to load branches."));
       }
       setBranches(Array.isArray(payload.branches) ? payload.branches : []);
       setCurrentBranch(payload.current || "");
@@ -1674,7 +1674,7 @@ function App() {
         setDefaultBranch(payload.current);
       }
     } catch (error) {
-      setBranchError(error.message || t("Impossible de charger les branches."));
+      setBranchError(error.message || t("Unable to load branches."));
     } finally {
       setBranchLoading(false);
     }
@@ -1690,7 +1690,7 @@ function App() {
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || t("Impossible de charger le dernier commit."));
+        throw new Error(payload.error || t("Unable to load the latest commit."));
       }
       const commit = payload.commit || {};
       setRepoLastCommit({
@@ -1718,7 +1718,7 @@ function App() {
         );
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(payload.error || t("Impossible de charger le commit."));
+          throw new Error(payload.error || t("Unable to load the commit."));
         }
         const commit = Array.isArray(payload.commits) ? payload.commits[0] : null;
         if (!commit?.sha) {
@@ -1757,7 +1757,7 @@ function App() {
         );
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(payload.error || t("Impossible de charger les modeles."));
+          throw new Error(payload.error || t("Unable to load models."));
         }
         setProviderModelState((current) => ({
           ...current,
@@ -1773,7 +1773,7 @@ function App() {
           [provider]: {
             ...(current?.[provider] || {}),
             loading: false,
-            error: error.message || t("Impossible de charger les modeles."),
+            error: error.message || t("Unable to load models."),
           },
         }));
       }
@@ -2340,7 +2340,7 @@ function App() {
     lastNotifiedIdRef.current = message.id;
     const body = stripMarkdownForNotification(message.text || "").slice(0, 180);
     try {
-      new Notification(t("Nouveau message"), { body });
+      new Notification(t("New message"), { body });
     } catch (error) {
       // Ignore notification failures (permissions or browser quirks).
     }
@@ -2431,7 +2431,7 @@ function App() {
       if (!isMounted) {
         return;
       }
-      setStatus(t("Connexion..."));
+      setStatus(t("Connecting..."));
       const socket = new WebSocket(wsUrl(attachmentSession.sessionId, workspaceToken));
       socketRef.current = socket;
 
@@ -2444,7 +2444,7 @@ function App() {
         reconnectAttemptRef.current = 0;
         clearReconnectTimer();
         setConnected(true);
-        setStatus(t("Connecte"));
+        setStatus(t("Connected"));
         startPingInterval();
         void resyncSession();
         requestMessageSync();
@@ -2456,7 +2456,7 @@ function App() {
           return;
         }
         setConnected(false);
-        setStatus(t("Deconnecte"));
+        setStatus(t("Disconnected"));
         setAppServerReady(false);
         clearPingInterval();
         if (!closingRef.current) {
@@ -2493,7 +2493,7 @@ function App() {
         }
 
         if (payload.type === "ready") {
-          setStatus(t("Pret"));
+          setStatus(t("Ready"));
           setAppServerReady(true);
         }
 
@@ -2563,7 +2563,7 @@ function App() {
               const entry = {
                 id: payload.itemId,
                 role: "commandExecution",
-                command: t("Commande"),
+                command: t("Command"),
                 output: payload.delta,
                 isExpandable: true,
                 status: "running",
@@ -2590,7 +2590,7 @@ function App() {
             const next = [...current];
             const existingIndex = commandIndex.get(itemId);
             const command =
-              item?.commandActions?.command || item?.command || t("Commande");
+              item?.commandActions?.command || item?.command || t("Command");
             if (existingIndex === undefined) {
               const entry = {
                 id: itemId,
@@ -2615,7 +2615,7 @@ function App() {
         }
 
         if (!isWorktreeScoped && payload.type === "turn_error") {
-          setStatus(t("Erreur: {{message}}", { message: payload.message }));
+          setStatus(t("Error: {{message}}", { message: payload.message }));
           setProcessing(false);
           setActivity("");
           setCurrentTurnId(null);
@@ -2630,16 +2630,16 @@ function App() {
         }
 
         if (!isWorktreeScoped && payload.type === "error") {
-          setStatus(payload.message || t("Erreur inattendue"));
+          setStatus(payload.message || t("Unexpected error"));
           setProcessing(false);
           setActivity("");
           setModelLoading(false);
-          setModelError(payload.message || t("Erreur inattendue"));
+          setModelError(payload.message || t("Unexpected error"));
         }
 
         if (!isWorktreeScoped && payload.type === "turn_started") {
           setProcessing(true);
-          setActivity(t("Traitement en cours..."));
+          setActivity(t("Processing..."));
           setCurrentTurnId(payload.turnId || null);
         }
 
@@ -2650,7 +2650,7 @@ function App() {
             const warningId = `usage-limit-${payload.turnId || payload.turn?.id || Date.now()}`;
             const warningText =
               (typeof errorPayload === "string" ? errorPayload : errorPayload?.message) ||
-              t("Limite d'usage atteinte. Merci de reessayer plus tard.");
+              t("Usage limit reached. Please try again later.");
             setMessages((current) => {
               if (current.some((message) => message.id === warningId)) {
                 return current;
@@ -2722,7 +2722,7 @@ function App() {
               const errorMessage =
                 entry.payload?.params?.error?.message ||
                 entry.payload?.params?.message ||
-                t("Erreur");
+                t("Error");
               const additionalDetails =
                 entry.payload?.params?.additionalDetails ||
                 entry.payload?.params?.error?.additionalDetails ||
@@ -2757,7 +2757,7 @@ function App() {
             setOpenAiReady(false);
             setOpenAiLoginPending(false);
             setOpenAiLoginError(
-              payload.error || t("Echec de l'authentification OpenAI.")
+              payload.error || t("OpenAI authentication failed.")
             );
           }
         }
@@ -2766,7 +2766,7 @@ function App() {
           setOpenAiReady(false);
           setOpenAiLoginPending(false);
           setOpenAiLoginError(
-            payload.message || t("Echec de l'authentification OpenAI.")
+            payload.message || t("OpenAI authentication failed.")
           );
         }
 
@@ -2787,7 +2787,7 @@ function App() {
               if (existingIndex !== undefined) {
                 const updated = { ...next[existingIndex] };
                 updated.command =
-                  item.commandActions?.command || item.command || t("Commande");
+                  item.commandActions?.command || item.command || t("Command");
                 updated.status = "running";
                 next[existingIndex] = updated;
                 return next;
@@ -2796,7 +2796,7 @@ function App() {
                 id: item.id,
                 role: "commandExecution",
                 command:
-                  item.commandActions?.command || item.command || t("Commande"),
+                  item.commandActions?.command || item.command || t("Command"),
                 output: "",
                 isExpandable: false,
                 status: "running",
@@ -2815,7 +2815,7 @@ function App() {
 
         if (!isWorktreeScoped && payload.type === "provider_switched") {
           setLlmProvider(payload.provider);
-          setStatus(t("Pret"));
+          setStatus(t("Ready"));
           if (Array.isArray(payload.messages)) {
             applyMessages(payload.messages);
           } else {
@@ -3014,7 +3014,7 @@ function App() {
                   ...wt,
                   status: "processing",
                   currentTurnId: payload.turnId,
-                  activity: t("Traitement en cours..."),
+                  activity: t("Processing..."),
                 });
               }
               return next;
@@ -3045,7 +3045,7 @@ function App() {
               const warningId = `usage-limit-${payload.turnId || Date.now()}`;
               const warningText =
                 (typeof errorPayload === "string" ? errorPayload : errorPayload?.message) ||
-                t("Limite d'usage atteinte. Merci de reessayer plus tard.");
+                t("Usage limit reached. Please try again later.");
               setWorktrees((current) => {
                 const next = new Map(current);
                 const wt = next.get(wtId);
@@ -3135,7 +3135,7 @@ function App() {
                   messages.push({
                     id: itemId,
                     role: "commandExecution",
-                    command: t("Commande"),
+                    command: t("Command"),
                     output: payload.delta || "",
                     status: "running",
                     isExpandable: true,
@@ -3149,7 +3149,7 @@ function App() {
               } else {
                 const item = payload.item;
                 const command =
-                  item?.commandActions?.command || item?.command || t("Commande");
+                  item?.commandActions?.command || item?.command || t("Command");
                 if (existingIdx === -1) {
                   messages.push({
                     id: itemId,
@@ -3451,13 +3451,13 @@ function App() {
           return;
         }
         if (!response.ok) {
-          throw new Error(t("Session introuvable."));
+          throw new Error(t("Session not found."));
         }
         const data = await response.json();
         setAttachmentSession(data);
       } catch (error) {
         setAttachmentsError(
-          error.message || t("Impossible de reprendre la session.")
+          error.message || t("Unable to resume the session.")
         );
         setSessionRequested(false);
       }
@@ -3522,7 +3522,7 @@ function App() {
             setWorkspaceToken("");
             setWorkspaceMode("existing");
             setWorkspaceError(
-              t("Token workspace invalide. Merci de vous reconnecter.")
+              t("Invalid workspace token. Please sign in again.")
             );
             setAttachmentsError("");
             return;
@@ -3530,12 +3530,12 @@ function App() {
           const suffix = details ? `: ${details}` : "";
           if (response.status === 401 || response.status === 403) {
             throw new Error(
-              t("Echec d'authentification Git{{suffix}}.", { suffix })
+              t("Git authentication failed{{suffix}}.", { suffix })
             );
           }
           if (response.status === 404) {
             throw new Error(
-              t("Depot Git introuvable{{suffix}}.", { suffix })
+              t("Git repository not found{{suffix}}.", { suffix })
             );
           }
           throw new Error(
@@ -3553,7 +3553,7 @@ function App() {
         setAttachmentSession(data);
       } catch (error) {
         setAttachmentsError(
-          error.message || t("Impossible de creer la session de pieces jointes.")
+          error.message || t("Unable to create the attachment session.")
         );
         setOpenAiLoginPending(false);
         setOpenAiLoginRequest(null);
@@ -3603,7 +3603,7 @@ function App() {
         const workspaceIdValue = workspaceIdInput.trim();
         const secretValue = workspaceSecretInput.trim();
         if (!workspaceIdValue || !secretValue) {
-          throw new Error(t("Workspace ID et secret requis."));
+          throw new Error(t("Workspace ID and secret are required."));
         }
         const response = await apiFetch("/api/workspaces/login", {
           method: "POST",
@@ -3615,7 +3615,7 @@ function App() {
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
-          throw new Error(payload?.error || t("Echec de l'authentification."));
+          throw new Error(payload?.error || t("Authentication failed."));
         }
         const data = await response.json();
         setWorkspaceToken(data.workspaceToken || "");
@@ -3628,7 +3628,7 @@ function App() {
       setWorkspaceStep(2);
     } catch (error) {
       setWorkspaceError(
-        error.message || t("Echec de la configuration du workspace.")
+        error.message || t("Workspace configuration failed.")
       );
     } finally {
       setWorkspaceBusy(false);
@@ -3648,7 +3648,7 @@ function App() {
         }
         const trimmedValue = (config.authValue || "").trim();
         if (!trimmedValue) {
-          throw new Error(t("Cle requise pour {{provider}}.", { provider }));
+          throw new Error(t("Key required for {{provider}}.", { provider }));
         }
         const type = config.authType || "api_key";
         const value =
@@ -3659,12 +3659,12 @@ function App() {
         };
       });
       if (Object.keys(providersPayload).length === 0) {
-        throw new Error(t("Selectionnez au moins un provider."));
+        throw new Error(t("Select at least one provider."));
       }
       if (workspaceProvidersEditing) {
         const activeWorkspaceId = (workspaceId || workspaceIdInput || "").trim();
         if (!activeWorkspaceId) {
-          throw new Error(t("Workspace ID requis."));
+          throw new Error(t("Workspace ID required."));
         }
         const updateResponse = await apiFetch(
           `/api/workspaces/${encodeURIComponent(activeWorkspaceId)}`,
@@ -3677,13 +3677,13 @@ function App() {
         if (!updateResponse.ok) {
           const payload = await updateResponse.json().catch(() => null);
           throw new Error(
-            payload?.error || t("Echec de mise a jour du workspace.")
+            payload?.error || t("Workspace update failed.")
           );
         }
         await updateResponse.json().catch(() => null);
         setWorkspaceProvidersEditing(false);
         setWorkspaceStep(4);
-        setToast({ type: "success", message: t("Providers IA mis a jour.") });
+        setToast({ type: "success", message: t("AI providers updated.") });
         return;
       }
       const createResponse = await apiFetch("/api/workspaces", {
@@ -3693,7 +3693,7 @@ function App() {
       });
       if (!createResponse.ok) {
         const payload = await createResponse.json().catch(() => null);
-        throw new Error(payload?.error || t("Echec de creation du workspace."));
+        throw new Error(payload?.error || t("Workspace creation failed."));
       }
       const created = await createResponse.json();
       setWorkspaceCreated(created);
@@ -3709,7 +3709,7 @@ function App() {
       });
       if (!loginResponse.ok) {
         const payload = await loginResponse.json().catch(() => null);
-        throw new Error(payload?.error || t("Echec de l'authentification."));
+        throw new Error(payload?.error || t("Authentication failed."));
       }
       const loginData = await loginResponse.json();
       setWorkspaceToken(loginData.workspaceToken || "");
@@ -3717,7 +3717,7 @@ function App() {
       setWorkspaceStep(3);
     } catch (error) {
       setWorkspaceError(
-        error.message || t("Echec de la configuration du workspace.")
+        error.message || t("Workspace configuration failed.")
       );
     } finally {
       setWorkspaceBusy(false);
@@ -3735,13 +3735,13 @@ function App() {
         `/api/session/${encodeURIComponent(sessionId)}`
       );
       if (!response.ok) {
-        throw new Error(t("Session introuvable."));
+        throw new Error(t("Session not found."));
       }
       const data = await response.json();
       setAttachmentSession(data);
     } catch (error) {
       setAttachmentsError(
-        error.message || t("Impossible de reprendre la session.")
+        error.message || t("Unable to resume the session.")
       );
       setSessionRequested(false);
     }
@@ -3827,14 +3827,14 @@ function App() {
         }
         const suffix = details ? `: ${details}` : "";
         throw new Error(
-          t("Impossible de supprimer la session{{suffix}}.", { suffix })
+          t("Unable to delete the session{{suffix}}.", { suffix })
         );
       }
       await loadWorkspaceSessions();
       showToast(t("Session \"{{title}}\" supprimee.", { title }), "success");
     } catch (error) {
       setWorkspaceSessionsError(
-        error.message || t("Impossible de supprimer la session.")
+        error.message || t("Unable to delete the session.")
       );
     } finally {
       setWorkspaceSessionDeletingId(null);
@@ -3862,7 +3862,7 @@ function App() {
       if (authMode === "http") {
         const user = httpUsername.trim();
         if (!user || !httpPassword) {
-          setAttachmentsError(t("Identifiant et mot de passe requis."));
+          setAttachmentsError(t("Username and password required."));
           return;
         }
         auth = { type: "http", username: user, password: httpPassword };
@@ -3888,7 +3888,7 @@ function App() {
         : true;
     setRpcLogsEnabled(logsEnabled);
     setRpcLogs(logsEnabled ? attachmentSession.rpcLogs || [] : []);
-    setStatus(t("Connexion..."));
+    setStatus(t("Connecting..."));
     setConnected(false);
   }, [attachmentSession?.sessionId, loadMainWorktreeSnapshot, messageIndex, t]);
 
@@ -3964,7 +3964,7 @@ function App() {
         return;
       }
       setProviderSwitching(true);
-      setStatus(t("Basculement vers {{provider}}...", { provider: newProvider }));
+      setStatus(t("Switching to {{provider}}...", { provider: newProvider }));
       socketRef.current.send(
         JSON.stringify({ type: "switch_provider", provider: newProvider })
       );
@@ -4056,14 +4056,14 @@ function App() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || t("Impossible de changer de branche."));
+        throw new Error(payload.error || t("Unable to change branch."));
       }
       setBranches(Array.isArray(payload.branches) ? payload.branches : []);
       setCurrentBranch(payload.current || "");
       await loadRepoLastCommit();
       setBranchMenuOpen(false);
     } catch (error) {
-      setBranchError(error.message || t("Impossible de changer de branche."));
+      setBranchError(error.message || t("Unable to change branch."));
     } finally {
       setBranchLoading(false);
     }
@@ -4119,7 +4119,7 @@ function App() {
       setDraftAttachments((current) => [...current, ...uploaded]);
     } catch (error) {
       setAttachmentsError(
-        error.message || t("Impossible d'uploader les pieces jointes.")
+        error.message || t("Unable to upload attachments.")
       );
     } finally {
       setAttachmentsLoading(false);
@@ -4411,7 +4411,7 @@ function App() {
   const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
   const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
   const activeProviderLabel = formatProviderLabel(activeProvider, t);
-  const activeModelLabel = activeModel || t("Modele par defaut");
+  const activeModelLabel = activeModel || t("Default model");
   const showProviderMeta = Boolean(activeProviderLabel && activeModelLabel);
   const showChatInfoPanel =
     !isMobileLayout &&
@@ -4789,7 +4789,7 @@ function App() {
       } catch (error) {
         updateExplorerState(tabId, {
           loading: false,
-          error: t("Impossible de charger l'explorateur."),
+          error: t("Unable to load the explorer."),
         });
       }
     },
@@ -4837,7 +4837,7 @@ function App() {
       } catch (error) {
         updateExplorerState(tabId, {
           statusLoading: false,
-          statusError: t("Impossible de charger le statut Git."),
+          statusError: t("Unable to load Git status."),
           statusLoaded: false,
         });
       }
@@ -4900,7 +4900,7 @@ function App() {
       } catch (error) {
         updateExplorerState(tabId, {
           fileLoading: false,
-          fileError: t("Impossible de charger le fichier."),
+          fileError: t("Unable to load the file."),
         });
       }
     },
@@ -5017,7 +5017,7 @@ function App() {
       } catch (error) {
         updateExplorerState(tabId, {
           fileSaving: false,
-          fileSaveError: t("Impossible d'enregistrer le fichier."),
+          fileSaveError: t("Unable to save the file."),
         });
       }
     },
@@ -5106,16 +5106,16 @@ function App() {
           : t("Main");
       if (format === "markdown") {
         const lines = [
-          `# ${t("Historique du chat")}`,
+          `# ${t("Chat history")}`,
           "",
           `${t("Export")}: ${new Date().toISOString()}`,
-          `${t("Onglet")}: ${tabLabel}`,
+          `${t("Tab")}: ${tabLabel}`,
           "",
         ];
         exportMessages.forEach((message) => {
           if (message.role === "commandExecution") {
-            lines.push(`## ${t("Commande")}`);
-            lines.push(`\`${message.command || t("Commande")}\``);
+            lines.push(`## ${t("Command")}`);
+            lines.push(`\`${message.command || t("Command")}\``);
             if (message.output) {
               lines.push("```");
               lines.push(message.output);
@@ -5139,7 +5139,7 @@ function App() {
             return;
           }
           const roleLabel =
-            message.role === "user" ? t("Utilisateur") : t("Assistant");
+            message.role === "user" ? t("Username") : t("Assistant");
           lines.push(`## ${roleLabel}`);
           lines.push(message.text || "");
           const attachmentNames = normalizeAttachments(
@@ -5149,7 +5149,7 @@ function App() {
             .filter(Boolean);
           if (attachmentNames.length) {
             lines.push(
-              `${t("Pièces jointes")}: ${attachmentNames.join(", ")}`
+              `${t("Attachments")}: ${attachmentNames.join(", ")}`
             );
           }
           lines.push("");
@@ -5368,8 +5368,8 @@ function App() {
               type="button"
               className="icon-button session-card-action"
               onClick={handleLeaveWorkspace}
-              aria-label={t("Quitter le workspace")}
-              title={t("Quitter le workspace")}
+              aria-label={t("Leave workspace")}
+              title={t("Leave workspace")}
             >
               <FontAwesomeIcon icon={faRightFromBracket} />
             </button>
@@ -5377,17 +5377,17 @@ function App() {
           <img className="brand-logo" src={vibe80Logo} alt="vibe80" />
           <h1>
             {showStep4
-              ? t("Cloner une session")
+              ? t("Clone a session")
               : showStep3
-                ? t("Workspace cree")
+                ? t("Workspace created")
               : showStep2
-                ? t("Configurer les providers IA")
-                : t("Configurer le workspace")}
+                ? t("Configure AI providers")
+                : t("Configure the workspace")}
           </h1>
           {showStep1 && (
             <>
               <p className="session-hint">
-                {t("Selectionnez un workspace existant ou creez-en un nouveau.")}
+                {t("Select an existing workspace or create a new one.")}
               </p>
               <form className="session-form" onSubmit={handleWorkspaceSubmit}>
                 <div className="session-workspace-options">
@@ -5405,10 +5405,10 @@ function App() {
                     </span>
                     <span className="session-workspace-option-text">
                       <span className="session-workspace-option-title">
-                        {t("Rejoindre un workspace")}
+                        {t("Join a workspace")}
                       </span>
                       <span className="session-workspace-option-subtitle">
-                        {t("Accedez a un espace existant avec vos identifiants")}
+                        {t("Access an existing space with your credentials")}
                       </span>
                     </span>
                   </button>
@@ -5426,10 +5426,10 @@ function App() {
                     </span>
                     <span className="session-workspace-option-text">
                       <span className="session-workspace-option-title">
-                        {t("Creer un workspace")}
+                        {t("Create a workspace")}
                       </span>
                       <span className="session-workspace-option-subtitle">
-                        {t("Creez un nouvel espace pour vous ou votre equipe")}
+                        {t("Create a new space for you or your team")}
                       </span>
                     </span>
                   </button>
@@ -5442,13 +5442,13 @@ function App() {
                 >
                   <div className="session-workspace-form">
                     <div className="session-workspace-form-labels">
-                      <span>{t("Nom du workspace")}</span>
+                      <span>{t("Workspace name")}</span>
                       <span>{t("Secret")}</span>
                     </div>
                     <div className="session-workspace-form-grid">
                       <input
                         type="text"
-                        placeholder={t("workspaceId (ex: w...)")}
+                        placeholder={t("workspaceId (e.g. w...)")}
                         value={workspaceIdInput}
                         onChange={(event) => setWorkspaceIdInput(event.target.value)}
                         disabled={formDisabled}
@@ -5474,7 +5474,7 @@ function App() {
                     className="session-button primary"
                     disabled={formDisabled}
                   >
-                    {workspaceBusy ? t("Validation...") : t("Continuer")}
+                    {workspaceBusy ? t("Validating...") : t("Continue")}
                   </button>
                 </div>
               </form>
@@ -5487,12 +5487,12 @@ function App() {
           {showStep2 && (
             <>
               <p className="session-hint">
-                {t("Configurez les providers IA pour ce workspace.")}
+                {t("Configure AI providers for this workspace.")}
               </p>
               <form className="session-form" onSubmit={handleWorkspaceProvidersSubmit}>
                 <div className="session-auth">
                   <div className="session-auth-title">
-                    {t("Providers IA (obligatoire)")}
+                    {t("AI providers (required)")}
                   </div>
                   <div className="session-auth-options is-inline">
                     {["codex", "claude"].map((provider) => {
@@ -5575,7 +5575,7 @@ function App() {
                           ) : (
                             <input
                               type="password"
-                              placeholder={t("Cle ou token")}
+                              placeholder={t("Key or token")}
                               value={config.authValue}
                               onChange={(event) =>
                                 setWorkspaceProviders((current) => ({
@@ -5609,7 +5609,7 @@ function App() {
                     }}
                     disabled={formDisabled}
                   >
-                    {t("Retour")}
+                    {t("Back")}
                   </button>
                   <button
                     type="submit"
@@ -5617,10 +5617,10 @@ function App() {
                     disabled={formDisabled}
                   >
                     {workspaceBusy
-                      ? t("Validation...")
+                      ? t("Validating...")
                       : workspaceProvidersEditing
-                        ? t("Enregistrer")
-                        : t("Continuer")}
+                        ? t("Save")
+                        : t("Continue")}
                   </button>
                 </div>
               </form>
@@ -5654,7 +5654,7 @@ function App() {
                         workspaceCreated?.workspaceId || workspaceId || ""
                       )
                     }
-                    aria-label={t("Copier le workspace ID")}
+                    aria-label={t("Copy workspace ID")}
                   >
                     <FontAwesomeIcon
                       icon={workspaceCopied.id ? faCheck : faCopy}
@@ -5677,7 +5677,7 @@ function App() {
                         workspaceCreated?.workspaceSecret || ""
                       )
                     }
-                    aria-label={t("Copier le workspace secret")}
+                    aria-label={t("Copy workspace secret")}
                   >
                     <FontAwesomeIcon
                       icon={workspaceCopied.secret ? faCheck : faCopy}
@@ -5693,7 +5693,7 @@ function App() {
                   onClick={() => setWorkspaceStep(4)}
                   disabled={formDisabled}
                 >
-                  {t("Continuer")}
+                  {t("Continue")}
                 </button>
               </div>
             </>
@@ -5720,10 +5720,10 @@ function App() {
                   </span>
                   <span className="session-workspace-option-text">
                     <span className="session-workspace-option-title">
-                      {t("Nouvelle session")}
+                      {t("New session")}
                     </span>
                     <span className="session-workspace-option-subtitle">
-                      {t("Cloner un depot pour demarrer une nouvelle session")}
+                      {t("Clone a repository to start a new session")}
                     </span>
                   </span>
                 </button>
@@ -5745,10 +5745,10 @@ function App() {
                   </span>
                   <span className="session-workspace-option-text">
                     <span className="session-workspace-option-title">
-                      {t("Reprendre une session existante")}
+                      {t("Resume an existing session")}
                     </span>
                     <span className="session-workspace-option-subtitle">
-                      {t("Reprendre un worktree deja configure")}
+                      {t("Resume an already configured worktree")}
                     </span>
                   </span>
                 </button>
@@ -5760,14 +5760,14 @@ function App() {
                 aria-hidden={sessionMode !== "existing"}
               >
                 <div className="session-auth">
-                  <div className="session-auth-title">{t("Sessions existantes")}</div>
+                  <div className="session-auth-title">{t("Existing sessions")}</div>
                   {workspaceSessionsLoading ? (
                     <div className="session-auth-hint">
-                      {t("Chargement des sessions...")}
+                      {t("Loading sessions...")}
                     </div>
                   ) : workspaceSessions.length === 0 ? (
                     <div className="session-auth-hint">
-                      {t("Aucune session disponible.")}
+                      {t("No sessions available.")}
                     </div>
                   ) : (
                     <ul className="session-list">
@@ -5791,7 +5791,7 @@ function App() {
                               <div className="session-item-sub">{subtitle}</div>
                               {lastSeen && (
                                 <div className="session-item-sub">
-                                  {t("Derniere activite: {{date}}", {
+                                  {t("Last activity: {{date}}", {
                                     date: lastSeen,
                                   })}
                                 </div>
@@ -5806,7 +5806,7 @@ function App() {
                                 }
                                 disabled={formDisabled || isDeleting}
                               >
-                                {t("Reprendre")}
+                                {t("Resume")}
                               </button>
                               <button
                                 type="button"
@@ -5816,7 +5816,7 @@ function App() {
                                 }
                                 disabled={formDisabled || isDeleting}
                               >
-                                {isDeleting ? t("Suppression...") : t("Supprimer")}
+                                {isDeleting ? t("Deleting...") : t("Delete")}
                               </button>
                             </div>
                           </li>
@@ -5839,7 +5839,7 @@ function App() {
               >
                 {isCloning ? (
                   <div className="session-hint">
-                    {t("Clonage du depot...")}
+                    {t("Cloning repository...")}
                     {repoDisplay && (
                       <div className="session-meta">{repoDisplay}</div>
                     )}
@@ -5849,7 +5849,7 @@ function App() {
                     <div className="session-form-row">
                       <input
                         type="text"
-                        placeholder={t("Nom de la session (optionnel)")}
+                        placeholder={t("Session name (optional)")}
                         value={sessionNameInput}
                         onChange={(event) =>
                           setSessionNameInput(event.target.value)
@@ -5860,7 +5860,7 @@ function App() {
                     <div className="session-form-row">
                       <input
                         type="text"
-                        placeholder={t("git@gitea.devops:mon-org/mon-repo.git")}
+                        placeholder={t("git@gitea.devops:my-org/my-repo.git")}
                         value={repoInput}
                         onChange={(event) => {
                           setRepoInput(event.target.value);
@@ -5881,7 +5881,7 @@ function App() {
                     </div>
                 <div className="session-auth">
                   <div className="session-auth-title">
-                    {t("Authentification depot (optionnelle)")}
+                    {t("Repository authentication (optional)")}
                   </div>
                   <div className="session-auth-options">
                     <label className="session-auth-option">
@@ -5893,7 +5893,7 @@ function App() {
                         onChange={() => setAuthMode("none")}
                         disabled={formDisabled}
                       />
-                      {t("Aucune")}
+                      {t("None")}
                     </label>
                     <label className="session-auth-option">
                       <input
@@ -5904,7 +5904,7 @@ function App() {
                         onChange={() => setAuthMode("ssh")}
                         disabled={formDisabled}
                       />
-                      {t("Cle SSH privee")}
+                      {t("Private SSH key")}
                     </label>
                     <label className="session-auth-option">
                       <input
@@ -5915,7 +5915,7 @@ function App() {
                         onChange={() => setAuthMode("http")}
                         disabled={formDisabled}
                       />
-                      {t("Identifiant + mot de passe")}
+                      {t("Username + password")}
                     </label>
                   </div>
                   {authMode === "ssh" && (
@@ -5930,7 +5930,7 @@ function App() {
                             spellCheck={false}
                       />
                       <div className="session-auth-hint">
-                        {t("La cle est stockee dans ~/.ssh pour le clonage.")}
+                        {t("The key is stored in ~/.ssh for cloning.")}
                       </div>
                     </>
                   )}
@@ -5939,7 +5939,7 @@ function App() {
                       <div className="session-auth-grid">
                         <input
                           type="text"
-                          placeholder={t("Utilisateur")}
+                          placeholder={t("Username")}
                           value={httpUsername}
                           onChange={(event) =>
                             setHttpUsername(event.target.value)
@@ -5949,7 +5949,7 @@ function App() {
                         />
                         <input
                           type="password"
-                          placeholder={t("Mot de passe ou PAT")}
+                          placeholder={t("Password or PAT")}
                           value={httpPassword}
                           onChange={(event) =>
                             setHttpPassword(event.target.value)
@@ -5959,7 +5959,7 @@ function App() {
                         />
                       </div>
                       <div className="session-auth-hint">
-                        {t("Le mot de passe peut etre remplace par un PAT.")}
+                        {t("The password can be replaced by a PAT.")}
                       </div>
                     </>
                   )}
@@ -5980,7 +5980,7 @@ function App() {
                     </label>
                   </div>
                   <div className="session-auth-hint">
-                    {t("Autoriser l'accès internet par defaut pour cette session.")}
+                    {t("Allow default internet access for this session.")}
                   </div>
                 </div>
                 <div className="session-auth">
@@ -6001,7 +6001,7 @@ function App() {
                     </label>
                   </div>
                   <div className="session-auth-hint">
-                    {t("Autoriser le partage du dossier Git pour la branche principale par defaut.")}
+                    {t("Allow sharing the Git folder for the main branch by default.")}
                   </div>
                 </div>
                 <div className="session-form-row">
@@ -6015,14 +6015,14 @@ function App() {
                       setWorkspaceStep(2);
                     }}
                   >
-                    {t("Providers IA")}
+                    {t("AI providers")}
                   </button>
                   <button
                     type="submit"
                     className="session-button primary"
                     disabled={formDisabled}
                   >
-                    {sessionRequested ? t("Chargement...") : t("Cloner")}
+                    {sessionRequested ? t("Loading...") : t("Clone")}
                   </button>
                 </div>
               </form>
@@ -6164,8 +6164,8 @@ function App() {
           <button
             type="button"
             className="icon-button"
-            aria-label={t("Reprendre sur mobile")}
-            title={t("Reprendre sur mobile")}
+            aria-label={t("Resume on mobile")}
+            title={t("Resume on mobile")}
             onClick={requestHandoffQr}
             disabled={!attachmentSession?.sessionId || handoffLoading}
           >
@@ -6174,7 +6174,7 @@ function App() {
           <button
             type="button"
             className="icon-button"
-            aria-label={t("Ouvrir les paramètres")}
+            aria-label={t("Open settings")}
             onClick={handleOpenSettings}
           >
             <FontAwesomeIcon icon={faGear} />
@@ -6182,7 +6182,7 @@ function App() {
           <button
             type="button"
             className="icon-button"
-            aria-label={t("Quitter la session")}
+            aria-label={t("Leave session")}
             onClick={handleLeaveSession}
           >
             <FontAwesomeIcon icon={faRightFromBracket} />
@@ -6199,7 +6199,7 @@ function App() {
           <button
             type="button"
             className="side-backdrop"
-            aria-label={t("Fermer le panneau")}
+            aria-label={t("Close panel")}
             onClick={() => setSideOpen(false)}
           />
         ) : null}
@@ -6211,13 +6211,13 @@ function App() {
                 <div className="panel-title">{t("Backlog")}</div>
                 <div className="panel-subtitle">
                   {backlog.length === 0
-                    ? t("Aucune tâche")
-                    : t("{{count}} élément(s)", { count: backlog.length })}
+                    ? t("No tasks")
+                    : t("{{count}} item(s)", { count: backlog.length })}
               </div>
             </div>
               {backlog.length === 0 ? (
                 <div className="backlog-empty">
-                  {t("Aucune tâche en attente pour le moment.")}
+                  {t("No pending tasks at the moment.")}
                 </div>
               ) : (
                 <ul className="backlog-list">
@@ -6232,26 +6232,26 @@ function App() {
                           className="ghost"
                           onClick={() => editBacklogItem(item)}
                         >
-                          {t("Éditer")}
+                          {t("Edit")}
                         </button>
                         <button
                           type="button"
                           onClick={() => launchBacklogItem(item)}
                           disabled={!connected}
                         >
-                          {t("Lancer")}
+                          {t("Launch")}
                         </button>
                         <button
                           type="button"
                           className="ghost"
                           onClick={() => removeFromBacklog(item.id)}
                         >
-                          {t("Supprimer")}
+                          {t("Delete")}
                         </button>
                       </div>
                       {item.attachments?.length ? (
                         <div className="backlog-meta">
-                          {t("{{count}} pièce(s) jointe(s)", {
+                          {t("{{count}} attachment(s)", {
                             count: item.attachments.length,
                           })}
                         </div>
@@ -6274,7 +6274,7 @@ function App() {
               <span className="side-footer-icon" aria-hidden="true">
                 <FontAwesomeIcon icon={faGear} />
               </span>
-              {t("Paramètres")}
+              {t("Settings")}
             </button>
           </div>
         </aside>
@@ -6290,7 +6290,7 @@ function App() {
               <div
                 className="chat-toolbar"
                 role="toolbar"
-                aria-label={t("Outils du chat")}
+                aria-label={t("Chat tools")}
               >
               <div className="chat-toolbar-group">
                 <button
@@ -6334,15 +6334,15 @@ function App() {
                   }`}
                   onClick={() => handleViewSelect("explorer")}
                   aria-pressed={activePane === "explorer"}
-                  aria-label={t("Explorateur")}
-                  title={t("Explorateur")}
+                  aria-label={t("Explorer")}
+                  title={t("Explorer")}
                 >
                   <span className="chat-toolbar-icon-wrap" aria-hidden="true">
                     <span className="chat-toolbar-icon" aria-hidden="true">
                       <FontAwesomeIcon icon={faFolderTree} />
                     </span>
                   </span>
-                  <span className="chat-toolbar-label">{t("Explorateur")}</span>
+                  <span className="chat-toolbar-label">{t("Explorer")}</span>
                 </button>
                 {terminalEnabled && (
                   <button
@@ -6399,8 +6399,8 @@ function App() {
                         setToolbarExportOpen((current) => !current);
                       }}
                       aria-expanded={toolbarExportOpen}
-                      aria-label={t("Exporter")}
-                      title={t("Exporter")}
+                      aria-label={t("Export")}
+                      title={t("Export")}
                       disabled={!hasMessages}
                       >
                         <span
@@ -6411,7 +6411,7 @@ function App() {
                             <FontAwesomeIcon icon={faDownload} />
                           </span>
                         </span>
-                        <span className="chat-toolbar-label">{t("Exporter")}</span>
+                        <span className="chat-toolbar-label">{t("Export")}</span>
                       </button>
                     {toolbarExportOpen && (
                       <div className="chat-toolbar-menu">
@@ -6439,8 +6439,8 @@ function App() {
                   type="button"
                   className="chat-toolbar-button is-danger"
                   onClick={() => handleClearChat()}
-                  aria-label={t("Effacer")}
-                  title={t("Effacer")}
+                  aria-label={t("Clear")}
+                  title={t("Clear")}
                   disabled={!hasMessages}
                 >
                   <span className="chat-toolbar-icon-wrap" aria-hidden="true">
@@ -6448,7 +6448,7 @@ function App() {
                       <FontAwesomeIcon icon={faBroom} />
                     </span>
                   </span>
-                  <span className="chat-toolbar-label">{t("Effacer")}</span>
+                  <span className="chat-toolbar-label">{t("Clear")}</span>
                 </button>
               </div>
             </div>
@@ -6493,7 +6493,7 @@ function App() {
                               <span className="chat-meta-internet-icon" aria-hidden="true">
                                 <FontAwesomeIcon icon={faTowerBroadcast} />
                               </span>
-                              <span>{t("Accès internet activé")}</span>
+                              <span>{t("Internet access enabled")}</span>
                             </div>
                           )}
                           {activeTaskLabel && (
@@ -6516,7 +6516,7 @@ function App() {
                     <div className="chat-history">
                       {currentMessages.length === 0 && (
                         <div className="empty">
-                          <p>{t("Envoyez un message pour demarrer une session.")}</p>
+                          <p>{t("Send a message to start a session.")}</p>
                         </div>
                       )}
                       {chatHistoryWindow.hiddenCount > 0 && (
@@ -6530,7 +6530,7 @@ function App() {
                             }))
                           }
                         >
-                          {t("Voir les messages precedents ({{count}})", {
+                          {t("View previous messages ({{count}})", {
                             count: chatHistoryWindow.hiddenCount,
                           })}
                         </button>
@@ -6543,8 +6543,8 @@ function App() {
                               className="bubble command-execution"
                             >
                               {message.items.map((item) => {
-                                const commandTitle = t("Commande: {{command}}", {
-                                  command: item.command || t("Commande"),
+                                const commandTitle = t("Command: {{command}}", {
+                                  command: item.command || t("Command"),
                                 });
                                 const showLoader = item.status !== "completed";
                                 const isExpandable =
@@ -6554,7 +6554,7 @@ function App() {
                                     {showLoader && (
                                       <span
                                         className="loader command-execution-loader"
-                                        title={t("Execution en cours")}
+                                        title={t("Execution in progress")}
                                       >
                                         <span className="dot" />
                                         <span className="dot" />
@@ -6722,8 +6722,8 @@ function App() {
                                           <button
                                             type="button"
                                             className="code-copy"
-                                            aria-label={t("Copier le code")}
-                                            title={t("Copier")}
+                                            aria-label={t("Copy code")}
+                                            title={t("Copy")}
                                             onClick={(event) => {
                                               event.preventDefault();
                                               event.stopPropagation();
@@ -6795,7 +6795,7 @@ function App() {
                                             }
                                           >
                                             {block.question ||
-                                              t("Ouvrir le formulaire")}
+                                              t("Open form")}
                                           </button>
                                         </div>
                                       );
@@ -6907,14 +6907,14 @@ function App() {
                   <div className="typing-indicator">
                     <div
                       className="loader"
-                      title={currentActivity || t("Traitement en cours...")}
+                      title={currentActivity || t("Processing...")}
                     >
                       <span className="dot" />
                       <span className="dot" />
                       <span className="dot" />
                     </div>
                     <span className="typing-text">
-                      {currentActivity || t("Traitement en cours...")}
+                      {currentActivity || t("Processing...")}
                     </span>
                   </div>
                 </div>
@@ -6927,11 +6927,11 @@ function App() {
             >
               <div className="diff-header">
                 <div className="diff-title">
-                  {isInWorktree ? t("Diff du worktree") : t("Diff du repository")}
+                  {isInWorktree ? t("Worktree diff") : t("Repository diff")}
                 </div>
                 {diffStatusLines.length > 0 && (
                   <div className="diff-count">
-                    {t("{{count}} fichiers modifies", {
+                    {t("{{count}} files modified", {
                       count: diffStatusLines.length,
                     })}
                   </div>
@@ -6942,7 +6942,7 @@ function App() {
                     className="diff-action-button"
                     onClick={() => sendCommitMessage("Commit")}
                     disabled={!connected || currentProcessing || !hasCurrentChanges}
-                    title={t("Envoyer 'Commit' dans le chat")}
+                    title={t("Send 'Commit' in chat")}
                   >
                     {t("Commit")}
                   </button>
@@ -6951,7 +6951,7 @@ function App() {
                     className="diff-action-button primary"
                     onClick={() => sendCommitMessage("Commit & Push")}
                     disabled={!connected || currentProcessing || !hasCurrentChanges}
-                    title={t("Envoyer 'Commit & Push' dans le chat")}
+                    title={t("Send 'Commit & Push' in chat")}
                   >
                     {t("Commit & Push")}
                   </button>
@@ -6992,7 +6992,7 @@ function App() {
                   ) : currentDiff.diff ? (
                 <pre className="diff-fallback">{currentDiff.diff}</pre>
               ) : (
-                <div className="diff-empty">{t("Aucun changement detecte.")}</div>
+                <div className="diff-empty">{t("No changes detected.")}</div>
               )}
             </div>
             <div
@@ -7002,7 +7002,7 @@ function App() {
             >
               <div className="explorer-header">
                 <div>
-                  <div className="explorer-title">{t("Explorateur")}</div>
+                  <div className="explorer-title">{t("Explorer")}</div>
                   {(repoName ||
                     activeWorktree?.branchName ||
                     activeWorktree?.name) && (
@@ -7025,13 +7025,13 @@ function App() {
                   }
                   disabled={!attachmentSession?.sessionId}
                 >
-                  {t("Rafraichir")}
+                  {t("Refresh")}
                 </button>
               </div>
               <div className="explorer-body">
                 <div className="explorer-tree">
                   {activeExplorer.loading ? (
-                    <div className="explorer-empty">{t("Chargement...")}</div>
+                    <div className="explorer-empty">{t("Loading...")}</div>
                   ) : activeExplorer.error ? (
                     <div className="explorer-empty">
                       {activeExplorer.error}
@@ -7049,7 +7049,7 @@ function App() {
                       )}
                       {activeExplorer.treeTruncated && (
                         <div className="explorer-truncated">
-                          {t("Liste tronquee apres {{count}} entrees.", {
+                          {t("List truncated after {{count}} entries.", {
                             count: activeExplorer.treeTotal,
                           })}
                         </div>
@@ -7057,7 +7057,7 @@ function App() {
                     </>
                   ) : (
                     <div className="explorer-empty">
-                      {t("Aucun fichier trouve.")}
+                      {t("No file found.")}
                     </div>
                   )}
                 </div>
@@ -7065,7 +7065,7 @@ function App() {
                   <div className="explorer-editor-header">
                     <span className="explorer-editor-path">
                       {activeExplorer.selectedPath ||
-                        t("Aucun fichier selectionne")}
+                        t("No file selected")}
                     </span>
                     <div className="explorer-editor-actions">
                       {activeExplorer.selectedPath && !activeExplorer.fileBinary && (
@@ -7081,15 +7081,15 @@ function App() {
                           }
                         >
                           {activeExplorer.fileSaving
-                            ? t("Sauvegarde...")
-                            : t("Sauver")}
+                            ? t("Saving...")
+                            : t("Save")}
                         </button>
                       )}
                     </div>
                   </div>
                   {activeExplorer.fileLoading ? (
                     <div className="explorer-editor-empty">
-                      {t("Chargement...")}
+                      {t("Loading...")}
                     </div>
                   ) : activeExplorer.fileError ? (
                     <div className="explorer-editor-empty">
@@ -7097,7 +7097,7 @@ function App() {
                     </div>
                   ) : activeExplorer.fileBinary ? (
                     <div className="explorer-editor-empty">
-                      {t("Fichier binaire non affiche.")}
+                      {t("Binary file not displayed.")}
                     </div>
                   ) : activeExplorer.selectedPath ? (
                     <>
@@ -7133,13 +7133,13 @@ function App() {
                       )}
                       {activeExplorer.fileTruncated && (
                         <div className="explorer-truncated">
-                          {t("Fichier tronque pour l'affichage.")}
+                          {t("File truncated for display.")}
                         </div>
                       )}
                     </>
                   ) : (
                     <div className="explorer-editor-empty">
-                      {t("Selectionnez un fichier dans l'arborescence.")}
+                      {t("Select a file in the tree.")}
                     </div>
                   )}
                 </div>
@@ -7164,7 +7164,7 @@ function App() {
                 <div className="terminal-body" ref={terminalContainerRef} />
                 {!attachmentSession?.sessionId && (
                   <div className="terminal-empty">
-                    {t("Demarrez une session pour ouvrir le terminal.")}
+                    {t("Start a session to open the terminal.")}
                   </div>
                 )}
               </div>
@@ -7178,7 +7178,7 @@ function App() {
               <div className="logs-title">{t("JSON-RPC")}</div>
               <div className="logs-controls">
                 <div className="logs-count">
-                  {t("{{count}} élément(s)", { count: filteredRpcLogs.length })}
+                  {t("{{count}} item(s)", { count: filteredRpcLogs.length })}
                 </div>
                 <div className="logs-filters">
                   <button
@@ -7188,7 +7188,7 @@ function App() {
                     }`}
                     onClick={() => setLogFilter("all")}
                   >
-                    {t("Tout")}
+                    {t("All")}
                   </button>
                   <button
                     type="button"
@@ -7220,7 +7220,7 @@ function App() {
               </div>
             </div>
             {filteredRpcLogs.length === 0 ? (
-              <div className="logs-empty">{t("Aucun log pour le moment.")}</div>
+              <div className="logs-empty">{t("No logs yet.")}</div>
             ) : (
               <div className="logs-list">
                 {filteredRpcLogs.map((entry, index) => (
@@ -7259,26 +7259,26 @@ function App() {
                   type="button"
                   className="settings-back icon-button"
                   onClick={handleSettingsBack}
-                  aria-label={t("Revenir à la vue précédente")}
-                  title={t("Revenir")}
+                  aria-label={t("Back to previous view")}
+                  title={t("Back")}
                 >
                   <span aria-hidden="true">
                     <FontAwesomeIcon icon={faArrowLeft} />
                   </span>
                 </button>
               <div className="settings-heading">
-                <div className="settings-title">{t("Paramètres utilisateur")}</div>
+                <div className="settings-title">{t("User settings")}</div>
                 <div className="settings-subtitle">
-                  {t("Ces réglages sont stockés dans votre navigateur.")}
+                  {t("These settings are stored in your browser.")}
                 </div>
               </div>
             </div>
             <div className="settings-group">
               <label className="settings-item">
                 <span className="settings-text">
-                  <span className="settings-name">{t("Langue")}</span>
+                  <span className="settings-name">{t("Language")}</span>
                   <span className="settings-hint">
-                    {t("Selectionner une langue")}
+                    {t("Select a language")}
                   </span>
                 </span>
                 <select
@@ -7286,17 +7286,17 @@ function App() {
                   value={language}
                   onChange={(event) => setLanguage(event.target.value)}
                 >
-                  <option value="fr">{t("Français")}</option>
-                  <option value="en">{t("Anglais")}</option>
+                  <option value="fr">{t("French")}</option>
+                  <option value="en">{t("English")}</option>
                 </select>
               </label>
               <label className="settings-item">
                 <span className="settings-text">
                   <span className="settings-name">
-                    {t("Afficher les commandes dans le chat")}
+                    {t("Show commands in chat")}
                   </span>
                   <span className="settings-hint">
-                    {t("Affiche les blocs de commandes exécutées dans la conversation.")}
+                    {t("Show executed command blocks in the conversation.")}
                   </span>
                 </span>
                 <input
@@ -7311,10 +7311,10 @@ function App() {
               <label className="settings-item">
                 <span className="settings-text">
                   <span className="settings-name">
-                    {t("Afficher les tool results dans le chat")}
+                    {t("Show tool results in chat")}
                   </span>
                   <span className="settings-hint">
-                    {t("Affiche les blocs tool_result dans la conversation.")}
+                    {t("Show tool_result blocks in the conversation.")}
                   </span>
                 </span>
                 <input
@@ -7328,9 +7328,9 @@ function App() {
               </label>
               <label className="settings-item">
                 <span className="settings-text">
-                  <span className="settings-name">{t("Chat pleine largeur")}</span>
+                  <span className="settings-name">{t("Full width chat")}</span>
                   <span className="settings-hint">
-                    {t("Utilise toute la largeur disponible pour la zone de chat.")}
+                    {t("Use the full available width for the chat area.")}
                   </span>
                 </span>
                 <input
@@ -7344,7 +7344,7 @@ function App() {
                 <span className="settings-text">
                   <span className="settings-name">{t("Notifications")}</span>
                   <span className="settings-hint">
-                    {t("Affiche une notification et un son quand un nouveau message arrive.")}
+                    {t("Show a notification and sound when a new message arrives.")}
                   </span>
                 </span>
                 <input
@@ -7358,9 +7358,9 @@ function App() {
               </label>
               <label className="settings-item">
                 <span className="settings-text">
-                  <span className="settings-name">{t("Mode sombre")}</span>
+                  <span className="settings-name">{t("Dark mode")}</span>
                   <span className="settings-hint">
-                    {t("Active le thème sombre pour l'interface.")}
+                    {t("Enable the dark theme for the interface.")}
                   </span>
                 </span>
                 <input
@@ -7374,9 +7374,9 @@ function App() {
               </label>
               <label className="settings-item">
                 <span className="settings-text">
-                  <span className="settings-name">{t("Style de l'input")}</span>
+                  <span className="settings-name">{t("Input style")}</span>
                   <span className="settings-hint">
-                    {t("Choisissez un champ de saisie mono ou multiligne.")}
+                    {t("Choose a single or multi-line input.")}
                   </span>
                 </span>
                 <select
@@ -7384,15 +7384,15 @@ function App() {
                   value={composerInputMode}
                   onChange={(event) => setComposerInputMode(event.target.value)}
                 >
-                  <option value="single">{t("Monoligne")}</option>
-                  <option value="multi">{t("Multiligne")}</option>
+                  <option value="single">{t("Single line")}</option>
+                  <option value="multi">{t("Multi-line")}</option>
                 </select>
               </label>
               <label className="settings-item">
                 <span className="settings-text">
-                  <span className="settings-name">{t("Mode débug")}</span>
+                  <span className="settings-name">{t("Debug mode")}</span>
                   <span className="settings-hint">
-                    {t("Active l'accès aux logs et à l'export Markdown/JSON.")}
+                    {t("Enable access to logs and Markdown/JSON export.")}
                   </span>
                 </span>
                 <input
@@ -7407,24 +7407,24 @@ function App() {
               <div className="settings-item settings-item--stacked">
                 <div className="settings-text">
                   <span className="settings-name">
-                    {t("Identité Git pour ce dépôt")}
+                    {t("Git identity for this repository")}
                   </span>
                   <span className="settings-hint">
-                    {t("Renseignez user.name et user.email pour les commits du dépôt.")}
+                    {t("Provide user.name and user.email for repository commits.")}
                   </span>
                   <span className="settings-hint">
-                    {t("Valeurs globales: {{name}} / {{email}}.", {
-                      name: gitIdentityGlobal.name || t("Non défini"),
-                      email: gitIdentityGlobal.email || t("Non défini"),
+                    {t("Global values: {{name}} / {{email}}.", {
+                      name: gitIdentityGlobal.name || t("Not set"),
+                      email: gitIdentityGlobal.email || t("Not set"),
                     })}
                   </span>
                   <span className="settings-hint">
                     {gitIdentityRepo.name || gitIdentityRepo.email
-                      ? t("Valeurs du dépôt: {{name}} / {{email}}.", {
-                          name: gitIdentityRepo.name || t("Non défini"),
-                          email: gitIdentityRepo.email || t("Non défini"),
+                      ? t("Repository values: {{name}} / {{email}}.", {
+                          name: gitIdentityRepo.name || t("Not set"),
+                          email: gitIdentityRepo.email || t("Not set"),
                         })
-                      : t("Aucune valeur spécifique au dépôt.")}
+                      : t("No repository-specific values.")}
                   </span>
                 </div>
                 <div className="settings-fields">
@@ -7437,7 +7437,7 @@ function App() {
                       className="settings-input"
                       value={gitIdentityName}
                       onChange={(event) => setGitIdentityName(event.target.value)}
-                      placeholder={gitIdentityGlobal.name || t("Nom complet")}
+                      placeholder={gitIdentityGlobal.name || t("Full name")}
                       disabled={
                         gitIdentityLoading ||
                         gitIdentitySaving ||
@@ -7457,7 +7457,7 @@ function App() {
                         setGitIdentityEmail(event.target.value)
                       }
                       placeholder={
-                        gitIdentityGlobal.email || t("ton.email@exemple.com")
+                        gitIdentityGlobal.email || t("your.email@example.com")
                       }
                       disabled={
                         gitIdentityLoading ||
@@ -7479,11 +7479,11 @@ function App() {
                     }
                   >
                     {gitIdentitySaving
-                      ? t("Enregistrement...")
-                      : t("Enregistrer")}
+                      ? t("Saving...")
+                      : t("Save")}
                   </button>
                   {gitIdentityLoading ? (
-                    <span className="settings-status">{t("Chargement...")}</span>
+                    <span className="settings-status">{t("Loading...")}</span>
                   ) : null}
                   {gitIdentityError ? (
                     <span className="settings-status is-error">
@@ -7509,7 +7509,7 @@ function App() {
                 {draftAttachments.length ? (
                   <div
                     className="composer-attachments"
-                    aria-label={t("Pièces sélectionnées")}
+                    aria-label={t("Selected attachments")}
                   >
                     {draftAttachments.map((attachment) => {
                       const label = attachment?.name || attachment?.path || "";
@@ -7517,7 +7517,7 @@ function App() {
                       const extension = getAttachmentExtension(attachment, t);
                       const sizeLabel =
                         attachment?.lineCount || attachment?.lines
-                          ? t("{{count}} lignes", {
+                          ? t("{{count}} lines", {
                               count: attachment.lineCount || attachment.lines,
                             })
                           : formatAttachmentSize(attachment?.size, t);
@@ -7538,7 +7538,7 @@ function App() {
                             <button
                               type="button"
                               className="attachment-card-remove"
-                              aria-label={t("Retirer {{label}}", {
+                              aria-label={t("Remove {{label}}", {
                                 label,
                               })}
                               onClick={() =>
@@ -7559,7 +7559,7 @@ function App() {
                   <button
                     type="button"
                     className="icon-button composer-attach-button"
-                    aria-label={t("Ajouter une pièce jointe")}
+                    aria-label={t("Add attachment")}
                     onClick={triggerAttachmentPicker}
                     disabled={!attachmentSession || attachmentsLoading}
                   >
@@ -7588,7 +7588,7 @@ function App() {
                     onDragOver={onDragOverComposer}
                     onDrop={onDropAttachments}
                     onPaste={onPasteAttachments}
-                    placeholder={t("Écris ton message…")}
+                    placeholder={t("Write your message…")}
                     rows={composerInputMode === "single" ? 1 : 2}
                     ref={inputRef}
                   />
@@ -7607,8 +7607,8 @@ function App() {
                       type="submit"
                       className="primary send-button"
                       disabled={!connected || !input.trim()}
-                      aria-label={t("Envoyer")}
-                      title={t("Envoyer")}
+                      aria-label={t("Send")}
+                      title={t("Send")}
                     >
                       <span className="send-icon">➤</span>
                     </button>
@@ -7638,12 +7638,12 @@ function App() {
           >
             <div className="vibe80-form-header">
               <div className="vibe80-form-title">
-                {activeForm.question || t("Formulaire")}
+                {activeForm.question || t("Form")}
               </div>
               <button
                 type="button"
                 className="vibe80-form-close"
-                aria-label={t("Fermer")}
+                aria-label={t("Close")}
                 onClick={closeVibe80Form}
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -7715,7 +7715,7 @@ function App() {
                           ))
                         ) : (
                           <div className="vibe80-form-empty">
-                            {t("Aucune option.")}
+                            {t("No options.")}
                           </div>
                         )}
                       </div>
@@ -7743,7 +7743,7 @@ function App() {
                             </option>
                           ))
                         ) : (
-                          <option value="">{t("Aucune option")}</option>
+                          <option value="">{t("No options")}</option>
                         )}
                       </select>
                     </div>
@@ -7772,10 +7772,10 @@ function App() {
                   className="vibe80-form-cancel"
                   onClick={closeVibe80Form}
                 >
-                  {t("Annuler")}
+                  {t("Cancel")}
                 </button>
                 <button type="submit" className="vibe80-form-submit">
-                  {t("Envoyer")}
+                  {t("Send")}
                 </button>
               </div>
             </form>
@@ -7794,11 +7794,11 @@ function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="handoff-modal-header">
-              <div className="handoff-modal-title">{t("Continuer sur mobile")}</div>
+              <div className="handoff-modal-title">{t("Continue on mobile")}</div>
               <button
                 type="button"
                 className="handoff-modal-close"
-                aria-label={t("Fermer")}
+                aria-label={t("Close")}
                 onClick={closeHandoffQr}
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -7807,7 +7807,7 @@ function App() {
             <div className="handoff-modal-body">
               <p className="handoff-modal-text">
                 {t(
-                  "Scannez ce QR code dans l'application Android pour reprendre la session en cours."
+                  "Scan this QR code in the Android app to resume the current session."
                 )}
               </p>
               {handoffError ? (
@@ -7820,17 +7820,17 @@ function App() {
               ) : (
                 <div className="handoff-modal-placeholder">
                   {handoffLoading
-                    ? t("Generation du QR code...")
-                    : t("QR code indisponible.")}
+                    ? t("Generating QR code...")
+                    : t("QR code unavailable.")}
                 </div>
               )}
               {typeof handoffRemaining === "number" ? (
                 <div className="handoff-modal-meta">
                   {handoffRemaining > 0
-                    ? t("Expire dans {{seconds}}s", {
+                    ? t("Expires in {{seconds}}s", {
                         seconds: handoffRemaining,
                       })
-                    : t("QR code expire")}
+                    : t("QR code expired")}
                 </div>
               ) : null}
               <div className="handoff-modal-actions">
@@ -7840,7 +7840,7 @@ function App() {
                   onClick={requestHandoffQr}
                   disabled={handoffLoading}
                 >
-                  {t("Regenerer")}
+                  {t("Regenerate")}
                 </button>
               </div>
             </div>
@@ -7860,19 +7860,19 @@ function App() {
           >
             <div className="worktree-close-confirm-header">
               <div className="worktree-close-confirm-title">
-                {t("Fermer le worktree ?")}
+                {t("Close the worktree?")}
               </div>
               <button
                 type="button"
                 className="worktree-close-confirm-close"
-                aria-label={t("Fermer")}
+                aria-label={t("Close")}
                 onClick={closeCloseConfirm}
               >
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
             <div className="worktree-close-confirm-body">
-              {t("Toutes les modifications seront perdues. Que souhaitez-vous faire ?")}
+              {t("All changes will be lost. What would you like to do?")}
             </div>
             <div className="worktree-close-confirm-actions">
               <button
@@ -7880,21 +7880,21 @@ function App() {
                 className="worktree-close-confirm-cancel"
                 onClick={closeCloseConfirm}
               >
-                {t("Annuler")}
+                {t("Cancel")}
               </button>
               <button
                 type="button"
                 className="worktree-close-confirm-merge"
                 onClick={handleConfirmMerge}
               >
-                {t("Merge vers {{branch}}", { branch: mergeTargetBranch })}
+                {t("Merge into {{branch}}", { branch: mergeTargetBranch })}
               </button>
               <button
                 type="button"
                 className="worktree-close-confirm-delete"
                 onClick={handleConfirmDelete}
               >
-                {t("Supprimer le worktree")}
+                {t("Delete worktree")}
               </button>
             </div>
           </div>
@@ -7910,7 +7910,7 @@ function App() {
           <button
             type="button"
             className="attachment-modal-close"
-            aria-label={t("Fermer")}
+            aria-label={t("Close")}
             onClick={() => setAttachmentPreview(null)}
           >
             <FontAwesomeIcon icon={faXmark} />
@@ -7921,7 +7921,7 @@ function App() {
           >
             <img
               src={attachmentPreview.url}
-              alt={attachmentPreview.name || t("Aperçu")}
+              alt={attachmentPreview.name || t("Preview")}
             />
             {attachmentPreview.name ? (
               <div className="attachment-modal-name">
