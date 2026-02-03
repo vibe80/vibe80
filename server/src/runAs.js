@@ -12,7 +12,15 @@ const ALLOWED_ENV_KEYS = new Set([
   "GIT_TERMINAL_PROMPT",
   "TERM",
 ]);
-export const DEFAULT_ALLOW_RO = ["/bin", "/etc", "/usr/bin"];
+export const DEFAULT_ALLOW_RO = [
+  "/bin",
+  "/etc",
+  "/lib",
+  "/lib64",
+  "/usr",
+  "/dev",
+  "/proc",
+];
 
 const normalizePaths = (paths = []) => {
   const seen = new Set();
