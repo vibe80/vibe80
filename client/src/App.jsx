@@ -3768,7 +3768,8 @@ function App() {
 
   useEffect(() => {
     if (attachmentSession?.sessionId) {
-      document.title = attachmentSession?.name || repoName || "Session";
+      const label = attachmentSession?.name || repoName || "Session";
+      document.title = `vibe80 - ${label}`;
     } else {
       document.title = "vibe80";
     }
