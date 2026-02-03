@@ -2654,6 +2654,14 @@ main.chat {
   word-break: break-word;
 }
 
+.bubble.user .attachment-card {
+  color: var(--ink);
+}
+
+.bubble.user .attachment-name {
+  color: var(--ink);
+}
+
 .attachment-modal {
   position: fixed;
   inset: 0;
