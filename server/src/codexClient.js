@@ -235,7 +235,7 @@ export class CodexAppServerClient extends EventEmitter {
         "web_search": this.internetAccess ? "live" : "disabled"
       },
       baseInstructions: SYSTEM_PROMPT,
-      sandbox: "workspace-write",
+      sandbox: "danger-full-access",
       approvalPolicy: "never"
     };
 
