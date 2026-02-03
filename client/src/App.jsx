@@ -940,6 +940,23 @@ function App() {
 
   const refreshInFlightRef = useRef(null);
 
+  const handleLeaveWorkspace = useCallback(() => {
+    setWorkspaceToken("");
+    setWorkspaceRefreshToken("");
+    setWorkspaceId("");
+    setWorkspaceIdInput("");
+    setWorkspaceSecretInput("");
+    setWorkspaceCreated(null);
+    setWorkspaceError("");
+    setWorkspaceMode("existing");
+    setSessionMode("new");
+    setWorkspaceSessions([]);
+    setWorkspaceSessionsError("");
+    setWorkspaceSessionsLoading(false);
+    setWorkspaceStep(1);
+    setWorkspaceProvidersEditing(false);
+  }, []);
+
   const refreshWorkspaceToken = useCallback(async () => {
     if (!workspaceRefreshToken) {
       return null;
@@ -4654,23 +4671,6 @@ function App() {
     const url = new URL(window.location.href);
     url.searchParams.delete("session");
     window.history.replaceState({}, "", url);
-  }, []);
-
-  const handleLeaveWorkspace = useCallback(() => {
-    setWorkspaceToken("");
-    setWorkspaceRefreshToken("");
-    setWorkspaceId("");
-    setWorkspaceIdInput("");
-    setWorkspaceSecretInput("");
-    setWorkspaceCreated(null);
-    setWorkspaceError("");
-    setWorkspaceMode("existing");
-    setSessionMode("new");
-    setWorkspaceSessions([]);
-    setWorkspaceSessionsError("");
-    setWorkspaceSessionsLoading(false);
-    setWorkspaceStep(1);
-    setWorkspaceProvidersEditing(false);
   }, []);
 
   const handleDiffSelect = useCallback(() => {
