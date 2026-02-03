@@ -5830,14 +5830,7 @@ function App() {
                         principale par defaut.
                       </div>
                     </div>
-                    <div className="session-form-row is-actions">
-                      <button
-                        type="submit"
-                        className="session-button primary"
-                        disabled={formDisabled}
-                      >
-                        {sessionRequested ? "Chargement..." : "Cloner"}
-                      </button>
+                    <div className="session-form-row">
                       <button
                         type="button"
                         className="session-button secondary"
@@ -5849,6 +5842,13 @@ function App() {
                         }}
                       >
                         Providers IA
+                      </button>
+                      <button
+                        type="submit"
+                        className="session-button primary"
+                        disabled={formDisabled}
+                      >
+                        {sessionRequested ? "Chargement..." : "Cloner"}
                       </button>
                     </div>
                   </form>
