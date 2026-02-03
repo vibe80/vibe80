@@ -1388,18 +1388,10 @@ const createSession = async (
         if (!authInfo) {
           throw new Error("Invalid HTTP repository URL for credential auth.");
         }
-        const gitConfigPath = path.join(gitCredsDir, "gitconfig");
         const credFile = path.join(gitCredsDir, "git-credentials");
         const credInputPath = path.join(gitCredsDir, "git-credential-input");
-        env.GIT_CONFIG_GLOBAL = gitConfigPath;
         env.GIT_TERMINAL_PROMPT = "0";
         await writeWorkspaceFile(workspaceId, credFile, "", 0o600);
-        await runAsCommand(workspaceId, "git", ["config", "--global", "credential.helper", "cache --timeout=43200"], {
-          env,
-        });
-        await runAsCommand(workspaceId, "git", ["config", "--global", "--add", "credential.helper", `store --file ${credFile}`], {
-          env,
-        });
         const credentialPayload = [
           `protocol=${authInfo.protocol}`,
           `host=${authInfo.host}`,
@@ -1409,13 +1401,23 @@ const createSession = async (
           "",
         ].join("\n");
         await writeWorkspaceFile(workspaceId, credInputPath, credentialPayload, 0o600);
-        await runAsCommand(workspaceId, "git", ["credential", "approve"], {
-          env,
-          input: credentialPayload,
-        });
+        await runAsCommand(
+          workspaceId,
+          "git",
+          ["-c", `credential.helper=store --file ${credFile}`, "credential", "approve"],
+          {
+            env,
+            input: credentialPayload,
+          }
+        );
         await runAsCommand(workspaceId, "/bin/rm", ["-f", credInputPath]);
       }
-      await runAsCommand(workspaceId, "git", ["clone", repoUrl, repoDir], { env });
+      const cloneArgs = ["clone", repoUrl, repoDir];
+      const cloneEnv = { ...env };
+      const cloneCmd = auth?.type === "http" && auth.username && auth.password
+        ? ["-c", `credential.helper=store --file ${path.join(gitCredsDir, "git-credentials")}`, ...cloneArgs]
+        : cloneArgs;
+      await runAsCommand(workspaceId, "git", cloneCmd, { env: cloneEnv });
       if (DEFAULT_GIT_AUTHOR_NAME && DEFAULT_GIT_AUTHOR_EMAIL) {
         await runAsCommand(
           workspaceId,
@@ -1431,12 +1433,6 @@ const createSession = async (
         );
       }
       if (auth?.type === "http" && auth.username && auth.password) {
-        await runAsCommand(
-          workspaceId,
-          "git",
-          ["-C", repoDir, "config", "--add", "credential.helper", "cache --timeout=43200"],
-          { env }
-        );
         await runAsCommand(
           workspaceId,
           "git",
