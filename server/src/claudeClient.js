@@ -3,7 +3,7 @@ import { EventEmitter } from "events";
 import crypto from "crypto";
 import path from "path";
 import { SYSTEM_PROMPT } from "./config.js";
-import { buildSandboxArgs, getWorkspaceHome } from "./runAs.js";
+import { buildSandboxArgs, getWorkspaceHome, runAsCommand } from "./runAs.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
@@ -54,6 +54,26 @@ export class ClaudeCliClient extends EventEmitter {
 
   async sendTurn(text) {
     const turnId = createTurnId();
+    const workspaceHome = getWorkspaceHome(this.workspaceId);
+    const claudeConfigPath = path.join(workspaceHome, ".claude.json");
+    try {
+      await runAsCommand(
+        this.workspaceId,
+        "/bin/sh",
+        [
+          "-c",
+          'if [ ! -f "$1" ]; then printf "{}" > "$1"; fi',
+          "sh",
+          claudeConfigPath,
+        ],
+        { cwd: workspaceHome }
+      );
+    } catch (error) {
+      this.emit(
+        "log",
+        `Unable to ensure Claude config exists: ${error?.message || error}`
+      );
+    }
     const allowedDirs = [
       this.cwd,
       this.repoDir,
