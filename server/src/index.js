@@ -430,6 +430,46 @@ const jwtKey = loadJwtKey();
 
 const generateId = (prefix) => `${prefix}${crypto.randomBytes(12).toString("hex")}`;
 
+const SESSION_NAME_ADJECTIVES = [
+  "modest",
+  "flamboyant",
+  "brave",
+  "curious",
+  "eager",
+  "gentle",
+  "mighty",
+  "nimble",
+  "proud",
+  "serene",
+  "swift",
+  "vivid",
+];
+
+const SESSION_NAME_SCIENTISTS = [
+  "einstein",
+  "margulis",
+  "curie",
+  "tesla",
+  "turing",
+  "lovelace",
+  "hopper",
+  "noether",
+  "galilei",
+  "fermi",
+  "newton",
+  "franklin",
+];
+
+const generateSessionName = () => {
+  const randomIndex = (length) =>
+    typeof crypto.randomInt === "function"
+      ? crypto.randomInt(length)
+      : Math.floor(Math.random() * length);
+  const adjective = SESSION_NAME_ADJECTIVES[randomIndex(SESSION_NAME_ADJECTIVES.length)];
+  const scientist = SESSION_NAME_SCIENTISTS[randomIndex(SESSION_NAME_SCIENTISTS.length)];
+  return `${adjective}_${scientist}`;
+};
+
 const createHandoffToken = (session) => {
   const now = Date.now();
   const token = generateId("h");
@@ -1300,7 +1340,8 @@ const createSession = async (
   repoUrl,
   auth,
   defaultInternetAccess,
-  defaultShareGitCredentials
+  defaultShareGitCredentials,
+  name
 ) => {
   const workspaceConfig = await readWorkspaceConfig(workspaceId);
   const enabledProviders = listEnabledProviders(workspaceConfig?.providers || {});
@@ -1314,6 +1355,9 @@ const createSession = async (
     typeof defaultShareGitCredentials === "boolean"
       ? defaultShareGitCredentials
       : false;
+  const resolvedName = typeof name === "string" && name.trim()
+    ? name.trim()
+    : generateSessionName();
   const workspacePaths = getWorkspacePaths(workspaceId);
   const sshPaths = getWorkspaceSshPaths(workspacePaths.homeDir);
   while (true) {
@@ -1423,6 +1467,7 @@ const createSession = async (
         attachmentsDir,
         repoDir,
         repoUrl,
+        name: resolvedName,
         activeProvider: defaultProvider,
         providers: enabledProviders,
         defaultInternetAccess: resolvedInternetAccess,
@@ -3488,6 +3533,7 @@ app.get("/api/sessions", (req, res) => {
       const payload = sessions.map((session) => ({
         sessionId: session.sessionId,
         repoUrl: session.repoUrl || "",
+        name: session.name || "",
         createdAt: session.createdAt || null,
         lastActivityAt: session.lastActivityAt || null,
         activeProvider: session.activeProvider || null,
@@ -3567,6 +3613,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
     workspaceId: session.workspaceId,
     path: session.dir,
     repoUrl: session.repoUrl,
+    name: session.name || "",
     default_provider: activeProvider,
     providers: session.providers || [activeProvider],
     defaultInternetAccess:
@@ -3755,18 +3802,21 @@ app.post("/api/session", async (req, res) => {
     const auth = req.body?.auth || null;
     const defaultInternetAccess = req.body?.defaultInternetAccess;
     const defaultShareGitCredentials = req.body?.defaultShareGitCredentials;
+    const name = req.body?.name;
     const session = await createSession(
       req.workspaceId,
       repoUrl,
       auth,
       defaultInternetAccess,
-      defaultShareGitCredentials
+      defaultShareGitCredentials,
+      name
     );
     res.json({
       sessionId: session.sessionId,
       workspaceId: session.workspaceId,
       path: session.dir,
       repoUrl,
+      name: session.name || "",
       default_provider: session.activeProvider || "codex",
       providers: session.providers || [],
       defaultInternetAccess:

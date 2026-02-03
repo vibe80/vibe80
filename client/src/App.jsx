@@ -686,6 +686,7 @@ function App() {
   const [attachmentsError, setAttachmentsError] = useState("");
   const [repoUrl, setRepoUrl] = useState(getInitialRepoUrl);
   const [repoInput, setRepoInput] = useState(getInitialRepoUrl);
+  const [sessionNameInput, setSessionNameInput] = useState("");
   const [repoAuth, setRepoAuth] = useState(null);
   const [authMode, setAuthMode] = useState(readAuthMode);
   const [sshKeyInput, setSshKeyInput] = useState("");
@@ -3373,6 +3374,10 @@ function App() {
           defaultInternetAccess,
           defaultShareGitCredentials,
         };
+        const trimmedName = sessionNameInput.trim();
+        if (trimmedName) {
+          payload.name = trimmedName;
+        }
         if (repoAuth) {
           payload.auth = repoAuth;
         }
@@ -3453,6 +3458,7 @@ function App() {
     sessionMode,
     defaultInternetAccess,
     defaultShareGitCredentials,
+    sessionNameInput,
   ]);
 
   useEffect(() => {
@@ -3671,7 +3677,7 @@ function App() {
       return;
     }
     const repoName = extractRepoName(session?.repoUrl || "");
-    const title = repoName || sessionId;
+    const title = session?.name || repoName || sessionId;
     const shouldDelete = window.confirm(
       `Supprimer la session "${title}" ? Cette action est irreversible.`
     );
@@ -3759,6 +3765,14 @@ function App() {
     setStatus("Connexion...");
     setConnected(false);
   }, [attachmentSession?.sessionId, loadMainWorktreeSnapshot, messageIndex]);
+
+  useEffect(() => {
+    if (attachmentSession?.sessionId) {
+      document.title = attachmentSession?.name || repoName || "Session";
+    } else {
+      document.title = "vibe80";
+    }
+  }, [attachmentSession?.sessionId, attachmentSession?.name, repoName]);
 
   useEffect(() => {
     if (typeof attachmentSession?.defaultInternetAccess === "boolean") {
@@ -5630,7 +5644,7 @@ function App() {
                     <ul className="session-list">
                       {workspaceSessions.map((session) => {
                         const repoName = extractRepoName(session.repoUrl);
-                        const title = repoName || session.sessionId;
+                        const title = session.name || repoName || session.sessionId;
                         const subtitle = session.repoUrl
                           ? getTruncatedText(session.repoUrl, 72)
                           : session.sessionId;
@@ -5701,6 +5715,17 @@ function App() {
                   </div>
                 ) : (
                   <form className="session-form" onSubmit={onRepoSubmit}>
+                    <div className="session-form-row">
+                      <input
+                        type="text"
+                        placeholder="Nom de la session (optionnel)"
+                        value={sessionNameInput}
+                        onChange={(event) =>
+                          setSessionNameInput(event.target.value)
+                        }
+                        disabled={formDisabled}
+                      />
+                    </div>
                     <div className="session-form-row">
                       <input
                         type="text"
