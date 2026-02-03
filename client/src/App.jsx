@@ -2203,6 +2203,24 @@ function App() {
     oscillator.stop(ctx.currentTime + 0.26);
   }, [soundEnabled]);
 
+  const stripMarkdownForNotification = useCallback((value) => {
+    if (!value) {
+      return "";
+    }
+    let output = String(value);
+    output = output.replace(/```([\s\S]*?)```/g, "$1");
+    output = output.replace(/`([^`]+)`/g, "$1");
+    output = output.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, "$1");
+    output = output.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
+    output = output.replace(/^\s{0,3}#{1,6}\s+/gm, "");
+    output = output.replace(/^\s{0,3}>\s?/gm, "");
+    output = output.replace(/^\s{0,3}[-*+]\s+/gm, "");
+    output = output.replace(/^\s{0,3}\d+\.\s+/gm, "");
+    output = output.replace(/[*_~]{1,3}/g, "");
+    output = output.replace(/\s+/g, " ").trim();
+    return output;
+  }, []);
+
   const maybeNotify = useCallback((message) => {
     if (!notificationsEnabled) {
       return;
@@ -2220,14 +2238,14 @@ function App() {
       return;
     }
     lastNotifiedIdRef.current = message.id;
-    const body = (message.text || "").slice(0, 180);
+    const body = stripMarkdownForNotification(message.text || "").slice(0, 180);
     try {
       new Notification("Nouveau message", { body });
     } catch (error) {
       // Ignore notification failures (permissions or browser quirks).
     }
     playNotificationSound();
-  }, [notificationsEnabled, playNotificationSound]);
+  }, [notificationsEnabled, playNotificationSound, stripMarkdownForNotification]);
 
   useEffect(() => {
     if (!notificationsEnabled) {
