@@ -34,9 +34,11 @@ const normalizePaths = (paths = []) => {
 export const buildSandboxArgs = (options = {}) => {
   const allowRo = normalizePaths([
     ...(options.allowRo || DEFAULT_ALLOW_RO),
+    ...(options.extraAllowRo || []),
   ]);
   const allowRw = normalizePaths([
     ...(options.allowRw || []),
+    ...(options.extraAllowRw || []),
     options.repoDir,
     options.cwd,
     options.attachmentsDir,
@@ -86,7 +88,7 @@ const buildRunEnv = (options = {}) => {
   return env;
 };
 
-const getWorkspaceHome = (workspaceId) => {
+export const getWorkspaceHome = (workspaceId) => {
   const homeBase = process.env.WORKSPACE_HOME_BASE || "/home";
   return IS_MONO_USER ? os.homedir() : path.join(homeBase, workspaceId);
 };
