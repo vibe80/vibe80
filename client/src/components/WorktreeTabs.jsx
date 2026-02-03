@@ -149,6 +149,9 @@ export default function WorktreeTabs({
     () => availableModels.find((model) => model.model === newModel) || null,
     [availableModels, newModel]
   );
+  const showReasoningField =
+    newProvider === "codex" &&
+    (selectedModelDetails?.supportedReasoningEfforts?.length || 0) > 0;
 
   useEffect(() => {
     if (!newModel && defaultModel?.model) {
@@ -347,35 +350,20 @@ export default function WorktreeTabs({
         <div className="worktree-create-dialog-overlay" onClick={() => setCreateDialogOpen(false)}>
           <div className="worktree-create-dialog" onClick={(e) => e.stopPropagation()}>
             <h3>Nouvelle branche parallèle</h3>
-            <div className="worktree-create-field">
-              <label>Nom (optionnel)</label>
-              <input
-                ref={createInputRef}
-                type="text"
-                placeholder="ex: refactor-auth"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={handleKeyDownCreate}
-              />
-            </div>
-            <div className="worktree-create-field">
-              <label>Provider</label>
-              <select
-                value={newProvider}
-                onChange={(e) => setNewProvider(e.target.value)}
-                disabled={providerOptions.length <= 1}
-              >
-                {providerOptions.includes("codex") && (
-                  <option value="codex">Codex (OpenAI)</option>
-                )}
-                {providerOptions.includes("claude") && (
-                  <option value="claude">Claude</option>
-                )}
-              </select>
-            </div>
-            <div className="worktree-create-field">
-              <label>Branche source</label>
-              <div className="worktree-branch-row">
+            <div className="worktree-create-grid">
+              <div className="worktree-create-field">
+                <label>Nom (optionnel)</label>
+                <input
+                  ref={createInputRef}
+                  type="text"
+                  placeholder="ex: refactor-auth"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={handleKeyDownCreate}
+                />
+              </div>
+              <div className="worktree-create-field">
+                <label>Branche source</label>
                 <input
                   type="text"
                   list="worktree-branch-options"
@@ -384,35 +372,44 @@ export default function WorktreeTabs({
                   onChange={(e) => setStartingBranch(e.target.value)}
                   onKeyDown={handleKeyDownCreate}
                 />
-                <button
-                  type="button"
-                  className="worktree-btn-refresh"
-                  onClick={onRefreshBranches}
-                  disabled={!onRefreshBranches || branchLoading}
-                >
-                  {branchLoading ? "Chargement..." : "Rafraichir"}
-                </button>
-              </div>
-              <datalist id="worktree-branch-options">
-                {branchOptions.map((branch) => (
-                  <option key={branch} value={branch} />
-                ))}
-              </datalist>
-              <div className="worktree-field-hint">
-                Branche distante. Par defaut: {defaultBranch || "main"}.
-              </div>
-              {!isBranchValid && (
-                <div className="worktree-field-error">
-                  Selectionnez une branche distante valide.
+                <datalist id="worktree-branch-options">
+                  {branchOptions.map((branch) => (
+                    <option key={branch} value={branch} />
+                  ))}
+                </datalist>
+                <div className="worktree-field-hint">
+                  Branche distante. Par defaut: {defaultBranch || "main"}.
                 </div>
-              )}
-              {branchError && <div className="worktree-field-error">{branchError}</div>}
-            </div>
-            {(newProvider === "codex" || newProvider === "claude") && (
-              <>
-                <div className="worktree-create-field">
-                  <label>Modele</label>
-                  <div className="worktree-branch-row">
+                {!isBranchValid && (
+                  <div className="worktree-field-error">
+                    Selectionnez une branche distante valide.
+                  </div>
+                )}
+                {branchError && <div className="worktree-field-error">{branchError}</div>}
+              </div>
+              <div className="worktree-create-field is-full">
+                <label>Provider</label>
+                <select
+                  value={newProvider}
+                  onChange={(e) => setNewProvider(e.target.value)}
+                  disabled={providerOptions.length <= 1}
+                >
+                  {providerOptions.includes("codex") && (
+                    <option value="codex">Codex (OpenAI)</option>
+                  )}
+                  {providerOptions.includes("claude") && (
+                    <option value="claude">Claude</option>
+                  )}
+                </select>
+              </div>
+              {(newProvider === "codex" || newProvider === "claude") && (
+                <>
+                  <div
+                    className={`worktree-create-field ${
+                      showReasoningField ? "" : "is-full"
+                    }`}
+                  >
+                    <label>Modele</label>
                     <select
                       value={newModel}
                       onChange={(e) => setNewModel(e.target.value)}
@@ -425,71 +422,53 @@ export default function WorktreeTabs({
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="button"
-                      className="worktree-btn-refresh"
-                      onClick={() => onRequestProviderModels?.(newProvider)}
-                      disabled={!onRequestProviderModels || providerState.loading}
-                    >
-                      {providerState.loading ? "Chargement..." : "Rafraichir"}
-                    </button>
-                  </div>
                     {providerState.error && (
                       <div className="worktree-field-error">{providerState.error}</div>
                     )}
                   </div>
-                {newProvider === "codex" && (
-                  <div className="worktree-create-field">
-                    <label>Reasoning</label>
-                    <select
-                      value={newReasoningEffort}
-                      onChange={(e) => setNewReasoningEffort(e.target.value)}
-                      disabled={
-                        providerState.loading ||
-                        !selectedModelDetails ||
-                        !selectedModelDetails.supportedReasoningEfforts?.length
-                      }
-                    >
-                      <option value="">Reasoning par defaut</option>
-                      {(selectedModelDetails?.supportedReasoningEfforts || []).map(
-                        (effort) => (
-                          <option
-                            key={effort.reasoningEffort}
-                            value={effort.reasoningEffort}
-                          >
-                            {effort.reasoningEffort}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </div>
-                )}
-              </>
-            )}
-            <div className="worktree-create-field">
-              <label className="worktree-toggle">
-                <input
-                  type="checkbox"
-                  checked={newInternetAccess}
-                  onChange={(e) => setNewInternetAccess(e.target.checked)}
-                />
-                <span>Internet access</span>
-              </label>
-              <div className="worktree-field-hint">
-                Autoriser l&apos;accès internet pour ce worktree uniquement.
+                  {showReasoningField && (
+                    <div className="worktree-create-field">
+                      <label>Reasoning</label>
+                      <select
+                        value={newReasoningEffort}
+                        onChange={(e) => setNewReasoningEffort(e.target.value)}
+                        disabled={providerState.loading || !selectedModelDetails}
+                      >
+                        <option value="">Reasoning par defaut</option>
+                        {(selectedModelDetails?.supportedReasoningEfforts || []).map(
+                          (effort) => (
+                            <option
+                              key={effort.reasoningEffort}
+                              value={effort.reasoningEffort}
+                            >
+                              {effort.reasoningEffort}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="worktree-create-field worktree-toggle-field">
+                <label className="worktree-toggle">
+                  <input
+                    type="checkbox"
+                    checked={newInternetAccess}
+                    onChange={(e) => setNewInternetAccess(e.target.checked)}
+                  />
+                  <span>Internet access</span>
+                </label>
               </div>
-            </div>
-            <div className="worktree-create-field">
-              <label className="worktree-toggle">
-                <input
-                  type="checkbox"
-                  checked={newShareGitCredentials}
-                  onChange={(e) => setNewShareGitCredentials(e.target.checked)}
-                />
-                <span>Share git credentials</span>
-              </label>
-              <div className="worktree-field-hint">
-                Partager le dossier Git avec ce worktree.
+              <div className="worktree-create-field worktree-toggle-field">
+                <label className="worktree-toggle">
+                  <input
+                    type="checkbox"
+                    checked={newShareGitCredentials}
+                    onChange={(e) => setNewShareGitCredentials(e.target.checked)}
+                  />
+                  <span>Share git credentials</span>
+                </label>
               </div>
             </div>
             <div className="worktree-create-actions">
@@ -758,8 +737,14 @@ export default function WorktreeTabs({
           font-size: 18px;
         }
 
+        .worktree-create-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+
         .worktree-create-field {
-          margin-bottom: 16px;
+          margin-bottom: 0;
         }
 
         .worktree-create-field label {
@@ -811,6 +796,14 @@ export default function WorktreeTabs({
           flex: 1;
         }
 
+        .worktree-create-field.is-full {
+          grid-column: 1 / -1;
+        }
+
+        .worktree-toggle-field {
+          align-self: end;
+        }
+
         .worktree-btn-refresh {
           border: 1px solid rgba(20, 19, 17, 0.14);
           border-radius: 10px;
@@ -839,9 +832,9 @@ export default function WorktreeTabs({
         }
 
         .worktree-create-actions {
-          display: flex;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 12px;
-          justify-content: flex-end;
           margin-top: 20px;
         }
 
@@ -872,6 +865,16 @@ export default function WorktreeTabs({
 
         .worktree-btn-create:hover {
           background: var(--accent-dark, #b43c24);
+        }
+
+        @media (max-width: 720px) {
+          .worktree-create-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .worktree-create-field.is-full {
+            grid-column: auto;
+          }
         }
       `}</style>
     </div>
