@@ -57,6 +57,13 @@ body {
   overflow: hidden;
 }
 
+button,
+input,
+select,
+textarea {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+}
+
 #root {
   height: 100vh;
   min-height: 100vh;
