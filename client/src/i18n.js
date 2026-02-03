@@ -1,0 +1,353 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+const LANGUAGE_STORAGE_KEY = "uiLanguage";
+
+const translations = {
+  fr: {
+    "-----BEGIN OPENSSH PRIVATE KEY-----": "-----BEGIN OPENSSH PRIVATE KEY-----",
+    "Access an existing space with your credentials": "Accedez a un espace existant avec vos identifiants",
+    "Add attachment": "Ajouter une pièce jointe",
+    "AI providers": "Providers IA",
+    "AI providers (required)": "Providers IA (obligatoire)",
+    "AI providers updated.": "Providers IA mis a jour.",
+    "All": "Tout",
+    "All changes will be lost. What would you like to do?": "Toutes les modifications seront perdues. Que souhaitez-vous faire ?",
+    "Allow default internet access for this session.": "Autoriser l'accès internet par defaut pour cette session.",
+    "Allow sharing the Git folder for the main branch by default.": "Autoriser le partage du dossier Git pour la branche principale par defaut.",
+    "api_key": "api_key",
+    "Applying changes...": "Application de modifications...",
+    "Assistant": "Assistant",
+    "Attached image": "Image jointe",
+    "Attachments": "Pièces jointes",
+    "Auth {{provider}}": "Auth {{provider}}",
+    "auth_json_b64": "auth_json_b64",
+    "Authentication failed.": "Echec de l'authentification.",
+    "Back": "Revenir",
+    "Back to previous view": "Revenir à la vue précédente",
+    "Backlog": "Backlog",
+    "Binary file not displayed.": "Fichier binaire non affiche.",
+    "Cancel": "Annuler",
+    "Chat history": "Historique du chat",
+    "Chat tools": "Outils du chat",
+    "Choose a single or multi-line input.": "Choisissez un champ de saisie mono ou multiligne.",
+    "Claude": "Claude",
+    "Clear": "Clear",
+    "Clone": "Cloner",
+    "Clone a repository to start a new session": "Cloner un depot pour demarrer une nouvelle session",
+    "Clone a session": "Cloner une session",
+    "Cloning repository...": "Clonage du depot...",
+    "Close": "Fermer",
+    "Close panel": "Fermer le panneau",
+    "Close the worktree?": "Fermer le worktree ?",
+    "Codex": "Codex",
+    "Codex (OpenAI)": "Codex (OpenAI)",
+    "Command": "Commande",
+    "Command: {{command}}": "Commande: {{command}}",
+    "Commit": "Commit",
+    "Commit & Push": "Commit & Push",
+    "Completed": "Termine",
+    "Configure AI providers": "Configurer les providers IA",
+    "Configure AI providers for this workspace.": "Configurez les providers IA pour ce workspace.",
+    "Configure the workspace": "Configurer le workspace",
+    "Connected": "Connecte",
+    "Connecting...": "Connexion...",
+    "Continue": "Continuer",
+    "Continue on mobile": "Continuer sur mobile",
+    "Copy": "Copier",
+    "Copy code": "Copier le code",
+    "Copy workspace ID": "Copier le workspace ID",
+    "Copy workspace secret": "Copier le workspace secret",
+    "Create": "Créer",
+    "Create a new space for you or your team": "Creez un nouvel espace pour vous ou votre equipe",
+    "Create a workspace": "Creer un workspace",
+    "Creating": "Creation",
+    "Dark mode": "Mode sombre",
+    "Debug mode": "Mode débug",
+    "Default model": "Modele par defaut",
+    "Default reasoning": "Reasoning par defaut",
+    "Delete": "Supprimer",
+    "Delete session \"{{title}}\"? This action is irreversible.": "Supprimer la session \"{{title}}\" ? Cette action est irreversible.",
+    "Delete worktree": "Supprimer le worktree",
+    "Deleting...": "Suppression...",
+    "Diff": "Diff",
+    "Disconnected": "Deconnecte",
+    "e.g. refactor-auth": "ex: refactor-auth",
+    "Edit": "Éditer",
+    "Enable access to logs and Markdown/JSON export.": "Active l'accès aux logs et à l'export Markdown/JSON.",
+    "Enable the dark theme for the interface.": "Active le thème sombre pour l'interface.",
+    "English": "Anglais",
+    "Error": "Erreur",
+    "Error during generation.": "Erreur lors de la generation.",
+    "Error during loading.": "Erreur lors du chargement.",
+    "Error: {{message}}": "Erreur: {{message}}",
+    "Execution in progress": "Execution en cours",
+    "Existing sessions": "Sessions existantes",
+    "Expires in {{seconds}}s": "Expire dans {{seconds}}s",
+    "Explorer": "Explorateur",
+    "Export": "Exporter",
+    "FILE": "FILE",
+    "File truncated for display.": "Fichier tronque pour l'affichage.",
+    "Form": "Formulaire",
+    "French": "Français",
+    "Full name": "Nom complet",
+    "Full width chat": "Chat pleine largeur",
+    "Generating QR code...": "Generation du QR code...",
+    "Generating response...": "Generation de reponse...",
+    "Git authentication failed{{suffix}}.": "Echec d'authentification Git{{suffix}}.",
+    "Git identity for this repository": "Identité Git pour ce dépôt",
+    "Git repository not found{{suffix}}.": "Depot Git introuvable{{suffix}}.",
+    "git@gitea.devops:my-org/my-repo.git": "git@gitea.devops:mon-org/mon-repo.git",
+    "Global values: {{name}} / {{email}}.": "Valeurs globales: {{name}} / {{email}}.",
+    "In progress": "En cours",
+    "Input style": "Style de l'input",
+    "Internet access": "Internet access",
+    "Internet access enabled": "Accès internet activé",
+    "Invalid resume token.": "Token de reprise invalide.",
+    "Invalid workspace token. Please sign in again.": "Token workspace invalide. Merci de vous reconnecter.",
+    "Join a workspace": "Rejoindre un workspace",
+    "JSON": "JSON",
+    "JSON credentials": "JSON credentials",
+    "JSON-RPC": "JSON-RPC",
+    "Key or token": "Cle ou token",
+    "Key required for {{provider}}.": "Cle requise pour {{provider}}.",
+    "Language": "Langue",
+    "Last activity: {{date}}": "Derniere activite: {{date}}",
+    "Launch": "Lancer",
+    "Leave session": "Quitter la session",
+    "Leave workspace": "Quitter le workspace",
+    "List truncated after {{count}} entries.": "Liste tronquee apres {{count}} entrees.",
+    "Loading sessions...": "Chargement des sessions...",
+    "Loading...": "Chargement...",
+    "Logs": "Logs",
+    "Main": "Main",
+    "Markdown": "Markdown",
+    "Merge into {{branch}}": "Merge vers {{branch}}",
+    "Messages": "Messages",
+    "Model": "Modele",
+    "Multi-line": "Multiligne",
+    "Name (optional)": "Nom (optionnel)",
+    "Name and email required.": "Nom et email requis.",
+    "New message": "Nouveau message",
+    "New parallel branch": "Nouvelle branche parallèle",
+    "New session": "Nouvelle session",
+    "No": "Non",
+    "No changes detected.": "Aucun changement detecte.",
+    "No file found.": "Aucun fichier trouve.",
+    "No file selected": "Aucun fichier selectionne",
+    "No logs yet.": "Aucun log pour le moment.",
+    "No options": "Aucune option",
+    "No options.": "Aucune option.",
+    "No pending tasks at the moment.": "Aucune tâche en attente pour le moment.",
+    "No repository-specific values.": "Aucune valeur spécifique au dépôt.",
+    "No sessions available.": "Aucune session disponible.",
+    "No tasks": "Aucune tâche",
+    "None": "Aucune",
+    "Not set": "Non défini",
+    "Notifications": "Notifications",
+    "Open form": "Ouvrir le formulaire",
+    "Open settings": "Ouvrir les paramètres",
+    "OpenAI authentication failed.": "Echec de l'authentification OpenAI.",
+    "Password or PAT": "Mot de passe ou PAT",
+    "Preview": "Aperçu",
+    "Private SSH key": "Cle SSH privee",
+    "Processing...": "Traitement en cours...",
+    "Provide user.name and user.email for repository commits.": "Renseignez user.name et user.email pour les commits du dépôt.",
+    "Provider": "Provider",
+    "QR code": "QR code",
+    "QR code expired": "QR code expire",
+    "QR code unavailable.": "QR code indisponible.",
+    "Ready": "Pret",
+    "Reasoning": "Reasoning",
+    "Reasoning...": "Raisonnement...",
+    "Refresh": "Rafraichir",
+    "Regenerate": "Regenerer",
+    "Remove {{label}}": "Retirer {{label}}",
+    "Repository authentication (optional)": "Authentification depot (optionnelle)",
+    "Repository diff": "Diff du repository",
+    "Repository Git identity updated.": "Identité Git du dépôt mise à jour.",
+    "Repository values: {{name}} / {{email}}.": "Valeurs du dépôt: {{name}} / {{email}}.",
+    "Resume": "Reprendre",
+    "Resume an already configured worktree": "Reprendre un worktree deja configure",
+    "Resume an existing session": "Reprendre une session existante",
+    "Resume on mobile": "Reprendre sur mobile",
+    "Save": "Sauver",
+    "Saving...": "Sauvegarde...",
+    "Scan this QR code in the Android app to resume the current session.": "Scannez ce QR code dans l'application Android pour reprendre la session en cours.",
+    "Secret": "Secret",
+    "Select a branch": "Selectionner une branche",
+    "Select a file in the tree.": "Selectionnez un fichier dans l'arborescence.",
+    "Select a language": "Selectionner une langue",
+    "Select a valid remote branch.": "Selectionnez une branche distante valide.",
+    "Select an existing workspace or create a new one.": "Selectionnez un workspace existant ou creez-en un nouveau.",
+    "Select at least one provider.": "Selectionnez au moins un provider.",
+    "Selected attachments": "Pièces sélectionnées",
+    "Send": "Envoyer",
+    "Send 'Commit & Push' in chat": "Envoyer 'Commit & Push' dans le chat",
+    "Send 'Commit' in chat": "Envoyer 'Commit' dans le chat",
+    "Send a message to start a session.": "Envoyez un message pour demarrer une session.",
+    "Session": "Session",
+    "Session \"{{title}}\" deleted.": "Session \"{{title}}\" supprimee.",
+    "Session name (optional)": "Nom de la session (optionnel)",
+    "Session not found.": "Session introuvable.",
+    "Settings": "Paramètres",
+    "setup_token": "setup_token",
+    "Share git credentials": "Share git credentials",
+    "Show a notification and sound when a new message arrives.": "Affiche une notification et un son quand un nouveau message arrive.",
+    "Show commands in chat": "Afficher les commandes dans le chat",
+    "Show executed command blocks in the conversation.": "Affiche les blocs de commandes exécutées dans la conversation.",
+    "Show tool results in chat": "Afficher les tool results dans le chat",
+    "Show tool_result blocks in the conversation.": "Affiche les blocs tool_result dans la conversation.",
+    "Single line": "Monoligne",
+    "Source branch": "Branche source",
+    "Start a session to open the terminal.": "Demarrez une session pour ouvrir le terminal.",
+    "Stdin": "Stdin",
+    "stdin": "stdin",
+    "Stdout": "Stdout",
+    "stdout": "stdout",
+    "Stop": "Stop",
+    "Switching to {{provider}}...": "Basculement vers {{provider}}...",
+    "Tab": "Onglet",
+    "Terminal": "Terminal",
+    "The key is stored in ~/.ssh for cloning.": "La cle est stockee dans ~/.ssh pour le clonage.",
+    "The password can be replaced by a PAT.": "Le mot de passe peut etre remplace par un PAT.",
+    "These settings are stored in your browser.": "Ces réglages sont stockés dans votre navigateur.",
+    "Tool": "Tool",
+    "Tool result": "Tool result",
+    "Tool: {{tool}}": "Outil: {{tool}}",
+    "Unable to change branch.": "Impossible de changer de branche.",
+    "Unable to create the attachment session (HTTP {{status}}{{statusText}}){{suffix}}.": "Impossible de creer la session de pieces jointes (HTTP {{status}}{{statusText}}){{suffix}}.",
+    "Unable to create the attachment session.": "Impossible de creer la session de pieces jointes.",
+    "Unable to delete the session.": "Impossible de supprimer la session.",
+    "Unable to delete the session{{suffix}}.": "Impossible de supprimer la session{{suffix}}.",
+    "Unable to generate the QR code.": "Impossible de generer le QR code.",
+    "Unable to load branches.": "Impossible de charger les branches.",
+    "Unable to load Git identity.": "Impossible de charger l'identité Git.",
+    "Unable to load Git status.": "Impossible de charger le statut Git.",
+    "Unable to load models.": "Impossible de charger les modeles.",
+    "Unable to load sessions.": "Impossible de charger les sessions.",
+    "Unable to load the commit.": "Impossible de charger le commit.",
+    "Unable to load the explorer.": "Impossible de charger l'explorateur.",
+    "Unable to load the file.": "Impossible de charger le fichier.",
+    "Unable to load the latest commit.": "Impossible de charger le dernier commit.",
+    "Unable to resume the session.": "Impossible de reprendre la session.",
+    "Unable to save the file.": "Impossible d'enregistrer le fichier.",
+    "Unable to upload attachments.": "Impossible d'uploader les pieces jointes.",
+    "Unexpected error": "Erreur inattendue",
+    "Update failed.": "Echec de la mise à jour.",
+    "Usage limit reached. Please try again later.": "Limite d'usage atteinte. Merci de reessayer plus tard.",
+    "Use the full available width for the chat area.": "Utilise toute la largeur disponible pour la zone de chat.",
+    "User settings": "Paramètres utilisateur",
+    "user.email": "user.email",
+    "user.name": "user.name",
+    "Username": "Utilisateur",
+    "Username + password": "Identifiant + mot de passe",
+    "Username and password required.": "Identifiant et mot de passe requis.",
+    "Validating...": "Validation...",
+    "View previous messages ({{count}})": "Voir les messages precedents ({{count}})",
+    "Workspace configuration failed.": "Echec de la configuration du workspace.",
+    "Workspace created": "Workspace cree",
+    "Workspace creation failed.": "Echec de creation du workspace.",
+    "Workspace ID": "Workspace ID",
+    "Workspace ID and secret are required.": "Workspace ID et secret requis.",
+    "Workspace ID required.": "Workspace ID requis.",
+    "Workspace name": "Nom du workspace",
+    "Workspace Secret": "Workspace Secret",
+    "Workspace update failed.": "Echec de mise a jour du workspace.",
+    "workspaceId (e.g. w...)": "workspaceId (ex: w...)",
+    "workspaceSecret": "workspaceSecret",
+    "Worktree": "Worktree",
+    "Worktree diff": "Diff du worktree",
+    "Write your message…": "Écris ton message…",
+    "Yes": "Oui",
+    "You have unsaved changes. Continue without saving?": "Vous avez des modifications non sauvegardees. Continuer sans sauvegarder ?",
+    "Your workspace has been created successfully. Keep these credentials carefully for future access.": "Votre workspace a ete cree avec succes. Gardez ces identifiants scrupuleusement pour un futur acces.",
+    "your.email@example.com": "ton.email@exemple.com",
+    "{{count}} attachment(s)": "{{count}} pièce(s) jointe(s)",
+    "{{count}} B": "{{count}} o",
+    "{{count}} files modified": "{{count}} fichiers modifies",
+    "{{count}} item(s)": "{{count}} élément(s)",
+    "{{count}} KB": "{{count}} Ko",
+    "{{count}} lines": "{{count}} lignes",
+    "{{count}} MB": "{{count}} Mo",
+  },
+};
+
+const getInitialLanguage = () => {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") {
+      return stored;
+    }
+  } catch {
+    // ignore
+  }
+  return "en";
+};
+
+const interpolate = (template, vars) => {
+  if (!vars) {
+    return template;
+  }
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (Object.prototype.hasOwnProperty.call(vars, key)) {
+      return String(vars[key]);
+    }
+    return match;
+  });
+};
+
+const translate = (language, key, vars) => {
+  if (language === "fr") {
+    const map = translations.fr || {};
+    const template = map[key] || key;
+    return interpolate(template, vars);
+  }
+  return interpolate(key, vars);
+};
+
+const I18nContext = createContext({
+  language: "en",
+  setLanguage: () => {},
+  t: (key, vars) => translate("en", key, vars),
+  locale: "en-US",
+});
+
+export const I18nProvider = ({ children }) => {
+  const [language, setLanguage] = useState(getInitialLanguage);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // ignore
+    }
+  }, [language]);
+
+  const locale = language === "fr" ? "fr-FR" : "en-US";
+
+  const t = useCallback(
+    (key, vars) => translate(language, key, vars),
+    [language]
+  );
+
+  const value = useMemo(
+    () => ({
+      language,
+      setLanguage,
+      t,
+      locale,
+    }),
+    [language, t, locale]
+  );
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+};
+
+export const useI18n = () => useContext(I18nContext);
