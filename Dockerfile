@@ -16,7 +16,19 @@ RUN go mod tidy
 RUN go build -o /out/vibe80-root ./vibe80-root \
     && go build -o /out/vibe80-run-as ./vibe80-run-as
 
-FROM node:25-trixie-slim
+FROM node:25-trixie-slim AS claude-builder
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Claude code (kept in a dedicated stage for cache reuse)
+RUN curl -fsSL https://claude.ai/install.sh | bash
+# Make Claude command available to all users
+RUN bash -c 'mv $(readlink /root/.local/bin/claude) /usr/bin/claude'
+
+FROM node:25-trixie-slim AS app-build
 
 WORKDIR /app
 
@@ -56,8 +68,40 @@ COPY . .
 
 RUN npm run build
 
+FROM node:25-trixie-slim
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3 \
+    python3-setuptools \
+    ripgrep \
+    fd-find \
+    fzf \
+    bat \
+    eza \
+    git \
+    openssh-client \
+    jq \
+    yq \
+    httpie \
+    pre-commit \
+    direnv \
+    tree \
+    curl \
+    sudo \
+    && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+    && ln -sf /usr/bin/batcat /usr/local/bin/bat \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @openai/codex
+
+COPY --from=app-build /app /app
 COPY --from=helper-builder /out/vibe80-root /usr/local/bin/vibe80-root
 COPY --from=helper-builder /out/vibe80-run-as /usr/local/bin/vibe80-run-as
+COPY --from=claude-builder /usr/bin/claude /usr/bin/claude
 COPY docker/vibe80.sudoers /etc/sudoers.d/vibe80
 
 RUN useradd -m -d /var/lib/vibe80 -s /bin/bash vibe80 \
@@ -66,11 +110,6 @@ RUN useradd -m -d /var/lib/vibe80 -s /bin/bash vibe80 \
     && chmod 0755 /usr/local/bin/vibe80-root /usr/local/bin/vibe80-run-as \
     && chmod 0440 /etc/sudoers.d/vibe80
 RUN chmod +x /app/start.sh
-
-# Install Claude code
-RUN curl -fsSL https://claude.ai/install.sh | bash
-# Make Claude command available to all users
-RUN bash -c 'mv $(readlink /root/.local/bin/claude) /usr/bin/claude'
 
 EXPOSE 5179
 
