@@ -1436,7 +1436,7 @@ function App() {
   }, [apiFetch, workspaceToken]);
 
   useEffect(() => {
-    if (!workspaceToken || workspaceStep !== 3) {
+    if (!workspaceToken || workspaceStep !== 4) {
       return;
     }
     loadWorkspaceSessions();
