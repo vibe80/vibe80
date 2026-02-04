@@ -7503,6 +7503,9 @@ function App() {
             <form
               className="composer composer--sticky"
               onSubmit={onSubmit}
+              onDragEnter={onDragOverComposer}
+              onDragOver={onDragOverComposer}
+              onDrop={onDropAttachments}
               ref={composerRef}
             >
               <div className="composer-inner">
