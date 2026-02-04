@@ -5388,9 +5388,7 @@ function App() {
       : showStep2
         ? t("Configure AI providers for this workspace.")
         : showStep3
-          ? t(
-              "Votre workspace a ete cree avec succes. Gardez ces identifiants scrupuleusement pour un futur acces."
-            )
+          ? t("Workspace created hint")
           : null;
     const infoContent = showStep2
       ? {
