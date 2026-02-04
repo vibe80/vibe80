@@ -91,6 +91,7 @@ export class ClaudeCliClient extends EventEmitter {
     const allowedTools = ["Bash(git:*)"];
     if (this.internetAccess) {
       allowedTools.push("WebSearch");
+      allowedTools.push("WebFetch");
     }
     const args = [
       "--continue",
