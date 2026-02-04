@@ -4256,7 +4256,7 @@ function App() {
   // ============== Worktree Functions ==============
 
   const createWorktree = useCallback(
-    ({
+    async ({
       name,
       provider: wtProvider,
       startingBranch,
@@ -4265,24 +4265,75 @@ function App() {
       internetAccess,
       denyGitCredentialsAccess,
     }) => {
-      if (!socketRef.current || !connected) return;
-
-      socketRef.current.send(
-        JSON.stringify({
-          type: "create_parallel_request",
-          provider: availableProviders.includes(wtProvider)
-            ? wtProvider
-            : llmProvider,
-          name: name || null,
-          startingBranch: startingBranch || null,
-          model: model || null,
-          reasoningEffort: reasoningEffort ?? null,
-          internetAccess: Boolean(internetAccess),
-          denyGitCredentialsAccess: Boolean(denyGitCredentialsAccess),
-        })
-      );
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId) {
+        showToast(t("Session not found."), "error");
+        return;
+      }
+      try {
+        const response = await apiFetch("/api/worktree", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session: sessionId,
+            provider: availableProviders.includes(wtProvider)
+              ? wtProvider
+              : llmProvider,
+            name: name || null,
+            startingBranch: startingBranch || null,
+            model: model || null,
+            reasoningEffort: reasoningEffort ?? null,
+            internetAccess: Boolean(internetAccess),
+            denyGitCredentialsAccess: Boolean(denyGitCredentialsAccess),
+          }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error || t("Failed to create parallel request."));
+        }
+        const payload = await response.json();
+        setWorktrees((current) => {
+          const next = new Map(current);
+          next.set(payload.worktreeId, {
+            id: payload.worktreeId,
+            name: payload.name,
+            branchName: payload.branchName,
+            provider: payload.provider,
+            model: payload.model || null,
+            reasoningEffort: payload.reasoningEffort || null,
+            internetAccess: Boolean(payload.internetAccess),
+            denyGitCredentialsAccess: Boolean(payload.denyGitCredentialsAccess),
+            status: payload.status || "creating",
+            color: payload.color,
+            messages: [],
+            activity: "",
+            currentTurnId: null,
+          });
+          return next;
+        });
+        setPaneByTab((current) => ({
+          ...current,
+          [payload.worktreeId]: current[payload.worktreeId] || "chat",
+        }));
+        setLogFilterByTab((current) => ({
+          ...current,
+          [payload.worktreeId]: current[payload.worktreeId] || "all",
+        }));
+        setActiveWorktreeId(payload.worktreeId);
+        void requestWorktreesList();
+      } catch (error) {
+        showToast(error.message || t("Failed to create parallel request."), "error");
+      }
     },
-    [connected, llmProvider, availableProviders]
+    [
+      apiFetch,
+      attachmentSession?.sessionId,
+      availableProviders,
+      llmProvider,
+      requestWorktreesList,
+      showToast,
+      t,
+    ]
   );
 
   const sendWorktreeMessage = useCallback(
