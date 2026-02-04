@@ -124,6 +124,7 @@ export class ClaudeCliClient extends EventEmitter {
             internetAccess: this.internetAccess,
             extraAllowRw: [
               path.join(getWorkspaceHome(this.workspaceId), ".claude"),
+              ...(this.shareGitCredentials && this.gitDir ? [this.gitDir] : []),
             ],
             extraAllowRwFiles: [
               path.join(getWorkspaceHome(this.workspaceId), ".claude.json"),

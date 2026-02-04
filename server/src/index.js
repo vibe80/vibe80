@@ -3335,6 +3335,9 @@ if (terminalWss) {
     }
     const env = { ...process.env };
     const cwd = worktree?.path || session.repoDir;
+    const allowGitCreds = worktree?.shareGitCredentials
+      ?? session.defaultShareGitCredentials;
+    const gitDir = session.gitDir || path.join(session.dir, "git");
     if (isMonoUser) {
       term = pty.spawn(shell, [], {
         name: "xterm-256color",
@@ -3360,6 +3363,7 @@ if (terminalWss) {
           cwd,
           repoDir: cwd,
           internetAccess: session.defaultInternetAccess,
+          extraAllowRw: allowGitCreds ? [gitDir] : [],
         }),
         "--",
         shell,

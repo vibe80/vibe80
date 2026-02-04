@@ -59,6 +59,7 @@ export class CodexAppServerClient extends EventEmitter {
             internetAccess: this.internetAccess,
             extraAllowRw: [
               path.join(getWorkspaceHome(this.workspaceId), ".codex"),
+              ...(this.shareGitCredentials && this.gitDir ? [this.gitDir] : []),
             ],
           }),
           "--",
