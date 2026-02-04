@@ -6118,7 +6118,36 @@ function App() {
             </div>
           )}
         </div>
-        {toast && (
+        <aside className="session-info">
+          <div className="session-info-card">
+            <div className="session-info-title">
+              <span className="session-info-icon" aria-hidden="true">
+                ℹ️
+              </span>
+              {infoContent.title}
+            </div>
+            {infoContent.paragraphs?.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+            {infoContent.securityLink ? (
+              <p>
+                {t(
+                  "Vibe80 strictly controls access to resources (Git credentials and internet) using sandboxing. "
+                )}
+                <a
+                  className="session-info-link"
+                  href="https://vibe80.ai/security"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t("Click here to learn more.")}
+                </a>
+              </p>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+      {toast && (
           <div className="toast-container">
             <div className={`toast is-${toast.type || "success"}`}>
               {toast.message}
@@ -7806,34 +7835,6 @@ function App() {
                           </div>
                         )}
           </div>
-          <aside className="session-info">
-            <div className="session-info-card">
-              <div className="session-info-title">
-                <span className="session-info-icon" aria-hidden="true">
-                  ℹ️
-                </span>
-                {infoContent.title}
-              </div>
-              {infoContent.paragraphs?.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-              {infoContent.securityLink ? (
-                <p>
-                  {t(
-                    "Vibe80 strictly controls access to resources (Git credentials and internet) using sandboxing. "
-                  )}
-                  <a
-                    className="session-info-link"
-                    href="https://vibe80.ai/security"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {t("Click here to learn more.")}
-                  </a>
-                </p>
-              ) : null}
-            </div>
-          </aside>
         </div>
       </div>
     );
