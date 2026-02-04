@@ -741,6 +741,14 @@ function App() {
   });
   const [toast, setToast] = useState(null);
   const [workspaceProvidersEditing, setWorkspaceProvidersEditing] = useState(false);
+  const [workspaceAuthExpanded, setWorkspaceAuthExpanded] = useState(() => ({
+    codex: false,
+    claude: false,
+  }));
+  const [workspaceAuthFiles, setWorkspaceAuthFiles] = useState(() => ({
+    codex: "",
+    claude: "",
+  }));
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [handoffQrDataUrl, setHandoffQrDataUrl] = useState("");
   const [handoffExpiresAt, setHandoffExpiresAt] = useState(null);
@@ -5507,110 +5515,136 @@ function App() {
                   <div className="session-auth-title">
                     {t("AI providers (required)")}
                   </div>
-                  <div className="session-auth-options is-inline">
+                  <div className="session-auth-options session-auth-accordion">
                     {["codex", "claude"].map((provider) => {
                       const config = workspaceProvider(provider);
                       const label =
                         provider === "codex" ? t("Codex") : t("Claude");
+                      const expanded = Boolean(workspaceAuthExpanded[provider]);
+                      const isEnabled = Boolean(config.enabled);
                       return (
-                        <label key={provider} className="session-auth-option">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(config.enabled)}
-                            onChange={() =>
-                              setWorkspaceProviders((current) => ({
-                                ...current,
-                                [provider]: {
-                                  ...current[provider],
-                                  enabled: !current[provider]?.enabled,
-                                },
-                              }))
-                            }
-                            disabled={formDisabled}
-                          />
-                          {label}
-                        </label>
+                        <div key={provider} className="session-auth-card">
+                          <div className="session-auth-header">
+                            <label className="session-auth-option">
+                              <input
+                                type="checkbox"
+                                checked={isEnabled}
+                                onChange={() =>
+                                  setWorkspaceProviders((current) => ({
+                                    ...current,
+                                    [provider]: {
+                                      ...current[provider],
+                                      enabled: !current[provider]?.enabled,
+                                    },
+                                  }))
+                                }
+                                disabled={formDisabled}
+                              />
+                              {label}
+                            </label>
+                            <button
+                              type="button"
+                              className="session-auth-toggle"
+                              onClick={() =>
+                                setWorkspaceAuthExpanded((current) => ({
+                                  ...current,
+                                  [provider]: !current[provider],
+                                }))
+                              }
+                              disabled={!isEnabled}
+                              aria-expanded={expanded}
+                            >
+                              {expanded ? "▲" : "▼"}
+                            </button>
+                          </div>
+                          {isEnabled && expanded ? (
+                            <div className="session-auth">
+                              <div className="session-auth-title">
+                                {t("Auth {{provider}}", {
+                                  provider:
+                                    provider === "codex" ? t("Codex") : t("Claude"),
+                                })}
+                              </div>
+                              <div className="session-auth-grid">
+                                <select
+                                  value={getProviderAuthType(provider, config)}
+                                  onChange={(event) =>
+                                    setWorkspaceProviders((current) => ({
+                                      ...current,
+                                      [provider]: {
+                                        ...current[provider],
+                                        authType: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  disabled={formDisabled}
+                                >
+                                  {(providerAuthOptions[provider] || []).map(
+                                    (authType) => (
+                                      <option key={authType} value={authType}>
+                                        {t(authType)}
+                                      </option>
+                                    )
+                                  )}
+                                </select>
+                                {getProviderAuthType(provider, config) ===
+                                "auth_json_b64" ? (
+                                  <div className="session-auth-file">
+                                    <input
+                                      type="file"
+                                      accept="application/json,.json"
+                                      onChange={async (event) => {
+                                        const file = event.target.files?.[0];
+                                        if (!file) {
+                                          return;
+                                        }
+                                        const content = await file.text();
+                                        setWorkspaceProviders((current) => ({
+                                          ...current,
+                                          [provider]: {
+                                            ...current[provider],
+                                            authValue: content,
+                                          },
+                                        }));
+                                        setWorkspaceAuthFiles((current) => ({
+                                          ...current,
+                                          [provider]: file.name,
+                                        }));
+                                        event.target.value = "";
+                                      }}
+                                      disabled={formDisabled}
+                                    />
+                                    {workspaceAuthFiles[provider] ? (
+                                      <span className="session-auth-file-name">
+                                        {workspaceAuthFiles[provider]}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                ) : (
+                                  <input
+                                    type="password"
+                                    placeholder={t("Key or token")}
+                                    value={config.authValue}
+                                    onChange={(event) =>
+                                      setWorkspaceProviders((current) => ({
+                                        ...current,
+                                        [provider]: {
+                                          ...current[provider],
+                                          authValue: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    disabled={formDisabled}
+                                    autoComplete="off"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
                       );
                     })}
                   </div>
-                  {["codex", "claude"].map((provider) => {
-                    const config = workspaceProvider(provider);
-                    if (!config?.enabled) {
-                      return null;
-                    }
-                    const allowedAuthTypes = providerAuthOptions[provider] || [];
-                    const effectiveAuthType = getProviderAuthType(provider, config);
-                    return (
-                      <div key={`${provider}-auth`} className="session-auth">
-                        <div className="session-auth-title">
-                          {t("Auth {{provider}}", {
-                            provider:
-                              provider === "codex" ? t("Codex") : t("Claude"),
-                          })}
-                        </div>
-                        <div className="session-auth-grid">
-                          <select
-                            value={effectiveAuthType}
-                            onChange={(event) =>
-                              setWorkspaceProviders((current) => ({
-                                ...current,
-                                [provider]: {
-                                  ...current[provider],
-                                  authType: event.target.value,
-                                },
-                              }))
-                            }
-                            disabled={formDisabled}
-                          >
-                            {allowedAuthTypes.map((authType) => (
-                              <option key={authType} value={authType}>
-                                {t(authType)}
-                              </option>
-                            ))}
-                          </select>
-                          {effectiveAuthType === "auth_json_b64" ? (
-                            <input
-                              type="file"
-                              accept="application/json,.json"
-                              onChange={async (event) => {
-                                const file = event.target.files?.[0];
-                                if (!file) {
-                                  return;
-                                }
-                                const content = await file.text();
-                                setWorkspaceProviders((current) => ({
-                                  ...current,
-                                  [provider]: {
-                                    ...current[provider],
-                                    authValue: content,
-                                  },
-                                }));
-                                event.target.value = "";
-                              }}
-                              disabled={formDisabled}
-                            />
-                          ) : (
-                            <input
-                              type="password"
-                              placeholder={t("Key or token")}
-                              value={config.authValue}
-                              onChange={(event) =>
-                                setWorkspaceProviders((current) => ({
-                                  ...current,
-                                  [provider]: {
-                                    ...current[provider],
-                                    authValue: event.target.value,
-                                  },
-                                }))
-                              }
-                              disabled={formDisabled}
-                              autoComplete="off"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
                 <div className="session-form-row">
                   <button

@@ -178,7 +178,7 @@ textarea {
 .session-auth {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 12px;
   border-radius: 16px;
   background: rgba(20, 19, 17, 0.04);
 }
@@ -196,6 +196,57 @@ textarea {
 
 .session-auth-options.is-inline {
   flex-wrap: nowrap;
+}
+
+.session-auth-accordion {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-auth-card {
+  border-radius: 14px;
+  border: 1px solid rgba(20, 19, 17, 0.08);
+  background: rgba(20, 19, 17, 0.02);
+  padding: 10px 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.session-auth-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.session-auth-toggle {
+  border: none;
+  background: rgba(20, 19, 17, 0.08);
+  color: var(--ink);
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-auth-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.session-auth-file {
+  display: grid;
+  gap: 6px;
+}
+
+.session-auth-file-name {
+  font-size: 12px;
+  color: var(--ink-muted);
+  word-break: break-word;
 }
 
 .session-auth-option {
