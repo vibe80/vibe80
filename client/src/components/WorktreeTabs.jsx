@@ -769,11 +769,12 @@ export default function WorktreeTabs({
         .worktree-create-field .worktree-toggle {
           display: inline-flex;
           align-items: center;
+          justify-content: flex-start;
           gap: 8px;
           font-size: 13px;
           color: inherit;
           margin-bottom: 6px;
-          width: 100%;
+          width: auto;
         }
 
         .worktree-toggle span {
@@ -819,8 +820,10 @@ export default function WorktreeTabs({
         }
 
         .worktree-toggle-field {
-          align-self: end;
+          align-self: start;
           grid-column: 1 / -1;
+          display: flex;
+          justify-content: flex-start;
         }
 
         .worktree-btn-refresh {
