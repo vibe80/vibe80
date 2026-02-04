@@ -584,14 +584,36 @@ class SessionRepository(
         model: String? = null,
         reasoningEffort: String? = null
     ) {
-        webSocketManager.createWorktree(
+        val sessionId = _sessionState.value?.sessionId
+            ?: return
+        val request = WorktreeCreateApiRequest(
+            session = sessionId,
             provider = provider.name.lowercase(),
             name = name,
             parentWorktreeId = _activeWorktreeId.value,
-            branchName = branchName,
+            startingBranch = branchName,
             model = model,
             reasoningEffort = reasoningEffort
         )
+        val result = apiClient.createWorktree(request)
+        result.onFailure { handleApiFailure(it, "createWorktree") }
+        result.onSuccess { response ->
+            val worktree = Worktree(
+                id = response.worktreeId,
+                name = response.name ?: response.branchName ?: "worktree",
+                branchName = response.branchName ?: "main",
+                provider = response.provider,
+                status = response.status ?: WorktreeStatus.READY,
+                color = response.color ?: Worktree.COLORS.first()
+            )
+            _worktrees.update { current ->
+                current + (worktree.id to worktree)
+            }
+            _worktreeMessages.update { current ->
+                current + (worktree.id to emptyList())
+            }
+            _activeWorktreeId.value = worktree.id
+        }
     }
 
     suspend fun loadProviderModels(provider: String): Result<List<ProviderModel>> {
