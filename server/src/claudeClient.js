@@ -127,6 +127,7 @@ export class ClaudeCliClient extends EventEmitter {
             cwd: this.cwd,
             repoDir: this.repoDir,
             attachmentsDir: this.attachmentsDir,
+            workspaceId: this.workspaceId,
             internetAccess: this.internetAccess,
             netMode: "tcp:53,443",
             extraAllowRw: [

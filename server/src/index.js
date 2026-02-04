@@ -3373,6 +3373,7 @@ if (terminalWss) {
         ...buildSandboxArgs({
           cwd,
           repoDir: cwd,
+          workspaceId: session.workspaceId,
           internetAccess: session.defaultInternetAccess,
           netMode: "none",
           extraAllowRw: allowGitCreds ? [gitDir] : [],
