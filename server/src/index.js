@@ -1442,7 +1442,7 @@ const createSession = async (
             "config",
             "--add",
             "credential.helper",
-            "store --file ../git/git-credentials",
+            `store --file ${path.join(gitCredsDir, "git-credentials")}`,
           ],
           { env }
         );
