@@ -82,8 +82,16 @@ textarea {
   overflow-y: auto;
 }
 
+.session-layout {
+  width: min(980px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+}
+
 .session-card {
-  width: min(560px, 100%);
+  width: 100%;
   background: var(--surface);
   border-radius: 24px;
   padding: 32px;
@@ -102,6 +110,36 @@ textarea {
   margin: 0;
   color: var(--ink-muted);
   font-size: 15px;
+}
+
+.session-info {
+  display: none;
+}
+
+.session-info-card {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--ink-muted);
+  position: sticky;
+  top: 24px;
+}
+
+.session-info-title {
+  font-weight: 600;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.session-info-icon {
+  font-size: 16px;
 }
 
 .session-form {
@@ -4237,6 +4275,12 @@ main.chat {
   .session-form-row > button {
     width: 100%;
     justify-self: center;
+  }
+}
+
+@media (min-width: 980px) {
+  .session-info {
+    display: block;
   }
 }
 

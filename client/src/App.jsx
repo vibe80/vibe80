@@ -5383,7 +5383,8 @@ function App() {
     const showStep4 = workspaceStep === 4 && workspaceToken;
     return (
       <div className="session-gate">
-        <div className="session-card">
+        <div className="session-layout">
+          <div className="session-card">
           {showStep4 && (
             <button
               type="button"
@@ -7771,10 +7772,30 @@ function App() {
                             {t("No options.")}
                           </div>
                         )}
-                      </div>
-                    </div>
-                  );
-                }
+          </div>
+          <aside className="session-info">
+            <div className="session-info-card">
+              <div className="session-info-title">
+                <span className="session-info-icon" aria-hidden="true">
+                  ℹ️
+                </span>
+                {t("Info")}
+              </div>
+              <p>
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean
+                posuere, lorem quis consequat viverra, velit urna euismod orci,
+                id lacinia justo nisl id lorem.
+              </p>
+              <p>
+                Donec porta, elit at auctor interdum, ligula lectus vulputate
+                velit, at pellentesque libero nulla at urna.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    );
+  }
                 if (field.type === "select") {
                   return (
                     <div className="vibe80-form-field" key={field.id}>
