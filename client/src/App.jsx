@@ -4189,11 +4189,12 @@ function App() {
     if (!attachmentSession?.sessionId) {
       return;
     }
+    event.preventDefault();
+    event.stopPropagation();
     const files = Array.from(event.dataTransfer?.files || []);
     if (!files.length) {
       return;
     }
-    event.preventDefault();
     await uploadFiles(files);
   };
 
@@ -7728,8 +7729,6 @@ function App() {
                     value={input}
                     onChange={handleInputChange}
                     onKeyDown={handleComposerKeyDown}
-                    onDragOver={onDragOverComposer}
-                    onDrop={onDropAttachments}
                     onPaste={onPasteAttachments}
                     placeholder={t("Write your message…")}
                     rows={composerInputMode === "single" ? 1 : 2}
