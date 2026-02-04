@@ -4675,7 +4675,12 @@ function App() {
         return;
       }
       if (rawText === "/diff" || rawText.startsWith("/diff ")) {
-        handleDiffSelect();
+        handleViewSelect("diff");
+        if (activeWorktreeId && activeWorktreeId !== "main") {
+          requestWorktreeDiff(activeWorktreeId);
+        } else {
+          requestRepoDiff();
+        }
         setInput("");
         setDraftAttachments([]);
         setCommandMenuOpen(false);
@@ -4729,9 +4734,11 @@ function App() {
       activeWorktreeId,
       apiFetch,
       attachmentSession?.sessionId,
-      handleDiffSelect,
+      handleViewSelect,
       input,
       isInWorktree,
+      requestRepoDiff,
+      requestWorktreeDiff,
       sendMessage,
       sendWorktreeMessage,
       showToast,
