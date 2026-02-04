@@ -14,7 +14,7 @@ export class CodexAppServerClient extends EventEmitter {
     attachmentsDir,
     repoDir,
     internetAccess,
-    shareGitCredentials,
+    denyGitCredentialsAccess,
     gitDir,
     threadId,
     env,
@@ -25,9 +25,11 @@ export class CodexAppServerClient extends EventEmitter {
     this.attachmentsDir = attachmentsDir;
     this.repoDir = repoDir || cwd;
     this.internetAccess = internetAccess ?? true;
-    this.shareGitCredentials = shareGitCredentials ?? false;
-    if (this.internetAccess === false && !this.shareGitCredentials) {
-      throw new Error("Invalid Codex configuration: shareGitCredentials required when internetAccess is false.");
+    this.denyGitCredentialsAccess = denyGitCredentialsAccess ?? true;
+    if (this.internetAccess === false && this.denyGitCredentialsAccess) {
+      throw new Error(
+        "Invalid Codex configuration: denyGitCredentialsAccess must be false when internetAccess is false."
+      );
     }
     this.gitDir = gitDir || null;
     this.env = env || process.env;
@@ -46,6 +48,7 @@ export class CodexAppServerClient extends EventEmitter {
       "app-server"
     ];
     const useLandlock = this.internetAccess;
+    const shareGitCredentials = !this.denyGitCredentialsAccess;
     const sandboxArgs = !isMonoUser && useLandlock
       ? buildSandboxArgs({
           cwd: this.cwd,
@@ -55,7 +58,7 @@ export class CodexAppServerClient extends EventEmitter {
           netMode: "tcp:53,443",
           extraAllowRw: [
             path.join(getWorkspaceHome(this.workspaceId), ".codex"),
-            ...(this.shareGitCredentials && this.gitDir ? [this.gitDir] : []),
+            ...(shareGitCredentials && this.gitDir ? [this.gitDir] : []),
           ],
         })
       : [];
@@ -227,11 +230,12 @@ export class CodexAppServerClient extends EventEmitter {
   }
 
   async #startThread() {
+    const shareGitCredentials = !this.denyGitCredentialsAccess;
     const writableRoots = [
       this.cwd,
       this.repoDir,
       this.attachmentsDir,
-      this.shareGitCredentials ? this.gitDir : null,
+      shareGitCredentials ? this.gitDir : null,
     ].filter(Boolean);
     const sandboxMode = this.internetAccess ? "danger-full-access" : "workspace-write";
 

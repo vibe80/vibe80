@@ -17,6 +17,11 @@ export async function getOrCreateClient(session, provider) {
     return runtime.clients[provider];
   }
 
+  const defaultDenyGitCredentialsAccess =
+    typeof session.defaultDenyGitCredentialsAccess === "boolean"
+      ? session.defaultDenyGitCredentialsAccess
+      : true;
+
   const client =
     provider === "claude"
       ? new ClaudeCliClient({
@@ -24,7 +29,7 @@ export async function getOrCreateClient(session, provider) {
           attachmentsDir: session.attachmentsDir,
           repoDir: session.repoDir,
           internetAccess: session.defaultInternetAccess,
-          shareGitCredentials: Boolean(session.defaultShareGitCredentials),
+          denyGitCredentialsAccess: defaultDenyGitCredentialsAccess,
           gitDir: session.gitDir || path.join(session.dir, "git"),
           env: process.env,
           workspaceId: session.workspaceId,
@@ -34,7 +39,7 @@ export async function getOrCreateClient(session, provider) {
           attachmentsDir: session.attachmentsDir,
           repoDir: session.repoDir,
           internetAccess: session.defaultInternetAccess,
-          shareGitCredentials: Boolean(session.defaultShareGitCredentials),
+          denyGitCredentialsAccess: defaultDenyGitCredentialsAccess,
           gitDir: session.gitDir || path.join(session.dir, "git"),
           threadId: session.threadId || null,
           env: process.env,
@@ -65,6 +70,10 @@ export function createWorktreeClient(
   threadId,
   gitDir
 ) {
+  const denyGitCredentialsAccess =
+    typeof worktree.denyGitCredentialsAccess === "boolean"
+      ? worktree.denyGitCredentialsAccess
+      : true;
   const client =
     worktree.provider === "claude"
       ? new ClaudeCliClient({
@@ -72,7 +81,7 @@ export function createWorktreeClient(
           attachmentsDir,
           repoDir,
           internetAccess,
-          shareGitCredentials: Boolean(worktree.shareGitCredentials),
+          denyGitCredentialsAccess,
           gitDir,
           env: process.env,
           workspaceId: worktree.workspaceId,
@@ -82,7 +91,7 @@ export function createWorktreeClient(
           attachmentsDir,
           repoDir,
           internetAccess,
-          shareGitCredentials: Boolean(worktree.shareGitCredentials),
+          denyGitCredentialsAccess,
           gitDir,
           threadId: threadId || worktree.threadId || null,
           env: process.env,

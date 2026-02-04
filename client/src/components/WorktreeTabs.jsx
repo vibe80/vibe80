@@ -40,7 +40,7 @@ export default function WorktreeTabs({
   branchLoading,
   branchError,
   defaultInternetAccess,
-  defaultShareGitCredentials,
+  defaultDenyGitCredentialsAccess,
   onRefreshBranches,
   providerModelState,
   onRequestProviderModels,
@@ -66,8 +66,10 @@ export default function WorktreeTabs({
   const [newInternetAccess, setNewInternetAccess] = useState(
     Boolean(defaultInternetAccess)
   );
-  const [newShareGitCredentials, setNewShareGitCredentials] = useState(
-    Boolean(defaultShareGitCredentials)
+  const [newDenyGitCredentialsAccess, setNewDenyGitCredentialsAccess] = useState(
+    typeof defaultDenyGitCredentialsAccess === "boolean"
+      ? defaultDenyGitCredentialsAccess
+      : true
   );
   const statusLabels = useMemo(
     () => ({
@@ -98,7 +100,11 @@ export default function WorktreeTabs({
   useEffect(() => {
     if (!createDialogOpen) return;
     setNewInternetAccess(Boolean(defaultInternetAccess));
-    setNewShareGitCredentials(Boolean(defaultShareGitCredentials));
+    setNewDenyGitCredentialsAccess(
+      typeof defaultDenyGitCredentialsAccess === "boolean"
+        ? defaultDenyGitCredentialsAccess
+        : true
+    );
     if (!startingBranch) {
       setStartingBranch(defaultBranch || "");
     }
@@ -117,7 +123,7 @@ export default function WorktreeTabs({
     defaultBranch,
     branches,
     defaultInternetAccess,
-    defaultShareGitCredentials,
+    defaultDenyGitCredentialsAccess,
     onRefreshBranches,
     branchLoading,
     newProvider,
@@ -207,7 +213,7 @@ export default function WorktreeTabs({
         model: newModel || null,
         reasoningEffort: newReasoningEffort || null,
         internetAccess: newInternetAccess,
-        shareGitCredentials: newShareGitCredentials,
+        denyGitCredentialsAccess: newDenyGitCredentialsAccess,
       });
     }
     setNewName("");
@@ -216,7 +222,11 @@ export default function WorktreeTabs({
     setNewModel("");
     setNewReasoningEffort("");
     setNewInternetAccess(Boolean(defaultInternetAccess));
-    setNewShareGitCredentials(Boolean(defaultShareGitCredentials));
+    setNewDenyGitCredentialsAccess(
+      typeof defaultDenyGitCredentialsAccess === "boolean"
+        ? defaultDenyGitCredentialsAccess
+        : true
+    );
     setCreateDialogOpen(false);
   };
 
@@ -473,10 +483,10 @@ export default function WorktreeTabs({
                 <label className="worktree-toggle">
                   <input
                     type="checkbox"
-                    checked={newShareGitCredentials}
-                    onChange={(e) => setNewShareGitCredentials(e.target.checked)}
+                    checked={newDenyGitCredentialsAccess}
+                    onChange={(e) => setNewDenyGitCredentialsAccess(e.target.checked)}
                   />
-                  <span>{t("Share git credentials")}</span>
+                  <span>{t("Deny git credentials access")}</span>
                 </label>
               </div>
             </div>

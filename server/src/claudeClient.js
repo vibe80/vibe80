@@ -20,7 +20,7 @@ export class ClaudeCliClient extends EventEmitter {
     attachmentsDir,
     repoDir,
     internetAccess,
-    shareGitCredentials,
+    denyGitCredentialsAccess,
     gitDir,
     env,
     workspaceId,
@@ -30,9 +30,11 @@ export class ClaudeCliClient extends EventEmitter {
     this.attachmentsDir = attachmentsDir;
     this.repoDir = repoDir || cwd;
     this.internetAccess = internetAccess ?? true;
-    this.shareGitCredentials = shareGitCredentials ?? false;
-    if (this.internetAccess === false && !this.shareGitCredentials) {
-      throw new Error("Invalid Claude configuration: shareGitCredentials required when internetAccess is false.");
+    this.denyGitCredentialsAccess = denyGitCredentialsAccess ?? true;
+    if (this.internetAccess === false && this.denyGitCredentialsAccess) {
+      throw new Error(
+        "Invalid Claude configuration: denyGitCredentialsAccess must be false when internetAccess is false."
+      );
     }
     this.gitDir = gitDir || null;
     this.env = env || process.env;
@@ -77,11 +79,12 @@ export class ClaudeCliClient extends EventEmitter {
         `Unable to ensure Claude config exists: ${error?.message || error}`
       );
     }
+    const shareGitCredentials = !this.denyGitCredentialsAccess;
     const allowedDirs = [
       this.cwd,
       this.repoDir,
       this.attachmentsDir,
-      this.shareGitCredentials ? this.gitDir : null,
+      shareGitCredentials ? this.gitDir : null,
     ]
       .filter(Boolean)
       .filter((value, index, self) => self.indexOf(value) === index);
@@ -128,7 +131,7 @@ export class ClaudeCliClient extends EventEmitter {
             netMode: "tcp:53,443",
             extraAllowRw: [
               path.join(getWorkspaceHome(this.workspaceId), ".claude"),
-              ...(this.shareGitCredentials && this.gitDir ? [this.gitDir] : []),
+              ...(shareGitCredentials && this.gitDir ? [this.gitDir] : []),
             ],
             extraAllowRwFiles: [
               path.join(getWorkspaceHome(this.workspaceId), ".claude.json"),

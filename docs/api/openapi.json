@@ -1483,7 +1483,7 @@
           "defaultInternetAccess": {
             "type": "boolean"
           },
-          "defaultShareGitCredentials": {
+          "defaultDenyGitCredentialsAccess": {
             "type": "boolean"
           }
         },
@@ -1513,7 +1513,7 @@
           "defaultInternetAccess": {
             "type": "boolean"
           },
-          "defaultShareGitCredentials": {
+          "defaultDenyGitCredentialsAccess": {
             "type": "boolean"
           }
         },
@@ -1565,7 +1565,7 @@
           "defaultInternetAccess": {
             "type": "boolean"
           },
-          "defaultShareGitCredentials": {
+          "defaultDenyGitCredentialsAccess": {
             "type": "boolean"
           }
         },
@@ -1696,7 +1696,7 @@
           "internetAccess": {
             "type": "boolean"
           },
-          "shareGitCredentials": {
+          "denyGitCredentialsAccess": {
             "type": "boolean"
           }
         },
@@ -1754,7 +1754,7 @@
           "internetAccess": {
             "type": "boolean"
           },
-          "shareGitCredentials": {
+          "denyGitCredentialsAccess": {
             "type": "boolean"
           }
         },
@@ -1788,7 +1788,7 @@
           "internetAccess": {
             "type": "boolean"
           },
-          "shareGitCredentials": {
+          "denyGitCredentialsAccess": {
             "type": "boolean"
           }
         },
@@ -1841,7 +1841,7 @@
           "internetAccess": {
             "type": "boolean"
           },
-          "shareGitCredentials": {
+          "denyGitCredentialsAccess": {
             "type": "boolean"
           }
         },

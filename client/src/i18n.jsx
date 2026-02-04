@@ -199,7 +199,7 @@ const translations = {
     "Session not found.": "Session introuvable.",
     "Settings": "Paramètres",
     "setup_token": "setup_token",
-    "Share git credentials": "Share git credentials",
+    "Deny git credentials access": "Refuser l'accès aux identifiants Git",
     "Show a notification and sound when a new message arrives.": "Affiche une notification et un son quand un nouveau message arrive.",
     "Show commands in chat": "Afficher les commandes dans le chat",
     "Show executed command blocks in the conversation.": "Affiche les blocs de commandes exécutées dans la conversation.",

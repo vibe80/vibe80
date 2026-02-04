@@ -1327,12 +1327,17 @@ const ensureSshConfigEntry = async (workspaceId, host, keyPath, sshPaths) => {
   await writeWorkspaceFile(workspaceId, sshConfigPath, nextContent, 0o600);
 };
 
+const resolveDefaultDenyGitCredentialsAccess = (session) =>
+  typeof session?.defaultDenyGitCredentialsAccess === "boolean"
+    ? session.defaultDenyGitCredentialsAccess
+    : true;
+
 const createSession = async (
   workspaceId,
   repoUrl,
   auth,
   defaultInternetAccess,
-  defaultShareGitCredentials,
+  defaultDenyGitCredentialsAccess,
   name
 ) => {
   const workspaceConfig = await readWorkspaceConfig(workspaceId);
@@ -1343,10 +1348,11 @@ const createSession = async (
   }
   const resolvedInternetAccess =
     typeof defaultInternetAccess === "boolean" ? defaultInternetAccess : true;
-  const resolvedShareGitCredentials =
-    typeof defaultShareGitCredentials === "boolean"
-      ? defaultShareGitCredentials
-      : false;
+  const resolvedDenyGitCredentialsAccess =
+    typeof defaultDenyGitCredentialsAccess === "boolean"
+      ? defaultDenyGitCredentialsAccess
+      : true;
+  const resolvedShareGitCredentials = !resolvedDenyGitCredentialsAccess;
   const resolvedName = typeof name === "string" && name.trim()
     ? name.trim()
     : generateSessionName();
@@ -1459,7 +1465,7 @@ const createSession = async (
         activeProvider: defaultProvider,
         providers: enabledProviders,
         defaultInternetAccess: resolvedInternetAccess,
-        defaultShareGitCredentials: resolvedShareGitCredentials,
+        defaultDenyGitCredentialsAccess: resolvedDenyGitCredentialsAccess,
         gitDir: gitCredsDir,
         createdAt: Date.now(),
         lastActivityAt: Date.now(),
@@ -2835,10 +2841,10 @@ wss.on("connection", (socket, req) => {
           model,
           reasoningEffort,
           internetAccess: Boolean(payload.internetAccess),
-          shareGitCredentials:
-            typeof payload.shareGitCredentials === "boolean"
-              ? payload.shareGitCredentials
-              : Boolean(session.defaultShareGitCredentials),
+          denyGitCredentialsAccess:
+            typeof payload.denyGitCredentialsAccess === "boolean"
+              ? payload.denyGitCredentialsAccess
+              : resolveDefaultDenyGitCredentialsAccess(session),
         });
 
         // Attach events to the client
@@ -2900,7 +2906,10 @@ wss.on("connection", (socket, req) => {
           model: worktree.model || null,
           reasoningEffort: worktree.reasoningEffort || null,
           internetAccess: Boolean(worktree.internetAccess),
-          shareGitCredentials: Boolean(worktree.shareGitCredentials),
+          denyGitCredentialsAccess:
+            typeof worktree.denyGitCredentialsAccess === "boolean"
+              ? worktree.denyGitCredentialsAccess
+              : true,
           status: worktree.status,
           color: worktree.color,
         });
@@ -3335,8 +3344,10 @@ if (terminalWss) {
     }
     const env = { ...process.env };
     const cwd = worktree?.path || session.repoDir;
-    const allowGitCreds = worktree?.shareGitCredentials
-      ?? session.defaultShareGitCredentials;
+    const denyGitCreds = typeof worktree?.denyGitCredentialsAccess === "boolean"
+      ? worktree.denyGitCredentialsAccess
+      : resolveDefaultDenyGitCredentialsAccess(session);
+    const allowGitCreds = !denyGitCreds;
     const gitDir = session.gitDir || path.join(session.dir, "git");
     if (isMonoUser) {
       term = pty.spawn(shell, [], {
@@ -3647,10 +3658,7 @@ app.get("/api/session/:sessionId", async (req, res) => {
       typeof session.defaultInternetAccess === "boolean"
         ? session.defaultInternetAccess
         : true,
-    defaultShareGitCredentials:
-      typeof session.defaultShareGitCredentials === "boolean"
-        ? session.defaultShareGitCredentials
-        : false,
+    defaultDenyGitCredentialsAccess: resolveDefaultDenyGitCredentialsAccess(session),
     repoDiff,
     rpcLogsEnabled: debugApiWsLog,
     rpcLogs: debugApiWsLog ? session.rpcLogs || [] : [],
@@ -3828,14 +3836,17 @@ app.post("/api/session", async (req, res) => {
   try {
     const auth = req.body?.auth || null;
     const defaultInternetAccess = req.body?.defaultInternetAccess;
-    const defaultShareGitCredentials = req.body?.defaultShareGitCredentials;
+    const defaultDenyGitCredentialsAccess =
+      typeof req.body?.defaultDenyGitCredentialsAccess === "boolean"
+        ? req.body.defaultDenyGitCredentialsAccess
+        : undefined;
     const name = req.body?.name;
     const session = await createSession(
       req.workspaceId,
       repoUrl,
       auth,
       defaultInternetAccess,
-      defaultShareGitCredentials,
+      defaultDenyGitCredentialsAccess,
       name
     );
     res.json({
@@ -3850,10 +3861,7 @@ app.post("/api/session", async (req, res) => {
         typeof session.defaultInternetAccess === "boolean"
           ? session.defaultInternetAccess
           : true,
-      defaultShareGitCredentials:
-        typeof session.defaultShareGitCredentials === "boolean"
-          ? session.defaultShareGitCredentials
-          : false,
+      defaultDenyGitCredentialsAccess: resolveDefaultDenyGitCredentialsAccess(session),
       messages: [],
       rpcLogsEnabled: debugApiWsLog,
       terminalEnabled,
@@ -4061,19 +4069,17 @@ app.post("/api/worktree", async (req, res) => {
         : typeof session.defaultInternetAccess === "boolean"
           ? session.defaultInternetAccess
           : true;
-    const shareGitCredentials =
-      typeof req.body?.shareGitCredentials === "boolean"
-        ? req.body.shareGitCredentials
-        : typeof session.defaultShareGitCredentials === "boolean"
-          ? session.defaultShareGitCredentials
-          : false;
+    const denyGitCredentialsAccess =
+      typeof req.body?.denyGitCredentialsAccess === "boolean"
+        ? req.body.denyGitCredentialsAccess
+        : resolveDefaultDenyGitCredentialsAccess(session);
     const worktree = await createWorktree(session, {
       provider,
       name: req.body?.name || null,
       parentWorktreeId: req.body?.parentWorktreeId || null,
       startingBranch: req.body?.startingBranch || null,
       internetAccess,
-      shareGitCredentials,
+      denyGitCredentialsAccess,
     });
 
     // Attacher les événements au client
@@ -4102,7 +4108,10 @@ app.post("/api/worktree", async (req, res) => {
       branchName: worktree.branchName,
       provider: worktree.provider,
       internetAccess: Boolean(worktree.internetAccess),
-      shareGitCredentials: Boolean(worktree.shareGitCredentials),
+      denyGitCredentialsAccess:
+        typeof worktree.denyGitCredentialsAccess === "boolean"
+          ? worktree.denyGitCredentialsAccess
+          : true,
       status: worktree.status,
       color: worktree.color,
     });
@@ -4140,7 +4149,10 @@ app.get("/api/worktree/:worktreeId", async (req, res) => {
       model: worktree.model || null,
       reasoningEffort: worktree.reasoningEffort || null,
       internetAccess: Boolean(worktree.internetAccess),
-      shareGitCredentials: Boolean(worktree.shareGitCredentials),
+      denyGitCredentialsAccess:
+        typeof worktree.denyGitCredentialsAccess === "boolean"
+          ? worktree.denyGitCredentialsAccess
+          : true,
       status: worktree.status,
       messages: worktree.messages,
       color: worktree.color,

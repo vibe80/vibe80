@@ -730,7 +730,7 @@ function App() {
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [sessionMode, setSessionMode] = useState("new");
   const [defaultInternetAccess, setDefaultInternetAccess] = useState(true);
-  const [defaultShareGitCredentials, setDefaultShareGitCredentials] = useState(false);
+  const [defaultDenyGitCredentialsAccess, setDefaultDenyGitCredentialsAccess] = useState(true);
   const [workspaceSessions, setWorkspaceSessions] = useState([]);
   const [workspaceSessionsLoading, setWorkspaceSessionsLoading] = useState(false);
   const [workspaceSessionsError, setWorkspaceSessionsError] = useState("");
@@ -2877,7 +2877,10 @@ function App() {
               model: payload.model || null,
               reasoningEffort: payload.reasoningEffort || null,
               internetAccess: Boolean(payload.internetAccess),
-              shareGitCredentials: Boolean(payload.shareGitCredentials),
+              denyGitCredentialsAccess:
+                typeof payload.denyGitCredentialsAccess === "boolean"
+                  ? payload.denyGitCredentialsAccess
+                  : true,
               status: payload.status || "creating",
               color: payload.color,
               messages: [],
@@ -3499,7 +3502,7 @@ function App() {
         const payload = {
           repoUrl,
           defaultInternetAccess,
-          defaultShareGitCredentials,
+          defaultDenyGitCredentialsAccess,
         };
         const trimmedName = sessionNameInput.trim();
         if (trimmedName) {
@@ -3593,7 +3596,7 @@ function App() {
     apiFetch,
     sessionMode,
     defaultInternetAccess,
-    defaultShareGitCredentials,
+    defaultDenyGitCredentialsAccess,
     sessionNameInput,
   ]);
 
@@ -3931,10 +3934,12 @@ function App() {
   }, [attachmentSession?.defaultInternetAccess]);
 
   useEffect(() => {
-    if (typeof attachmentSession?.defaultShareGitCredentials === "boolean") {
-      setDefaultShareGitCredentials(attachmentSession.defaultShareGitCredentials);
+    if (typeof attachmentSession?.defaultDenyGitCredentialsAccess === "boolean") {
+      setDefaultDenyGitCredentialsAccess(
+        attachmentSession.defaultDenyGitCredentialsAccess
+      );
     }
-  }, [attachmentSession?.defaultShareGitCredentials]);
+  }, [attachmentSession?.defaultDenyGitCredentialsAccess]);
 
   useEffect(() => {
     if (!attachmentSession?.default_provider && !attachmentSession?.providers) {
@@ -4258,7 +4263,7 @@ function App() {
       model,
       reasoningEffort,
       internetAccess,
-      shareGitCredentials,
+      denyGitCredentialsAccess,
     }) => {
       if (!socketRef.current || !connected) return;
 
@@ -4273,7 +4278,7 @@ function App() {
           model: model || null,
           reasoningEffort: reasoningEffort ?? null,
           internetAccess: Boolean(internetAccess),
-          shareGitCredentials: Boolean(shareGitCredentials),
+          denyGitCredentialsAccess: Boolean(denyGitCredentialsAccess),
         })
       );
     },
@@ -5970,13 +5975,13 @@ function App() {
                     <label className="session-auth-option">
                       <input
                         type="checkbox"
-                        checked={defaultShareGitCredentials}
+                        checked={defaultDenyGitCredentialsAccess}
                         onChange={(event) =>
-                          setDefaultShareGitCredentials(event.target.checked)
+                          setDefaultDenyGitCredentialsAccess(event.target.checked)
                         }
                         disabled={formDisabled}
                       />
-                      {t("Share git credentials")}
+                      {t("Deny git credentials access")}
                     </label>
                   </div>
                 </div>
@@ -6226,7 +6231,7 @@ function App() {
               branchLoading={branchLoading}
               branchError={branchError}
               defaultInternetAccess={defaultInternetAccess}
-              defaultShareGitCredentials={defaultShareGitCredentials}
+              defaultDenyGitCredentialsAccess={defaultDenyGitCredentialsAccess}
               onRefreshBranches={loadBranches}
               providerModelState={providerModelState}
               onRequestProviderModels={loadProviderModels}

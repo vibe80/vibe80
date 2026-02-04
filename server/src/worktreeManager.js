@@ -108,6 +108,11 @@ const serializeWorktree = (worktree) => {
   return persisted;
 };
 
+const resolveSessionDenyGitCredentialsAccess = (session) =>
+  typeof session?.defaultDenyGitCredentialsAccess === "boolean"
+    ? session.defaultDenyGitCredentialsAccess
+    : true;
+
 const touchSession = async (session) => {
   const updated = { ...session, lastActivityAt: Date.now() };
   await storage.saveSession(session.sessionId, updated);
@@ -138,7 +143,7 @@ const ensureMainWorktree = async (session) => {
     model: null,
     reasoningEffort: null,
     internetAccess: Boolean(session.defaultInternetAccess),
-    shareGitCredentials: Boolean(session.defaultShareGitCredentials),
+    denyGitCredentialsAccess: resolveSessionDenyGitCredentialsAccess(session),
     startingBranch: branchName || null,
     workspaceId: session.workspaceId,
     messages: Array.isArray(seedMessages) ? seedMessages : [],
@@ -181,8 +186,13 @@ export async function createWorktree(session, options) {
     model,
     reasoningEffort,
     internetAccess,
-    shareGitCredentials,
+    denyGitCredentialsAccess,
   } = options;
+  const resolvedDenyGitCredentialsAccess =
+    typeof denyGitCredentialsAccess === "boolean"
+      ? denyGitCredentialsAccess
+      : resolveSessionDenyGitCredentialsAccess(session);
+  const shareGitCredentials = !resolvedDenyGitCredentialsAccess;
 
   const worktreesDir = path.join(session.dir, "worktrees");
   await runAsCommand(session.workspaceId, "/bin/mkdir", ["-p", worktreesDir]);
@@ -302,7 +312,7 @@ export async function createWorktree(session, options) {
     model: model || null,
     reasoningEffort: reasoningEffort || null,
     internetAccess: Boolean(internetAccess),
-    shareGitCredentials: Boolean(shareGitCredentials),
+    denyGitCredentialsAccess: resolvedDenyGitCredentialsAccess,
     startingBranch: startingBranch || null,
     workspaceId: session.workspaceId,
     messages: [],
@@ -513,7 +523,10 @@ export async function listWorktrees(session) {
     messageCount: Array.isArray(wt.messages) ? wt.messages.length : 0,
     parentWorktreeId: wt.parentWorktreeId,
     internetAccess: Boolean(wt.internetAccess),
-    shareGitCredentials: Boolean(wt.shareGitCredentials),
+    denyGitCredentialsAccess:
+      typeof wt.denyGitCredentialsAccess === "boolean"
+        ? wt.denyGitCredentialsAccess
+        : true,
     createdAt: wt.createdAt,
     lastActivityAt: wt.lastActivityAt,
     color: wt.color,
