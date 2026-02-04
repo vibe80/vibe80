@@ -767,10 +767,10 @@ export default function WorktreeTabs({
         }
 
         .worktree-create-field .worktree-toggle {
-          display: inline-flex;
-          align-items: center;
-          justify-content: flex-start;
-          gap: 8px;
+          display: grid;
+          grid-template-columns: 16px 1fr;
+          align-items: start;
+          column-gap: 8px;
           font-size: 13px;
           color: inherit;
           margin-bottom: 6px;
@@ -778,8 +778,7 @@ export default function WorktreeTabs({
         }
 
         .worktree-toggle span {
-          line-height: 1;
-          white-space: nowrap;
+          line-height: 1.2;
         }
 
         .worktree-toggle input {
