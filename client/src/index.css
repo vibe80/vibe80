@@ -100,7 +100,7 @@ textarea {
   box-sizing: border-box;
 }
 
-.session-panel {
+.session-shell {
   width: 100%;
   height: 100%;
   background: var(--surface);
@@ -114,7 +114,7 @@ textarea {
   min-height: calc(100vh - 64px);
 }
 
-.session-panel h1 {
+.session-shell h1 {
   margin: 0;
   font-size: clamp(28px, 3vw, 36px);
 }

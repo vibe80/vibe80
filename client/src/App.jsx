@@ -5426,7 +5426,7 @@ function App() {
     return (
       <div className="session-gate session-fullscreen">
         <div className="session-layout session-layout--fullscreen">
-          <div className="session-panel">
+          <div className="session-shell">
             <div className="session-header">
               {showStep4 && (
                 <button
