@@ -4428,11 +4428,11 @@ function App() {
     }
     sendWorktreeMessage(
       closeConfirm.worktreeId,
-      `Merge vers ${mergeTargetBranch}`,
+      t("Merge into {{branch}}", { branch: mergeTargetBranch }),
       []
     );
     setCloseConfirm(null);
-  }, [closeConfirm, mergeTargetBranch, sendWorktreeMessage]);
+  }, [closeConfirm, mergeTargetBranch, sendWorktreeMessage, t]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!closeConfirm?.worktreeId) {
