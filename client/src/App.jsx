@@ -741,6 +741,7 @@ function App() {
   });
   const [toast, setToast] = useState(null);
   const [workspaceProvidersEditing, setWorkspaceProvidersEditing] = useState(false);
+  const [providersBackStep, setProvidersBackStep] = useState(1);
   const [workspaceAuthExpanded, setWorkspaceAuthExpanded] = useState(() => ({
     codex: false,
     claude: false,
@@ -3646,6 +3647,7 @@ function App() {
         return;
       }
       setWorkspaceProvidersEditing(false);
+      setProvidersBackStep(1);
       setWorkspaceStep(2);
     } catch (error) {
       setWorkspaceError(
@@ -6005,7 +6007,7 @@ function App() {
                     type="button"
                     className="session-button secondary"
                     onClick={() => {
-                      if (workspaceProvidersEditing) {
+                      if (providersBackStep === 4) {
                         setWorkspaceProvidersEditing(false);
                         setWorkspaceStep(4);
                         return;
@@ -6047,6 +6049,7 @@ function App() {
                     onClick={() => {
                       setWorkspaceProvidersEditing(true);
                       setWorkspaceError("");
+                      setProvidersBackStep(4);
                       setWorkspaceStep(2);
                     }}
                   >
@@ -6058,11 +6061,12 @@ function App() {
                       type="button"
                       className="session-button secondary"
                       disabled={formDisabled}
-                      onClick={() => {
-                        setWorkspaceProvidersEditing(true);
-                        setWorkspaceError("");
-                        setWorkspaceStep(2);
-                      }}
+                    onClick={() => {
+                      setWorkspaceProvidersEditing(true);
+                      setWorkspaceError("");
+                      setProvidersBackStep(4);
+                      setWorkspaceStep(2);
+                    }}
                     >
                       {t("AI providers")}
                     </button>
