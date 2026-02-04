@@ -31,6 +31,9 @@ export class ClaudeCliClient extends EventEmitter {
     this.repoDir = repoDir || cwd;
     this.internetAccess = internetAccess ?? true;
     this.shareGitCredentials = shareGitCredentials ?? false;
+    if (this.internetAccess === false && !this.shareGitCredentials) {
+      throw new Error("Invalid Claude configuration: shareGitCredentials required when internetAccess is false.");
+    }
     this.gitDir = gitDir || null;
     this.env = env || process.env;
     this.workspaceId = workspaceId;

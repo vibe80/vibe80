@@ -26,6 +26,9 @@ export class CodexAppServerClient extends EventEmitter {
     this.repoDir = repoDir || cwd;
     this.internetAccess = internetAccess ?? true;
     this.shareGitCredentials = shareGitCredentials ?? false;
+    if (this.internetAccess === false && !this.shareGitCredentials) {
+      throw new Error("Invalid Codex configuration: shareGitCredentials required when internetAccess is false.");
+    }
     this.gitDir = gitDir || null;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
@@ -42,6 +45,20 @@ export class CodexAppServerClient extends EventEmitter {
       "codex",
       "app-server"
     ];
+    const useLandlock = this.internetAccess;
+    const sandboxArgs = !isMonoUser && useLandlock
+      ? buildSandboxArgs({
+          cwd: this.cwd,
+          repoDir: this.repoDir,
+          attachmentsDir: this.attachmentsDir,
+          internetAccess: this.internetAccess,
+          netMode: "tcp:53,443",
+          extraAllowRw: [
+            path.join(getWorkspaceHome(this.workspaceId), ".codex"),
+            ...(this.shareGitCredentials && this.gitDir ? [this.gitDir] : []),
+          ],
+        })
+      : [];
     const spawnCommand = isMonoUser ? codexArgs[0] : SUDO_PATH;
     const spawnArgs = isMonoUser
       ? codexArgs.slice(1)
@@ -52,17 +69,7 @@ export class CodexAppServerClient extends EventEmitter {
           this.workspaceId,
           "--cwd",
           this.cwd,
-          ...buildSandboxArgs({
-            cwd: this.cwd,
-            repoDir: this.repoDir,
-            attachmentsDir: this.attachmentsDir,
-            internetAccess: this.internetAccess,
-            netMode: "tcp:53,443",
-            extraAllowRw: [
-              path.join(getWorkspaceHome(this.workspaceId), ".codex"),
-              ...(this.shareGitCredentials && this.gitDir ? [this.gitDir] : []),
-            ],
-          }),
+          ...sandboxArgs,
           "--",
           ...codexArgs,
         ];
@@ -226,6 +233,7 @@ export class CodexAppServerClient extends EventEmitter {
       this.attachmentsDir,
       this.shareGitCredentials ? this.gitDir : null,
     ].filter(Boolean);
+    const sandboxMode = this.internetAccess ? "danger-full-access" : "workspace-write";
 
     const params = {
       cwd: this.cwd,
@@ -237,7 +245,7 @@ export class CodexAppServerClient extends EventEmitter {
         "web_search": this.internetAccess ? "live" : "disabled"
       },
       baseInstructions: SYSTEM_PROMPT,
-      sandbox: "danger-full-access",
+      sandbox: sandboxMode,
       approvalPolicy: "never"
     };
 
