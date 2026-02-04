@@ -96,6 +96,29 @@ data class WorktreeCreateResponse(
 )
 
 @Serializable
+data class WorktreeCreateApiRequest(
+    val session: String,
+    val provider: String,
+    val name: String? = null,
+    val parentWorktreeId: String? = null,
+    val startingBranch: String? = null,
+    val model: String? = null,
+    val reasoningEffort: String? = null
+)
+
+@Serializable
+data class WorktreeCreateResponse(
+    val worktreeId: String,
+    val name: String? = null,
+    val branchName: String? = null,
+    val provider: LLMProvider,
+    val status: WorktreeStatus? = null,
+    val color: String? = null,
+    val internetAccess: Boolean? = null,
+    val denyGitCredentialsAccess: Boolean? = null
+)
+
+@Serializable
 data class WorktreeDiffResponse(
     val status: String,
     val diff: String
