@@ -766,7 +766,7 @@ export default function WorktreeTabs({
           margin-bottom: 6px;
         }
 
-        .worktree-toggle {
+        .worktree-create-field .worktree-toggle {
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -776,11 +776,16 @@ export default function WorktreeTabs({
           width: 100%;
         }
 
+        .worktree-toggle span {
+          line-height: 1;
+        }
+
         .worktree-toggle input {
           accent-color: var(--accent, #ee5d3b);
           width: auto;
           flex: 0 0 auto;
           margin: 0;
+          margin-top: 0;
         }
 
         .worktree-create-field input,
