@@ -4667,6 +4667,21 @@ function App() {
     : currentTurnId;
   const canInterrupt = currentProcessing && Boolean(currentTurnIdForActive);
 
+  const handleViewSelect = useCallback((nextPane) => {
+    if ((!debugMode || !rpcLogsEnabled) && nextPane === "logs") {
+      return;
+    }
+    if (!terminalEnabled && nextPane === "terminal") {
+      return;
+    }
+    const key = activeWorktreeId || "main";
+    setPaneByTab((current) => ({
+      ...current,
+      [key]: nextPane,
+    }));
+    setToolbarExportOpen(false);
+  }, [activeWorktreeId, debugMode, rpcLogsEnabled, terminalEnabled]);
+
   // Handle send message - route to worktree or legacy
   const handleSendMessage = useCallback(
     (textOverride, attachmentsOverride) => {
@@ -4882,21 +4897,6 @@ function App() {
       uploadInputRef.current?.click();
     });
   }, [attachmentSession, attachmentsLoading]);
-
-  const handleViewSelect = useCallback((nextPane) => {
-    if ((!debugMode || !rpcLogsEnabled) && nextPane === "logs") {
-      return;
-    }
-    if (!terminalEnabled && nextPane === "terminal") {
-      return;
-    }
-    const key = activeWorktreeId || "main";
-    setPaneByTab((current) => ({
-      ...current,
-      [key]: nextPane,
-    }));
-    setToolbarExportOpen(false);
-  }, [activeWorktreeId, debugMode, rpcLogsEnabled, terminalEnabled]);
 
   const handleLeaveSession = useCallback(() => {
     setAttachmentSession(null);
