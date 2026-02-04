@@ -5966,23 +5966,31 @@ function App() {
                         type="checkbox"
                         checked={defaultInternetAccess}
                         onChange={(event) =>
-                          setDefaultInternetAccess(event.target.checked)
+                          {
+                            const checked = event.target.checked;
+                            setDefaultInternetAccess(checked);
+                            if (!checked) {
+                              setDefaultDenyGitCredentialsAccess(false);
+                            }
+                          }
                         }
                         disabled={formDisabled}
                       />
                       {t("Internet access")}
                     </label>
-                    <label className="session-auth-option">
-                      <input
-                        type="checkbox"
-                        checked={defaultDenyGitCredentialsAccess}
-                        onChange={(event) =>
-                          setDefaultDenyGitCredentialsAccess(event.target.checked)
-                        }
-                        disabled={formDisabled}
-                      />
-                      {t("Deny git credentials access")}
-                    </label>
+                    {defaultInternetAccess && (
+                      <label className="session-auth-option">
+                        <input
+                          type="checkbox"
+                          checked={defaultDenyGitCredentialsAccess}
+                          onChange={(event) =>
+                            setDefaultDenyGitCredentialsAccess(event.target.checked)
+                          }
+                          disabled={formDisabled}
+                        />
+                        {t("Deny git credentials access")}
+                      </label>
+                    )}
                   </div>
                 </div>
               </form>

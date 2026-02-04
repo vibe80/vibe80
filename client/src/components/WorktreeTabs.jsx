@@ -474,21 +474,29 @@ export default function WorktreeTabs({
                   <input
                     type="checkbox"
                     checked={newInternetAccess}
-                    onChange={(e) => setNewInternetAccess(e.target.checked)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setNewInternetAccess(checked);
+                      if (!checked) {
+                        setNewDenyGitCredentialsAccess(false);
+                      }
+                    }}
                   />
                   <span>{t("Internet access")}</span>
                 </label>
               </div>
-              <div className="worktree-create-field worktree-toggle-field">
-                <label className="worktree-toggle">
-                  <input
-                    type="checkbox"
-                    checked={newDenyGitCredentialsAccess}
-                    onChange={(e) => setNewDenyGitCredentialsAccess(e.target.checked)}
-                  />
-                  <span>{t("Deny git credentials access")}</span>
-                </label>
-              </div>
+              {newInternetAccess && (
+                <div className="worktree-create-field worktree-toggle-field">
+                  <label className="worktree-toggle">
+                    <input
+                      type="checkbox"
+                      checked={newDenyGitCredentialsAccess}
+                      onChange={(e) => setNewDenyGitCredentialsAccess(e.target.checked)}
+                    />
+                    <span>{t("Deny git credentials access")}</span>
+                  </label>
+                </div>
+              )}
             </div>
             <div className="worktree-create-actions">
               <button
