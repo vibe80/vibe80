@@ -76,10 +76,11 @@ textarea {
   min-height: 100dvh;
   height: 100vh;
   height: 100dvh;
-  display: grid;
-  place-items: center;
   padding: 24px;
-  overflow-y: auto;
+}
+
+.session-gate.session-fullscreen {
+  padding: 0;
 }
 
 .session-layout {
@@ -90,20 +91,54 @@ textarea {
   align-items: start;
 }
 
-.session-card {
+.session-layout--fullscreen {
   width: 100%;
-  background: var(--surface);
-  border-radius: 24px;
-  padding: 32px;
-  box-shadow: var(--shadow);
-  display: grid;
-  gap: 16px;
-  position: relative;
+  height: 100%;
+  padding: 32px 40px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: stretch;
+  box-sizing: border-box;
 }
 
-.session-card h1 {
+.session-panel {
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 24px 32px;
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  position: relative;
+  min-height: calc(100vh - 64px);
+}
+
+.session-panel h1 {
   margin: 0;
   font-size: clamp(28px, 3vw, 36px);
+}
+
+.session-header {
+  display: grid;
+  gap: 8px;
+}
+
+.session-body {
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.session-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 8px;
+  background: var(--surface);
+}
+
+.session-footer-full {
+  width: 100%;
 }
 
 .session-hint {
@@ -4257,10 +4292,14 @@ main.chat {
     padding: 16px;
   }
 
-  .session-card {
-    width: 100%;
-    margin: 0 auto;
-    padding: 24px;
+  .session-layout--fullscreen {
+    padding: 20px 16px;
+    grid-template-columns: 1fr;
+  }
+
+  .session-panel {
+    padding: 20px;
+    min-height: auto;
   }
 
   .session-form-row {

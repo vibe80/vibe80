@@ -5381,6 +5381,15 @@ function App() {
     const showStep2 = workspaceStep === 2;
     const showStep3 = workspaceStep === 3 && workspaceToken;
     const showStep4 = workspaceStep === 4 && workspaceToken;
+    const headerHint = showStep1
+      ? t("Select an existing workspace or create a new one.")
+      : showStep2
+        ? t("Configure AI providers for this workspace.")
+        : showStep3
+          ? t(
+              "Votre workspace a ete cree avec succes. Gardez ces identifiants scrupuleusement pour un futur acces."
+            )
+          : null;
     const infoContent = showStep2
       ? {
           title: t("Configure AI providers"),
@@ -5415,36 +5424,41 @@ function App() {
             ],
           };
     return (
-      <div className="session-gate">
-        <div className="session-layout">
-          <div className="session-card">
-          {showStep4 && (
-            <button
-              type="button"
-              className="icon-button session-card-action"
-              onClick={handleLeaveWorkspace}
-              aria-label={t("Leave workspace")}
-              title={t("Leave workspace")}
-            >
-              <FontAwesomeIcon icon={faRightFromBracket} />
-            </button>
-          )}
-          <img className="brand-logo" src={vibe80Logo} alt="vibe80" />
-          <h1>
-            {showStep4
-              ? t("Clone a session")
-              : showStep3
-                ? t("Workspace created")
-              : showStep2
-                ? t("Configure AI providers")
-                : t("Configure the workspace")}
-          </h1>
-          {showStep1 && (
-            <>
-              <p className="session-hint">
-                {t("Select an existing workspace or create a new one.")}
-              </p>
-              <form className="session-form" onSubmit={handleWorkspaceSubmit}>
+      <div className="session-gate session-fullscreen">
+        <div className="session-layout session-layout--fullscreen">
+          <div className="session-panel">
+            <div className="session-header">
+              {showStep4 && (
+                <button
+                  type="button"
+                  className="icon-button session-card-action"
+                  onClick={handleLeaveWorkspace}
+                  aria-label={t("Leave workspace")}
+                  title={t("Leave workspace")}
+                >
+                  <FontAwesomeIcon icon={faRightFromBracket} />
+                </button>
+              )}
+              <img className="brand-logo" src={vibe80Logo} alt="vibe80" />
+              <h1>
+                {showStep4
+                  ? t("Clone a session")
+                  : showStep3
+                    ? t("Workspace created")
+                    : showStep2
+                      ? t("Configure AI providers")
+                      : t("Configure the workspace")}
+              </h1>
+              {headerHint ? <p className="session-hint">{headerHint}</p> : null}
+            </div>
+            <div className="session-body">
+              {showStep1 && (
+                <>
+                  <form
+                    id="workspace-form"
+                    className="session-form"
+                    onSubmit={handleWorkspaceSubmit}
+                  >
                 <div className="session-workspace-options">
                   <button
                     type="button"
@@ -5522,29 +5536,20 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <div className="session-form-row">
-                  <div />
-                  <button
-                    type="submit"
-                    className="session-button primary"
-                    disabled={formDisabled}
-                  >
-                    {workspaceBusy ? t("Validating...") : t("Continue")}
-                  </button>
-                </div>
               </form>
-              {workspaceError && (
-                <div className="attachments-error">{workspaceError}</div>
+                  {workspaceError && (
+                    <div className="attachments-error">{workspaceError}</div>
+                  )}
+                </>
               )}
-            </>
-          )}
 
-          {showStep2 && (
-            <>
-              <p className="session-hint">
-                {t("Configure AI providers for this workspace.")}
-              </p>
-              <form className="session-form" onSubmit={handleWorkspaceProvidersSubmit}>
+              {showStep2 && (
+                <>
+                  <form
+                    id="providers-form"
+                    className="session-form"
+                    onSubmit={handleWorkspaceProvidersSubmit}
+                  >
                 <div className="session-auth">
                   <div className="session-auth-title">{t("AI providers")}</div>
                   <div className="session-auth-options session-auth-accordion">
@@ -5675,34 +5680,6 @@ function App() {
                     })}
                   </div>
                 </div>
-                <div className="session-form-row">
-                  <button
-                    type="button"
-                    className="session-button secondary"
-                    onClick={() => {
-                      if (workspaceProvidersEditing) {
-                        setWorkspaceProvidersEditing(false);
-                        setWorkspaceStep(4);
-                        return;
-                      }
-                      setWorkspaceStep(1);
-                    }}
-                    disabled={formDisabled}
-                  >
-                    {t("Back")}
-                  </button>
-                  <button
-                    type="submit"
-                    className="session-button primary"
-                    disabled={formDisabled}
-                  >
-                    {workspaceBusy
-                      ? t("Validating...")
-                      : workspaceProvidersEditing
-                        ? t("Save")
-                        : t("Continue")}
-                  </button>
-                </div>
               </form>
               {workspaceError && (
                 <div className="attachments-error">{workspaceError}</div>
@@ -5710,14 +5687,9 @@ function App() {
             </>
           )}
 
-          {showStep3 && (
-            <>
-              <p className="session-hint">
-                {t(
-                  "Votre workspace a ete cree avec succes. Gardez ces identifiants scrupuleusement pour un futur acces."
-                )}
-              </p>
-              <div className="workspace-created-card">
+              {showStep3 && (
+                <>
+                  <div className="workspace-created-card">
                 <div className="workspace-created-row">
                   <span className="workspace-created-label">
                     {t("Workspace ID")}
@@ -5765,22 +5737,11 @@ function App() {
                   </button>
                 </div>
               </div>
-              <div className="session-form-row">
-                <div />
-                <button
-                  type="button"
-                  className="session-button primary"
-                  onClick={() => setWorkspaceStep(4)}
-                  disabled={formDisabled}
-                >
-                  {t("Continue")}
-                </button>
-              </div>
             </>
           )}
 
-          {showStep4 && (
-            <div className="session-step">
+              {showStep4 && (
+                <div className="session-step">
               <div className="session-workspace-toggle">
                 <button
                   type="button"
@@ -5899,20 +5860,6 @@ function App() {
                       {workspaceSessionsError}
                     </div>
                   )}
-                  <div className="session-form-row single">
-                    <button
-                      type="button"
-                      className="session-button secondary"
-                      disabled={formDisabled}
-                      onClick={() => {
-                        setWorkspaceProvidersEditing(true);
-                        setWorkspaceError("");
-                        setWorkspaceStep(2);
-                      }}
-                    >
-                      {t("AI providers")}
-                    </button>
-                  </div>
                 </div>
               </div>
               <div
@@ -5929,7 +5876,11 @@ function App() {
                     )}
                   </div>
                 ) : (
-                  <form className="session-form session-form--compact" onSubmit={onRepoSubmit}>
+                  <form
+                    id="repo-form"
+                    className="session-form session-form--compact"
+                    onSubmit={onRepoSubmit}
+                  >
                     <div className="session-form-row is-compact-grid">
                       <input
                         type="text"
@@ -6085,10 +6036,69 @@ function App() {
                     </label>
                   </div>
                 </div>
-                <div className="session-form-row session-form-row--sticky">
+              </form>
+            )}
+              </div>
+              {attachmentsError && (
+                <div className="attachments-error">{attachmentsError}</div>
+              )}
+            </div>
+          )}
+            </div>
+            <div className="session-footer">
+              {showStep1 ? (
+                <button
+                  type="submit"
+                  form="workspace-form"
+                  className="session-button primary"
+                  disabled={formDisabled}
+                >
+                  {workspaceBusy ? t("Validating...") : t("Continue")}
+                </button>
+              ) : showStep2 ? (
+                <>
                   <button
                     type="button"
                     className="session-button secondary"
+                    onClick={() => {
+                      if (workspaceProvidersEditing) {
+                        setWorkspaceProvidersEditing(false);
+                        setWorkspaceStep(4);
+                        return;
+                      }
+                      setWorkspaceStep(1);
+                    }}
+                    disabled={formDisabled}
+                  >
+                    {t("Back")}
+                  </button>
+                  <button
+                    type="submit"
+                    form="providers-form"
+                    className="session-button primary"
+                    disabled={formDisabled}
+                  >
+                    {workspaceBusy
+                      ? t("Validating...")
+                      : workspaceProvidersEditing
+                        ? t("Save")
+                        : t("Continue")}
+                  </button>
+                </>
+              ) : showStep3 ? (
+                <button
+                  type="button"
+                  className="session-button primary"
+                  onClick={() => setWorkspaceStep(4)}
+                  disabled={formDisabled}
+                >
+                  {t("Continue")}
+                </button>
+              ) : showStep4 ? (
+                sessionMode === "existing" ? (
+                  <button
+                    type="button"
+                    className="session-button secondary session-footer-full"
                     disabled={formDisabled}
                     onClick={() => {
                       setWorkspaceProvidersEditing(true);
@@ -6098,23 +6108,33 @@ function App() {
                   >
                     {t("AI providers")}
                   </button>
-                  <button
-                    type="submit"
-                    className="session-button primary"
-                    disabled={formDisabled}
-                  >
-                    {sessionRequested ? t("Loading...") : t("Clone")}
-                  </button>
-                </div>
-              </form>
-            )}
-              </div>
-              {attachmentsError && (
-                <div className="attachments-error">{attachmentsError}</div>
-              )}
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="session-button secondary"
+                      disabled={formDisabled}
+                      onClick={() => {
+                        setWorkspaceProvidersEditing(true);
+                        setWorkspaceError("");
+                        setWorkspaceStep(2);
+                      }}
+                    >
+                      {t("AI providers")}
+                    </button>
+                    <button
+                      type="submit"
+                      form="repo-form"
+                      className="session-button primary"
+                      disabled={formDisabled}
+                    >
+                      {sessionRequested ? t("Loading...") : t("Clone")}
+                    </button>
+                  </>
+                )
+              ) : null}
             </div>
-          )}
-        </div>
+          </div>
         <aside className="session-info">
           <div className="session-info-card">
             <div className="session-info-title">
