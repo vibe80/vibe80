@@ -5902,40 +5902,16 @@ function App() {
                   <div className="session-auth-title">
                     {t("Repository authentication (optional)")}
                   </div>
-                  <div className="session-auth-options session-auth-options--inline-row">
-                    <label className="session-auth-option">
-                      <input
-                        type="radio"
-                        name="authMode"
-                        value="none"
-                        checked={authMode === "none"}
-                        onChange={() => setAuthMode("none")}
-                        disabled={formDisabled}
-                      />
-                      {t("None")}
-                    </label>
-                    <label className="session-auth-option">
-                      <input
-                        type="radio"
-                        name="authMode"
-                        value="ssh"
-                        checked={authMode === "ssh"}
-                        onChange={() => setAuthMode("ssh")}
-                        disabled={formDisabled}
-                      />
-                      {t("Private SSH key")}
-                    </label>
-                    <label className="session-auth-option">
-                      <input
-                        type="radio"
-                        name="authMode"
-                        value="http"
-                        checked={authMode === "http"}
-                        onChange={() => setAuthMode("http")}
-                        disabled={formDisabled}
-                      />
-                      {t("Username + password")}
-                    </label>
+                  <div className="session-auth-options">
+                    <select
+                      value={authMode}
+                      onChange={(event) => setAuthMode(event.target.value)}
+                      disabled={formDisabled}
+                    >
+                      <option value="none">{t("None")}</option>
+                      <option value="ssh">{t("Private SSH key")}</option>
+                      <option value="http">{t("Username + password")}</option>
+                    </select>
                   </div>
                   {authMode === "ssh" && (
                     <>
@@ -5979,7 +5955,7 @@ function App() {
                 </div>
                 <div className="session-auth session-auth-compact">
                   <div className="session-auth-title">{t("Permissions")}</div>
-                  <div className="session-auth-options session-auth-options--inline-row session-auth-options--compact">
+                  <div className="session-auth-options session-auth-options--compact">
                     <label className="session-auth-option">
                       <input
                         type="checkbox"
