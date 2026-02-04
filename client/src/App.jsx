@@ -37,7 +37,7 @@ import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import QRCode from "qrcode";
 import vibe80Logo from "./assets/logo_small.png";
 import { useI18n } from "./i18n.jsx";
-import * as CommandMenu from "cmdk";
+import { Command, CommandList, CommandItem } from "cmdk";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
@@ -7901,11 +7901,11 @@ function App() {
                 ) : null}
                 {commandMenuOpen && (
                   <div className="composer-command-menu">
-                    <CommandMenu.Command className="command-menu" shouldFilter={false}>
-                      <CommandMenu.List>
+                    <Command className="command-menu" shouldFilter={false}>
+                      <CommandList>
                         {filteredCommands.length ? (
                           filteredCommands.map((cmd) => (
-                            <CommandMenu.Item
+                            <CommandItem
                               key={cmd.id}
                               onSelect={() => {
                                 setInput(cmd.insert);
@@ -7923,15 +7923,15 @@ function App() {
                               <span className="command-item-desc">
                                 {cmd.description}
                               </span>
-                            </CommandMenu.Item>
+                            </CommandItem>
                           ))
                         ) : (
                           <div className="command-empty">
                             {t("No commands found.")}
                           </div>
                         )}
-                      </CommandMenu.List>
-                    </CommandMenu.Command>
+                      </CommandList>
+                    </Command>
                   </div>
                 )}
                 <div className="composer-main">
