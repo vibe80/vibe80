@@ -7843,11 +7843,10 @@ function App() {
                             {t("No options.")}
                           </div>
                         )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+                      </div>
+                    </div>
+                  );
+                }
                 if (field.type === "select") {
                   return (
                     <div className="vibe80-form-field" key={field.id}>
