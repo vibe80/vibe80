@@ -3667,6 +3667,12 @@ main.chat {
   max-width: calc(100% - 24px);
 }
 
+.composer.is-dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 3px rgba(255, 123, 31, 0.2);
+}
+
 .composer-inner {
   display: flex;
   flex-direction: column;
