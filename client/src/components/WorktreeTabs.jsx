@@ -774,11 +774,12 @@ export default function WorktreeTabs({
           font-size: 13px;
           color: inherit;
           margin-bottom: 6px;
-          width: auto;
+          width: 100%;
         }
 
         .worktree-toggle span {
           line-height: 1;
+          white-space: nowrap;
         }
 
         .worktree-toggle input {
