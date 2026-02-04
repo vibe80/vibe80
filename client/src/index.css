@@ -81,6 +81,8 @@ textarea {
 
 .session-gate.session-fullscreen {
   padding: 0;
+  display: flex;
+  justify-content: center;
 }
 
 .session-layout {
@@ -98,6 +100,8 @@ textarea {
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: stretch;
   box-sizing: border-box;
+  max-width: 1120px;
+  margin: 0 auto;
 }
 
 .session-shell {
@@ -296,6 +300,8 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .session-auth-options--compact {
@@ -336,27 +342,8 @@ textarea {
 .session-auth-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
-}
-
-.session-auth-toggle {
-  border: none;
-  background: rgba(20, 19, 17, 0.08);
-  color: var(--ink);
-  border-radius: 999px;
-  width: 28px;
-  height: 28px;
-  font-size: 12px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.session-auth-toggle:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .session-auth-file {
@@ -376,7 +363,8 @@ textarea {
   gap: 8px;
   font-size: 14px;
   color: var(--ink);
-  width: 100%;
+  width: auto;
+  justify-content: flex-start;
 }
 
 .session-auth-grid {

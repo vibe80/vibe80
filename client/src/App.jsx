@@ -5550,7 +5550,6 @@ function App() {
                     className="session-form"
                     onSubmit={handleWorkspaceProvidersSubmit}
                   >
-                <div className="session-auth">
                   <div className="session-auth-title">{t("AI providers")}</div>
                   <div className="session-auth-options session-auth-accordion">
                     {["codex", "claude"].map((provider) => {
@@ -5584,20 +5583,6 @@ function App() {
                               />
                               {label}
                             </label>
-                            <button
-                              type="button"
-                              className="session-auth-toggle"
-                              onClick={() =>
-                                setWorkspaceAuthExpanded((current) => ({
-                                  ...current,
-                                  [provider]: !current[provider],
-                                }))
-                              }
-                              disabled={!isEnabled}
-                              aria-expanded={expanded}
-                            >
-                              {expanded ? "▲" : "▼"}
-                            </button>
                           </div>
                           {isEnabled && expanded ? (
                             <div className="session-auth-grid">
@@ -5679,7 +5664,6 @@ function App() {
                       );
                     })}
                   </div>
-                </div>
               </form>
               {workspaceError && (
                 <div className="attachments-error">{workspaceError}</div>
@@ -5964,11 +5948,6 @@ function App() {
                             rows={6}
                             spellCheck={false}
                       />
-                      <div className="session-auth-hint session-auth-hint-inline">
-                        <span className="session-auth-hint">
-                          {t("The key is stored in ~/.ssh for cloning.")}
-                        </span>
-                      </div>
                     </>
                   )}
                   {authMode === "http" && (
@@ -5995,11 +5974,6 @@ function App() {
                           autoComplete="current-password"
                         />
                       </div>
-                      <div className="session-auth-hint session-auth-hint-inline">
-                        <span className="session-auth-hint">
-                          {t("The password can be replaced by a PAT.")}
-                        </span>
-                      </div>
                     </>
                   )}
                 </div>
@@ -6016,9 +5990,6 @@ function App() {
                         disabled={formDisabled}
                       />
                       {t("Internet access")}
-                      <span className="session-auth-hint">
-                        {t("Allow default internet access for this session.")}
-                      </span>
                     </label>
                     <label className="session-auth-option">
                       <input
@@ -6030,9 +6001,6 @@ function App() {
                         disabled={formDisabled}
                       />
                       {t("Share git credentials")}
-                      <span className="session-auth-hint">
-                        {t("Allow sharing the Git folder for the main branch by default.")}
-                      </span>
                     </label>
                   </div>
                 </div>
