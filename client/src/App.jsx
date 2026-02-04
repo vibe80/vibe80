@@ -5899,6 +5899,20 @@ function App() {
                       {workspaceSessionsError}
                     </div>
                   )}
+                  <div className="session-form-row single">
+                    <button
+                      type="button"
+                      className="session-button secondary"
+                      disabled={formDisabled}
+                      onClick={() => {
+                        setWorkspaceProvidersEditing(true);
+                        setWorkspaceError("");
+                        setWorkspaceStep(2);
+                      }}
+                    >
+                      {t("AI providers")}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div

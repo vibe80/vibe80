@@ -201,6 +201,7 @@ textarea {
   font-size: 15px;
   outline: none;
   color: var(--ink);
+  width: 100%;
 }
 
 .session-form select {
