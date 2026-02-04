@@ -37,6 +37,7 @@ import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import QRCode from "qrcode";
 import vibe80Logo from "./assets/logo_small.png";
 import { useI18n } from "./i18n.jsx";
+import { Command } from "cmdk";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
@@ -793,6 +794,9 @@ function App() {
   const [composerInputMode, setComposerInputMode] = useState(
     readComposerInputMode
   );
+  const [commandMenuOpen, setCommandMenuOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
+  const [commandSelection, setCommandSelection] = useState(null);
   const soundEnabled = notificationsEnabled;
   const toastTimeoutRef = useRef(null);
   const [gitIdentityName, setGitIdentityName] = useState("");
@@ -810,6 +814,23 @@ function App() {
   const [activeForm, setActiveForm] = useState(null);
   const [activeFormValues, setActiveFormValues] = useState({});
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
+  const commandOptions = useMemo(
+    () => [
+      {
+        id: "todo",
+        label: "/todo",
+        description: t("Add to backlog"),
+        insert: "/todo ",
+      },
+      {
+        id: "diff",
+        label: "/diff",
+        description: t("Open diff view"),
+        insert: "/diff",
+      },
+    ],
+    [t]
+  );
   const explorerDefaultState = useMemo(
     () => ({
       tree: null,
@@ -4226,6 +4247,32 @@ function App() {
     await uploadFiles(files);
   };
 
+  const filteredCommands = useMemo(() => {
+    const query = commandQuery.trim().toLowerCase();
+    if (!query) {
+      return commandOptions;
+    }
+    return commandOptions.filter((cmd) =>
+      cmd.label.toLowerCase().includes(query)
+    );
+  }, [commandOptions, commandQuery]);
+
+  useEffect(() => {
+    if (!commandMenuOpen) {
+      setCommandSelection(null);
+      return;
+    }
+    if (!filteredCommands.length) {
+      setCommandSelection(null);
+      return;
+    }
+    setCommandSelection((current) =>
+      filteredCommands.some((cmd) => cmd.id === current)
+        ? current
+        : filteredCommands[0].id
+    );
+  }, [commandMenuOpen, filteredCommands]);
+
   const removeDraftAttachment = (identifier) => {
     if (!identifier) {
       return;
@@ -4631,6 +4678,7 @@ function App() {
         handleDiffSelect();
         setInput("");
         setDraftAttachments([]);
+        setCommandMenuOpen(false);
         return;
       }
       if (rawText.startsWith("/todo")) {
@@ -4668,6 +4716,7 @@ function App() {
         })();
         setInput("");
         setDraftAttachments([]);
+        setCommandMenuOpen(false);
         return;
       }
       if (isInWorktree && activeWorktreeId) {
@@ -5382,6 +5431,13 @@ function App() {
   const handleInputChange = (event) => {
     const { value } = event.target;
     setInput(value);
+    if (value.startsWith("/") && !value.includes(" ")) {
+      setCommandMenuOpen(true);
+      setCommandQuery(value.slice(1));
+    } else {
+      setCommandMenuOpen(false);
+      setCommandQuery("");
+    }
     if (!inputRef.current) {
       return;
     }
@@ -5392,6 +5448,54 @@ function App() {
   const handleComposerKeyDown = (event) => {
     if (composerInputMode !== "single") {
       return;
+    }
+    if (commandMenuOpen) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setCommandMenuOpen(false);
+        return;
+      }
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (!filteredCommands.length) {
+          return;
+        }
+        const index = filteredCommands.findIndex(
+          (cmd) => cmd.id === commandSelection
+        );
+        const nextIndex =
+          index === -1 || index === filteredCommands.length - 1 ? 0 : index + 1;
+        setCommandSelection(filteredCommands[nextIndex].id);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (!filteredCommands.length) {
+          return;
+        }
+        const index = filteredCommands.findIndex(
+          (cmd) => cmd.id === commandSelection
+        );
+        const nextIndex =
+          index <= 0 ? filteredCommands.length - 1 : index - 1;
+        setCommandSelection(filteredCommands[nextIndex].id);
+        return;
+      }
+      if (event.key === "Enter" && !event.shiftKey) {
+        if (commandSelection) {
+          event.preventDefault();
+          const selected = filteredCommands.find(
+            (cmd) => cmd.id === commandSelection
+          );
+          if (selected) {
+            setInput(selected.insert);
+            setCommandMenuOpen(false);
+            setCommandQuery("");
+            inputRef.current?.focus();
+          }
+          return;
+        }
+      }
     }
     if (event.isComposing) {
       return;
@@ -7788,6 +7892,41 @@ function App() {
                     })}
                   </div>
                 ) : null}
+                {commandMenuOpen && (
+                  <div className="composer-command-menu">
+                    <Command className="command-menu" shouldFilter={false}>
+                      <Command.List>
+                        {filteredCommands.length ? (
+                          filteredCommands.map((cmd) => (
+                            <Command.Item
+                              key={cmd.id}
+                              onSelect={() => {
+                                setInput(cmd.insert);
+                                setCommandMenuOpen(false);
+                                setCommandQuery("");
+                                inputRef.current?.focus();
+                              }}
+                              className={`command-item${
+                                cmd.id === commandSelection ? " is-selected" : ""
+                              }`}
+                            >
+                              <span className="command-item-label">
+                                {cmd.label}
+                              </span>
+                              <span className="command-item-desc">
+                                {cmd.description}
+                              </span>
+                            </Command.Item>
+                          ))
+                        ) : (
+                          <div className="command-empty">
+                            {t("No commands found.")}
+                          </div>
+                        )}
+                      </Command.List>
+                    </Command>
+                  </div>
+                )}
                 <div className="composer-main">
                   <button
                     type="button"
