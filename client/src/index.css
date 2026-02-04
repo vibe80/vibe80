@@ -312,6 +312,12 @@ textarea {
 
 .session-auth-options--compact {
   gap: 10px 18px;
+  width: 100%;
+}
+
+.session-auth-options--compact .session-auth-option {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .session-auth-info {
