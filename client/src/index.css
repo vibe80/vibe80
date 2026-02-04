@@ -3840,6 +3840,53 @@ main.chat {
   gap: 10px;
 }
 
+.composer-command-menu {
+  position: absolute;
+  left: 12px;
+  bottom: calc(100% + 10px);
+  z-index: 30;
+  width: min(320px, calc(100vw - 48px));
+}
+
+.command-menu {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 6px;
+}
+
+.command-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.command-item.is-selected,
+.command-item:hover {
+  background: rgba(255, 123, 31, 0.12);
+}
+
+.command-item-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.command-item-desc {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.command-empty {
+  padding: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .composer-attachments .attachment-card-body {
   min-width: 0;
   max-width: 100%;
