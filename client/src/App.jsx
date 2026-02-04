@@ -962,6 +962,8 @@ function App() {
   const pingIntervalRef = useRef(null);
   const lastPongRef = useRef(0);
   const messagesRef = useRef([]);
+  const dragCounterRef = useRef(0);
+  const [isDraggingAttachments, setIsDraggingAttachments] = useState(false);
 
   const refreshInFlightRef = useRef(null);
 
@@ -4185,12 +4187,38 @@ function App() {
     }
   };
 
+  const onDragEnterComposer = (event) => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    if (event.dataTransfer?.types?.includes("Files")) {
+      event.preventDefault();
+      dragCounterRef.current += 1;
+      setIsDraggingAttachments(true);
+    }
+  };
+
+  const onDragLeaveComposer = (event) => {
+    if (!attachmentSession?.sessionId) {
+      return;
+    }
+    if (event.dataTransfer?.types?.includes("Files")) {
+      event.preventDefault();
+      dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+      if (dragCounterRef.current === 0) {
+        setIsDraggingAttachments(false);
+      }
+    }
+  };
+
   const onDropAttachments = async (event) => {
     if (!attachmentSession?.sessionId) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDraggingAttachments(false);
     const files = Array.from(event.dataTransfer?.files || []);
     if (!files.length) {
       return;
@@ -7642,10 +7670,13 @@ function App() {
 
           {activePane === "chat" ? (
             <form
-              className="composer composer--sticky"
+              className={`composer composer--sticky ${
+                isDraggingAttachments ? "is-dragging" : ""
+              }`}
               onSubmit={onSubmit}
-              onDragEnter={onDragOverComposer}
+              onDragEnter={onDragEnterComposer}
               onDragOver={onDragOverComposer}
+              onDragLeave={onDragLeaveComposer}
               onDrop={onDropAttachments}
               ref={composerRef}
             >
