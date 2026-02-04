@@ -70,6 +70,12 @@ func ensureWorkspace(workspaceID string) {
   if err := ensureDir(homeDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
+  if err := ensureFile(filepath.Join(homeDir, ".profile"), 0640, uid, gid); err != nil {
+    fail(err.Error())
+  }
+  if err := ensureFile(filepath.Join(homeDir, ".bashrc"), 0640, uid, gid); err != nil {
+    fail(err.Error())
+  }
   if err := ensureDir(rootDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
@@ -123,6 +129,23 @@ func ensureDir(path string, mode os.FileMode, uid, gid int) error {
   }
   if err := os.Chown(path, uid, gid); err != nil {
     return fmt.Errorf("chown failed: %s", err)
+  }
+  return nil
+}
+
+func ensureFile(path string, mode os.FileMode, uid, gid int) error {
+  file, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, mode)
+  if err != nil {
+    return fmt.Errorf("touch failed: %s", err)
+  }
+  if err := file.Close(); err != nil {
+    return fmt.Errorf("close failed: %s", err)
+  }
+  if err := os.Chown(path, uid, gid); err != nil {
+    return fmt.Errorf("chown failed: %s", err)
+  }
+  if err := os.Chmod(path, mode); err != nil {
+    return fmt.Errorf("chmod failed: %s", err)
   }
   return nil
 }
