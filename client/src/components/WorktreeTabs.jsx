@@ -773,6 +773,7 @@ export default function WorktreeTabs({
           font-size: 13px;
           color: inherit;
           margin-bottom: 6px;
+          width: 100%;
         }
 
         .worktree-toggle input {
@@ -814,6 +815,7 @@ export default function WorktreeTabs({
 
         .worktree-toggle-field {
           align-self: end;
+          grid-column: 1 / -1;
         }
 
         .worktree-btn-refresh {
