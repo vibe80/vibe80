@@ -6014,11 +6014,8 @@ function App() {
                             spellCheck={false}
                       />
                       <div className="session-auth-hint session-auth-hint-inline">
-                        <span
-                          className="session-auth-info"
-                          title={t("The key is stored in ~/.ssh for cloning.")}
-                        >
-                          ⓘ
+                        <span className="session-auth-hint">
+                          {t("The key is stored in ~/.ssh for cloning.")}
                         </span>
                       </div>
                     </>
@@ -6048,11 +6045,8 @@ function App() {
                         />
                       </div>
                       <div className="session-auth-hint session-auth-hint-inline">
-                        <span
-                          className="session-auth-info"
-                          title={t("The password can be replaced by a PAT.")}
-                        >
-                          ⓘ
+                        <span className="session-auth-hint">
+                          {t("The password can be replaced by a PAT.")}
                         </span>
                       </div>
                     </>
@@ -6071,11 +6065,8 @@ function App() {
                         disabled={formDisabled}
                       />
                       {t("Internet access")}
-                      <span
-                        className="session-auth-info"
-                        title={t("Allow default internet access for this session.")}
-                      >
-                        ⓘ
+                      <span className="session-auth-hint">
+                        {t("Allow default internet access for this session.")}
                       </span>
                     </label>
                     <label className="session-auth-option">
@@ -6088,11 +6079,8 @@ function App() {
                         disabled={formDisabled}
                       />
                       {t("Share git credentials")}
-                      <span
-                        className="session-auth-info"
-                        title={t("Allow sharing the Git folder for the main branch by default.")}
-                      >
-                        ⓘ
+                      <span className="session-auth-hint">
+                        {t("Allow sharing the Git folder for the main branch by default.")}
                       </span>
                     </label>
                   </div>
