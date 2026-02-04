@@ -5752,10 +5752,10 @@ function App() {
 
           {showStep4 && (
             <div className="session-step">
-              <div className="session-workspace-options">
+              <div className="session-workspace-toggle">
                 <button
                   type="button"
-                  className={`session-workspace-option ${
+                  className={`session-workspace-option is-compact ${
                     sessionMode === "new" ? "is-selected" : ""
                   }`}
                   onClick={() => {
@@ -5769,18 +5769,13 @@ function App() {
                   <span className="session-workspace-icon is-create" aria-hidden="true">
                     <FontAwesomeIcon icon={faPlus} />
                   </span>
-                  <span className="session-workspace-option-text">
-                    <span className="session-workspace-option-title">
-                      {t("New session")}
-                    </span>
-                    <span className="session-workspace-option-subtitle">
-                      {t("Clone a repository to start a new session")}
-                    </span>
+                  <span className="session-workspace-option-title">
+                    {t("New session")}
                   </span>
                 </button>
                 <button
                   type="button"
-                  className={`session-workspace-option ${
+                  className={`session-workspace-option is-compact ${
                     sessionMode === "existing" ? "is-selected" : ""
                   }`}
                   onClick={() => {
@@ -5794,13 +5789,8 @@ function App() {
                   <span className="session-workspace-icon is-join" aria-hidden="true">
                     <FontAwesomeIcon icon={faUser} />
                   </span>
-                  <span className="session-workspace-option-text">
-                    <span className="session-workspace-option-title">
-                      {t("Resume an existing session")}
-                    </span>
-                    <span className="session-workspace-option-subtitle">
-                      {t("Resume an already configured worktree")}
-                    </span>
+                  <span className="session-workspace-option-title">
+                    {t("Resume an existing session")}
                   </span>
                 </button>
               </div>
@@ -5896,8 +5886,8 @@ function App() {
                     )}
                   </div>
                 ) : (
-                  <form className="session-form" onSubmit={onRepoSubmit}>
-                    <div className="session-form-row">
+                  <form className="session-form session-form--compact" onSubmit={onRepoSubmit}>
+                    <div className="session-form-row is-compact-grid">
                       <input
                         type="text"
                         placeholder={t("Session name (optional)")}
@@ -5907,28 +5897,28 @@ function App() {
                         }
                         disabled={formDisabled}
                       />
-                    </div>
-                    <div className="session-form-row">
-                      <input
-                        type="text"
-                        placeholder={t("git@gitea.devops:my-org/my-repo.git")}
-                        value={repoInput}
-                        onChange={(event) => {
-                          setRepoInput(event.target.value);
-                        }}
-                        disabled={formDisabled}
-                        required
-                        list={repoHistory.length > 0 ? "repo-history" : undefined}
-                      />
-                      {repoHistory.length > 0 && (
-                        <datalist id="repo-history">
-                          {repoHistory.map((url) => (
-                            <option key={url} value={url}>
-                              {getTruncatedText(url, 72)}
-                            </option>
-                          ))}
-                        </datalist>
-                      )}
+                      <div className="session-repo-field">
+                        <input
+                          type="text"
+                          placeholder={t("git@gitea.devops:my-org/my-repo.git")}
+                          value={repoInput}
+                          onChange={(event) => {
+                            setRepoInput(event.target.value);
+                          }}
+                          disabled={formDisabled}
+                          required
+                          list={repoHistory.length > 0 ? "repo-history" : undefined}
+                        />
+                        {repoHistory.length > 0 && (
+                          <datalist id="repo-history">
+                            {repoHistory.map((url) => (
+                              <option key={url} value={url}>
+                                {getTruncatedText(url, 72)}
+                              </option>
+                            ))}
+                          </datalist>
+                        )}
+                      </div>
                     </div>
                 <div className="session-auth">
                   <div className="session-auth-title">
@@ -5980,8 +5970,13 @@ function App() {
                             rows={6}
                             spellCheck={false}
                       />
-                      <div className="session-auth-hint">
-                        {t("The key is stored in ~/.ssh for cloning.")}
+                      <div className="session-auth-hint session-auth-hint-inline">
+                        <span
+                          className="session-auth-info"
+                          title={t("The key is stored in ~/.ssh for cloning.")}
+                        >
+                          ⓘ
+                        </span>
                       </div>
                     </>
                   )}
@@ -6009,15 +6004,20 @@ function App() {
                           autoComplete="current-password"
                         />
                       </div>
-                      <div className="session-auth-hint">
-                        {t("The password can be replaced by a PAT.")}
+                      <div className="session-auth-hint session-auth-hint-inline">
+                        <span
+                          className="session-auth-info"
+                          title={t("The password can be replaced by a PAT.")}
+                        >
+                          ⓘ
+                        </span>
                       </div>
                     </>
                   )}
                 </div>
-                <div className="session-auth">
-                  <div className="session-auth-title">{t("Internet access")}</div>
-                  <div className="session-auth-options">
+                <div className="session-auth session-auth-compact">
+                  <div className="session-auth-title">{t("Permissions")}</div>
+                  <div className="session-auth-options session-auth-options--compact">
                     <label className="session-auth-option">
                       <input
                         type="checkbox"
@@ -6028,17 +6028,13 @@ function App() {
                         disabled={formDisabled}
                       />
                       {t("Internet access")}
+                      <span
+                        className="session-auth-info"
+                        title={t("Allow default internet access for this session.")}
+                      >
+                        ⓘ
+                      </span>
                     </label>
-                  </div>
-                  <div className="session-auth-hint">
-                    {t("Allow default internet access for this session.")}
-                  </div>
-                </div>
-                <div className="session-auth">
-                  <div className="session-auth-title">
-                    {t("Share git credentials")}
-                  </div>
-                  <div className="session-auth-options">
                     <label className="session-auth-option">
                       <input
                         type="checkbox"
@@ -6049,13 +6045,16 @@ function App() {
                         disabled={formDisabled}
                       />
                       {t("Share git credentials")}
+                      <span
+                        className="session-auth-info"
+                        title={t("Allow sharing the Git folder for the main branch by default.")}
+                      >
+                        ⓘ
+                      </span>
                     </label>
                   </div>
-                  <div className="session-auth-hint">
-                    {t("Allow sharing the Git folder for the main branch by default.")}
-                  </div>
                 </div>
-                <div className="session-form-row">
+                <div className="session-form-row session-form-row--sticky">
                   <button
                     type="button"
                     className="session-button secondary"

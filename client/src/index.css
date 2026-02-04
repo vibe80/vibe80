@@ -109,16 +109,32 @@ textarea {
   gap: 18px;
 }
 
+.session-form--compact {
+  gap: 14px;
+}
+
 .session-form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 12px;
 }
 
+.session-form-row.is-compact-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
 .session-form-row.is-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.session-form-row--sticky {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  padding: 10px 0 0;
+  z-index: 2;
 }
 
 .session-form-row.is-actions .session-button {
@@ -183,6 +199,10 @@ textarea {
   background: rgba(20, 19, 17, 0.04);
 }
 
+.session-auth-compact {
+  gap: 8px;
+}
+
 .session-auth-title {
   font-weight: 600;
   font-size: 14px;
@@ -192,6 +212,23 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.session-auth-options--compact {
+  gap: 10px 18px;
+}
+
+.session-auth-info {
+  font-size: 12px;
+  margin-left: 6px;
+  color: var(--ink-muted);
+  cursor: help;
+}
+
+.session-auth-hint-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .session-auth-options.is-inline {
@@ -275,6 +312,13 @@ textarea {
   margin-bottom: 14px;
 }
 
+.session-workspace-toggle {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 .session-workspace-option {
   border: 1px solid rgba(20, 19, 17, 0.08);
   border-radius: 16px;
@@ -288,6 +332,13 @@ textarea {
   font-family: "Space Grotesk", system-ui, sans-serif;
   box-shadow: 0 6px 18px rgba(20, 19, 17, 0.08);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.session-workspace-option.is-compact {
+  padding: 10px 12px;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 10px;
 }
 
 .session-workspace-option:disabled {
@@ -4163,6 +4214,10 @@ main.chat {
   }
 
   .session-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .session-form-row.is-compact-grid {
     grid-template-columns: 1fr;
   }
 
