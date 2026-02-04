@@ -3842,8 +3842,8 @@ main.chat {
 
 .composer-command-menu {
   position: absolute;
-  left: 12px;
-  bottom: calc(100% + 10px);
+  left: 58px;
+  bottom: calc(100% - 8px);
   z-index: 30;
   width: min(320px, calc(100vw - 48px));
 }
