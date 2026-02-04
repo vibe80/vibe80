@@ -303,14 +303,10 @@ textarea {
 }
 
 .session-auth-options--inline-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 12px 18px;
-  width: 100%;
-}
-
-.session-auth-options--inline-row .session-auth-option {
   width: 100%;
 }
 
