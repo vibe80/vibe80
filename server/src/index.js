@@ -3828,6 +3828,33 @@ app.post("/api/session/:sessionId/clear", async (req, res) => {
   res.json({ ok: true, worktreeId: "main" });
 });
 
+app.post("/api/session/:sessionId/backlog", async (req, res) => {
+  const session = await getSession(req.params.sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+  if (!text) {
+    res.status(400).json({ error: "text is required." });
+    return;
+  }
+  await touchSession(session);
+  const item = {
+    id: createMessageId(),
+    text,
+    createdAt: Date.now(),
+  };
+  const backlog = Array.isArray(session.backlog) ? session.backlog : [];
+  const updated = {
+    ...session,
+    backlog: [item, ...backlog],
+    lastActivityAt: Date.now(),
+  };
+  await storage.saveSession(session.sessionId, updated);
+  res.json({ ok: true, item });
+});
+
 app.post("/api/session", async (req, res) => {
   const repoUrl = req.body?.repoUrl;
   if (!repoUrl) {

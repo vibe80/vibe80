@@ -4623,13 +4623,71 @@ function App() {
   // Handle send message - route to worktree or legacy
   const handleSendMessage = useCallback(
     (textOverride, attachmentsOverride) => {
+      const rawText = (textOverride ?? input).trim();
+      if (!rawText) {
+        return;
+      }
+      if (rawText === "/diff" || rawText.startsWith("/diff ")) {
+        handleDiffSelect();
+        setInput("");
+        setDraftAttachments([]);
+        return;
+      }
+      if (rawText.startsWith("/todo")) {
+        const action = rawText.replace(/^\/todo\s*/i, "").trim();
+        if (!action) {
+          showToast(t("Todo text required."), "error");
+          return;
+        }
+        const sessionId = attachmentSession?.sessionId;
+        if (!sessionId) {
+          showToast(t("Session not found."), "error");
+          return;
+        }
+        void (async () => {
+          try {
+            const response = await apiFetch(
+              `/api/session/${encodeURIComponent(sessionId)}/backlog`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: action }),
+              }
+            );
+            if (!response.ok) {
+              const payload = await response.json().catch(() => null);
+              throw new Error(payload?.error || t("Unable to update backlog."));
+            }
+            showToast(t("Added to backlog."));
+          } catch (error) {
+            showToast(
+              error.message || t("Unable to update backlog."),
+              "error"
+            );
+          }
+        })();
+        setInput("");
+        setDraftAttachments([]);
+        return;
+      }
       if (isInWorktree && activeWorktreeId) {
         sendWorktreeMessage(activeWorktreeId, textOverride, attachmentsOverride);
       } else {
         sendMessage(textOverride, attachmentsOverride);
       }
     },
-    [isInWorktree, activeWorktreeId, sendWorktreeMessage]
+    [
+      activeWorktreeId,
+      apiFetch,
+      attachmentSession?.sessionId,
+      handleDiffSelect,
+      input,
+      isInWorktree,
+      sendMessage,
+      sendWorktreeMessage,
+      showToast,
+      t,
+    ]
   );
 
   // ============== End Worktree Functions ==============
