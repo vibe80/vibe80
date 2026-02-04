@@ -98,6 +98,19 @@ const encodeBase64 = (value) => {
   }
 };
 
+const providerAuthOptions = {
+  codex: ["api_key", "auth_json_b64"],
+  claude: ["api_key", "setup_token"],
+};
+
+const getProviderAuthType = (provider, config) => {
+  const allowed = providerAuthOptions[provider] || [];
+  if (!allowed.length) {
+    return config?.authType || "api_key";
+  }
+  return allowed.includes(config?.authType) ? config.authType : allowed[0];
+};
+
 const wsUrl = (sessionId, token) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const params = new URLSearchParams();
@@ -736,7 +749,7 @@ function App() {
   const [handoffRemaining, setHandoffRemaining] = useState(null);
   const [workspaceProviders, setWorkspaceProviders] = useState(() => ({
     codex: { enabled: false, authType: "api_key", authValue: "" },
-    claude: { enabled: false, authType: "auth_json_b64", authValue: "" },
+    claude: { enabled: false, authType: "api_key", authValue: "" },
   }));
   const [llmProvider, setLlmProvider] = useState(readLlmProvider);
   const [selectedProviders, setSelectedProviders] = useState(readLlmProviders);
@@ -3650,7 +3663,7 @@ function App() {
         if (!trimmedValue) {
           throw new Error(t("Key required for {{provider}}.", { provider }));
         }
-        const type = config.authType || "api_key";
+        const type = getProviderAuthType(provider, config) || "api_key";
         const value =
           type === "auth_json_b64" ? encodeBase64(trimmedValue) : trimmedValue;
         providersPayload[provider] = {
@@ -5525,6 +5538,8 @@ function App() {
                     if (!config?.enabled) {
                       return null;
                     }
+                    const allowedAuthTypes = providerAuthOptions[provider] || [];
+                    const effectiveAuthType = getProviderAuthType(provider, config);
                     return (
                       <div key={`${provider}-auth`} className="session-auth">
                         <div className="session-auth-title">
@@ -5535,7 +5550,7 @@ function App() {
                         </div>
                         <div className="session-auth-grid">
                           <select
-                            value={config.authType}
+                            value={effectiveAuthType}
                             onChange={(event) =>
                               setWorkspaceProviders((current) => ({
                                 ...current,
@@ -5547,30 +5562,32 @@ function App() {
                             }
                             disabled={formDisabled}
                           >
-                            <option value="api_key">{t("api_key")}</option>
-                            <option value="auth_json_b64">
-                              {t("auth_json_b64")}
-                            </option>
-                            <option value="setup_token">
-                              {t("setup_token")}
-                            </option>
+                            {allowedAuthTypes.map((authType) => (
+                              <option key={authType} value={authType}>
+                                {t(authType)}
+                              </option>
+                            ))}
                           </select>
-                          {config.authType === "auth_json_b64" ? (
-                            <textarea
-                              className="session-auth-textarea"
-                              placeholder={t("JSON credentials")}
-                              value={config.authValue}
-                              onChange={(event) =>
+                          {effectiveAuthType === "auth_json_b64" ? (
+                            <input
+                              type="file"
+                              accept="application/json,.json"
+                              onChange={async (event) => {
+                                const file = event.target.files?.[0];
+                                if (!file) {
+                                  return;
+                                }
+                                const content = await file.text();
                                 setWorkspaceProviders((current) => ({
                                   ...current,
                                   [provider]: {
                                     ...current[provider],
-                                    authValue: event.target.value,
+                                    authValue: content,
                                   },
-                                }))
-                              }
+                                }));
+                                event.target.value = "";
+                              }}
                               disabled={formDisabled}
-                              rows={4}
                             />
                           ) : (
                             <input
