@@ -74,7 +74,9 @@ export const buildSandboxArgs = (options = {}) => {
   if (allowRwFiles.length) {
     args.push("--allow-rw-file", allowRwFiles.join(","));
   }
-  args.push("--net", options.internetAccess === false ? "none" : "tcp:53,443");
+  const netMode = options.netMode
+    ?? (options.internetAccess === false ? "none" : "tcp:53,443");
+  args.push("--net", netMode);
   args.push("--seccomp", options.seccomp || "default");
   return args;
 };

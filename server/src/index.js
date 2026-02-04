@@ -3363,6 +3363,7 @@ if (terminalWss) {
           cwd,
           repoDir: cwd,
           internetAccess: session.defaultInternetAccess,
+          netMode: "none",
           extraAllowRw: allowGitCreds ? [gitDir] : [],
         }),
         "--",

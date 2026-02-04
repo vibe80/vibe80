@@ -57,6 +57,7 @@ export class CodexAppServerClient extends EventEmitter {
             repoDir: this.repoDir,
             attachmentsDir: this.attachmentsDir,
             internetAccess: this.internetAccess,
+            netMode: "tcp:53,443",
             extraAllowRw: [
               path.join(getWorkspaceHome(this.workspaceId), ".codex"),
               ...(this.shareGitCredentials && this.gitDir ? [this.gitDir] : []),

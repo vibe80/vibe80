@@ -122,6 +122,7 @@ export class ClaudeCliClient extends EventEmitter {
             repoDir: this.repoDir,
             attachmentsDir: this.attachmentsDir,
             internetAccess: this.internetAccess,
+            netMode: "tcp:53,443",
             extraAllowRw: [
               path.join(getWorkspaceHome(this.workspaceId), ".claude"),
               ...(this.shareGitCredentials && this.gitDir ? [this.gitDir] : []),
