@@ -302,6 +302,13 @@ textarea {
   justify-items: start;
 }
 
+.session-auth-options--inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
 .session-auth-options--compact {
   gap: 10px 18px;
 }

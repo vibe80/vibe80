@@ -5902,7 +5902,7 @@ function App() {
                   <div className="session-auth-title">
                     {t("Repository authentication (optional)")}
                   </div>
-                  <div className="session-auth-options">
+                  <div className="session-auth-options session-auth-options--inline-row">
                     <label className="session-auth-option">
                       <input
                         type="radio"
@@ -5979,7 +5979,7 @@ function App() {
                 </div>
                 <div className="session-auth session-auth-compact">
                   <div className="session-auth-title">{t("Permissions")}</div>
-                  <div className="session-auth-options session-auth-options--compact">
+                  <div className="session-auth-options session-auth-options--inline-row session-auth-options--compact">
                     <label className="session-auth-option">
                       <input
                         type="checkbox"
