@@ -243,6 +243,11 @@ textarea {
   width: 100%;
 }
 
+.session-form input[type="checkbox"],
+.session-form input[type="radio"] {
+  width: auto;
+}
+
 .session-form select {
   background: var(--surface);
   cursor: pointer;
