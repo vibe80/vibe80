@@ -5381,6 +5381,39 @@ function App() {
     const showStep2 = workspaceStep === 2;
     const showStep3 = workspaceStep === 3 && workspaceToken;
     const showStep4 = workspaceStep === 4 && workspaceToken;
+    const infoContent = showStep2
+      ? {
+          title: t("Configure AI providers"),
+          paragraphs: [
+            t(
+              "Vibe80 can run Codex or Claude Code. To continue, provide your Anthropic and/or OpenAI credentials. If you use pay-as-you-go billing, supply an API key."
+            ),
+            t(
+              "For subscription plans, use auth.json from the Codex CLI login (ChatGPT) or a long-lived token from `claude setup-token` (Claude)."
+            ),
+          ],
+        }
+      : showStep4
+        ? {
+            title: t("Clone a session"),
+            paragraphs: [
+              t(
+                "Vibe80 opens Git-based work sessions. Even in a secure environment, we recommend short-lived and revocable PATs or keys."
+              ),
+            ],
+            securityLink: true,
+          }
+        : {
+            title: t("Configure the workspace"),
+            paragraphs: [
+              t(
+                "A workspace is an isolated, secured environment accessible only with credentials. It lets you reuse AI credentials for all future sessions."
+              ),
+              t(
+                "You can create multiple workspaces to separate teams, projects, or security boundaries."
+              ),
+            ],
+          };
     return (
       <div className="session-gate">
         <div className="session-layout">
@@ -7779,17 +7812,26 @@ function App() {
                 <span className="session-info-icon" aria-hidden="true">
                   ℹ️
                 </span>
-                {t("Info")}
+                {infoContent.title}
               </div>
-              <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean
-                posuere, lorem quis consequat viverra, velit urna euismod orci,
-                id lacinia justo nisl id lorem.
-              </p>
-              <p>
-                Donec porta, elit at auctor interdum, ligula lectus vulputate
-                velit, at pellentesque libero nulla at urna.
-              </p>
+              {infoContent.paragraphs?.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+              {infoContent.securityLink ? (
+                <p>
+                  {t(
+                    "Vibe80 strictly controls access to resources (Git credentials and internet) using sandboxing. "
+                  )}
+                  <a
+                    className="session-info-link"
+                    href="https://vibe80.ai/security"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t("Click here to learn more.")}
+                  </a>
+                </p>
+              ) : null}
             </div>
           </aside>
         </div>

@@ -142,6 +142,16 @@ textarea {
   font-size: 16px;
 }
 
+.session-info-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.session-info-link:hover {
+  text-decoration: underline;
+}
+
 .session-form {
   display: grid;
   gap: 18px;
