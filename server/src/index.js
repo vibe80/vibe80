@@ -736,8 +736,12 @@ const ensureWorkspaceUserExists = async (workspaceId) => {
   } catch {
     // continue
   }
-  const homeDir = getWorkspacePaths(workspaceId).homeDir;
-  await ensureWorkspaceUser(workspaceId, homeDir, ids);
+  try {
+    await runRootCommand(["create-workspace", "--workspace-id", workspaceId]);
+  } catch (error) {
+    const homeDir = getWorkspacePaths(workspaceId).homeDir;
+    await ensureWorkspaceUser(workspaceId, homeDir, ids);
+  }
   await appendAuditLog(workspaceId, "workspace_user_recreated", {
     uid: ids.uid,
     gid: ids.gid,
