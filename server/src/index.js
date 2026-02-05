@@ -671,6 +671,13 @@ const workspacePathExists = async (workspaceId, targetPath) => {
 const readWorkspaceFileBuffer = async (workspaceId, filePath, maxBytes) => {
   const stat = await getWorkspaceStat(workspaceId, filePath);
   if (!stat.type || !stat.type.startsWith("regular")) {
+    console.warn("readWorkspaceFileBuffer: non-regular path", {
+      workspaceId,
+      filePath,
+      type: stat.type || null,
+      size: stat.size,
+      mode: stat.mode,
+    });
     throw new Error("Path is not a file.");
   }
   if (Number.isFinite(maxBytes) && stat.size > maxBytes) {
