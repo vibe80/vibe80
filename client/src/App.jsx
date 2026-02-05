@@ -829,6 +829,12 @@ function App() {
         insert: "/run ",
       },
       {
+        id: "screenshot",
+        label: "/screenshot",
+        description: t("Capture screenshot"),
+        insert: "/screenshot",
+      },
+      {
         id: "git",
         label: "/git",
         description: t("Run git command"),
@@ -4301,6 +4307,50 @@ function App() {
     }
   };
 
+  const captureScreenshot = useCallback(async () => {
+    if (!attachmentSession?.sessionId) {
+      showToast(t("Session not found."), "error");
+      return;
+    }
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      showToast(t("Screenshot failed."), "error");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: "never" },
+        audio: false,
+      });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => resolve();
+      });
+      await video.play();
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || 1;
+      canvas.height = video.videoHeight || 1;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error("Canvas unavailable");
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      stream.getTracks().forEach((track) => track.stop());
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (result) => (result ? resolve(result) : reject(new Error("Blob failed"))),
+          "image/png"
+        );
+      });
+      const filename = `screenshot-${Date.now()}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+      await uploadFiles([file]);
+      showToast(t("Screenshot captured."));
+    } catch (error) {
+      showToast(error?.message || t("Screenshot failed."), "error");
+    }
+  }, [attachmentSession?.sessionId, showToast, t, uploadFiles]);
+
   const onUploadAttachments = async (event) => {
     const files = Array.from(event.target.files || []);
     await uploadFiles(files);
@@ -4888,6 +4938,12 @@ function App() {
         setCommandMenuOpen(false);
         return;
       }
+      if (rawText.startsWith("/screenshot")) {
+        await captureScreenshot();
+        setInput("");
+        setCommandMenuOpen(false);
+        return;
+      }
       if (rawText.startsWith("/git")) {
         const command = rawText.replace(/^\/git\s*/i, "").trim();
         if (!command) {
@@ -4923,6 +4979,7 @@ function App() {
       activeWorktreeId,
       apiFetch,
       attachmentSession?.sessionId,
+      captureScreenshot,
       connected,
       handleViewSelect,
       input,
