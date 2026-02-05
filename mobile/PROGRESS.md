@@ -205,7 +205,6 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [x] Sélection provider
 - [x] Sélection branche source (optionnel)
 - [x] Sélection couleur
-- [x] Envoi `create_parallel_request`
 - [x] Réception `worktree_created`
 
 #### 5.4 Messages par Worktree
