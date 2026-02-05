@@ -819,6 +819,7 @@ function App() {
   const loadExplorerFileRef = useRef(null);
   const requestExplorerTreeRef = useRef(null);
   const requestExplorerStatusRef = useRef(null);
+  const monoWorkspaceLoginAttemptedRef = useRef(false);
   const commandOptions = useMemo(
     () => [
       {
@@ -1099,6 +1100,51 @@ function App() {
     },
     [workspaceToken, refreshWorkspaceToken]
   );
+
+  useEffect(() => {
+    if (workspaceToken || workspaceRefreshToken) {
+      return;
+    }
+    if (workspaceStep !== 1) {
+      return;
+    }
+    if (monoWorkspaceLoginAttemptedRef.current) {
+      return;
+    }
+    monoWorkspaceLoginAttemptedRef.current = true;
+    const attemptDefaultLogin = async () => {
+      try {
+        const response = await apiFetch("/api/workspaces/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspaceId: "default",
+            workspaceSecret: "default",
+          }),
+        });
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        if (!data?.workspaceToken) {
+          return;
+        }
+        setWorkspaceToken(data.workspaceToken || "");
+        setWorkspaceRefreshToken(data.refreshToken || "");
+        setWorkspaceId("default");
+        setWorkspaceIdInput("default");
+        setWorkspaceStep(4);
+      } catch {
+        // Silent fallback for non-mono deployments.
+      }
+    };
+    attemptDefaultLogin();
+  }, [
+    workspaceToken,
+    workspaceRefreshToken,
+    workspaceStep,
+    apiFetch,
+  ]);
 
   const buildHandoffPayload = (token, expiresAt) =>
     JSON.stringify({
