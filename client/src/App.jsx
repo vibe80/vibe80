@@ -815,6 +815,7 @@ function App() {
   const [activeForm, setActiveForm] = useState(null);
   const [activeFormValues, setActiveFormValues] = useState({});
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
+  const [deploymentMode, setDeploymentMode] = useState(null);
   const handleSendMessageRef = useRef(null);
   const loadExplorerFileRef = useRef(null);
   const requestExplorerTreeRef = useRef(null);
@@ -1100,6 +1101,28 @@ function App() {
     },
     [workspaceToken, refreshWorkspaceToken]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchHealth = async () => {
+      try {
+        const response = await fetch("/api/health");
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        if (!cancelled && data?.deploymentMode) {
+          setDeploymentMode(data.deploymentMode);
+        }
+      } catch {
+        // Ignore health errors.
+      }
+    };
+    fetchHealth();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (workspaceToken || workspaceRefreshToken) {
@@ -6338,7 +6361,7 @@ function App() {
         <div className="session-layout session-layout--fullscreen">
           <div className="session-shell">
             <div className="session-header">
-              {showStep4 && (
+              {showStep4 && deploymentMode !== "mono_user" && (
                 <button
                   type="button"
                   className="icon-button session-card-action"
