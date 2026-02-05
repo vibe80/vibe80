@@ -520,7 +520,7 @@ const readComposerInputMode = () => {
   } catch (error) {
     // Ignore storage errors (private mode, quota).
   }
-  return "multi";
+  return "single";
 };
 
 const readDebugMode = () => {
