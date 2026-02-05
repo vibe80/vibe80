@@ -823,6 +823,12 @@ function App() {
         insert: "/todo ",
       },
       {
+        id: "run",
+        label: "/run",
+        description: t("Run shell command"),
+        insert: "/run ",
+      },
+      {
         id: "diff",
         label: "/diff",
         description: t("Open diff view"),
@@ -2597,6 +2603,56 @@ function App() {
           });
         }
 
+        if (!isWorktreeScoped && payload.type === "action_request") {
+          if (!payload.id) {
+            return;
+          }
+          setMessages((current) => {
+            const next = [...current];
+            const existingIndex = messageIndex.get(payload.id);
+            if (existingIndex === undefined) {
+              messageIndex.set(payload.id, next.length);
+              next.push({
+                id: payload.id,
+                role: "user",
+                type: "action_request",
+                text: payload.text || `/run ${payload.arg || ""}`.trim(),
+                action: {
+                  request: payload.request,
+                  arg: payload.arg,
+                },
+              });
+            }
+            return next;
+          });
+        }
+
+        if (!isWorktreeScoped && payload.type === "action_result") {
+          if (!payload.id) {
+            return;
+          }
+          setMessages((current) => {
+            const next = [...current];
+            const existingIndex = messageIndex.get(payload.id);
+            if (existingIndex === undefined) {
+              messageIndex.set(payload.id, next.length);
+              next.push({
+                id: payload.id,
+                role: "assistant",
+                type: "action_result",
+                text: payload.text || "",
+                action: {
+                  request: payload.request,
+                  arg: payload.arg,
+                  status: payload.status,
+                  output: payload.output,
+                },
+              });
+            }
+            return next;
+          });
+        }
+
         if (!isWorktreeScoped && payload.type === "command_execution_delta") {
           if (typeof payload.delta !== "string") {
             return;
@@ -3045,6 +3101,8 @@ function App() {
         if (payload.worktreeId && (
           payload.type === "assistant_delta" ||
           payload.type === "assistant_message" ||
+          payload.type === "action_request" ||
+          payload.type === "action_result" ||
           payload.type === "command_execution_delta" ||
           payload.type === "command_execution_completed" ||
           payload.type === "turn_started" ||
@@ -3063,6 +3121,66 @@ function App() {
                   status: "processing",
                   currentTurnId: payload.turnId,
                   activity: t("Processing..."),
+                });
+              }
+              return next;
+            });
+          }
+
+          if (payload.type === "action_request") {
+            if (!payload.id) {
+              return;
+            }
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(wtId);
+              if (wt) {
+                next.set(wtId, {
+                  ...wt,
+                  messages: [
+                    ...wt.messages,
+                    {
+                      id: payload.id,
+                      role: "user",
+                      type: "action_request",
+                      text: payload.text || `/run ${payload.arg || ""}`.trim(),
+                      action: {
+                        request: payload.request,
+                        arg: payload.arg,
+                      },
+                    },
+                  ],
+                });
+              }
+              return next;
+            });
+          }
+
+          if (payload.type === "action_result") {
+            if (!payload.id) {
+              return;
+            }
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(wtId);
+              if (wt) {
+                next.set(wtId, {
+                  ...wt,
+                  messages: [
+                    ...wt.messages,
+                    {
+                      id: payload.id,
+                      role: "assistant",
+                      type: "action_result",
+                      text: payload.text || "",
+                      action: {
+                        request: payload.request,
+                        arg: payload.arg,
+                        status: payload.status,
+                        output: payload.output,
+                      },
+                    },
+                  ],
                 });
               }
               return next;
@@ -4739,6 +4857,31 @@ function App() {
         setCommandMenuOpen(false);
         return;
       }
+      if (rawText.startsWith("/run")) {
+        const command = rawText.replace(/^\/run\s*/i, "").trim();
+        if (!command) {
+          showToast(t("Command required."), "error");
+          return;
+        }
+        if (!socketRef.current || !connected) {
+          showToast(t("Disconnected"), "error");
+          return;
+        }
+        const targetWorktreeId =
+          isInWorktree && activeWorktreeId ? activeWorktreeId : null;
+        socketRef.current.send(
+          JSON.stringify({
+            type: "action_request",
+            request: "run",
+            arg: command,
+            worktreeId: targetWorktreeId || undefined,
+          })
+        );
+        setInput("");
+        setDraftAttachments([]);
+        setCommandMenuOpen(false);
+        return;
+      }
       if (isInWorktree && activeWorktreeId) {
         sendWorktreeMessage(activeWorktreeId, textOverride, attachmentsOverride);
       } else {
@@ -4749,6 +4892,7 @@ function App() {
       activeWorktreeId,
       apiFetch,
       attachmentSession?.sessionId,
+      connected,
       handleViewSelect,
       input,
       isInWorktree,
