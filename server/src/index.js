@@ -3716,7 +3716,7 @@ app.delete("/api/workspaces/:workspaceId", async (req, res) => {
 app.get("/api/health", async (req, res) => {
   const session = await getSession(req.query.session, req.workspaceId);
   if (!session) {
-    res.json({ ok: true, ready: false, threadId: null });
+    res.json({ ok: true, ready: false, threadId: null, deploymentMode });
     return;
   }
   await touchSession(session);
@@ -3726,6 +3726,7 @@ app.get("/api/health", async (req, res) => {
     ready: activeClient?.ready || false,
     threadId: activeClient?.threadId || null,
     provider: session.activeProvider || "codex",
+    deploymentMode,
   });
 });
 
