@@ -7614,11 +7614,43 @@ function App() {
                                           </code>
                                         );
                                       }
+                                      const trimmed = text.trim();
+                                      const isRelativePath =
+                                        Boolean(trimmed) &&
+                                        !trimmed.startsWith("/") &&
+                                        !trimmed.startsWith("~") &&
+                                        !trimmed.includes("\\") &&
+                                        (trimmed.includes("/") ||
+                                          trimmed.startsWith("./") ||
+                                          trimmed.startsWith("../") ||
+                                          !trimmed.includes(" ")) &&
+                                        !/^[a-zA-Z]+:\/\//.test(trimmed);
                                       return (
-                                        <span className="inline-code">
-                                          <code className={className} {...props}>
-                                            {text}
-                                          </code>
+                                        <span
+                                          className={`inline-code${
+                                            isRelativePath ? " inline-code--link" : ""
+                                          }`}
+                                        >
+                                          {isRelativePath ? (
+                                            <button
+                                              type="button"
+                                              className="inline-code-link"
+                                              onClick={(event) => {
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                                setInput(`/open ${trimmed}`);
+                                                inputRef.current?.focus();
+                                              }}
+                                            >
+                                              <code className={className} {...props}>
+                                                {text}
+                                              </code>
+                                            </button>
+                                          ) : (
+                                            <code className={className} {...props}>
+                                              {text}
+                                            </code>
+                                          )}
                                           <button
                                             type="button"
                                             className="code-copy"
