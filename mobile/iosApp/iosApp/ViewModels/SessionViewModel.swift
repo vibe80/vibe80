@@ -87,7 +87,17 @@ class SessionViewModel: ObservableObject {
             onError: { [weak self] error in
                 guard let self = self else { return }
 
-                self.errorMessage = error.localizedDescription
+                var friendlyMessage: String? = nil
+                if let sessionError = error as? SessionCreationException {
+                    if let statusCode = sessionError.statusCode?.intValue,
+                       statusCode == 403,
+                       let message = sessionError.errorMessage,
+                       !message.isEmpty {
+                        friendlyMessage = message
+                    }
+                }
+
+                self.errorMessage = friendlyMessage ?? error.localizedDescription
                 self.showError = true
                 self.isLoading = false
             }
