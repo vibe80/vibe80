@@ -2848,6 +2848,7 @@ wss.on("connection", (socket, req) => {
       const gitDir = session.gitDir || path.join(session.dir, "git");
       const sshDir = getWorkspaceSshPaths(getWorkspacePaths(session.workspaceId).homeDir).sshDir;
       const cwd = worktree?.path || session.repoDir;
+      const repoDir = session.repoDir;
       let output = "";
       let status = "success";
       try {
@@ -2864,7 +2865,10 @@ wss.on("connection", (socket, req) => {
               repoDir: cwd,
               internetAccess: session.defaultInternetAccess,
               netMode: "none",
-              extraAllowRw: allowGitCreds ? [gitDir, sshDir] : [],
+              extraAllowRw: [
+                ...(allowGitCreds ? [gitDir, sshDir] : []),
+                ...(repoDir ? [repoDir] : []),
+              ],
             }
           );
           const marker = "__VIBE80_EXIT_CODE:";
@@ -2890,7 +2894,10 @@ wss.on("connection", (socket, req) => {
               repoDir: cwd,
               netMode: "tcp:22,53,443",
               extraAllowRo: [gitDir],
-              extraAllowRw: allowGitCreds ? [gitDir, sshDir] : [],
+              extraAllowRw: [
+                ...(allowGitCreds ? [gitDir, sshDir] : []),
+                ...(repoDir ? [repoDir] : []),
+              ],
             }
           );
           output = result.output;
