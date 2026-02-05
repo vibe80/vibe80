@@ -51,6 +51,12 @@ const wss = new WebSocketServer({ noServer: true });
 const terminalEnabled = !/^(0|false|no|off)$/i.test(
   process.env.TERMINAL_ENABLED || ""
 );
+const allowRunSlashCommand = !/^(0|false|no|off)$/i.test(
+  process.env.ALLOW_RUN_SLASH_COMMAND || ""
+);
+const allowGitSlashCommand = !/^(0|false|no|off)$/i.test(
+  process.env.ALLOW_GIT_SLASH_COMMAND || ""
+);
 const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : null;
 
 const cwd = process.cwd();
@@ -2763,6 +2769,24 @@ wss.on("connection", (socket, req) => {
           JSON.stringify({
             type: "error",
             message: "Unsupported action request.",
+          })
+        );
+        return;
+      }
+      if (requestType === "run" && !allowRunSlashCommand) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Run command disabled.",
+          })
+        );
+        return;
+      }
+      if (requestType === "git" && !allowGitSlashCommand) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Git command disabled.",
           })
         );
         return;
