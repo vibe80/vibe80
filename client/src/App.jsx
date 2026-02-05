@@ -2707,9 +2707,10 @@ function App() {
           }
           setMessages((current) => {
             const next = [...current];
-            const existingIndex = messageIndex.get(payload.id);
-            if (existingIndex === undefined) {
-              messageIndex.set(payload.id, next.length);
+            const existingIndex = next.findIndex(
+              (item) => item?.id === payload.id
+            );
+            if (existingIndex === -1) {
               next.push({
                 id: payload.id,
                 role: "user",
@@ -2731,9 +2732,10 @@ function App() {
           }
           setMessages((current) => {
             const next = [...current];
-            const existingIndex = messageIndex.get(payload.id);
-            if (existingIndex === undefined) {
-              messageIndex.set(payload.id, next.length);
+            const existingIndex = next.findIndex(
+              (item) => item?.id === payload.id
+            );
+            if (existingIndex === -1) {
               next.push({
                 id: payload.id,
                 role: "assistant",
@@ -2757,9 +2759,10 @@ function App() {
           }
           setMessages((current) => {
             const next = [...current];
-            const existingIndex = messageIndex.get(payload.id);
-            if (existingIndex === undefined) {
-              messageIndex.set(payload.id, next.length);
+            const existingIndex = next.findIndex(
+              (item) => item?.id === payload.id
+            );
+            if (existingIndex === -1) {
               next.push({
                 id: payload.id,
                 role: "assistant",
