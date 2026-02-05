@@ -742,6 +742,18 @@ const ensureWorkspaceUserExists = async (workspaceId) => {
     const homeDir = getWorkspacePaths(workspaceId).homeDir;
     await ensureWorkspaceUser(workspaceId, homeDir, ids);
   }
+  try {
+    const [uidRaw, gidRaw] = await Promise.all([
+      runCommandOutput("id", ["-u", workspaceId]),
+      runCommandOutput("id", ["-g", workspaceId]),
+    ]);
+    await storage.saveWorkspaceUserIds(workspaceId, {
+      uid: Number(uidRaw.trim()),
+      gid: Number(gidRaw.trim()),
+    });
+  } catch {
+    // ignore cache refresh failures
+  }
   await appendAuditLog(workspaceId, "workspace_user_recreated", {
     uid: ids.uid,
     gid: ids.gid,
