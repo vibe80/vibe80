@@ -533,7 +533,6 @@ const getWorkspaceSshPaths = (workspaceHome) => {
   return {
     sshDir,
     knownHostsPath: path.join(sshDir, "known_hosts"),
-    sshConfigPath: path.join(sshDir, "config"),
   };
 };
 
@@ -1330,26 +1329,6 @@ const ensureKnownHost = async (workspaceId, repoUrl, sshPaths) => {
   }
 };
 
-const ensureSshConfigEntry = async (workspaceId, host, keyPath, sshPaths) => {
-  if (!host) {
-    return;
-  }
-  const { sshConfigPath } = sshPaths;
-  const keyPathConfig = `~/.ssh/${path.basename(keyPath)}`;
-  let existing = "";
-  try {
-    existing = await runAsCommandOutput(workspaceId, "/bin/cat", [sshConfigPath]);
-  } catch (error) {
-    existing = "";
-  }
-  const entry = `Host ${host}\n  IdentityFile ${keyPathConfig}\n`;
-  if (existing.includes(entry)) {
-    return;
-  }
-  const nextContent = existing ? `${existing.trimEnd()}\n\n${entry}` : entry;
-  await writeWorkspaceFile(workspaceId, sshConfigPath, nextContent, 0o600);
-};
-
 const resolveDefaultDenyGitCredentialsAccess = (session) =>
   typeof session?.defaultDenyGitCredentialsAccess === "boolean"
     ? session.defaultDenyGitCredentialsAccess
@@ -1396,6 +1375,7 @@ const createSession = async (
       const gitCredsDir = path.join(dir, "git");
       const needsGitCredsDir =
         resolvedShareGitCredentials ||
+        (auth?.type === "ssh" && auth.privateKey) ||
         (auth?.type === "http" && auth.username && auth.password);
       if (needsGitCredsDir) {
         await runAsCommand(workspaceId, "/bin/mkdir", ["-p", gitCredsDir]);
@@ -1404,14 +1384,12 @@ const createSession = async (
       const env = {};
       if (auth?.type === "ssh" && auth.privateKey) {
         await ensureWorkspaceDir(workspaceId, sshPaths.sshDir, 0o700);
-        const keyPath = path.join(sshPaths.sshDir, `codex_session_${sessionId}`);
+        const keyPath = path.join(gitCredsDir, `ssh-key-${sessionId}`);
         const normalizedKey = `${auth.privateKey.trimEnd()}\n`;
         await writeWorkspaceFile(workspaceId, keyPath, normalizedKey, 0o600);
         sessionSshKeyPath = keyPath;
-        const sshHost = resolveRepoHost(repoUrl);
-        await ensureSshConfigEntry(workspaceId, sshHost, keyPath, sshPaths);
         await ensureKnownHost(workspaceId, repoUrl, sshPaths);
-        env.GIT_SSH_COMMAND = `ssh -o IdentitiesOnly=yes -o UserKnownHostsFile="${sshPaths.knownHostsPath}"`;
+        env.GIT_SSH_COMMAND = `ssh -i "${keyPath}" -o IdentitiesOnly=yes -o UserKnownHostsFile="${sshPaths.knownHostsPath}"`;
       } else if (auth?.type === "http" && auth.username && auth.password) {
         const authInfo = resolveHttpAuthInfo(repoUrl);
         if (!authInfo) {
@@ -1447,6 +1425,18 @@ const createSession = async (
         ? ["-c", `credential.helper=store --file ${path.join(gitCredsDir, "git-credentials")}`, ...cloneArgs]
         : cloneArgs;
       await runAsCommand(workspaceId, "git", cloneCmd, { env: cloneEnv });
+      if (auth?.type === "ssh" && sessionSshKeyPath) {
+        await runAsCommand(
+          workspaceId,
+          "git",
+          [
+            "config",
+            "core.sshCommand",
+            `ssh -i ${sessionSshKeyPath} -o IdentitiesOnly=yes`,
+          ],
+          { cwd: repoDir }
+        );
+      }
       if (DEFAULT_GIT_AUTHOR_NAME && DEFAULT_GIT_AUTHOR_EMAIL) {
         await runAsCommand(
           workspaceId,
@@ -2838,6 +2828,7 @@ wss.on("connection", (socket, req) => {
         : resolveDefaultDenyGitCredentialsAccess(session);
       const allowGitCreds = !denyGitCreds;
       const gitDir = session.gitDir || path.join(session.dir, "git");
+      const sshDir = getWorkspaceSshPaths(getWorkspacePaths(session.workspaceId).homeDir).sshDir;
       const cwd = worktree?.path || session.repoDir;
       let output = "";
       let status = "success";
@@ -2855,7 +2846,7 @@ wss.on("connection", (socket, req) => {
               repoDir: cwd,
               internetAccess: session.defaultInternetAccess,
               netMode: "none",
-              extraAllowRw: allowGitCreds ? [gitDir] : [],
+              extraAllowRw: allowGitCreds ? [gitDir, sshDir] : [],
             }
           );
           const marker = "__VIBE80_EXIT_CODE:";
@@ -2882,7 +2873,7 @@ wss.on("connection", (socket, req) => {
               netMode: "tcp:53,443",
               env: { GIT_EDITOR: "/dev/null" },
               extraAllowRo: [gitDir],
-              extraAllowRw: allowGitCreds ? [gitDir] : [],
+              extraAllowRw: allowGitCreds ? [gitDir, sshDir] : [],
             }
           );
           output = result.output;
@@ -3411,6 +3402,7 @@ if (terminalWss) {
       : resolveDefaultDenyGitCredentialsAccess(session);
     const allowGitCreds = !denyGitCreds;
     const gitDir = session.gitDir || path.join(session.dir, "git");
+    const sshDir = getWorkspaceSshPaths(getWorkspacePaths(session.workspaceId).homeDir).sshDir;
     if (isMonoUser) {
       term = pty.spawn(shell, [], {
         name: "xterm-256color",
@@ -3438,7 +3430,7 @@ if (terminalWss) {
           workspaceId: session.workspaceId,
           internetAccess: session.defaultInternetAccess,
           netMode: "none",
-          extraAllowRw: allowGitCreds ? [gitDir] : [],
+          extraAllowRw: allowGitCreds ? [gitDir, sshDir] : [],
         }),
         "--",
         shell,

@@ -80,11 +80,13 @@ export class ClaudeCliClient extends EventEmitter {
       );
     }
     const shareGitCredentials = !this.denyGitCredentialsAccess;
+    const sshDir = path.join(getWorkspaceHome(this.workspaceId), ".ssh");
     const allowedDirs = [
       this.cwd,
       this.repoDir,
       this.attachmentsDir,
       shareGitCredentials ? this.gitDir : null,
+      shareGitCredentials ? sshDir : null,
     ]
       .filter(Boolean)
       .filter((value, index, self) => self.indexOf(value) === index);
@@ -133,7 +135,9 @@ export class ClaudeCliClient extends EventEmitter {
             netMode: "tcp:53,443",
             extraAllowRw: [
               path.join(getWorkspaceHome(this.workspaceId), ".claude"),
-              ...(shareGitCredentials && this.gitDir ? [this.gitDir] : []),
+              ...(shareGitCredentials
+                ? [sshDir, ...(this.gitDir ? [this.gitDir] : [])]
+                : []),
             ],
             extraAllowRwFiles: [
               path.join(getWorkspaceHome(this.workspaceId), ".claude.json"),
