@@ -7471,79 +7471,83 @@ function App() {
                               key={message.id}
                               className={`bubble ${message.role}`}
                             >
-                              <div className="backlog-view">
-                                <div className="backlog-title">
-                                  {t("Backlog")}
-                                </div>
-                                {pageItems.length === 0 ? (
-                                  <div className="backlog-empty">
-                                    {t("No pending tasks at the moment.")}
-                                  </div>
-                                ) : (
-                                  <div className="backlog-list">
-                                    {pageItems.map((item) => (
-                                      <div
-                                        key={item.id}
-                                        className="backlog-row"
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          className="backlog-checkbox"
-                                          onChange={() =>
-                                            markBacklogItemDone(item.id)
-                                          }
-                                        />
-                                        <button
-                                          type="button"
-                                          className="backlog-text"
-                                          title={item.text}
-                                          onClick={() => {
-                                            setInput(item.text || "");
-                                            inputRef.current?.focus();
-                                          }}
+                              <details className="command-execution-panel backlog-panel" open>
+                                <summary className="command-execution-summary">
+                                  <span className="command-execution-title">
+                                    {t("Backlog")}
+                                  </span>
+                                </summary>
+                                <div className="backlog-view">
+                                  {pageItems.length === 0 ? (
+                                    <div className="backlog-empty">
+                                      {t("No pending tasks at the moment.")}
+                                    </div>
+                                  ) : (
+                                    <div className="backlog-list">
+                                      {pageItems.map((item) => (
+                                        <div
+                                          key={item.id}
+                                          className="backlog-row"
                                         >
-                                          {item.text}
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                {totalPages > 1 ? (
-                                  <div className="backlog-pagination">
-                                    <button
-                                      type="button"
-                                      className="backlog-page-button"
-                                      disabled={currentPage === 0}
-                                      onClick={() =>
-                                        setBacklogMessagePage(
-                                          backlogScopeId,
-                                          message.id,
-                                          Math.max(0, currentPage - 1)
-                                        )
-                                      }
-                                    >
-                                      {t("Previous")}
-                                    </button>
-                                    <span className="backlog-page-status">
-                                      {currentPage + 1} / {totalPages}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      className="backlog-page-button"
-                                      disabled={currentPage >= totalPages - 1}
-                                      onClick={() =>
-                                        setBacklogMessagePage(
-                                          backlogScopeId,
-                                          message.id,
-                                          Math.min(totalPages - 1, currentPage + 1)
-                                        )
-                                      }
-                                    >
-                                      {t("Next")}
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
+                                          <input
+                                            type="checkbox"
+                                            className="backlog-checkbox"
+                                            onChange={() =>
+                                              markBacklogItemDone(item.id)
+                                            }
+                                          />
+                                          <button
+                                            type="button"
+                                            className="backlog-text"
+                                            title={item.text}
+                                            onClick={() => {
+                                              setInput(item.text || "");
+                                              inputRef.current?.focus();
+                                            }}
+                                          >
+                                            {item.text}
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {totalPages > 1 ? (
+                                    <div className="backlog-pagination">
+                                      <button
+                                        type="button"
+                                        className="backlog-page-button"
+                                        disabled={currentPage === 0}
+                                        onClick={() =>
+                                          setBacklogMessagePage(
+                                            backlogScopeId,
+                                            message.id,
+                                            Math.max(0, currentPage - 1)
+                                          )
+                                        }
+                                      >
+                                        {t("Previous")}
+                                      </button>
+                                      <span className="backlog-page-status">
+                                        {currentPage + 1} / {totalPages}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="backlog-page-button"
+                                        disabled={currentPage >= totalPages - 1}
+                                        onClick={() =>
+                                          setBacklogMessagePage(
+                                            backlogScopeId,
+                                            message.id,
+                                            Math.min(totalPages - 1, currentPage + 1)
+                                          )
+                                        }
+                                      >
+                                        {t("Next")}
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </details>
                             </div>
                           );
                         }
