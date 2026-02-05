@@ -15,8 +15,8 @@ steps:
         - main
       event:
         - push
-      target:
-        - production
+#      target:
+#        - production
       paths:
         - tools/**
         - docker/**
