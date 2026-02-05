@@ -4939,9 +4939,12 @@ function App() {
         return;
       }
       if (rawText.startsWith("/screenshot")) {
-        await captureScreenshot();
-        setInput("");
-        setCommandMenuOpen(false);
+        captureScreenshot()
+          .then(() => {
+            setInput("");
+            setCommandMenuOpen(false);
+          })
+          .catch(() => null);
         return;
       }
       if (rawText.startsWith("/git")) {
