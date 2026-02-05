@@ -153,6 +153,7 @@ class ApiClient(
                         statusDescription = response.status.description,
                         errorBody = responseBody,
                         errorType = payload?.error_type,
+                        errorMessage = payload?.error ?: payload?.message,
                         url = url
                     )
                 )
@@ -704,15 +705,20 @@ class SessionCreationException(
     val statusDescription: String? = null,
     val errorBody: String? = null,
     val errorType: String? = null,
+    val errorMessage: String? = null,
     val url: String,
     cause: Throwable? = null
-) : Exception(buildMessage(statusCode, statusDescription, errorType, errorBody, url, cause), cause) {
+) : Exception(
+    buildMessage(statusCode, statusDescription, errorType, errorBody, errorMessage, url, cause),
+    cause
+) {
     companion object {
         private fun buildMessage(
             statusCode: Int?,
             statusDescription: String?,
             errorType: String?,
             errorBody: String?,
+            errorMessage: String?,
             url: String,
             cause: Throwable?
         ): String {
@@ -728,6 +734,9 @@ class SessionCreationException(
                 }
                 if (!errorType.isNullOrBlank()) {
                     append("Type: $errorType\n")
+                }
+                if (!errorMessage.isNullOrBlank()) {
+                    append("Message: $errorMessage\n")
                 }
                 if (!errorBody.isNullOrBlank()) {
                     append("Réponse: ${errorBody.take(500)}\n")
