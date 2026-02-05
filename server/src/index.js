@@ -648,10 +648,22 @@ const listWorkspaceEntries = async (workspaceId, dirPath) => {
 const getWorkspaceStat = async (workspaceId, targetPath) => {
   const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
     "-c",
-    "%F\t%s\t%a",
+    "%f\t%s\t%a",
     targetPath,
   ]);
-  const [type, sizeRaw, modeRaw] = output.trim().split("\t");
+  const [modeHex, sizeRaw, modeRaw] = output.trim().split("\t");
+  const modeValue = Number.parseInt(modeHex, 16);
+  const typeBits = Number.isFinite(modeValue) ? modeValue & 0o170000 : null;
+  let type = "";
+  if (typeBits === 0o100000) {
+    type = "regular";
+  } else if (typeBits === 0o040000) {
+    type = "directory";
+  } else if (typeBits === 0o120000) {
+    type = "symlink";
+  } else if (Number.isFinite(typeBits)) {
+    type = "other";
+  }
   return {
     type,
     size: Number.parseInt(sizeRaw, 10),
