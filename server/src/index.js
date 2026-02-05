@@ -1424,9 +1424,23 @@ const createSession = async (
       }
       const cloneArgs = ["clone", repoUrl, repoDir];
       const cloneEnv = { ...env };
-      const cloneCmd = auth?.type === "http" && auth.username && auth.password
-        ? ["-c", `credential.helper=store --file ${path.join(gitCredsDir, "git-credentials")}`, ...cloneArgs]
-        : cloneArgs;
+      const cloneCmd = [];
+      if (auth?.type === "http" && auth.username && auth.password) {
+        cloneCmd.push(
+          "-c",
+          `credential.helper=store --file ${path.join(
+            gitCredsDir,
+            "git-credentials"
+          )}`
+        );
+      }
+      if (auth?.type === "ssh" && sessionSshKeyPath) {
+        cloneCmd.push(
+          "-c",
+          `core.sshCommand=ssh -i ${sessionSshKeyPath} -o IdentitiesOnly=yes`
+        );
+      }
+      cloneCmd.push(...cloneArgs);
       await runAsCommand(workspaceId, "git", cloneCmd, { env: cloneEnv });
       if (auth?.type === "ssh" && sessionSshKeyPath) {
         await runAsCommand(
