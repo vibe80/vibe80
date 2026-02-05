@@ -2652,15 +2652,15 @@ function App() {
           }
           setMessages((current) => {
             const next = [...current];
-            const existingIndex = messageIndex.get(payload.itemId);
-            if (existingIndex === undefined) {
-              const entry = {
+            const existingIndex = next.findIndex(
+              (item) => item?.id === payload.itemId
+            );
+            if (existingIndex === -1) {
+              next.push({
                 id: payload.itemId,
                 role: "assistant",
                 text: payload.delta,
-              };
-              messageIndex.set(payload.itemId, next.length);
-              next.push(entry);
+              });
               return next;
             }
 
@@ -2682,9 +2682,10 @@ function App() {
           maybeNotify({ id: payload.itemId, text: payload.text });
           setMessages((current) => {
             const next = [...current];
-            const existingIndex = messageIndex.get(payload.itemId);
-            if (existingIndex === undefined) {
-              messageIndex.set(payload.itemId, next.length);
+            const existingIndex = next.findIndex(
+              (item) => item?.id === payload.itemId
+            );
+            if (existingIndex === -1) {
               next.push({
                 id: payload.itemId,
                 role: "assistant",
