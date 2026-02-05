@@ -815,6 +815,7 @@ function App() {
   const [activeForm, setActiveForm] = useState(null);
   const [activeFormValues, setActiveFormValues] = useState({});
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
+  const handleSendMessageRef = useRef(null);
   const commandOptions = useMemo(
     () => [
       {
@@ -4699,7 +4700,10 @@ function App() {
   };
 
   const sendCommitMessage = (text) => {
-    handleSendMessage(text, []);
+    if (!handleSendMessageRef.current) {
+      return;
+    }
+    handleSendMessageRef.current(text, []);
   };
 
   // ============== Worktree Functions ==============
@@ -5089,11 +5093,11 @@ function App() {
     (text) => {
       const preservedInput = input;
       const preservedAttachments = draftAttachments;
-      handleSendMessage(text, []);
+      handleSendMessageRef.current?.(text, []);
       setInput(preservedInput);
       setDraftAttachments(preservedAttachments);
     },
-    [handleSendMessage, input, draftAttachments]
+    [input, draftAttachments]
   );
 
   const submitActiveForm = useCallback(
@@ -5150,7 +5154,7 @@ function App() {
 
   const onSubmit = (event) => {
     event.preventDefault();
-    handleSendMessage();
+    handleSendMessageRef.current?.();
   };
 
   const interruptTurn = () => {
@@ -5563,6 +5567,10 @@ function App() {
       t,
     ]
   );
+
+  useEffect(() => {
+    handleSendMessageRef.current = handleSendMessage;
+  }, [handleSendMessage]);
 
   // ============== End Worktree Functions ==============
 
@@ -6100,7 +6108,7 @@ function App() {
     }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      handleSendMessage();
+      handleSendMessageRef.current?.();
     }
   };
 
@@ -6148,7 +6156,7 @@ function App() {
       [blockKey]: choiceIndex,
     }));
     setInput(choice);
-    handleSendMessage(choice);
+    handleSendMessageRef.current?.(choice);
   };
 
   const handleClearChat = async () => {
