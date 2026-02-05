@@ -3,13 +3,25 @@
 
 const { spawn } = require("child_process");
 const path = require("path");
+const os = require("os");
 
 const rootDir = path.resolve(__dirname, "..");
 const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+const homeDir = process.env.HOME || os.homedir();
+const defaultEnv = {
+  DEPLOYMENT_MODE: "mono_user",
+  JWT_KEY_PATH: path.join(homeDir, ".vibe80", "jwt.key"),
+  STORAGE_BACKEND: "sqlite",
+  SQLITE_PATH: path.join(homeDir, ".vibe80", "data.sqlite"),
+};
 
 const spawnProcess = (args, label) => {
   const child = spawn(npmCmd, args, {
     cwd: rootDir,
+    env: {
+      ...defaultEnv,
+      ...process.env,
+    },
     stdio: "inherit",
   });
 
