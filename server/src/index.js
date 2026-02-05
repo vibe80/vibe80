@@ -289,6 +289,9 @@ const isPublicApiRequest = (req) => {
   if (req.method === "POST" && req.path === "/workspaces/login") {
     return true;
   }
+  if (req.method === "POST" && req.path === "/workspaces/refresh") {
+    return true;
+  }
   if (req.method === "POST" && req.path === "/sessions/handoff/consume") {
     return true;
   }
