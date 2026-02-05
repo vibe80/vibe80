@@ -127,7 +127,6 @@ class WebSocketManager(
                                 is SendMessageRequest -> "user_message" to json.encodeToString(SendMessageRequest.serializer(), message)
                                 is SwitchProviderRequest -> "switch_provider" to json.encodeToString(SwitchProviderRequest.serializer(), message)
                                 is WorktreeMessageRequest -> "worktree_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
-                                is CreateWorktreeRequest -> "create_worktree" to json.encodeToString(CreateWorktreeRequest.serializer(), message)
                                 is ListWorktreesRequest -> "list_worktrees" to json.encodeToString(ListWorktreesRequest.serializer(), message)
                                 is SyncWorktreeMessagesRequest -> "sync_worktree_messages" to json.encodeToString(SyncWorktreeMessagesRequest.serializer(), message)
                             }
@@ -325,24 +324,6 @@ class WebSocketManager(
             text = text,
             displayText = displayText,
             attachments = attachments
-        ))
-    }
-
-    suspend fun createWorktree(
-        provider: String,
-        name: String? = null,
-        parentWorktreeId: String? = null,
-        branchName: String? = null,
-        model: String? = null,
-        reasoningEffort: String? = null
-    ) {
-        send(CreateWorktreeRequest(
-            provider = provider,
-            name = name,
-            parentWorktreeId = parentWorktreeId,
-            startingBranch = branchName,
-            model = model,
-            reasoningEffort = reasoningEffort
         ))
     }
 

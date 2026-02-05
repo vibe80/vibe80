@@ -431,6 +431,33 @@ class ApiClient(
     }
 
     /**
+     * Create a worktree
+     */
+    suspend fun createWorktree(
+        sessionId: String,
+        request: WorktreeCreateRequest
+    ): Result<WorktreeCreateResponse> {
+        val url = "$baseUrl/api/worktree"
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.post(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(request.copy())
+                    parameter("session", sessionId)
+                    applyAuth(this)
+                }
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Delete a worktree
      */
     suspend fun deleteWorktree(sessionId: String, worktreeId: String): Result<Unit> {

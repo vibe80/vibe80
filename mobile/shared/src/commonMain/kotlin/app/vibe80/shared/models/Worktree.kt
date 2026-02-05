@@ -64,8 +64,24 @@ enum class WorktreeStatus {
 data class WorktreeCreateRequest(
     val provider: String,
     val parentWorktreeId: String? = null,
-    val name: String,
-    val branchName: String? = null
+    val name: String? = null,
+    val startingBranch: String? = null,
+    val model: String? = null,
+    val reasoningEffort: String? = null,
+    val internetAccess: Boolean? = null,
+    val denyGitCredentialsAccess: Boolean? = null
+)
+
+@Serializable
+data class WorktreeCreateResponse(
+    val worktreeId: String,
+    val name: String? = null,
+    val branchName: String? = null,
+    val provider: String? = null,
+    val status: WorktreeStatus? = null,
+    val color: String? = null,
+    val internetAccess: Boolean? = null,
+    val denyGitCredentialsAccess: Boolean? = null
 )
 
 @Serializable

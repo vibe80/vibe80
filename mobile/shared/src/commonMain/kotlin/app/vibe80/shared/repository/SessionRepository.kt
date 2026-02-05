@@ -598,12 +598,17 @@ class SessionRepository(
         val result = apiClient.createWorktree(request)
         result.onFailure { handleApiFailure(it, "createWorktree") }
         result.onSuccess { response ->
+            val resolvedProvider = when (response.provider?.lowercase()) {
+                "claude" -> LLMProvider.CLAUDE
+                "codex" -> LLMProvider.CODEX
+                else -> provider
+            }
             val worktree = Worktree(
                 id = response.worktreeId,
                 name = response.name ?: response.branchName ?: "worktree",
                 branchName = response.branchName ?: "main",
-                provider = response.provider,
-                status = response.status ?: WorktreeStatus.READY,
+                provider = resolvedProvider,
+                status = response.status ?: WorktreeStatus.CREATING,
                 color = response.color ?: Worktree.COLORS.first()
             )
             _worktrees.update { current ->
