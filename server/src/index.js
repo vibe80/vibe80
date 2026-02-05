@@ -79,6 +79,32 @@ const isMultiUser = deploymentMode === "multi_user";
 
 await storage.init();
 
+const ensureDefaultMonoWorkspace = async () => {
+  if (!isMonoUser) {
+    return;
+  }
+  const workspaceId = "default";
+  const paths = getWorkspacePaths(workspaceId);
+  await ensureWorkspaceDirs(workspaceId);
+  try {
+    await readWorkspaceSecret(workspaceId);
+  } catch {
+    await writeWorkspaceFile(workspaceId, paths.secretPath, "default", 0o600);
+  }
+  const ids = await getWorkspaceUserIds(workspaceId);
+  const existing = await readWorkspaceConfig(workspaceId).catch(() => null);
+  if (!existing) {
+    const providers = {
+      codex: { enabled: true, auth: null },
+      claude: { enabled: true, auth: null },
+    };
+    await writeWorkspaceConfig(workspaceId, providers, ids);
+    await appendAuditLog(workspaceId, "workspace_created");
+  }
+};
+
+await ensureDefaultMonoWorkspace();
+
 const workspaceUidMin = Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
 const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
 const workspaceIdsUsed = new Set();
