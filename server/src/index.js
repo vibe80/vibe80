@@ -2888,7 +2888,7 @@ wss.on("connection", (socket, req) => {
               sandbox: true,
               workspaceId: session.workspaceId,
               repoDir: cwd,
-              netMode: "tcp:53,443",
+              netMode: "tcp:22,53,443",
               extraAllowRo: [gitDir],
               extraAllowRw: allowGitCreds ? [gitDir, sshDir] : [],
             }
