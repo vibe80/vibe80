@@ -12,7 +12,7 @@ import jwt from "jsonwebtoken";
 import * as pty from "node-pty";
 import { buildSandboxArgs } from "./runAs.js";
 import dockerNames from "docker-names";
-import { runAsCommand, runAsCommandOutput } from "./runAs.js";
+import { runAsCommand, runAsCommandOutput, runAsCommandOutputWithStatus } from "./runAs.js";
 import storage from "./storage/index.js";
 import { getSessionRuntime, deleteSessionRuntime } from "./runtimeStore.js";
 import {
@@ -418,6 +418,23 @@ const runSessionCommand = (session, command, args, options = {}) =>
 
 const runSessionCommandOutput = (session, command, args, options = {}) =>
   runAsCommandOutput(session.workspaceId, command, args, options);
+
+const runSessionCommandOutputWithStatus = (session, command, args, options = {}) =>
+  runAsCommandOutputWithStatus(session.workspaceId, command, args, options);
+
+const parseCommandArgs = (input = "") => {
+  if (!input) {
+    return [];
+  }
+  const matches = input.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+  return matches.map((item) =>
+    item.startsWith("\"") && item.endsWith("\"")
+      ? item.slice(1, -1)
+      : item.startsWith("'") && item.endsWith("'")
+        ? item.slice(1, -1)
+        : item
+  );
+};
 
 const loadJwtKey = () => {
   if (process.env.JWT_KEY) {
@@ -2741,7 +2758,7 @@ wss.on("connection", (socket, req) => {
         );
         return;
       }
-      if (requestType !== "run") {
+      if (requestType !== "run" && requestType !== "git") {
         socket.send(
           JSON.stringify({
             type: "error",
@@ -2765,7 +2782,7 @@ wss.on("connection", (socket, req) => {
       const targetWorktreeId = worktreeId !== "main" ? worktreeId : "main";
       const broadcastWorktreeId = targetWorktreeId === "main" ? undefined : targetWorktreeId;
       const messageId = createMessageId();
-      const displayText = `/run ${arg}`;
+      const displayText = `/${requestType} ${arg}`.trim();
       if (targetWorktreeId === "main") {
         await appendMainMessage(session, {
           id: messageId,
@@ -2798,37 +2815,59 @@ wss.on("connection", (socket, req) => {
       const allowGitCreds = !denyGitCreds;
       const gitDir = session.gitDir || path.join(session.dir, "git");
       const cwd = worktree?.path || session.repoDir;
-      const wrapped = `set +e; ${arg} 2>&1; echo \"__VIBE80_EXIT_CODE:$?\"`;
       let output = "";
       let status = "success";
       try {
-        output = await runSessionCommandOutput(
-          session,
-          "/bin/bash",
-          ["-lc", wrapped],
-          {
-            cwd,
-            sandbox: true,
-            workspaceId: session.workspaceId,
-            repoDir: cwd,
-            internetAccess: session.defaultInternetAccess,
-            netMode: "none",
-            extraAllowRw: allowGitCreds ? [gitDir] : [],
+        if (requestType === "run") {
+          const wrapped = `set +e; ${arg} 2>&1; echo \"__VIBE80_EXIT_CODE:$?\"`;
+          output = await runSessionCommandOutput(
+            session,
+            "/bin/bash",
+            ["-lc", wrapped],
+            {
+              cwd,
+              sandbox: true,
+              workspaceId: session.workspaceId,
+              repoDir: cwd,
+              internetAccess: session.defaultInternetAccess,
+              netMode: "none",
+              extraAllowRw: allowGitCreds ? [gitDir] : [],
+            }
+          );
+          const marker = "__VIBE80_EXIT_CODE:";
+          if (output.includes(marker)) {
+            const parts = output.split(marker);
+            const body = parts.slice(0, -1).join(marker);
+            const exitCode = Number(parts[parts.length - 1].trim());
+            output = body.trimEnd();
+            if (Number.isFinite(exitCode) && exitCode !== 0) {
+              status = "error";
+            }
           }
-        );
+        } else {
+          const gitArgs = parseCommandArgs(arg);
+          const result = await runSessionCommandOutputWithStatus(
+            session,
+            "git",
+            gitArgs,
+            {
+              cwd,
+              sandbox: true,
+              workspaceId: session.workspaceId,
+              repoDir: cwd,
+              netMode: "tcp:53,443",
+              extraAllowRo: [gitDir],
+              extraAllowRw: allowGitCreds ? [gitDir] : [],
+            }
+          );
+          output = result.output;
+          if (typeof result.code === "number" && result.code !== 0) {
+            status = "error";
+          }
+        }
       } catch (error) {
         status = "error";
         output = error?.message || "Command failed.";
-      }
-      const marker = "__VIBE80_EXIT_CODE:";
-      if (output.includes(marker)) {
-        const parts = output.split(marker);
-        const body = parts.slice(0, -1).join(marker);
-        const exitCode = Number(parts[parts.length - 1].trim());
-        output = body.trimEnd();
-        if (Number.isFinite(exitCode) && exitCode !== 0) {
-          status = "error";
-        }
       }
       const resultId = createMessageId();
       const resultText = `\`\`\`\n${output}\n\`\`\``;
