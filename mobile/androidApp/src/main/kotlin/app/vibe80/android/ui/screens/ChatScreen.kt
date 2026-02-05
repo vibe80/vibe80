@@ -1,5 +1,6 @@
 package app.vibe80.android.ui.screens
 
+import android.Manifest
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import app.vibe80.android.R
 import app.vibe80.android.ui.components.CreateWorktreeSheet
 import app.vibe80.android.ui.components.DiffSheetContent
@@ -149,6 +151,51 @@ fun ChatScreen(
     }
 
     var showAttachmentMenu by remember { mutableStateOf(false) }
+    var pendingCameraLaunch by remember { mutableStateOf(false) }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && pendingCameraLaunch) {
+            pendingCameraLaunch = false
+            val photoFile = createTempImageFile(context)
+            val photoUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            pendingCameraPhoto = CameraPhoto(
+                uri = photoUri,
+                name = photoFile.name,
+                file = photoFile
+            )
+            cameraLauncher.launch(photoUri)
+        }
+    }
+
+    fun launchCameraWithPermission() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            val photoFile = createTempImageFile(context)
+            val photoUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            pendingCameraPhoto = CameraPhoto(
+                uri = photoUri,
+                name = photoFile.name,
+                file = photoFile
+            )
+            cameraLauncher.launch(photoUri)
+        } else {
+            pendingCameraLaunch = true
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     // Auto-scroll to bottom on new messages
     LaunchedEffect(uiState.messages.size, uiState.currentStreamingMessage) {
@@ -526,18 +573,7 @@ fun ChatScreen(
                         enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
                     ) {
                         showAttachmentMenu = false
-                        val photoFile = createTempImageFile(context)
-                        val photoUri = FileProvider.getUriForFile(
-                            context,
-                            "${context.packageName}.fileprovider",
-                            photoFile
-                        )
-                        pendingCameraPhoto = CameraPhoto(
-                            uri = photoUri,
-                            name = photoFile.name,
-                            file = photoFile
-                        )
-                        cameraLauncher.launch(photoUri)
+                        launchCameraWithPermission()
                     }
                 )
 
