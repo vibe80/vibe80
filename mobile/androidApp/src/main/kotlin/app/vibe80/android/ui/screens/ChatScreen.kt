@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.BugReport
@@ -145,6 +146,8 @@ fun ChatScreen(
         }
         pendingCameraPhoto = null
     }
+
+    var showAttachmentMenu by remember { mutableStateOf(false) }
 
     // Auto-scroll to bottom on new messages
     LaunchedEffect(uiState.messages.size, uiState.currentStreamingMessage) {
@@ -459,40 +462,13 @@ fun ChatScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Attach button
                             IconButton(
-                                onClick = {
-                                    filePickerLauncher.launch(arrayOf("*/*"))
-                                },
+                                onClick = { showAttachmentMenu = true },
                                 enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.AttachFile,
-                                    contentDescription = "Joindre un fichier"
-                                )
-                            }
-
-                            // Camera button
-                            IconButton(
-                                onClick = {
-                                    val photoFile = createTempImageFile(context)
-                                    val photoUri = FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        photoFile
-                                    )
-                                    pendingCameraPhoto = CameraPhoto(
-                                        uri = photoUri,
-                                        name = photoFile.name,
-                                        file = photoFile
-                                    )
-                                    cameraLauncher.launch(photoUri)
-                                },
-                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhotoCamera,
-                                    contentDescription = "Appareil photo"
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Ajouter"
                                 )
                             }
 
@@ -520,6 +496,88 @@ fun ChatScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (showAttachmentMenu) {
+        ModalBottomSheet(
+            onDismissRequest = { showAttachmentMenu = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Ajouter",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                ListItem(
+                    headlineContent = { Text("Caméra") },
+                    leadingContent = {
+                        Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable(
+                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                    ) {
+                        showAttachmentMenu = false
+                        val photoFile = createTempImageFile(context)
+                        val photoUri = FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            photoFile
+                        )
+                        pendingCameraPhoto = CameraPhoto(
+                            uri = photoUri,
+                            name = photoFile.name,
+                            file = photoFile
+                        )
+                        cameraLauncher.launch(photoUri)
+                    }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Photos") },
+                    leadingContent = {
+                        Icon(imageVector = Icons.Default.Image, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable(
+                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                    ) {
+                        showAttachmentMenu = false
+                        filePickerLauncher.launch(arrayOf("image/*"))
+                    }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Fichiers") },
+                    leadingContent = {
+                        Icon(imageVector = Icons.Default.AttachFile, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable(
+                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                    ) {
+                        showAttachmentMenu = false
+                        filePickerLauncher.launch(arrayOf("*/*"))
+                    }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Modèle") },
+                    supportingContent = { Text("Bientôt disponible") },
+                    leadingContent = {
+                        Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null)
+                    },
+                    colors = ListItemDefaults.colors(
+                        headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        supportingColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
             }
         }
     }
