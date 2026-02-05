@@ -49,6 +49,7 @@ export class CodexAppServerClient extends EventEmitter {
     ];
     const useLandlock = this.internetAccess;
     const shareGitCredentials = !this.denyGitCredentialsAccess;
+    const sshDir = path.join(getWorkspaceHome(this.workspaceId), ".ssh");
     const sandboxArgs = !isMonoUser && useLandlock
       ? buildSandboxArgs({
           cwd: this.cwd,
@@ -59,7 +60,9 @@ export class CodexAppServerClient extends EventEmitter {
           netMode: "tcp:53,443",
           extraAllowRw: [
             path.join(getWorkspaceHome(this.workspaceId), ".codex"),
-            ...(shareGitCredentials && this.gitDir ? [this.gitDir] : []),
+            ...(shareGitCredentials
+              ? [sshDir, ...(this.gitDir ? [this.gitDir] : [])]
+              : []),
           ],
         })
       : [];
