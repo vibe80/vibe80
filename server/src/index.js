@@ -2683,6 +2683,7 @@ wss.on("connection", (socket, req) => {
       socket.close();
       return;
     }
+    await getWorkspaceUserIds(session.workspaceId);
     const runtime = getSessionRuntime(sessionId);
     if (!runtime) {
       socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
@@ -4012,6 +4013,7 @@ app.post("/api/session", async (req, res) => {
     return;
   }
   try {
+    await getWorkspaceUserIds(req.workspaceId);
     const auth = req.body?.auth || null;
     const defaultInternetAccess = req.body?.defaultInternetAccess;
     const defaultDenyGitCredentialsAccess =
