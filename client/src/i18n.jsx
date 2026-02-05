@@ -170,7 +170,7 @@ const translations = {
     "OpenAI authentication failed.": "Echec de l'authentification OpenAI.",
     "Password or PAT": "Mot de passe ou PAT",
     "Preview": "Aperçu",
-    "Private SSH key": "Cle SSH privee",
+    "Private SSH key (not recommended)": "Cle SSH privee (non recommande)",
     "Previous": "Precedent",
     "Processing...": "Traitement en cours...",
     "Provide user.name and user.email for repository commits.": "Renseignez user.name et user.email pour les commits du dépôt.",
