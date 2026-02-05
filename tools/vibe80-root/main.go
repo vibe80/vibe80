@@ -1,6 +1,7 @@
 package main
 
 import (
+  "encoding/json"
   "errors"
   "fmt"
   "os"
@@ -58,7 +59,9 @@ func ensureWorkspace(workspaceID string) {
   metadataDir := filepath.Join(rootDir, workspaceMetadataDirName)
   sessionsDir := filepath.Join(rootDir, workspaceSessionsDirName)
 
-  if err := ensureUser(workspaceID, homeDir); err != nil {
+  desiredUID, desiredGID := readWorkspaceUIDGID(metadataDir)
+
+  if err := ensureUser(workspaceID, homeDir, desiredUID, desiredGID); err != nil {
     fail(err.Error())
   }
 
@@ -85,14 +88,25 @@ func ensureWorkspace(workspaceID string) {
   if err := ensureDir(sessionsDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
+  ensureOwnership(filepath.Join(metadataDir, "workspace.json"), uid, gid)
+  ensureOwnership(filepath.Join(metadataDir, "workspace.secret"), uid, gid)
 }
 
-func ensureUser(workspaceID, homeDir string) error {
+func ensureUser(workspaceID, homeDir string, uid, gid int) error {
   _, err := exec.Command("id", "-u", workspaceID).Output()
   if err == nil {
     return nil
   }
-  cmd := exec.Command("useradd", "-m", "-d", homeDir, "-s", "/bin/bash", workspaceID)
+  args := []string{"-m", "-d", homeDir, "-s", "/bin/bash"}
+  if uid >= 0 {
+    args = append(args, "-u", strconv.Itoa(uid))
+  }
+  if gid >= 0 {
+    ensureGroup(workspaceID, gid)
+    args = append(args, "-g", strconv.Itoa(gid))
+  }
+  args = append(args, workspaceID)
+  cmd := exec.Command("useradd", args...)
   output, err := cmd.CombinedOutput()
   if err != nil {
     return fmt.Errorf("useradd failed: %s", strings.TrimSpace(string(output)))
@@ -148,6 +162,39 @@ func ensureFile(path string, mode os.FileMode, uid, gid int) error {
     return fmt.Errorf("chmod failed: %s", err)
   }
   return nil
+}
+
+func ensureOwnership(path string, uid, gid int) {
+  if _, err := os.Stat(path); err != nil {
+    return
+  }
+  _ = os.Chown(path, uid, gid)
+}
+
+func ensureGroup(name string, gid int) {
+  if _, err := exec.Command("getent", "group", strconv.Itoa(gid)).Output(); err == nil {
+    return
+  }
+  _ = exec.Command("groupadd", "-g", strconv.Itoa(gid), name).Run()
+}
+
+func readWorkspaceUIDGID(metadataDir string) (int, int) {
+  configPath := filepath.Join(metadataDir, "workspace.json")
+  raw, err := os.ReadFile(configPath)
+  if err != nil {
+    return -1, -1
+  }
+  var payload struct {
+    UID int `json:"uid"`
+    GID int `json:"gid"`
+  }
+  if err := json.Unmarshal(raw, &payload); err != nil {
+    return -1, -1
+  }
+  if payload.UID <= 0 || payload.GID <= 0 {
+    return -1, -1
+  }
+  return payload.UID, payload.GID
 }
 
 func fail(message string) {
