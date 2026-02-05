@@ -289,6 +289,9 @@ const isPublicApiRequest = (req) => {
   if (req.method === "POST" && req.path === "/workspaces/login") {
     return true;
   }
+  if (req.method === "POST" && req.path === "/workspaces/refresh") {
+    return true;
+  }
   if (req.method === "POST" && req.path === "/sessions/handoff/consume") {
     return true;
   }
@@ -371,13 +374,13 @@ const classifySessionCreationError = (error) => {
     message.includes("fatal: authentication")
   ) {
     return {
-      status: 401,
+      status: 403,
       error: `Echec d'authentification Git.${rawMessage ? ` ${rawMessage}` : ""}`,
     };
   }
   if (message.includes("permission denied (publickey)") || message.includes("publickey")) {
     return {
-      status: 401,
+      status: 403,
       error: `Echec d'authentification SSH (cle).${rawMessage ? ` ${rawMessage}` : ""}`,
     };
   }

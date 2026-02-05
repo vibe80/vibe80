@@ -488,11 +488,23 @@ class SessionViewModel(
                     }
                 },
                 onFailure = { exception ->
+                    val friendlyMessage = when (exception) {
+                        is app.vibe80.shared.network.SessionCreationException -> {
+                            if (exception.statusCode == 403 && !exception.errorMessage.isNullOrBlank()) {
+                                exception.errorMessage
+                            } else {
+                                null
+                            }
+                        }
+                        else -> null
+                    }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             loadingState = LoadingState.NONE,
-                            error = exception.message ?: "Erreur lors de la création de la session"
+                            error = friendlyMessage
+                                ?: exception.message
+                                ?: "Erreur lors de la création de la session"
                         )
                     }
                 }
