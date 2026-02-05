@@ -2728,6 +2728,140 @@ wss.on("connection", (socket, req) => {
       return;
     }
 
+    if (payload.type === "action_request") {
+      const requestType = typeof payload.request === "string" ? payload.request : "";
+      const arg = typeof payload.arg === "string" ? payload.arg.trim() : "";
+      const worktreeId = payload.worktreeId || "main";
+      if (!requestType || !arg) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Invalid action request.",
+          })
+        );
+        return;
+      }
+      if (requestType !== "run") {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Unsupported action request.",
+          })
+        );
+        return;
+      }
+      const worktree =
+        worktreeId !== "main" ? await getWorktree(session, worktreeId) : null;
+      if (worktreeId !== "main" && !worktree) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Worktree not found.",
+            worktreeId,
+          })
+        );
+        return;
+      }
+      const targetWorktreeId = worktreeId !== "main" ? worktreeId : "main";
+      const broadcastWorktreeId = targetWorktreeId === "main" ? undefined : targetWorktreeId;
+      const messageId = createMessageId();
+      const displayText = `/run ${arg}`;
+      if (targetWorktreeId === "main") {
+        await appendMainMessage(session, {
+          id: messageId,
+          role: "user",
+          type: "action_request",
+          text: displayText,
+          action: { request: requestType, arg },
+        });
+      } else {
+        await appendWorktreeMessage(session, targetWorktreeId, {
+          id: messageId,
+          role: "user",
+          type: "action_request",
+          text: displayText,
+          action: { request: requestType, arg },
+        });
+      }
+      broadcastToSession(sessionId, {
+        type: "action_request",
+        worktreeId: broadcastWorktreeId,
+        id: messageId,
+        request: requestType,
+        arg,
+        text: displayText,
+      });
+
+      const denyGitCreds = typeof worktree?.denyGitCredentialsAccess === "boolean"
+        ? worktree.denyGitCredentialsAccess
+        : resolveDefaultDenyGitCredentialsAccess(session);
+      const allowGitCreds = !denyGitCreds;
+      const gitDir = session.gitDir || path.join(session.dir, "git");
+      const cwd = worktree?.path || session.repoDir;
+      const wrapped = `set +e; ${arg} 2>&1; echo \"__VIBE80_EXIT_CODE:$?\"`;
+      let output = "";
+      let status = "success";
+      try {
+        output = await runSessionCommandOutput(
+          session,
+          "/bin/bash",
+          ["-lc", wrapped],
+          {
+            cwd,
+            sandbox: true,
+            workspaceId: session.workspaceId,
+            repoDir: cwd,
+            internetAccess: session.defaultInternetAccess,
+            netMode: "none",
+            extraAllowRw: allowGitCreds ? [gitDir] : [],
+          }
+        );
+      } catch (error) {
+        status = "error";
+        output = error?.message || "Command failed.";
+      }
+      const marker = "__VIBE80_EXIT_CODE:";
+      if (output.includes(marker)) {
+        const parts = output.split(marker);
+        const body = parts.slice(0, -1).join(marker);
+        const exitCode = Number(parts[parts.length - 1].trim());
+        output = body.trimEnd();
+        if (Number.isFinite(exitCode) && exitCode !== 0) {
+          status = "error";
+        }
+      }
+      const resultId = createMessageId();
+      const resultText = `\`\`\`\n${output}\n\`\`\``;
+      if (targetWorktreeId === "main") {
+        await appendMainMessage(session, {
+          id: resultId,
+          role: "assistant",
+          type: "action_result",
+          text: resultText,
+          action: { request: requestType, arg, status, output },
+        });
+      } else {
+        await appendWorktreeMessage(session, targetWorktreeId, {
+          id: resultId,
+          role: "assistant",
+          type: "action_result",
+          text: resultText,
+          action: { request: requestType, arg, status, output },
+        });
+      }
+      broadcastToSession(sessionId, {
+        type: "action_result",
+        worktreeId: broadcastWorktreeId,
+        id: resultId,
+        request: requestType,
+        arg,
+        status,
+        output,
+        text: resultText,
+      });
+      return;
+    }
+
     // ============== Worktree WebSocket Handlers ==============
 
     // Send message to a specific worktree
