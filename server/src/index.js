@@ -1437,7 +1437,7 @@ const createSession = async (
       if (auth?.type === "ssh" && sessionSshKeyPath) {
         cloneCmd.push(
           "-c",
-          `core.sshCommand="ssh -v -i ${sessionSshKeyPath} -o IdentitiesOnly=yes"`
+          `core.sshCommand="ssh -i ${sessionSshKeyPath} -o IdentitiesOnly=yes"`
         );
       }
       cloneCmd.push(...cloneArgs);
@@ -1449,7 +1449,7 @@ const createSession = async (
           [
             "config",
             "core.sshCommand",
-            `ssh -v -i ${sessionSshKeyPath} -o IdentitiesOnly=yes`,
+            `ssh -i ${sessionSshKeyPath} -o IdentitiesOnly=yes`,
           ],
           { cwd: repoDir }
         );
