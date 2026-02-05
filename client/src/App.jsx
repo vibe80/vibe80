@@ -5385,7 +5385,6 @@ function App() {
       expandExplorerDir,
       findExplorerNode,
       handleViewSelect,
-      loadExplorerFile,
       normalizeOpenPath,
       requestExplorerStatus,
       requestExplorerTree,
@@ -5742,12 +5741,11 @@ function App() {
       handleViewSelect("explorer");
       requestExplorerTree(tabId);
       requestExplorerStatus(tabId);
-      loadExplorerFile(tabId, filePath);
+      loadExplorerFileRef.current?.(tabId, filePath);
     },
     [
       activeWorktreeId,
       handleViewSelect,
-      loadExplorerFile,
       requestExplorerStatus,
       requestExplorerTree,
     ]
@@ -7050,7 +7048,7 @@ function App() {
               <button
                 type="button"
                 className="explorer-tree-file"
-                onClick={() => loadExplorerFile(tabId, node.path)}
+                onClick={() => loadExplorerFileRef.current?.(tabId, node.path)}
               >
                 <span className="explorer-tree-icon" aria-hidden="true">
                   <FontAwesomeIcon icon={faFileLines} />
