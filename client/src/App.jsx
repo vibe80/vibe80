@@ -816,6 +816,7 @@ function App() {
   const [activeFormValues, setActiveFormValues] = useState({});
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
   const handleSendMessageRef = useRef(null);
+  const loadExplorerFileRef = useRef(null);
   const commandOptions = useMemo(
     () => [
       {
@@ -5374,7 +5375,7 @@ function App() {
       if (node.type === "dir") {
         expandExplorerDir(tabId, node.path);
       } else {
-        loadExplorerFile(tabId, node.path);
+        loadExplorerFileRef.current?.(tabId, node.path);
       }
     },
     [
@@ -5727,6 +5728,10 @@ function App() {
     },
     [attachmentSession?.sessionId, updateExplorerState, t]
   );
+
+  useEffect(() => {
+    loadExplorerFileRef.current = loadExplorerFile;
+  }, [loadExplorerFile]);
 
   const openFileInExplorer = useCallback(
     (filePath) => {
