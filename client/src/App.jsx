@@ -7783,12 +7783,13 @@ function App() {
                                         Boolean(trimmed) &&
                                         !trimmed.startsWith("/") &&
                                         !trimmed.startsWith("~") &&
+                                        !/^[a-zA-Z]+:\/\//.test(trimmed) &&
                                         !trimmed.includes("\\") &&
-                                        (trimmed.includes("/") ||
-                                          trimmed.startsWith("./") ||
+                                        !trimmed.includes(" ") &&
+                                        (trimmed.startsWith("./") ||
                                           trimmed.startsWith("../") ||
-                                          !trimmed.includes(" ")) &&
-                                        !/^[a-zA-Z]+:\/\//.test(trimmed);
+                                          trimmed.includes("/") ||
+                                          /^[\\w.-]+$/.test(trimmed));
                                       return (
                                         <span
                                           className={`inline-code${
