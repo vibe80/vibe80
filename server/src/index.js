@@ -295,6 +295,9 @@ const isPublicApiRequest = (req) => {
   if (req.method === "POST" && req.path === "/sessions/handoff/consume") {
     return true;
   }
+  if (req.method === "GET" && req.path === "/health") {
+    return true;
+  }
   return false;
 };
 
