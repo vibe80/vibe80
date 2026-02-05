@@ -9,6 +9,7 @@ const IS_MONO_USER = DEPLOYMENT_MODE === "mono_user";
 const ALLOWED_ENV_KEYS = new Set([
   "GIT_SSH_COMMAND",
   "GIT_CONFIG_GLOBAL",
+  "GIT_EDITOR",
   "GIT_TERMINAL_PROMPT",
   "TERM",
 ]);
