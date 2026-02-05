@@ -725,6 +725,25 @@ const getWorkspaceUserIds = async (workspaceId) => {
   return ids;
 };
 
+const ensureWorkspaceUserExists = async (workspaceId) => {
+  if (isMonoUser) {
+    return;
+  }
+  const ids = await getWorkspaceUserIds(workspaceId);
+  try {
+    await runCommandOutput("id", ["-u", workspaceId]);
+    return;
+  } catch {
+    // continue
+  }
+  const homeDir = getWorkspacePaths(workspaceId).homeDir;
+  await ensureWorkspaceUser(workspaceId, homeDir, ids);
+  await appendAuditLog(workspaceId, "workspace_user_recreated", {
+    uid: ids.uid,
+    gid: ids.gid,
+  });
+};
+
 const buildWorkspaceEnv = (workspaceId) => {
   const home = isMonoUser ? os.homedir() : path.join(workspaceHomeBase, workspaceId);
   const user = isMonoUser ? os.userInfo().username : workspaceId;
@@ -2683,7 +2702,7 @@ wss.on("connection", (socket, req) => {
       socket.close();
       return;
     }
-    await getWorkspaceUserIds(session.workspaceId);
+    await ensureWorkspaceUserExists(session.workspaceId);
     const runtime = getSessionRuntime(sessionId);
     if (!runtime) {
       socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
@@ -4019,7 +4038,7 @@ app.post("/api/session", async (req, res) => {
     return;
   }
   try {
-    await getWorkspaceUserIds(req.workspaceId);
+    await ensureWorkspaceUserExists(req.workspaceId);
     const auth = req.body?.auth || null;
     const defaultInternetAccess = req.body?.defaultInternetAccess;
     const defaultDenyGitCredentialsAccess =
