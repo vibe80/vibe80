@@ -456,46 +456,6 @@
           "additionalProperties": true
         }
       },
-      "CreateParallelRequest": {
-        "name": "create_parallel_request",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "type": {
-              "const": "create_parallel_request"
-            },
-            "provider": {
-              "$ref": "#/components/schemas/Provider"
-            },
-            "name": {
-              "type": "string"
-            },
-            "parentWorktreeId": {
-              "type": "string"
-            },
-            "startingBranch": {
-              "type": "string"
-            },
-            "text": {
-              "type": "string"
-            },
-            "displayText": {
-              "type": "string"
-            },
-            "model": {
-              "type": "string"
-            },
-            "reasoningEffort": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "provider"
-          ],
-          "additionalProperties": true
-        }
-      },
       "WorktreeTurnInterrupt": {
         "name": "worktree_turn_interrupt",
         "payload": {
