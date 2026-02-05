@@ -241,7 +241,11 @@ export class CodexAppServerClient extends EventEmitter {
       this.attachmentsDir,
       shareGitCredentials ? this.gitDir : null,
     ].filter(Boolean);
-    const sandboxMode = this.internetAccess ? "danger-full-access" : "workspace-write";
+    const sandboxMode = isMonoUser
+      ? "workspace-write"
+      : this.internetAccess
+        ? "danger-full-access"
+        : "workspace-write";
 
     const params = {
       cwd: this.cwd,
