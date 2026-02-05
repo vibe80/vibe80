@@ -2856,6 +2856,7 @@ wss.on("connection", (socket, req) => {
               workspaceId: session.workspaceId,
               repoDir: cwd,
               netMode: "tcp:53,443",
+              env: { GIT_EDITOR: "/dev/null" },
               extraAllowRo: [gitDir],
               extraAllowRw: allowGitCreds ? [gitDir] : [],
             }
