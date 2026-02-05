@@ -817,6 +817,8 @@ function App() {
   const [paneByTab, setPaneByTab] = useState({ main: "chat" });
   const handleSendMessageRef = useRef(null);
   const loadExplorerFileRef = useRef(null);
+  const requestExplorerTreeRef = useRef(null);
+  const requestExplorerStatusRef = useRef(null);
   const commandOptions = useMemo(
     () => [
       {
@@ -5370,8 +5372,8 @@ function App() {
         return;
       }
       handleViewSelect("explorer");
-      requestExplorerTree(tabId);
-      requestExplorerStatus(tabId);
+      requestExplorerTreeRef.current?.(tabId);
+      requestExplorerStatusRef.current?.(tabId);
       if (node.type === "dir") {
         expandExplorerDir(tabId, node.path);
       } else {
@@ -5386,8 +5388,6 @@ function App() {
       findExplorerNode,
       handleViewSelect,
       normalizeOpenPath,
-      requestExplorerStatus,
-      requestExplorerTree,
       showToast,
       t,
       updateExplorerState,
@@ -5617,6 +5617,10 @@ function App() {
     [attachmentSession?.sessionId, updateExplorerState, t]
   );
 
+  useEffect(() => {
+    requestExplorerTreeRef.current = requestExplorerTree;
+  }, [requestExplorerTree]);
+
   const requestExplorerStatus = useCallback(
     async (tabId, force = false) => {
       const sessionId = attachmentSession?.sessionId;
@@ -5665,6 +5669,10 @@ function App() {
     },
     [attachmentSession?.sessionId, updateExplorerState, t]
   );
+
+  useEffect(() => {
+    requestExplorerStatusRef.current = requestExplorerStatus;
+  }, [requestExplorerStatus]);
 
   const loadExplorerFile = useCallback(
     async (tabId, filePath) => {
