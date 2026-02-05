@@ -2835,6 +2835,10 @@ main.chat {
   font-size: 13px;
 }
 
+.bubble .backlog-panel {
+  background: transparent;
+}
+
 .bubble :where(table) {
   width: 100%;
   border-collapse: separate;

@@ -2932,28 +2932,17 @@ wss.on("connection", (socket, req) => {
         return;
       }
       const targetWorktreeId = worktreeId !== "main" ? worktreeId : "main";
-      const broadcastWorktreeId = targetWorktreeId === "main" ? undefined : targetWorktreeId;
       const items = Array.isArray(session.backlog) ? session.backlog : [];
       const messageId = createMessageId();
-      const messagePayload = {
-        id: messageId,
-        role: "assistant",
+      socket.send(
+        JSON.stringify({
         type: "backlog_view",
-        text: "Backlog",
-        backlog: { items, page: 0 },
-      };
-      if (targetWorktreeId === "main") {
-        await appendMainMessage(session, messagePayload);
-      } else {
-        await appendWorktreeMessage(session, targetWorktreeId, messagePayload);
-      }
-      broadcastToSession(sessionId, {
-        type: "backlog_view",
-        worktreeId: broadcastWorktreeId,
+        worktreeId: targetWorktreeId === "main" ? undefined : targetWorktreeId,
         id: messageId,
         items,
         page: 0,
-      });
+        })
+      );
       return;
     }
 
