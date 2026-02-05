@@ -2758,6 +2758,83 @@ main.chat {
   outline-offset: 2px;
 }
 
+.bubble .backlog-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bubble .backlog-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.bubble .backlog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bubble .backlog-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.bubble .backlog-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.bubble .backlog-text {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: 14px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bubble .backlog-text:hover {
+  color: var(--accent);
+}
+
+.bubble .backlog-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.bubble .backlog-page-button {
+  border: 1px solid rgba(20, 19, 17, 0.16);
+  background: rgba(20, 19, 17, 0.05);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.bubble .backlog-page-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bubble .backlog-empty {
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
 .bubble :where(table) {
   width: 100%;
   border-collapse: separate;

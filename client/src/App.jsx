@@ -296,6 +296,7 @@ const copyTextToClipboard = async (text) => {
 };
 
 const MAX_USER_DISPLAY_LENGTH = 1024;
+const BACKLOG_PAGE_SIZE = 5;
 const CHAT_COLLAPSE_THRESHOLD = 140;
 const CHAT_COLLAPSE_VISIBLE = 60;
 const REPO_HISTORY_KEY = "repoHistory";
@@ -821,6 +822,12 @@ function App() {
         label: "/todo",
         description: t("Add to backlog"),
         insert: "/todo ",
+      },
+      {
+        id: "backlog",
+        label: "/backlog",
+        description: t("Show backlog"),
+        insert: "/backlog",
       },
       {
         id: "run",
@@ -2665,6 +2672,30 @@ function App() {
           });
         }
 
+        if (!isWorktreeScoped && payload.type === "backlog_view") {
+          if (!payload.id) {
+            return;
+          }
+          setMessages((current) => {
+            const next = [...current];
+            const existingIndex = messageIndex.get(payload.id);
+            if (existingIndex === undefined) {
+              messageIndex.set(payload.id, next.length);
+              next.push({
+                id: payload.id,
+                role: "assistant",
+                type: "backlog_view",
+                text: payload.text || "Backlog",
+                backlog: {
+                  items: Array.isArray(payload.items) ? payload.items : [],
+                  page: Number.isFinite(payload.page) ? payload.page : 0,
+                },
+              });
+            }
+            return next;
+          });
+        }
+
         if (!isWorktreeScoped && payload.type === "command_execution_delta") {
           if (typeof payload.delta !== "string") {
             return;
@@ -3115,6 +3146,7 @@ function App() {
           payload.type === "assistant_message" ||
           payload.type === "action_request" ||
           payload.type === "action_result" ||
+          payload.type === "backlog_view" ||
           payload.type === "command_execution_delta" ||
           payload.type === "command_execution_completed" ||
           payload.type === "turn_started" ||
@@ -3190,6 +3222,35 @@ function App() {
                         arg: payload.arg,
                         status: payload.status,
                         output: payload.output,
+                      },
+                    },
+                  ],
+                });
+              }
+              return next;
+            });
+          }
+
+          if (payload.type === "backlog_view") {
+            if (!payload.id) {
+              return;
+            }
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(wtId);
+              if (wt) {
+                next.set(wtId, {
+                  ...wt,
+                  messages: [
+                    ...wt.messages,
+                    {
+                      id: payload.id,
+                      role: "assistant",
+                      type: "backlog_view",
+                      text: payload.text || "Backlog",
+                      backlog: {
+                        items: Array.isArray(payload.items) ? payload.items : [],
+                        page: Number.isFinite(payload.page) ? payload.page : 0,
                       },
                     },
                   ],
@@ -4274,6 +4335,138 @@ function App() {
     localStorage.setItem(backlogKey, JSON.stringify(backlog));
   }, [backlog, backlogKey]);
 
+  const updateBacklogMessages = useCallback((updateFn) => {
+    setMessages((current) =>
+      current.map((message) => {
+        if (message?.type !== "backlog_view") {
+          return message;
+        }
+        const items = Array.isArray(message.backlog?.items)
+          ? message.backlog.items
+          : [];
+        const updatedItems = updateFn(items);
+        if (updatedItems === items) {
+          return message;
+        }
+        return {
+          ...message,
+          backlog: {
+            ...(message.backlog || {}),
+            items: updatedItems,
+          },
+        };
+      })
+    );
+    setWorktrees((current) => {
+      const next = new Map(current);
+      next.forEach((wt, id) => {
+        if (!Array.isArray(wt?.messages)) {
+          return;
+        }
+        let changed = false;
+        const updatedMessages = wt.messages.map((message) => {
+          if (message?.type !== "backlog_view") {
+            return message;
+          }
+          const items = Array.isArray(message.backlog?.items)
+            ? message.backlog.items
+            : [];
+          const updatedItems = updateFn(items);
+          if (updatedItems === items) {
+            return message;
+          }
+          changed = true;
+          return {
+            ...message,
+            backlog: {
+              ...(message.backlog || {}),
+              items: updatedItems,
+            },
+          };
+        });
+        if (changed) {
+          next.set(id, { ...wt, messages: updatedMessages });
+        }
+      });
+      return next;
+    });
+  }, []);
+
+  const setBacklogMessagePage = useCallback((targetWorktreeId, messageId, page) => {
+    if (targetWorktreeId && targetWorktreeId !== "main") {
+      setWorktrees((current) => {
+        const next = new Map(current);
+        const wt = next.get(targetWorktreeId);
+        if (!wt) {
+          return current;
+        }
+        const updatedMessages = wt.messages.map((message) =>
+          message?.id === messageId && message.type === "backlog_view"
+            ? {
+                ...message,
+                backlog: {
+                  ...(message.backlog || {}),
+                  page,
+                },
+              }
+            : message
+        );
+        next.set(targetWorktreeId, { ...wt, messages: updatedMessages });
+        return next;
+      });
+      return;
+    }
+    setMessages((current) =>
+      current.map((message) =>
+        message?.id === messageId && message.type === "backlog_view"
+          ? {
+              ...message,
+              backlog: {
+                ...(message.backlog || {}),
+                page,
+              },
+            }
+          : message
+      )
+    );
+  }, []);
+
+  const markBacklogItemDone = useCallback(
+    async (itemId) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId) {
+        showToast(t("Session not found."), "error");
+        return;
+      }
+      try {
+        const response = await apiFetch(
+          `/api/session/${encodeURIComponent(sessionId)}/backlog`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: itemId, done: true }),
+          }
+        );
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.error || t("Unable to update backlog."));
+        }
+        const payload = await response.json().catch(() => ({}));
+        const updatedItem = payload?.item;
+        updateBacklogMessages((items) =>
+          items.map((item) =>
+            item?.id === itemId
+              ? { ...item, ...updatedItem, done: true }
+              : item
+          )
+        );
+      } catch (error) {
+        showToast(error.message || t("Unable to update backlog."), "error");
+      }
+    },
+    [apiFetch, attachmentSession?.sessionId, showToast, t, updateBacklogMessages]
+  );
+
   const uploadFiles = async (files) => {
     if (!files.length || !attachmentSession?.sessionId) {
       return;
@@ -4870,6 +5063,24 @@ function App() {
         } else {
           requestRepoDiff();
         }
+        setInput("");
+        setDraftAttachments([]);
+        setCommandMenuOpen(false);
+        return;
+      }
+      if (rawText.startsWith("/backlog")) {
+        if (!socketRef.current || !connected) {
+          showToast(t("Disconnected"), "error");
+          return;
+        }
+        const targetWorktreeId =
+          isInWorktree && activeWorktreeId ? activeWorktreeId : null;
+        socketRef.current.send(
+          JSON.stringify({
+            type: "backlog_view_request",
+            worktreeId: targetWorktreeId || undefined,
+          })
+        );
         setInput("");
         setDraftAttachments([]);
         setCommandMenuOpen(false);
@@ -7223,6 +7434,116 @@ function App() {
                                   </div>
                                 );
                               })}
+                            </div>
+                          );
+                        }
+                        if (message?.type === "backlog_view") {
+                          const backlogItems = Array.isArray(message.backlog?.items)
+                            ? message.backlog.items
+                            : [];
+                          const pendingItems = backlogItems.filter(
+                            (item) => !item?.done
+                          );
+                          const totalPages = Math.max(
+                            1,
+                            Math.ceil(pendingItems.length / BACKLOG_PAGE_SIZE)
+                          );
+                          const requestedPage = Number.isFinite(
+                            message.backlog?.page
+                          )
+                            ? message.backlog.page
+                            : 0;
+                          const currentPage = Math.min(
+                            Math.max(0, requestedPage),
+                            totalPages - 1
+                          );
+                          const startIndex = currentPage * BACKLOG_PAGE_SIZE;
+                          const pageItems = pendingItems.slice(
+                            startIndex,
+                            startIndex + BACKLOG_PAGE_SIZE
+                          );
+                          const backlogScopeId =
+                            activeWorktreeId && activeWorktreeId !== "main"
+                              ? activeWorktreeId
+                              : "main";
+                          return (
+                            <div
+                              key={message.id}
+                              className={`bubble ${message.role}`}
+                            >
+                              <div className="backlog-view">
+                                <div className="backlog-title">
+                                  {t("Backlog")}
+                                </div>
+                                {pageItems.length === 0 ? (
+                                  <div className="backlog-empty">
+                                    {t("No pending tasks at the moment.")}
+                                  </div>
+                                ) : (
+                                  <div className="backlog-list">
+                                    {pageItems.map((item) => (
+                                      <div
+                                        key={item.id}
+                                        className="backlog-row"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          className="backlog-checkbox"
+                                          onChange={() =>
+                                            markBacklogItemDone(item.id)
+                                          }
+                                        />
+                                        <button
+                                          type="button"
+                                          className="backlog-text"
+                                          title={item.text}
+                                          onClick={() => {
+                                            setInput(item.text || "");
+                                            inputRef.current?.focus();
+                                          }}
+                                        >
+                                          {item.text}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {totalPages > 1 ? (
+                                  <div className="backlog-pagination">
+                                    <button
+                                      type="button"
+                                      className="backlog-page-button"
+                                      disabled={currentPage === 0}
+                                      onClick={() =>
+                                        setBacklogMessagePage(
+                                          backlogScopeId,
+                                          message.id,
+                                          Math.max(0, currentPage - 1)
+                                        )
+                                      }
+                                    >
+                                      {t("Previous")}
+                                    </button>
+                                    <span className="backlog-page-status">
+                                      {currentPage + 1} / {totalPages}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="backlog-page-button"
+                                      disabled={currentPage >= totalPages - 1}
+                                      onClick={() =>
+                                        setBacklogMessagePage(
+                                          backlogScopeId,
+                                          message.id,
+                                          Math.min(totalPages - 1, currentPage + 1)
+                                        )
+                                      }
+                                    >
+                                      {t("Next")}
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
                             </div>
                           );
                         }
