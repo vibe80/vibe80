@@ -7469,7 +7469,7 @@ function App() {
                           return (
                             <div
                               key={message.id}
-                              className={`bubble ${message.role}`}
+                              className="bubble backlog"
                             >
                               <details className="command-execution-panel backlog-panel" open>
                                 <summary className="command-execution-summary">
