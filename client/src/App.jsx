@@ -829,6 +829,12 @@ function App() {
         insert: "/run ",
       },
       {
+        id: "git",
+        label: "/git",
+        description: t("Run git command"),
+        insert: "/git ",
+      },
+      {
         id: "diff",
         label: "/diff",
         description: t("Open diff view"),
@@ -2616,7 +2622,7 @@ function App() {
                 id: payload.id,
                 role: "user",
                 type: "action_request",
-                text: payload.text || `/run ${payload.arg || ""}`.trim(),
+                text: payload.text || `/${payload.request || "run"} ${payload.arg || ""}`.trim(),
                 action: {
                   request: payload.request,
                   arg: payload.arg,
@@ -3143,7 +3149,7 @@ function App() {
                       id: payload.id,
                       role: "user",
                       type: "action_request",
-                      text: payload.text || `/run ${payload.arg || ""}`.trim(),
+                      text: payload.text || `/${payload.request || "run"} ${payload.arg || ""}`.trim(),
                       action: {
                         request: payload.request,
                         arg: payload.arg,
@@ -4873,6 +4879,31 @@ function App() {
           JSON.stringify({
             type: "action_request",
             request: "run",
+            arg: command,
+            worktreeId: targetWorktreeId || undefined,
+          })
+        );
+        setInput("");
+        setDraftAttachments([]);
+        setCommandMenuOpen(false);
+        return;
+      }
+      if (rawText.startsWith("/git")) {
+        const command = rawText.replace(/^\/git\s*/i, "").trim();
+        if (!command) {
+          showToast(t("Git command required."), "error");
+          return;
+        }
+        if (!socketRef.current || !connected) {
+          showToast(t("Disconnected"), "error");
+          return;
+        }
+        const targetWorktreeId =
+          isInWorktree && activeWorktreeId ? activeWorktreeId : null;
+        socketRef.current.send(
+          JSON.stringify({
+            type: "action_request",
+            request: "git",
             arg: command,
             worktreeId: targetWorktreeId || undefined,
           })

@@ -200,6 +200,51 @@ const runCommandOutput = (command, args, options = {}) =>
     });
   });
 
+const runCommandOutputWithStatus = (command, args, options = {}) =>
+  new Promise((resolve, reject) => {
+    const proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], ...options });
+    const stdoutChunks = [];
+    const stderrChunks = [];
+
+    proc.stdout.on("data", (chunk) => {
+      stdoutChunks.push(chunk);
+    });
+
+    proc.stderr.on("data", (chunk) => {
+      stderrChunks.push(chunk);
+    });
+
+    if (options.input) {
+      if (typeof options.input.pipe === "function") {
+        options.input.pipe(proc.stdin);
+      } else {
+        proc.stdin.write(options.input);
+        proc.stdin.end();
+      }
+    } else {
+      proc.stdin.end();
+    }
+
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      const stdout = Buffer.concat(stdoutChunks);
+      const stderr = Buffer.concat(stderrChunks);
+      if (options.binary) {
+        resolve({ output: Buffer.concat([stdout, stderr]), code });
+        return;
+      }
+      let output = stdout.toString("utf8");
+      const stderrText = stderr.toString("utf8");
+      if (stderrText) {
+        if (output && !output.endsWith("\n")) {
+          output += "\n";
+        }
+        output += stderrText;
+      }
+      resolve({ output, code });
+    });
+  });
+
 export const runAsCommand = (workspaceId, command, args, options = {}) =>
   (IS_MONO_USER
     ? (validateCwd(workspaceId, options.cwd || getWorkspaceHome(workspaceId)),
@@ -242,6 +287,40 @@ export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
         binary: options.binary,
       }))
     : runCommandOutput(
+        SUDO_PATH,
+        ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
+        {
+          env: process.env,
+          input: options.input,
+          binary: options.binary,
+        }
+      )
+  ).catch((error) => {
+    const details = [
+      "run-as output failed",
+      `mode=${DEPLOYMENT_MODE || "unknown"}`,
+      IS_MONO_USER ? null : `sudo=${SUDO_PATH}`,
+      IS_MONO_USER ? null : `helper=${RUN_AS_HELPER}`,
+      `workspace=${workspaceId}`,
+      `command=${command}`,
+      `args=${JSON.stringify(args || [])}`,
+      `error=${error?.message || error}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    throw new Error(details);
+  });
+
+export const runAsCommandOutputWithStatus = (workspaceId, command, args, options = {}) =>
+  (IS_MONO_USER
+    ? (validateCwd(workspaceId, options.cwd || getWorkspaceHome(workspaceId)),
+      runCommandOutputWithStatus(command, args, {
+        cwd: options.cwd || getWorkspaceHome(workspaceId),
+        env: buildRunEnv(options),
+        input: options.input,
+        binary: options.binary,
+      }))
+    : runCommandOutputWithStatus(
         SUDO_PATH,
         ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
         {
