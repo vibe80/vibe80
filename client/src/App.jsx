@@ -6609,7 +6609,9 @@ function App() {
                       disabled={formDisabled}
                     >
                       <option value="none">{t("None")}</option>
-                      <option value="ssh">{t("Private SSH key")}</option>
+                      <option value="ssh">
+                        {t("Private SSH key (not recommended)")}
+                      </option>
                       <option value="http">{t("Username + password")}</option>
                     </select>
                   </div>
