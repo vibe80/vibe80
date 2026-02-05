@@ -2917,6 +2917,46 @@ wss.on("connection", (socket, req) => {
       return;
     }
 
+    if (payload.type === "backlog_view_request") {
+      const worktreeId = payload.worktreeId || "main";
+      const worktree =
+        worktreeId !== "main" ? await getWorktree(session, worktreeId) : null;
+      if (worktreeId !== "main" && !worktree) {
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            message: "Worktree not found.",
+            worktreeId,
+          })
+        );
+        return;
+      }
+      const targetWorktreeId = worktreeId !== "main" ? worktreeId : "main";
+      const broadcastWorktreeId = targetWorktreeId === "main" ? undefined : targetWorktreeId;
+      const items = Array.isArray(session.backlog) ? session.backlog : [];
+      const messageId = createMessageId();
+      const messagePayload = {
+        id: messageId,
+        role: "assistant",
+        type: "backlog_view",
+        text: "Backlog",
+        backlog: { items, page: 0 },
+      };
+      if (targetWorktreeId === "main") {
+        await appendMainMessage(session, messagePayload);
+      } else {
+        await appendWorktreeMessage(session, targetWorktreeId, messagePayload);
+      }
+      broadcastToSession(sessionId, {
+        type: "backlog_view",
+        worktreeId: broadcastWorktreeId,
+        id: messageId,
+        items,
+        page: 0,
+      });
+      return;
+    }
+
     // ============== Worktree WebSocket Handlers ==============
 
     // Send message to a specific worktree
@@ -3898,6 +3938,7 @@ app.post("/api/session/:sessionId/backlog", async (req, res) => {
     id: createMessageId(),
     text,
     createdAt: Date.now(),
+    done: false,
   };
   const backlog = Array.isArray(session.backlog) ? session.backlog : [];
   const updated = {
@@ -3907,6 +3948,55 @@ app.post("/api/session/:sessionId/backlog", async (req, res) => {
   };
   await storage.saveSession(session.sessionId, updated);
   res.json({ ok: true, item });
+});
+
+app.get("/api/session/:sessionId/backlog", async (req, res) => {
+  const session = await getSession(req.params.sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  await touchSession(session);
+  const backlog = Array.isArray(session.backlog) ? session.backlog : [];
+  res.json({ items: backlog });
+});
+
+app.patch("/api/session/:sessionId/backlog", async (req, res) => {
+  const session = await getSession(req.params.sessionId, req.workspaceId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found." });
+    return;
+  }
+  const itemId = typeof req.body?.id === "string" ? req.body.id.trim() : "";
+  if (!itemId) {
+    res.status(400).json({ error: "id is required." });
+    return;
+  }
+  if (typeof req.body?.done !== "boolean") {
+    res.status(400).json({ error: "done is required." });
+    return;
+  }
+  await touchSession(session);
+  const backlog = Array.isArray(session.backlog) ? session.backlog : [];
+  const index = backlog.findIndex((item) => item?.id === itemId);
+  if (index === -1) {
+    res.status(404).json({ error: "Backlog item not found." });
+    return;
+  }
+  const updatedItem = {
+    ...backlog[index],
+    done: req.body.done,
+    doneAt: req.body.done ? Date.now() : null,
+  };
+  const updatedBacklog = [...backlog];
+  updatedBacklog[index] = updatedItem;
+  const updatedSession = {
+    ...session,
+    backlog: updatedBacklog,
+    lastActivityAt: Date.now(),
+  };
+  await storage.saveSession(session.sessionId, updatedSession);
+  res.json({ ok: true, item: updatedItem });
 });
 
 app.post("/api/session", async (req, res) => {
