@@ -183,7 +183,7 @@ func main() {
   for _, pair := range envPairs {
     key := strings.SplitN(pair, "=", 2)[0]
     if _, ok := allowedEnvKeys[key]; !ok {
-      fail("disallowed env key")
+      fail("disallowed env key: " + key)
     }
     env = append(env, pair)
   }

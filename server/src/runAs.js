@@ -88,24 +88,27 @@ export const buildSandboxArgs = (options = {}) => {
   return args;
 };
 
+const collectEnvPairs = (env = {}) =>
+  Object.entries(env)
+    .filter(([key]) => ALLOWED_ENV_KEYS.has(key))
+    .map(([key, value]) => `${key}=${value}`);
+
 const buildRunAsArgs = (workspaceId, command, args, options = {}) => {
   const result = ["--workspace-id", workspaceId];
+  const envPairs = collectEnvPairs(options.env || {});
   if (options.cwd) {
     result.push("--cwd", options.cwd);
   }
-  if (options.env) {
-    for (const [key, value] of Object.entries(options.env)) {
-      if (!ALLOWED_ENV_KEYS.has(key)) {
-        continue;
-      }
-      result.push("--env", `${key}=${value}`);
-    }
+  if (envPairs.length) {
+    envPairs.forEach((pair) => {
+      result.push("--env", pair);
+    });
   }
   if (options.sandbox) {
     result.push(...buildSandboxArgs(options));
   }
   result.push("--", command, ...args);
-  return result;
+  return { args: result, envPairs };
 };
 
 const buildRunEnv = (options = {}) => {
@@ -256,15 +259,39 @@ export const runAsCommand = (workspaceId, command, args, options = {}) =>
         env: buildRunEnv(options),
         input: options.input,
       }))
-    : runCommand(
-        SUDO_PATH,
-        ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
-        {
-          env: process.env,
-          input: options.input,
-        }
-      )
+    : (() => {
+        const { args: runArgs, envPairs } = buildRunAsArgs(
+          workspaceId,
+          command,
+          args,
+          options
+        );
+        return runCommand(
+          SUDO_PATH,
+          ["-n", RUN_AS_HELPER, ...runArgs],
+          {
+            env: process.env,
+            input: options.input,
+          }
+        ).catch((error) => {
+          const details = [
+            "run-as failed",
+            `mode=${DEPLOYMENT_MODE || "unknown"}`,
+            `sudo=${SUDO_PATH}`,
+            `helper=${RUN_AS_HELPER}`,
+            `workspace=${workspaceId}`,
+            `command=${command}`,
+            `args=${JSON.stringify(args || [])}`,
+            envPairs?.length ? `env=${JSON.stringify(envPairs)}` : null,
+            `error=${error?.message || error}`,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          throw new Error(details);
+        });
+      })()
   ).catch((error) => {
+    const envPairs = collectEnvPairs(options.env || {});
     const details = [
       "run-as failed",
       `mode=${DEPLOYMENT_MODE || "unknown"}`,
@@ -273,6 +300,7 @@ export const runAsCommand = (workspaceId, command, args, options = {}) =>
       `workspace=${workspaceId}`,
       `command=${command}`,
       `args=${JSON.stringify(args || [])}`,
+      envPairs.length ? `env=${JSON.stringify(envPairs)}` : null,
       `error=${error?.message || error}`,
     ]
       .filter(Boolean)
@@ -289,16 +317,40 @@ export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
         input: options.input,
         binary: options.binary,
       }))
-    : runCommandOutput(
-        SUDO_PATH,
-        ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
-        {
-          env: process.env,
-          input: options.input,
-          binary: options.binary,
-        }
-      )
+    : (() => {
+        const { args: runArgs, envPairs } = buildRunAsArgs(
+          workspaceId,
+          command,
+          args,
+          options
+        );
+        return runCommandOutput(
+          SUDO_PATH,
+          ["-n", RUN_AS_HELPER, ...runArgs],
+          {
+            env: process.env,
+            input: options.input,
+            binary: options.binary,
+          }
+        ).catch((error) => {
+          const details = [
+            "run-as output failed",
+            `mode=${DEPLOYMENT_MODE || "unknown"}`,
+            `sudo=${SUDO_PATH}`,
+            `helper=${RUN_AS_HELPER}`,
+            `workspace=${workspaceId}`,
+            `command=${command}`,
+            `args=${JSON.stringify(args || [])}`,
+            envPairs?.length ? `env=${JSON.stringify(envPairs)}` : null,
+            `error=${error?.message || error}`,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          throw new Error(details);
+        });
+      })()
   ).catch((error) => {
+    const envPairs = collectEnvPairs(options.env || {});
     const details = [
       "run-as output failed",
       `mode=${DEPLOYMENT_MODE || "unknown"}`,
@@ -307,6 +359,7 @@ export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
       `workspace=${workspaceId}`,
       `command=${command}`,
       `args=${JSON.stringify(args || [])}`,
+      envPairs.length ? `env=${JSON.stringify(envPairs)}` : null,
       `error=${error?.message || error}`,
     ]
       .filter(Boolean)
@@ -323,16 +376,40 @@ export const runAsCommandOutputWithStatus = (workspaceId, command, args, options
         input: options.input,
         binary: options.binary,
       }))
-    : runCommandOutputWithStatus(
-        SUDO_PATH,
-        ["-n", RUN_AS_HELPER, ...buildRunAsArgs(workspaceId, command, args, options)],
-        {
-          env: process.env,
-          input: options.input,
-          binary: options.binary,
-        }
-      )
+    : (() => {
+        const { args: runArgs, envPairs } = buildRunAsArgs(
+          workspaceId,
+          command,
+          args,
+          options
+        );
+        return runCommandOutputWithStatus(
+          SUDO_PATH,
+          ["-n", RUN_AS_HELPER, ...runArgs],
+          {
+            env: process.env,
+            input: options.input,
+            binary: options.binary,
+          }
+        ).catch((error) => {
+          const details = [
+            "run-as output failed",
+            `mode=${DEPLOYMENT_MODE || "unknown"}`,
+            `sudo=${SUDO_PATH}`,
+            `helper=${RUN_AS_HELPER}`,
+            `workspace=${workspaceId}`,
+            `command=${command}`,
+            `args=${JSON.stringify(args || [])}`,
+            envPairs?.length ? `env=${JSON.stringify(envPairs)}` : null,
+            `error=${error?.message || error}`,
+          ]
+            .filter(Boolean)
+            .join(" ");
+          throw new Error(details);
+        });
+      })()
   ).catch((error) => {
+    const envPairs = collectEnvPairs(options.env || {});
     const details = [
       "run-as output failed",
       `mode=${DEPLOYMENT_MODE || "unknown"}`,
@@ -341,6 +418,7 @@ export const runAsCommandOutputWithStatus = (workspaceId, command, args, options
       `workspace=${workspaceId}`,
       `command=${command}`,
       `args=${JSON.stringify(args || [])}`,
+      envPairs.length ? `env=${JSON.stringify(envPairs)}` : null,
       `error=${error?.message || error}`,
     ]
       .filter(Boolean)
