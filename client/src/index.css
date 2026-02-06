@@ -957,9 +957,10 @@ textarea {
 
 .brand-logo {
   display: block;
-  height: 26px;
+  height: 34px;
   width: auto;
   object-fit: contain;
+  opacity: 0.7;
 }
 
 .header h1 {
