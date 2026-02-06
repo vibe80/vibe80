@@ -345,6 +345,18 @@ func uniqueStrings(values []string) []string {
   return result
 }
 
+func validatePathsExist(paths []string, label string) error {
+  for _, target := range paths {
+    if target == "" {
+      continue
+    }
+    if _, err := os.Stat(target); err != nil {
+      return fmt.Errorf("missing %s path: %s (%v)", label, target, err)
+    }
+  }
+  return nil
+}
+
 func ensureBaseReadPaths(paths []string, resolvedCommand string) []string {
   base := []string{
     filepath.Dir(resolvedCommand),
@@ -361,6 +373,18 @@ func ensureBaseReadPaths(paths []string, resolvedCommand string) []string {
 func applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles []string, netMode string) error {
   if len(allowRO) == 0 && len(allowRW) == 0 && len(allowROFiles) == 0 && len(allowRWFiles) == 0 && netMode == "" {
     return nil
+  }
+  if err := validatePathsExist(allowRO, "allow-ro"); err != nil {
+    return err
+  }
+  if err := validatePathsExist(allowRW, "allow-rw"); err != nil {
+    return err
+  }
+  if err := validatePathsExist(allowROFiles, "allow-ro-file"); err != nil {
+    return err
+  }
+  if err := validatePathsExist(allowRWFiles, "allow-rw-file"); err != nil {
+    return err
   }
   ruleset := landlock.V6.BestEffort()
   if len(allowRO) > 0 || len(allowRW) > 0 || len(allowROFiles) > 0 || len(allowRWFiles) > 0 {
