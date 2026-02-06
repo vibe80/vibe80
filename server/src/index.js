@@ -1069,6 +1069,8 @@ const ensureWorkspaceDirs = async (workspaceId) => {
   await runAsCommand(workspaceId, "/bin/chmod", ["700", paths.metadataDir]);
   await runAsCommand(workspaceId, "/bin/mkdir", ["-p", paths.sessionsDir]);
   await runAsCommand(workspaceId, "/bin/chmod", ["700", paths.sessionsDir]);
+  const sshPaths = getWorkspaceSshPaths(paths.homeDir);
+  await ensureWorkspaceDir(workspaceId, sshPaths.sshDir, 0o700);
   return paths;
 };
 
