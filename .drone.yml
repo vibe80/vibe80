@@ -161,7 +161,7 @@ steps:
       - git config user.email "drone@company.local"
       - git config user.name "drone-ci"
       - git add contabo/vibecoder/vibecoder.yml
-      - 'git commit -m "vibecoder: bump image to ${TAG}" || exit 0'
+      - 'git commit -m "vibecoder: bump image to ${DRONE_COMMIT_SHA:0:8}" || exit 0'
       - git push
 
 trigger:
