@@ -35,7 +35,8 @@ import {
 import Editor from "@monaco-editor/react";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import QRCode from "qrcode";
-import vibe80Logo from "./assets/logo_small.png";
+import vibe80LogoDark from "./assets/vibe80_dark.svg";
+import vibe80LogoLight from "./assets/vibe80_light.svg";
 import { useI18n } from "./i18n.jsx";
 import { Command, CommandList, CommandItem } from "cmdk";
 
@@ -1330,6 +1331,15 @@ function App() {
     () => extractRepoName(attachmentSession?.repoUrl),
     [attachmentSession?.repoUrl]
   );
+  const activeRepoUrl = useMemo(
+    () => attachmentSession?.repoUrl || repoUrl || "",
+    [attachmentSession?.repoUrl, repoUrl]
+  );
+  const activeRepoUrlDisplay = useMemo(
+    () => getTruncatedText(activeRepoUrl, 72),
+    [activeRepoUrl]
+  );
+  const brandLogo = themeMode === "dark" ? vibe80LogoDark : vibe80LogoLight;
   const authenticatedProviders = useMemo(() => {
     const list = [];
     if (openAiReady) {
@@ -6376,7 +6386,7 @@ function App() {
                   <FontAwesomeIcon icon={faRightFromBracket} />
                 </button>
               )}
-              <img className="brand-logo" src={vibe80Logo} alt="vibe80" />
+              <img className="brand-logo" src={brandLogo} alt="vibe80" />
               <h1>
                 {showStep4
                   ? t("Clone a session")
@@ -7149,12 +7159,15 @@ function App() {
         <div className="topbar-left">
           <div className="topbar-spacer" />
           <div className="topbar-brand">
-            <img className="brand-logo" src={vibe80Logo} alt="vibe80" />
-            <div className="topbar-subtitle">
-              {repoName || attachmentSession?.sessionId || "Session"}
-            </div>
+            <img className="brand-logo" src={brandLogo} alt="vibe80" />
           </div>
           <div className="topbar-tabs">
+            {activeRepoUrl ? (
+              <div className="topbar-repo" title={activeRepoUrl}>
+                <span className="topbar-repo-label">{t("Repository")}:</span>
+                <span className="topbar-repo-url">{activeRepoUrlDisplay}</span>
+              </div>
+            ) : null}
             <WorktreeTabs
               worktrees={allTabs}
               activeWorktreeId={activeWorktreeId}
