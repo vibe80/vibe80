@@ -107,6 +107,8 @@ const debugApiWsLog = /^(1|true|yes|on)$/i.test(
 const debugLogMaxBody = Number.isFinite(Number(process.env.DEBUG_API_WS_LOG_MAX_BODY))
   ? Number(process.env.DEBUG_API_WS_LOG_MAX_BODY)
   : 2000;
+const modelCache = new Map();
+const modelCacheTtlMs = 60 * 60 * 1000;
 
 const createDebugId = () =>
   typeof crypto.randomUUID === "function"
@@ -4230,6 +4232,11 @@ app.get("/api/models", async (req, res) => {
   }
 
   try {
+    const cached = modelCache.get(provider);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.json({ models: cached.models, provider });
+      return;
+    }
     const client = await getOrCreateClient(session, provider);
     if (!client.ready) {
       await client.start();
@@ -4243,6 +4250,10 @@ app.get("/api/models", async (req, res) => {
       }
       cursor = result?.nextCursor ?? null;
     } while (cursor);
+    modelCache.set(provider, {
+      models,
+      expiresAt: Date.now() + modelCacheTtlMs,
+    });
     res.json({ models, provider });
   } catch (error) {
     res.status(500).json({ error: error.message || "Failed to list models." });
