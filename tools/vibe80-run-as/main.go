@@ -206,7 +206,7 @@ func main() {
     allowRO = ensureBaseReadPaths(allowRO, resolved)
   }
   if err := applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles, netMode); err != nil {
-    fail("landlock failed")
+    fail("landlock failed: " + err.Error())
   }
   if err := applySeccomp(seccompMode, netMode); err != nil {
     fail("seccomp failed")
