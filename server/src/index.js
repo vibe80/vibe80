@@ -1500,7 +1500,6 @@ const createSession = async (
         await runAsCommand(workspaceId, "/bin/mkdir", ["-p", gitCredsDir]);
         await runAsCommand(workspaceId, "/bin/chmod", ["2750", gitCredsDir]);
       }
-      const tmpDir = getSessionTmpDir(dir);
       const env = { TMPDIR: tmpDir };
       if (auth?.type === "ssh" && auth.privateKey) {
         await ensureWorkspaceDir(workspaceId, sshPaths.sshDir, 0o700);
