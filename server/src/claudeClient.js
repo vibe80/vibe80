@@ -48,6 +48,7 @@ export class ClaudeCliClient extends EventEmitter {
     this.toolUses = new Map();
     this.buffer = "";
     this.systemPrompt = SYSTEM_PROMPT;
+    this.activeProcess = null;
   }
 
   async start() {
@@ -156,6 +157,7 @@ export class ClaudeCliClient extends EventEmitter {
       env: this.env,
       cwd: isMonoUser ? this.cwd : undefined,
     });
+    this.activeProcess = proc;
 
     proc.stdout.setEncoding("utf8");
     proc.stdout.on("data", (chunk) => this.#handleStdout(turnId, chunk));
@@ -188,6 +190,9 @@ export class ClaudeCliClient extends EventEmitter {
     });
 
     proc.on("close", (code) => {
+      if (this.activeProcess === proc) {
+        this.activeProcess = null;
+      }
       if (code === 0) {
         this.emit("turn_completed", { turnId, status: "success" });
       } else {
@@ -212,7 +217,11 @@ export class ClaudeCliClient extends EventEmitter {
   }
 
   async interruptTurn() {
-    throw new Error("Claude CLI does not support turn interruption.");
+    if (this.activeProcess && !this.activeProcess.killed) {
+      this.activeProcess.kill("SIGTERM");
+      return;
+    }
+    throw new Error("Claude CLI does not have an active process to interrupt.");
   }
 
   async listModels() {
