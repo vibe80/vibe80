@@ -1331,14 +1331,6 @@ function App() {
     () => extractRepoName(attachmentSession?.repoUrl),
     [attachmentSession?.repoUrl]
   );
-  const activeRepoUrl = useMemo(
-    () => attachmentSession?.repoUrl || repoUrl || "",
-    [attachmentSession?.repoUrl, repoUrl]
-  );
-  const activeRepoUrlDisplay = useMemo(
-    () => getTruncatedText(activeRepoUrl, 72),
-    [activeRepoUrl]
-  );
   const brandLogo = themeMode === "dark" ? vibe80LogoDark : vibe80LogoLight;
   const authenticatedProviders = useMemo(() => {
     const list = [];
@@ -7162,12 +7154,6 @@ function App() {
             <img className="brand-logo" src={brandLogo} alt="vibe80" />
           </div>
           <div className="topbar-tabs">
-            {activeRepoUrl ? (
-              <div className="topbar-repo" title={activeRepoUrl}>
-                <span className="topbar-repo-label">{t("Repository")}:</span>
-                <span className="topbar-repo-url">{activeRepoUrlDisplay}</span>
-              </div>
-            ) : null}
             <WorktreeTabs
               worktrees={allTabs}
               activeWorktreeId={activeWorktreeId}
