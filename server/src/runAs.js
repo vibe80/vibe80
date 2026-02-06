@@ -1,5 +1,4 @@
 import { spawn } from "child_process";
-import fs from "fs";
 import os from "os";
 import path from "path";
 
@@ -43,17 +42,6 @@ const normalizePaths = (paths = []) => {
   return result;
 };
 
-const assertPathExists = (targetPath, label) => {
-  if (!targetPath) {
-    return;
-  }
-  if (fs.existsSync(targetPath)) {
-    return;
-  }
-  console.error(`[run-as] Missing ${label} path`, { path: targetPath });
-  throw new Error(`Missing ${label} path: ${targetPath}`);
-};
-
 export const buildSandboxArgs = (options = {}) => {
   const tmpDir = options.tmpDir || null;
   const homeDir = options.homeDir || (options.workspaceId
@@ -80,10 +68,6 @@ export const buildSandboxArgs = (options = {}) => {
     ...(options.allowRwFiles || []),
     ...(options.extraAllowRwFiles || []),
   ]);
-  allowRo.forEach((entry) => assertPathExists(entry, "allow-ro"));
-  allowRw.forEach((entry) => assertPathExists(entry, "allow-rw"));
-  allowRoFiles.forEach((entry) => assertPathExists(entry, "allow-ro-file"));
-  allowRwFiles.forEach((entry) => assertPathExists(entry, "allow-rw-file"));
   const args = [];
   if (allowRo.length) {
     args.push("--allow-ro", allowRo.join(","));
