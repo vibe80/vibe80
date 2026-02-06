@@ -132,11 +132,11 @@ steps:
         - ${DRONE_COMMIT_SHA:0:8}
         - latest
 
-  - name: update_gitops_vibe80
+  - name: update_gitops_vibecoder
     image: alpine:3.20
     when:
       branch:
-        - main
+        - vibecoder
     environment:
       GITOPS_SSH_KEY:
         from_secret: gitops_ssh_key
