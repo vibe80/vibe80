@@ -285,7 +285,7 @@ export default function WorktreeTabs({
             <button
               className="worktree-tab-add"
               onClick={() => setCreateDialogOpen(true)}
-              disabled={disabled || worktreeList.length >= 5}
+              disabled={disabled || worktreeList.length >= 10}
               title={t("New parallel branch")}
               aria-label={t("New parallel branch")}
             >
@@ -359,7 +359,7 @@ export default function WorktreeTabs({
             <button
               className="worktree-tab-add"
               onClick={() => setCreateDialogOpen(true)}
-              disabled={disabled || worktreeList.length >= 5}
+              disabled={disabled || worktreeList.length >= 10}
               title={t("New parallel branch")}
             >
               <FontAwesomeIcon icon={faPlus} />
