@@ -11,6 +11,7 @@ const ALLOWED_ENV_KEYS = new Set([
   "GIT_CONFIG_GLOBAL",
   "GIT_TERMINAL_PROMPT",
   "TERM",
+  "TMPDIR",
 ]);
 export const DEFAULT_ALLOW_RO = [
   "/bin",
@@ -42,6 +43,7 @@ const normalizePaths = (paths = []) => {
 };
 
 export const buildSandboxArgs = (options = {}) => {
+  const tmpDir = options.tmpDir || null;
   const homeDir = options.homeDir || (options.workspaceId
     ? getWorkspaceHome(options.workspaceId)
     : null);
@@ -55,6 +57,7 @@ export const buildSandboxArgs = (options = {}) => {
     options.repoDir,
     options.cwd,
     options.attachmentsDir,
+    tmpDir,
   ]);
   const allowRoFiles = normalizePaths([
     ...(options.allowRoFiles || []),

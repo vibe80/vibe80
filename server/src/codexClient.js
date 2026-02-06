@@ -19,6 +19,7 @@ export class CodexAppServerClient extends EventEmitter {
     threadId,
     env,
     workspaceId,
+    tmpDir,
   }) {
     super();
     this.cwd = cwd;
@@ -34,6 +35,7 @@ export class CodexAppServerClient extends EventEmitter {
     this.gitDir = gitDir || null;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
+    this.tmpDir = tmpDir || null;
     this.proc = null;
     this.buffer = "";
     this.nextId = 1;
@@ -53,9 +55,10 @@ export class CodexAppServerClient extends EventEmitter {
     const sandboxArgs = !isMonoUser && useLandlock
       ? buildSandboxArgs({
           cwd: this.cwd,
-          repoDir: this.repoDir,
-          attachmentsDir: this.attachmentsDir,
-          workspaceId: this.workspaceId,
+        repoDir: this.repoDir,
+        attachmentsDir: this.attachmentsDir,
+        tmpDir: this.tmpDir,
+        workspaceId: this.workspaceId,
           internetAccess: this.internetAccess,
           netMode: "tcp:22,53,443",
           extraAllowRw: [

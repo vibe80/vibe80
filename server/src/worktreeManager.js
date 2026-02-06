@@ -41,11 +41,25 @@ const getNextColor = () => {
   return color;
 };
 
+const buildSessionEnv = (session, options = {}) => {
+  const env = { ...(options.env || {}) };
+  if (session?.dir) {
+    env.TMPDIR = path.join(session.dir, "tmp");
+  }
+  return env;
+};
+
 const runSessionCommand = (session, command, args, options = {}) =>
-  runAsCommand(session.workspaceId, command, args, options);
+  runAsCommand(session.workspaceId, command, args, {
+    ...options,
+    env: buildSessionEnv(session, options),
+  });
 
 const runSessionCommandOutput = (session, command, args, options = {}) =>
-  runAsCommandOutput(session.workspaceId, command, args, options);
+  runAsCommandOutput(session.workspaceId, command, args, {
+    ...options,
+    env: buildSessionEnv(session, options),
+  });
 
 const resolveSessionGitDir = (session) =>
   session?.gitDir || path.join(session.dir, "git");
