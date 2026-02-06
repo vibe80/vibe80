@@ -24,6 +24,7 @@ export class ClaudeCliClient extends EventEmitter {
     gitDir,
     env,
     workspaceId,
+    tmpDir,
   }) {
     super();
     this.cwd = cwd;
@@ -39,6 +40,7 @@ export class ClaudeCliClient extends EventEmitter {
     this.gitDir = gitDir || null;
     this.env = env || process.env;
     this.workspaceId = workspaceId;
+    this.tmpDir = tmpDir || null;
     this.ready = false;
     this.threadId = "claude-session";
     this.modelInfo = null;
@@ -130,6 +132,7 @@ export class ClaudeCliClient extends EventEmitter {
             cwd: this.cwd,
             repoDir: this.repoDir,
             attachmentsDir: this.attachmentsDir,
+            tmpDir: this.tmpDir,
             workspaceId: this.workspaceId,
             internetAccess: this.internetAccess,
             netMode: "tcp:22,53,443",

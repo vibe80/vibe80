@@ -425,14 +425,32 @@ const runRootCommandOutput = (args, options = {}) => {
   return runCommandOutput(sudoPath, ["-n", rootHelperPath, ...args], options);
 };
 
+const buildSessionEnv = (session, options = {}) => {
+  const tmpDir = session?.dir ? getSessionTmpDir(session.dir) : null;
+  const env = { ...(options.env || {}) };
+  if (tmpDir) {
+    env.TMPDIR = tmpDir;
+  }
+  return env;
+};
+
 const runSessionCommand = (session, command, args, options = {}) =>
-  runAsCommand(session.workspaceId, command, args, options);
+  runAsCommand(session.workspaceId, command, args, {
+    ...options,
+    env: buildSessionEnv(session, options),
+  });
 
 const runSessionCommandOutput = (session, command, args, options = {}) =>
-  runAsCommandOutput(session.workspaceId, command, args, options);
+  runAsCommandOutput(session.workspaceId, command, args, {
+    ...options,
+    env: buildSessionEnv(session, options),
+  });
 
 const runSessionCommandOutputWithStatus = (session, command, args, options = {}) =>
-  runAsCommandOutputWithStatus(session.workspaceId, command, args, options);
+  runAsCommandOutputWithStatus(session.workspaceId, command, args, {
+    ...options,
+    env: buildSessionEnv(session, options),
+  });
 
 const parseCommandArgs = (input = "") => {
   if (!input) {
@@ -645,12 +663,12 @@ const listWorkspaceEntries = async (workspaceId, dirPath) => {
   return [];
 };
 
-const getWorkspaceStat = async (workspaceId, targetPath) => {
+const getWorkspaceStat = async (workspaceId, targetPath, options = {}) => {
   const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
     "-c",
     "%f\t%s\t%a",
     targetPath,
-  ]);
+  ], options);
   const [modeHex, sizeRaw, modeRaw] = output.trim().split("\t");
   const modeValue = Number.parseInt(modeHex, 16);
   const typeBits = Number.isFinite(modeValue) ? modeValue & 0o170000 : null;
@@ -680,8 +698,13 @@ const workspacePathExists = async (workspaceId, targetPath) => {
   }
 };
 
-const readWorkspaceFileBuffer = async (workspaceId, filePath, maxBytes) => {
-  const stat = await getWorkspaceStat(workspaceId, filePath);
+const readWorkspaceFileBuffer = async (
+  workspaceId,
+  filePath,
+  maxBytes,
+  options = {}
+) => {
+  const stat = await getWorkspaceStat(workspaceId, filePath, options);
   if (!stat.type || !stat.type.startsWith("regular")) {
     console.warn("readWorkspaceFileBuffer: non-regular path", {
       workspaceId,
@@ -697,11 +720,16 @@ const readWorkspaceFileBuffer = async (workspaceId, filePath, maxBytes) => {
       workspaceId,
       "/usr/bin/head",
       ["-c", String(maxBytes), filePath],
-      { binary: true }
+      { binary: true, ...options }
     );
     return { buffer, truncated: true };
   }
-  const buffer = await runAsCommandOutput(workspaceId, "/bin/cat", [filePath], { binary: true });
+  const buffer = await runAsCommandOutput(
+    workspaceId,
+    "/bin/cat",
+    [filePath],
+    { binary: true, ...options }
+  );
   return { buffer, truncated: false };
 };
 
@@ -1457,6 +1485,9 @@ const createSession = async (
       const attachmentsDir = path.join(dir, "attachments");
       await runAsCommand(workspaceId, "/bin/mkdir", ["-p", attachmentsDir]);
       await runAsCommand(workspaceId, "/bin/chmod", ["2750", attachmentsDir]);
+      const tmpDir = getSessionTmpDir(dir);
+      await runAsCommand(workspaceId, "/bin/mkdir", ["-p", tmpDir]);
+      await runAsCommand(workspaceId, "/bin/chmod", ["2750", tmpDir]);
       const repoDir = path.join(dir, "repository");
       const gitCredsDir = path.join(dir, "git");
       const needsGitCredsDir =
@@ -1467,7 +1498,8 @@ const createSession = async (
         await runAsCommand(workspaceId, "/bin/mkdir", ["-p", gitCredsDir]);
         await runAsCommand(workspaceId, "/bin/chmod", ["2750", gitCredsDir]);
       }
-      const env = {};
+      const tmpDir = getSessionTmpDir(dir);
+      const env = { TMPDIR: tmpDir };
       if (auth?.type === "ssh" && auth.privateKey) {
         await ensureWorkspaceDir(workspaceId, sshPaths.sshDir, 0o700);
         const keyPath = path.join(gitCredsDir, `ssh-key-${sessionId}`);
@@ -1656,6 +1688,7 @@ const getSessionFromRequest = async (req) => {
 
 const sanitizeFilename = (originalName) =>
   path.basename(originalName || "attachment");
+const getSessionTmpDir = (sessionDir) => path.join(sessionDir, "tmp");
 
 const TREE_IGNORED_NAMES = new Set([
   ".git",
@@ -2946,6 +2979,7 @@ wss.on("connection", (socket, req) => {
               sandbox: true,
               workspaceId: session.workspaceId,
               repoDir: cwd,
+              tmpDir: getSessionTmpDir(session.dir),
               internetAccess: session.defaultInternetAccess,
               netMode: "none",
               extraAllowRw: [
@@ -2975,6 +3009,7 @@ wss.on("connection", (socket, req) => {
               sandbox: true,
               workspaceId: session.workspaceId,
               repoDir: cwd,
+              tmpDir: getSessionTmpDir(session.dir),
               netMode: "tcp:22,53,443",
               extraAllowRo: [gitDir],
               extraAllowRw: [
@@ -3531,7 +3566,10 @@ if (terminalWss) {
     if (term) {
       return;
     }
-    const env = { ...process.env };
+    const env = {
+      ...process.env,
+      TMPDIR: getSessionTmpDir(session.dir),
+    };
     const cwd = worktree?.path || session.repoDir;
     const denyGitCreds = typeof worktree?.denyGitCredentialsAccess === "boolean"
       ? worktree.denyGitCredentialsAccess
@@ -3560,10 +3598,13 @@ if (terminalWss) {
         cwd,
         "--env",
         "TERM=xterm-256color",
+        "--env",
+        `TMPDIR=${getSessionTmpDir(session.dir)}`,
         ...buildSandboxArgs({
           cwd,
           repoDir: cwd,
           workspaceId: session.workspaceId,
+          tmpDir: getSessionTmpDir(session.dir),
           internetAccess: session.defaultInternetAccess,
           netMode: "none",
           extraAllowRw: allowGitCreds ? [gitDir, sshDir] : [],
@@ -4496,7 +4537,8 @@ app.get("/api/worktree/:worktreeId/file", async (req, res) => {
     const { buffer, truncated } = await readWorkspaceFileBuffer(
       session.workspaceId,
       absPath,
-      MAX_FILE_BYTES
+      MAX_FILE_BYTES,
+      { env: { TMPDIR: getSessionTmpDir(session.dir) } }
     );
     const binary = buffer.includes(0);
     const content = binary ? "" : buffer.toString("utf8");
@@ -4834,7 +4876,7 @@ app.get("/api/attachments/file", async (req, res) => {
     return;
   }
   try {
-    const data = await runAsCommandOutput(session.workspaceId, "/bin/cat", [candidatePath], {
+    const data = await runSessionCommandOutput(session, "/bin/cat", [candidatePath], {
       binary: true,
     });
     if (rawName) {
@@ -4855,8 +4897,8 @@ app.get("/api/attachments", async (req, res) => {
   }
   await touchSession(session);
   try {
-    const output = await runAsCommandOutput(
-      session.workspaceId,
+    const output = await runSessionCommandOutput(
+      session,
       "/usr/bin/find",
       [session.attachmentsDir, "-maxdepth", "1", "-mindepth", "1", "-type", "f", "-printf", "%f\t%s\0"],
       { binary: true }

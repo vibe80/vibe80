@@ -31,8 +31,12 @@ export async function getOrCreateClient(session, provider) {
           internetAccess: session.defaultInternetAccess,
           denyGitCredentialsAccess: defaultDenyGitCredentialsAccess,
           gitDir: session.gitDir || path.join(session.dir, "git"),
-          env: process.env,
+          env: {
+            ...process.env,
+            TMPDIR: path.join(session.dir, "tmp"),
+          },
           workspaceId: session.workspaceId,
+          tmpDir: path.join(session.dir, "tmp"),
         })
       : new CodexAppServerClient({
           cwd: session.repoDir,
@@ -42,8 +46,12 @@ export async function getOrCreateClient(session, provider) {
           denyGitCredentialsAccess: defaultDenyGitCredentialsAccess,
           gitDir: session.gitDir || path.join(session.dir, "git"),
           threadId: session.threadId || null,
-          env: process.env,
+          env: {
+            ...process.env,
+            TMPDIR: path.join(session.dir, "tmp"),
+          },
           workspaceId: session.workspaceId,
+          tmpDir: path.join(session.dir, "tmp"),
         });
 
   if (runtime) {
@@ -70,6 +78,8 @@ export function createWorktreeClient(
   threadId,
   gitDir
 ) {
+  const sessionDir = repoDir ? path.dirname(repoDir) : null;
+  const tmpDir = sessionDir ? path.join(sessionDir, "tmp") : null;
   const denyGitCredentialsAccess =
     typeof worktree.denyGitCredentialsAccess === "boolean"
       ? worktree.denyGitCredentialsAccess
@@ -83,8 +93,12 @@ export function createWorktreeClient(
           internetAccess,
           denyGitCredentialsAccess,
           gitDir,
-          env: process.env,
+          env: {
+            ...process.env,
+            ...(tmpDir ? { TMPDIR: tmpDir } : {}),
+          },
           workspaceId: worktree.workspaceId,
+          tmpDir,
         })
       : new CodexAppServerClient({
           cwd: worktree.path,
@@ -94,8 +108,12 @@ export function createWorktreeClient(
           denyGitCredentialsAccess,
           gitDir,
           threadId: threadId || worktree.threadId || null,
-          env: process.env,
+          env: {
+            ...process.env,
+            ...(tmpDir ? { TMPDIR: tmpDir } : {}),
+          },
           workspaceId: worktree.workspaceId,
+          tmpDir,
         });
 
   return client;
