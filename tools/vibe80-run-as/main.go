@@ -49,6 +49,7 @@ var allowedEnvKeys = map[string]struct{}{
   "GIT_CONFIG_GLOBAL":  {},
   "GIT_TERMINAL_PROMPT": {},
   "TERM":               {},
+  "TMPDIR":             {},
 }
 
 func main() {
