@@ -90,7 +90,7 @@ export class ClaudeCliClient extends EventEmitter {
     ]
       .filter(Boolean)
       .filter((value, index, self) => self.indexOf(value) === index);
-    const allowedTools = ["Bash(git:*)"];
+    const allowedTools = ["Bash"];
     if (this.internetAccess) {
       allowedTools.push("WebSearch");
       allowedTools.push("WebFetch");
