@@ -34,6 +34,7 @@ export async function getOrCreateClient(session, provider) {
           env: {
             ...process.env,
             TMPDIR: path.join(session.dir, "tmp"),
+            CLAUDE_CODE_TMPDIR: path.join(session.dir, "tmp"),
           },
           workspaceId: session.workspaceId,
           tmpDir: path.join(session.dir, "tmp"),
@@ -95,7 +96,9 @@ export function createWorktreeClient(
           gitDir,
           env: {
             ...process.env,
-            ...(tmpDir ? { TMPDIR: tmpDir } : {}),
+            ...(tmpDir
+              ? { TMPDIR: tmpDir, CLAUDE_CODE_TMPDIR: tmpDir }
+              : {}),
           },
           workspaceId: worktree.workspaceId,
           tmpDir,
