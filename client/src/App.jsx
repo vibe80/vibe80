@@ -730,6 +730,7 @@ function App() {
   const [workspaceRefreshToken, setWorkspaceRefreshToken] = useState(
     readWorkspaceRefreshToken()
   );
+  const workspaceRefreshTokenRef = useRef(workspaceRefreshToken);
   const [workspaceId, setWorkspaceId] = useState(readWorkspaceId());
   const [workspaceCreated, setWorkspaceCreated] = useState(null);
   const [workspaceError, setWorkspaceError] = useState("");
@@ -1042,6 +1043,7 @@ function App() {
   const handleLeaveWorkspace = useCallback(() => {
     setWorkspaceToken("");
     setWorkspaceRefreshToken("");
+    workspaceRefreshTokenRef.current = "";
     setWorkspaceId("");
     setWorkspaceIdInput("");
     setWorkspaceSecretInput("");
@@ -1057,7 +1059,8 @@ function App() {
   }, []);
 
   const refreshWorkspaceToken = useCallback(async () => {
-    if (!workspaceRefreshToken) {
+    const activeRefreshToken = workspaceRefreshTokenRef.current;
+    if (!activeRefreshToken) {
       return null;
     }
     if (refreshInFlightRef.current) {
@@ -1068,7 +1071,7 @@ function App() {
         const response = await fetch("/api/workspaces/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: workspaceRefreshToken }),
+          body: JSON.stringify({ refreshToken: activeRefreshToken }),
         });
         if (!response.ok) {
           handleLeaveWorkspace();
@@ -1081,6 +1084,7 @@ function App() {
           setWorkspaceToken(nextToken);
         }
         if (nextRefresh) {
+          workspaceRefreshTokenRef.current = nextRefresh;
           setWorkspaceRefreshToken(nextRefresh);
         }
         return nextToken || null;
@@ -1093,7 +1097,11 @@ function App() {
     })();
     refreshInFlightRef.current = promise;
     return promise;
-  }, [workspaceRefreshToken, handleLeaveWorkspace]);
+  }, [handleLeaveWorkspace]);
+
+  useEffect(() => {
+    workspaceRefreshTokenRef.current = workspaceRefreshToken;
+  }, [workspaceRefreshToken]);
 
   const apiFetch = useCallback(
     async (input, init = {}) => {
