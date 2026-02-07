@@ -38,6 +38,8 @@ export async function getOrCreateClient(session, provider) {
           },
           workspaceId: session.workspaceId,
           tmpDir: path.join(session.dir, "tmp"),
+          sessionId: session.sessionId,
+          worktreeId: "main",
         })
       : new CodexAppServerClient({
           cwd: session.repoDir,
@@ -53,6 +55,8 @@ export async function getOrCreateClient(session, provider) {
           },
           workspaceId: session.workspaceId,
           tmpDir: path.join(session.dir, "tmp"),
+          sessionId: session.sessionId,
+          worktreeId: "main",
         });
 
   if (runtime) {
@@ -102,6 +106,8 @@ export function createWorktreeClient(
           },
           workspaceId: worktree.workspaceId,
           tmpDir,
+          sessionId: worktree.sessionId,
+          worktreeId: worktree.id,
         })
       : new CodexAppServerClient({
           cwd: worktree.path,
@@ -117,6 +123,8 @@ export function createWorktreeClient(
           },
           workspaceId: worktree.workspaceId,
           tmpDir,
+          sessionId: worktree.sessionId,
+          worktreeId: worktree.id,
         });
 
   return client;

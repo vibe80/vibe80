@@ -3,6 +3,7 @@ import { EventEmitter } from "events";
 import crypto from "crypto";
 import path from "path";
 import { SYSTEM_PROMPT } from "./config.js";
+import { createProviderLogger } from "./providerLogger.js";
 import { buildSandboxArgs, getWorkspaceHome, runAsCommand } from "./runAs.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
@@ -25,6 +26,8 @@ export class ClaudeCliClient extends EventEmitter {
     env,
     workspaceId,
     tmpDir,
+    sessionId,
+    worktreeId,
   }) {
     super();
     this.cwd = cwd;
@@ -41,12 +44,21 @@ export class ClaudeCliClient extends EventEmitter {
     this.env = env || process.env;
     this.workspaceId = workspaceId;
     this.tmpDir = tmpDir || null;
+    this.sessionId = sessionId || null;
+    this.worktreeId = worktreeId || "main";
     this.ready = false;
     this.threadId = "claude-session";
     this.modelInfo = null;
     this.defaultModel = null;
     this.toolUses = new Map();
     this.buffer = "";
+    this.stdoutLogBuffer = "";
+    this.stderrLogBuffer = "";
+    this.providerLogger = createProviderLogger({
+      provider: "claude",
+      sessionId: this.sessionId,
+      worktreeId: this.worktreeId,
+    });
     this.systemPrompt = SYSTEM_PROMPT;
     this.activeProcess = null;
   }
@@ -160,10 +172,14 @@ export class ClaudeCliClient extends EventEmitter {
     this.activeProcess = proc;
 
     proc.stdout.setEncoding("utf8");
-    proc.stdout.on("data", (chunk) => this.#handleStdout(turnId, chunk));
+    proc.stdout.on("data", (chunk) => {
+      this.#logStreamChunk("OUT", "stdoutLogBuffer", chunk);
+      this.#handleStdout(turnId, chunk);
+    });
 
     proc.stderr.setEncoding("utf8");
     proc.stderr.on("data", (chunk) => {
+      this.#logStreamChunk("ERR", "stderrLogBuffer", chunk);
       const message = chunk.toString().trim();
       if (message) {
         this.emit("log", message);
@@ -193,6 +209,9 @@ export class ClaudeCliClient extends EventEmitter {
       if (this.activeProcess === proc) {
         this.activeProcess = null;
       }
+      this.#flushLogBuffer("OUT", "stdoutLogBuffer");
+      this.#flushLogBuffer("ERR", "stderrLogBuffer");
+      this.providerLogger?.close?.();
       if (code === 0) {
         this.emit("turn_completed", { turnId, status: "success" });
       } else {
@@ -210,7 +229,9 @@ export class ClaudeCliClient extends EventEmitter {
         content: [{ type: "text", text }],
       },
     };
-    proc.stdin.write(`${JSON.stringify(payload)}\n`);
+    const line = JSON.stringify(payload);
+    this.providerLogger?.writeLine("IN", line);
+    proc.stdin.write(`${line}\n`);
     proc.stdin.end();
 
     return { turn: { id: turnId } };
@@ -337,6 +358,34 @@ export class ClaudeCliClient extends EventEmitter {
           message: message.result || "Claude returned an error.",
         });
       }
+    }
+  }
+
+  #logStreamChunk(prefix, bufferKey, chunk) {
+    if (!this.providerLogger) {
+      return;
+    }
+    const text = chunk == null ? "" : String(chunk);
+    this[bufferKey] += text;
+    let newlineIndex;
+    while ((newlineIndex = this[bufferKey].indexOf("\n")) !== -1) {
+      let line = this[bufferKey].slice(0, newlineIndex);
+      if (line.endsWith("\r")) {
+        line = line.slice(0, -1);
+      }
+      this.providerLogger.writeLine(prefix, line);
+      this[bufferKey] = this[bufferKey].slice(newlineIndex + 1);
+    }
+  }
+
+  #flushLogBuffer(prefix, bufferKey) {
+    if (!this.providerLogger) {
+      return;
+    }
+    const leftover = this[bufferKey];
+    if (leftover) {
+      this.providerLogger.writeLine(prefix, leftover);
+      this[bufferKey] = "";
     }
   }
 }

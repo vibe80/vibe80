@@ -2,6 +2,7 @@ import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import path from "path";
 import { SYSTEM_PROMPT } from "./config.js";
+import { createProviderLogger } from "./providerLogger.js";
 import { buildSandboxArgs, getWorkspaceHome } from "./runAs.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
@@ -20,6 +21,8 @@ export class CodexAppServerClient extends EventEmitter {
     env,
     workspaceId,
     tmpDir,
+    sessionId,
+    worktreeId,
   }) {
     super();
     this.cwd = cwd;
@@ -36,8 +39,17 @@ export class CodexAppServerClient extends EventEmitter {
     this.env = env || process.env;
     this.workspaceId = workspaceId;
     this.tmpDir = tmpDir || null;
+    this.sessionId = sessionId || null;
+    this.worktreeId = worktreeId || "main";
     this.proc = null;
     this.buffer = "";
+    this.stdoutLogBuffer = "";
+    this.stderrLogBuffer = "";
+    this.providerLogger = createProviderLogger({
+      provider: "codex",
+      sessionId: this.sessionId,
+      worktreeId: this.worktreeId,
+    });
     this.nextId = 1;
     this.pending = new Map();
     this.threadId = threadId || null;
@@ -108,15 +120,22 @@ export class CodexAppServerClient extends EventEmitter {
     });
 
     this.proc.stdout.setEncoding("utf8");
-    this.proc.stdout.on("data", (chunk) => this.#handleStdout(chunk));
+    this.proc.stdout.on("data", (chunk) => {
+      this.#logStreamChunk("OUT", "stdoutLogBuffer", chunk);
+      this.#handleStdout(chunk);
+    });
 
     this.proc.stderr.setEncoding("utf8");
     this.proc.stderr.on("data", (chunk) => {
+      this.#logStreamChunk("ERR", "stderrLogBuffer", chunk);
       this.emit("log", chunk.trim());
     });
 
     this.proc.on("exit", (code, signal) => {
       this.ready = false;
+      this.#flushLogBuffer("OUT", "stdoutLogBuffer");
+      this.#flushLogBuffer("ERR", "stderrLogBuffer");
+      this.providerLogger?.close?.();
       this.emit("exit", { code, signal });
     });
 
@@ -223,8 +242,38 @@ export class CodexAppServerClient extends EventEmitter {
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
       this.emit("rpc_out", payload);
-      this.proc.stdin.write(`${JSON.stringify(payload)}\n`);
+      const line = JSON.stringify(payload);
+      this.providerLogger?.writeLine("IN", line);
+      this.proc.stdin.write(`${line}\n`);
     });
+  }
+
+  #logStreamChunk(prefix, bufferKey, chunk) {
+    if (!this.providerLogger) {
+      return;
+    }
+    const text = chunk == null ? "" : String(chunk);
+    this[bufferKey] += text;
+    let newlineIndex;
+    while ((newlineIndex = this[bufferKey].indexOf("\n")) !== -1) {
+      let line = this[bufferKey].slice(0, newlineIndex);
+      if (line.endsWith("\r")) {
+        line = line.slice(0, -1);
+      }
+      this.providerLogger.writeLine(prefix, line);
+      this[bufferKey] = this[bufferKey].slice(newlineIndex + 1);
+    }
+  }
+
+  #flushLogBuffer(prefix, bufferKey) {
+    if (!this.providerLogger) {
+      return;
+    }
+    const leftover = this[bufferKey];
+    if (leftover) {
+      this.providerLogger.writeLine(prefix, leftover);
+      this[bufferKey] = "";
+    }
   }
 
   async #initialize() {
