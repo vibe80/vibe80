@@ -129,22 +129,31 @@ textarea {
 }
 
 .session-gate .session-header {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "action title logo"
+    "hint hint hint";
   align-items: center;
   gap: 8px;
 }
 
-.session-gate .session-header .brand-logo {
-  margin-left: auto;
+.session-gate .session-header .session-card-action {
+  grid-area: action;
 }
 
 .session-gate .session-header h1 {
-  flex: 1 1 auto;
+  grid-area: title;
+}
+
+.session-gate .session-header .brand-logo {
+  grid-area: logo;
+  justify-self: end;
 }
 
 .session-gate .session-header .session-hint {
-  flex-basis: 100%;
+  grid-area: hint;
 }
 
 .session-body {
