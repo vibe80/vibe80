@@ -7584,7 +7584,10 @@ function App() {
                             <div className="chat-meta-section chat-meta-permissions">
                               {showInternetAccess && (
                                 <div className="chat-meta-permission">
-                                  <span className="chat-meta-permission-icon" aria-hidden="true">
+                                  <span
+                                    className="chat-meta-permission-icon is-internet"
+                                    aria-hidden="true"
+                                  >
                                     <FontAwesomeIcon icon={faTowerBroadcast} />
                                   </span>
                                   <span>{t("Internet access enabled")}</span>
@@ -7592,7 +7595,10 @@ function App() {
                               )}
                               {showGitCredentialsShared && (
                                 <div className="chat-meta-permission">
-                                  <span className="chat-meta-permission-icon" aria-hidden="true">
+                                  <span
+                                    className="chat-meta-permission-icon is-credentials"
+                                    aria-hidden="true"
+                                  >
                                     <FontAwesomeIcon icon={faKey} />
                                   </span>
                                   <span>{t("Git credentials shared")}</span>
