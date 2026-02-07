@@ -7552,10 +7552,11 @@ function App() {
                     {showChatInfoPanel && (
                       <div className="chat-meta-rail">
                         <div className="chat-meta-card">
-                          <div className="chat-meta-section chat-meta-repo">
+                            <div className="chat-meta-section chat-meta-repo">
                             <div className="chat-meta-repo-title">
                               <span className="chat-meta-repo-name">{repoTitle}</span>
-                              <span className="chat-meta-repo-slash">/</span>
+                            </div>
+                            <div className="chat-meta-repo-branch-line">
                               <span className="chat-meta-repo-icon" aria-hidden="true">
                                 <FontAwesomeIcon icon={faCodeBranch} />
                               </span>

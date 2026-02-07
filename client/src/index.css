@@ -1182,17 +1182,12 @@ main.chat {
 }
 
 .chat-meta-repo-title {
-  display: inline;
+  display: block;
   font-size: 14px;
 }
 
 .chat-meta-repo-name {
   font-weight: 500;
-}
-
-.chat-meta-repo-slash {
-  opacity: 0.6;
-  margin: 0 4px;
 }
 
 .chat-meta-repo-branch {
@@ -1203,6 +1198,14 @@ main.chat {
   display: inline-block;
   font-size: 12px;
   margin: 0 4px 0 0;
+}
+
+.chat-meta-repo-branch-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 14px;
 }
 
 .chat-meta-repo-commit {
