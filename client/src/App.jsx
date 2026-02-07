@@ -2553,6 +2553,14 @@ function App() {
         if (!socket || socket.readyState !== WebSocket.OPEN) {
           return;
         }
+        // Skip pong-timeout check while the page is hidden; browsers
+        // throttle timers in background tabs so the elapsed time may
+        // grow well beyond the grace period without the connection
+        // actually being lost.
+        if (document.hidden) {
+          lastPongRef.current = Date.now();
+          return;
+        }
         const elapsed = Date.now() - lastPongRef.current;
         if (elapsed > SOCKET_PING_INTERVAL_MS + SOCKET_PONG_GRACE_MS) {
           socket.close();
@@ -3534,11 +3542,37 @@ function App() {
 
     connect();
 
+    // When the page becomes visible again after being in the background,
+    // reset the pong timer (browsers throttle timers in background tabs
+    // which makes the elapsed-since-last-pong unreliable) and, if the
+    // socket is still open, trigger an immediate resync so the chat
+    // history is restored.  If the socket was closed while hidden,
+    // kick off an immediate reconnect instead of waiting for the
+    // (potentially throttled) scheduled timer.
+    const handleVisibilityChange = () => {
+      if (document.hidden || !isMounted) {
+        return;
+      }
+      lastPongRef.current = Date.now();
+      const socket = socketRef.current;
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "ping" }));
+        void resyncSession();
+        requestMessageSync();
+      } else {
+        clearReconnectTimer();
+        reconnectAttemptRef.current = 0;
+        connect();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       isMounted = false;
       closingRef.current = true;
       clearReconnectTimer();
       clearPingInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (socketRef.current) {
         socketRef.current.close();
       }
