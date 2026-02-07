@@ -1152,14 +1152,14 @@ main.chat {
   margin-right: 10px;
   border-right: 1px solid #ccc;
   padding-right: 10px;
-  min-height: 150px;
+  min-height: 200px;
 }
 
 .chat-meta-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 2px 0;
+  gap: 12px;
+  padding: 4px 0;
   border: none;
   background: transparent;
   color: var(--ink);
@@ -1170,13 +1170,51 @@ main.chat {
   text-align: right;
 }
 
-.chat-meta-branch {
-  font-weight: 700;
-  text-transform: lowercase;
+.chat-meta-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(20, 19, 17, 0.08);
 }
 
-.chat-meta-commit {
-  font-size: 0;
+.chat-meta-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.chat-meta-repo-title {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.chat-meta-repo-name {
+  font-weight: 500;
+}
+
+.chat-meta-repo-slash {
+  opacity: 0.6;
+}
+
+.chat-meta-repo-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.chat-meta-repo-icon {
+  font-size: 12px;
+}
+
+.chat-meta-repo-commit {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .chat-meta-hash {
@@ -1200,7 +1238,11 @@ main.chat {
   color: var(--ink-muted);
   font-size: 12px;
   font-weight: 600;
-  margin-top: 6px;
+}
+
+.chat-meta-provider-icon {
+  font-size: 12px;
+  color: var(--ink-muted);
 }
 
 .chat-meta-provider-label {
@@ -1211,22 +1253,28 @@ main.chat {
   opacity: 0.6;
 }
 
-.chat-meta-internet {
+.chat-meta-permissions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.chat-meta-permission {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   justify-content: flex-end;
-  margin-top: 6px;
   color: var(--ink-muted);
   font-size: 12px;
   font-weight: 600;
 }
 
-.chat-meta-internet-icon {
+.chat-meta-permission-icon {
   display: inline-flex;
   align-items: center;
   font-size: 11px;
-  color: #2f9e44;
+  color: var(--ink-muted);
 }
 
 .chat-meta-task {
@@ -1234,7 +1282,6 @@ main.chat {
   align-items: center;
   gap: 6px;
   justify-content: flex-end;
-  margin-top: 6px;
   color: var(--ink-muted);
   font-size: 12px;
   font-weight: 600;

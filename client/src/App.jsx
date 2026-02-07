@@ -11,16 +11,19 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowLeft,
   faBroom,
+  faCodeBranch,
   faChevronDown,
   faChevronRight,
   faClipboardList,
   faComments,
   faCodeCompare,
   faCopy,
+  faDice,
   faDownload,
   faFileLines,
   faFolderTree,
   faGear,
+  faKey,
   faPaperclip,
   faQrcode,
   faPlus,
@@ -5061,11 +5064,15 @@ function App() {
   const showInternetAccess = isInWorktree
     ? Boolean(activeWorktree?.internetAccess)
     : Boolean(defaultInternetAccess);
+  const showGitCredentialsShared = isInWorktree
+    ? activeWorktree?.denyGitCredentialsAccess === false
+    : defaultDenyGitCredentialsAccess === false;
   const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
   const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
   const activeProviderLabel = formatProviderLabel(activeProvider, t);
   const activeModelLabel = activeModel || t("Default model");
   const showProviderMeta = Boolean(activeProviderLabel && activeModelLabel);
+  const repoTitle = repoName || t("Repository");
   const showChatInfoPanel =
     !isMobileLayout &&
     activePane === "chat" &&
@@ -7545,17 +7552,32 @@ function App() {
                     {showChatInfoPanel && (
                       <div className="chat-meta-rail">
                         <div className="chat-meta-card">
-                          <div className="chat-meta-branch">
-                            {activeBranchLabel}
+                          <div className="chat-meta-section chat-meta-repo">
+                            <div className="chat-meta-repo-title">
+                              <span className="chat-meta-repo-name">
+                                {repoTitle}
+                              </span>
+                              <span className="chat-meta-repo-slash">/</span>
+                              <span className="chat-meta-repo-branch">
+                                <span className="chat-meta-repo-icon" aria-hidden="true">
+                                  <FontAwesomeIcon icon={faCodeBranch} />
+                                </span>
+                                <span>{activeBranchLabel}</span>
+                              </span>
+                            </div>
+                            <div className="chat-meta-repo-commit">
+                              <span className="chat-meta-hash">{shortSha}</span>
+                              <span className="chat-meta-message">
+                                {activeCommit?.message || ""}
+                              </span>
+                            </div>
                           </div>
-                          <div className="chat-meta-commit">
-                            <span className="chat-meta-hash">{shortSha}</span>
-                          </div>
-                          <div className="chat-meta-message">
-                            {activeCommit?.message || ""}
-                          </div>
+
                           {showProviderMeta && (
-                            <div className="chat-meta-provider">
+                            <div className="chat-meta-section chat-meta-provider">
+                              <span className="chat-meta-provider-icon" aria-hidden="true">
+                                <FontAwesomeIcon icon={faDice} />
+                              </span>
                               <span className="chat-meta-provider-label">
                                 {activeProviderLabel}
                               </span>
@@ -7565,27 +7587,40 @@ function App() {
                               </span>
                             </div>
                           )}
-                          {showInternetAccess && (
-                            <div className="chat-meta-internet">
-                              <span className="chat-meta-internet-icon" aria-hidden="true">
-                                <FontAwesomeIcon icon={faTowerBroadcast} />
-                              </span>
-                              <span>{t("Internet access enabled")}</span>
+
+                          {(showInternetAccess || showGitCredentialsShared || activeTaskLabel) && (
+                            <div className="chat-meta-section chat-meta-permissions">
+                              {showInternetAccess && (
+                                <div className="chat-meta-permission">
+                                  <span className="chat-meta-permission-icon" aria-hidden="true">
+                                    <FontAwesomeIcon icon={faTowerBroadcast} />
+                                  </span>
+                                  <span>{t("Internet access enabled")}</span>
+                                </div>
+                              )}
+                              {showGitCredentialsShared && (
+                                <div className="chat-meta-permission">
+                                  <span className="chat-meta-permission-icon" aria-hidden="true">
+                                    <FontAwesomeIcon icon={faKey} />
+                                  </span>
+                                  <span>{t("Git credentials shared")}</span>
+                                </div>
+                              )}
+                              {activeTaskLabel && (
+                                <span className="chat-meta-task">
+                                  <span className="chat-meta-task-loader" aria-hidden="true" />
+                                  <ReactMarkdown
+                                    className="chat-meta-task-text"
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                      p: ({ children }) => <span>{children}</span>,
+                                    }}
+                                  >
+                                    {activeTaskLabel}
+                                  </ReactMarkdown>
+                                </span>
+                              )}
                             </div>
-                          )}
-                          {activeTaskLabel && (
-                            <span className="chat-meta-task">
-                              <span className="chat-meta-task-loader" aria-hidden="true" />
-                              <ReactMarkdown
-                                className="chat-meta-task-text"
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                  p: ({ children }) => <span>{children}</span>,
-                                }}
-                              >
-                                {activeTaskLabel}
-                              </ReactMarkdown>
-                            </span>
                           )}
                         </div>
                       </div>
