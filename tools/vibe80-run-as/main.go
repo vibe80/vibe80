@@ -345,6 +345,28 @@ func uniqueStrings(values []string) []string {
   return result
 }
 
+func ensureDirsExist(paths []string, label string) error {
+  for _, target := range paths {
+    if target == "" {
+      continue
+    }
+    info, err := os.Stat(target)
+    if err == nil {
+      if !info.IsDir() {
+        return fmt.Errorf("%s path is not a directory: %s", label, target)
+      }
+      continue
+    }
+    if !os.IsNotExist(err) {
+      return fmt.Errorf("unable to stat %s path: %s (%v)", label, target, err)
+    }
+    if mkErr := os.MkdirAll(target, 0o700); mkErr != nil {
+      return fmt.Errorf("failed to create %s path: %s (%v)", label, target, mkErr)
+    }
+  }
+  return nil
+}
+
 func validatePathsExist(paths []string, label string) error {
   for _, target := range paths {
     if target == "" {
@@ -374,10 +396,10 @@ func applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles []string, netMod
   if len(allowRO) == 0 && len(allowRW) == 0 && len(allowROFiles) == 0 && len(allowRWFiles) == 0 && netMode == "" {
     return nil
   }
-  if err := validatePathsExist(allowRO, "allow-ro"); err != nil {
+  if err := ensureDirsExist(allowRO, "allow-ro"); err != nil {
     return err
   }
-  if err := validatePathsExist(allowRW, "allow-rw"); err != nil {
+  if err := ensureDirsExist(allowRW, "allow-rw"); err != nil {
     return err
   }
   if err := validatePathsExist(allowROFiles, "allow-ro-file"); err != nil {
