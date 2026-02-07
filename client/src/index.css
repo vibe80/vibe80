@@ -120,12 +120,31 @@ textarea {
 
 .session-shell h1 {
   margin: 0;
-  font-size: clamp(28px, 3vw, 36px);
+  font-size: clamp(28px, 3vw, 30px);
 }
 
 .session-header {
   display: grid;
   gap: 8px;
+}
+
+.session-gate .session-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-gate .session-header .brand-logo {
+  margin-left: auto;
+}
+
+.session-gate .session-header h1 {
+  flex: 1 1 auto;
+}
+
+.session-gate .session-header .session-hint {
+  flex-basis: 100%;
 }
 
 .session-body {
@@ -3107,6 +3126,10 @@ main.chat {
 :root[data-theme="dark"] .bubble pre,
 :root[data-theme="dark"] .chat-meta-hash {
   background: #ffffff0a;
+}
+
+:root[data-theme="dark"] .session-workspace-option {
+  background: var(--border-soft);
 }
 
 .bubble pre code {
