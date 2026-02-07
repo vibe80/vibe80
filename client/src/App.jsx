@@ -6466,13 +6466,11 @@ function App() {
     const showStep2 = workspaceStep === 2;
     const showStep3 = workspaceStep === 3 && workspaceToken;
     const showStep4 = workspaceStep === 4 && workspaceToken;
-    const headerHint = showStep1
-      ? t("Select an existing workspace or create a new one.")
-      : showStep2
-        ? t("Configure AI providers for this workspace.")
-        : showStep3
-          ? t("Workspace created hint")
-          : null;
+    const headerHint = showStep2
+      ? t("Configure AI providers for this workspace.")
+      : showStep3
+        ? t("Workspace created hint")
+        : null;
     const infoContent = showStep2
       ? {
           title: t("Configure AI providers"),
@@ -6622,7 +6620,6 @@ function App() {
                     className="session-form"
                     onSubmit={handleWorkspaceProvidersSubmit}
                   >
-                  <div className="session-auth-title">{t("AI providers")}</div>
                   <div className="session-auth-options session-auth-accordion">
                     {["codex", "claude"].map((provider) => {
                       const config = workspaceProvider(provider);
