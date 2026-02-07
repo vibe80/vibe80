@@ -2834,6 +2834,9 @@ function App() {
             }
             return next;
           });
+          if (payload.request === "run" || payload.request === "git") {
+            void loadRepoLastCommit();
+          }
         }
 
         if (!isWorktreeScoped && payload.type === "backlog_view") {
@@ -3394,6 +3397,9 @@ function App() {
               }
               return next;
             });
+            if (payload.request === "run" || payload.request === "git") {
+              void loadWorktreeLastCommit(wtId);
+            }
           }
 
           if (payload.type === "backlog_view") {
