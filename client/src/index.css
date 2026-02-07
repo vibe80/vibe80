@@ -1158,8 +1158,8 @@ main.chat {
 .chat-meta-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 4px 0;
+  gap: 8px;
+  padding: 2px 0;
   border: none;
   background: transparent;
   color: var(--ink);
@@ -1173,8 +1173,8 @@ main.chat {
 .chat-meta-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 0;
+  gap: 4px;
+  padding: 6px 0;
 }
 
 .chat-meta-section:last-child {
