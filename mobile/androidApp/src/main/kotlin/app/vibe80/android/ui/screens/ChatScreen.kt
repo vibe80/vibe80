@@ -214,6 +214,7 @@ fun ChatScreen(
     )
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
@@ -464,6 +465,7 @@ fun ChatScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .imePadding()
                     .onSizeChanged { inputBarSize = it }
             ) {
