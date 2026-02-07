@@ -146,7 +146,7 @@ const validateCwd = (workspaceId, cwd) => {
   }
 };
 
-const runCommand = (command, args, options = {}) =>
+export const runCommand = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
     const proc = spawn(command, args, { stdio: ["pipe", "ignore", "pipe"], ...options });
     let stderr = "";
@@ -176,7 +176,7 @@ const runCommand = (command, args, options = {}) =>
     });
   });
 
-const runCommandOutput = (command, args, options = {}) =>
+export const runCommandOutput = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
     const proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], ...options });
     const stdoutChunks = [];
@@ -212,7 +212,7 @@ const runCommandOutput = (command, args, options = {}) =>
     });
   });
 
-const runCommandOutputWithStatus = (command, args, options = {}) =>
+export const runCommandOutputWithStatus = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
     const proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], ...options });
     const stdoutChunks = [];

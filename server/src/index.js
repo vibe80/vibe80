@@ -7,12 +7,17 @@ import crypto from "crypto";
 import multer from "multer";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
-import { spawn } from "child_process";
 import jwt from "jsonwebtoken";
 import * as pty from "node-pty";
-import { buildSandboxArgs } from "./runAs.js";
+import {
+  buildSandboxArgs,
+  runCommand,
+  runCommandOutput,
+  runAsCommand,
+  runAsCommandOutput,
+  runAsCommandOutputWithStatus,
+} from "./runAs.js";
 import dockerNames from "docker-names";
-import { runAsCommand, runAsCommandOutput, runAsCommandOutputWithStatus } from "./runAs.js";
 import storage from "./storage/index.js";
 import { getSessionRuntime, deleteSessionRuntime } from "./runtimeStore.js";
 import {
@@ -328,49 +333,6 @@ app.use("/api", (req, res, next) => {
   }
   next();
 });
-
-const runCommand = (command, args, options = {}) =>
-  new Promise((resolve, reject) => {
-    const proc = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], ...options });
-    let stderr = "";
-
-    proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    proc.on("error", reject);
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(stderr.trim() || `${command} exited with ${code}`));
-    });
-  });
-
-const runCommandOutput = (command, args, options = {}) =>
-  new Promise((resolve, reject) => {
-    const proc = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"], ...options });
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-
-    proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    proc.on("error", reject);
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout);
-        return;
-      }
-      reject(new Error(stderr.trim() || `${command} exited with ${code}`));
-    });
-  });
 
 const classifySessionCreationError = (error) => {
   const rawMessage = (error?.message || "").trim();
