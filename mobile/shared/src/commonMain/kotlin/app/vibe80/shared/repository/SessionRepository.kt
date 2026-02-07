@@ -143,6 +143,18 @@ class SessionRepository(
 
             is StatusMessage -> {
                 // Status updates can be shown in UI
+                if (message.provider?.equals("codex", ignoreCase = true) == true &&
+                    message.message.startsWith("Starting", ignoreCase = true)
+                ) {
+                    _sessionState.update { it?.copy(appServerReady = false) }
+                }
+            }
+
+            is ProviderStatusMessage -> {
+                if (message.provider?.equals("codex", ignoreCase = true) == true) {
+                    val ready = message.status.equals("ready", ignoreCase = true)
+                    _sessionState.update { it?.copy(appServerReady = ready) }
+                }
             }
 
             is AssistantDeltaMessage -> {
@@ -268,6 +280,19 @@ class SessionRepository(
             }
 
             is WorktreeUpdatedMessage -> {
+                _worktrees.update { current ->
+                    current[message.worktreeId]?.let { worktree ->
+                        val updated = if (message.status != null) {
+                            worktree.copy(status = message.status)
+                        } else {
+                            worktree
+                        }
+                        current + (message.worktreeId to updated)
+                    } ?: current
+                }
+            }
+
+            is WorktreeStatusMessage -> {
                 _worktrees.update { current ->
                     current[message.worktreeId]?.let { worktree ->
                         val updated = if (message.status != null) {

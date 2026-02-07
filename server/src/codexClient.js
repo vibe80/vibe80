@@ -264,6 +264,11 @@ export class CodexAppServerClient extends EventEmitter {
       approvalPolicy: "never"
     };
 
+    this.emit("thread_starting", {
+      mode: this.threadId ? "resume" : "start",
+      threadId: this.threadId || null,
+    });
+
     const result = this.threadId
       ? await this.#sendRequest("thread/resume", {
           ...params,

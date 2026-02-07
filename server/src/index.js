@@ -1963,6 +1963,24 @@ function attachClientEvents(sessionId, client, provider) {
   // Track authentication errors from Codex stderr logs
   let lastAuthError = null;
 
+  client.on("thread_starting", () => {
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (session?.activeProvider === provider) {
+        broadcastToSession(sessionId, {
+          type: "provider_status",
+          status: "starting",
+          provider,
+        });
+        broadcastToSession(sessionId, {
+          type: "status",
+          message: `Starting ${getProviderLabel(session)}...`,
+          provider,
+        });
+      }
+    })();
+  });
+
   client.on("ready", ({ threadId }) => {
     void (async () => {
       const session = await getSession(sessionId);
@@ -1972,6 +1990,11 @@ function attachClientEvents(sessionId, client, provider) {
       }
       if (session?.activeProvider === provider) {
         broadcastToSession(sessionId, { type: "ready", threadId, provider });
+        broadcastToSession(sessionId, {
+          type: "provider_status",
+          status: "ready",
+          provider,
+        });
       }
     })();
   });
@@ -2219,6 +2242,19 @@ function attachClientEventsForWorktree(sessionId, worktree) {
   const client = worktree.client;
   const worktreeId = worktree.id;
   const provider = worktree.provider;
+
+  client.on("thread_starting", () => {
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      await updateWorktreeStatus(session, worktreeId, "processing");
+      broadcastToSession(sessionId, {
+        type: "worktree_status",
+        worktreeId,
+        status: "processing",
+      });
+    })();
+  });
 
   client.on("ready", ({ threadId }) => {
     void (async () => {

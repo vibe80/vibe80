@@ -2649,11 +2649,20 @@ function App() {
 
         if (payload.type === "status") {
           setStatus(payload.message);
+          if (payload.provider === "codex") {
+            setAppServerReady(false);
+          }
         }
 
         if (payload.type === "ready") {
           setStatus(t("Ready"));
           setAppServerReady(true);
+        }
+
+        if (payload.type === "provider_status") {
+          if (payload.provider === "codex") {
+            setAppServerReady(payload.status === "ready");
+          }
         }
 
         if (!isWorktreeScoped && payload.type === "assistant_delta") {
@@ -5155,6 +5164,12 @@ function App() {
     ? activeWorktree?.currentTurnId
     : currentTurnId;
   const canInterrupt = currentProcessing && Boolean(currentTurnIdForActive);
+  const isCodexReady =
+    activeProvider !== "codex"
+      ? true
+      : isInWorktree
+        ? activeWorktree?.status === "ready"
+        : appServerReady;
 
   const handleViewSelect = useCallback((nextPane) => {
     if ((!debugMode || !rpcLogsEnabled) && nextPane === "logs") {
@@ -5510,6 +5525,10 @@ function App() {
       if (!rawText) {
         return;
       }
+      if (activeProvider === "codex" && !isCodexReady) {
+        showToast(t("Codex is starting. Please wait."), "info");
+        return;
+      }
       if (rawText === "/diff" || rawText.startsWith("/diff ")) {
         handleViewSelect("diff");
         if (activeWorktreeId && activeWorktreeId !== "main") {
@@ -5660,12 +5679,14 @@ function App() {
     },
     [
       activeWorktreeId,
+      activeProvider,
       apiFetch,
       attachmentSession?.sessionId,
       captureScreenshot,
       connected,
       handleViewSelect,
       input,
+      isCodexReady,
       isInWorktree,
       openPathInExplorer,
       requestRepoDiff,
@@ -8848,7 +8869,7 @@ function App() {
                     <button
                       type="submit"
                       className="primary send-button"
-                      disabled={!connected || !input.trim()}
+                      disabled={!connected || !input.trim() || !isCodexReady}
                       aria-label={t("Send")}
                       title={t("Send")}
                     >

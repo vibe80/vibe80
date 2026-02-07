@@ -59,6 +59,7 @@ import app.vibe80.android.viewmodel.ChatViewModel
 import app.vibe80.android.viewmodel.PendingAttachment
 import app.vibe80.shared.models.ErrorType
 import app.vibe80.shared.models.LLMProvider
+import app.vibe80.shared.models.WorktreeStatus
 import app.vibe80.shared.models.Worktree
 import app.vibe80.shared.network.ConnectionState
 import org.koin.androidx.compose.koinViewModel
@@ -505,6 +506,17 @@ fun ChatScreen(
                             )
                         }
 
+                        val activeWorktree = uiState.activeWorktree
+                        val effectiveProvider = activeWorktree?.provider ?: uiState.activeProvider
+                        val codexReady =
+                            if (effectiveProvider != LLMProvider.CODEX) {
+                                true
+                            } else if (activeWorktree == null) {
+                                uiState.appServerReady
+                            } else {
+                                activeWorktree.status == WorktreeStatus.READY
+                            }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -514,7 +526,7 @@ fun ChatScreen(
                         ) {
                             IconButton(
                                 onClick = { showAttachmentMenu = true },
-                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && codexReady
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
@@ -528,7 +540,10 @@ fun ChatScreen(
                                 modifier = Modifier.weight(1f),
                                 placeholder = { Text(stringResource(R.string.message_hint)) },
                                 maxLines = 4,
-                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && !uiState.uploadingAttachments
+                                enabled = uiState.connectionState == ConnectionState.CONNECTED &&
+                                        !uiState.processing &&
+                                        !uiState.uploadingAttachments &&
+                                        codexReady
                             )
 
                             FilledIconButton(
@@ -536,7 +551,8 @@ fun ChatScreen(
                                 enabled = (uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()) &&
                                         uiState.connectionState == ConnectionState.CONNECTED &&
                                         !uiState.processing &&
-                                        !uiState.uploadingAttachments
+                                        !uiState.uploadingAttachments &&
+                                        codexReady
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
@@ -566,43 +582,43 @@ fun ChatScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
 
-                ListItem(
-                    headlineContent = { Text("Caméra") },
-                    leadingContent = {
-                        Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null)
-                    },
-                    modifier = Modifier.clickable(
-                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
-                    ) {
-                        showAttachmentMenu = false
-                        launchCameraWithPermission()
-                    }
-                )
+                    ListItem(
+                        headlineContent = { Text("Caméra") },
+                        leadingContent = {
+                            Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null)
+                        },
+                        modifier = Modifier.clickable(
+                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && codexReady
+                        ) {
+                            showAttachmentMenu = false
+                            launchCameraWithPermission()
+                        }
+                    )
 
-                ListItem(
-                    headlineContent = { Text("Photos") },
-                    leadingContent = {
-                        Icon(imageVector = Icons.Default.Image, contentDescription = null)
-                    },
-                    modifier = Modifier.clickable(
-                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
-                    ) {
-                        showAttachmentMenu = false
-                        filePickerLauncher.launch(arrayOf("image/*"))
-                    }
-                )
+                    ListItem(
+                        headlineContent = { Text("Photos") },
+                        leadingContent = {
+                            Icon(imageVector = Icons.Default.Image, contentDescription = null)
+                        },
+                        modifier = Modifier.clickable(
+                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && codexReady
+                        ) {
+                            showAttachmentMenu = false
+                            filePickerLauncher.launch(arrayOf("image/*"))
+                        }
+                    )
 
-                ListItem(
-                    headlineContent = { Text("Fichiers") },
-                    leadingContent = {
-                        Icon(imageVector = Icons.Default.AttachFile, contentDescription = null)
-                    },
-                    modifier = Modifier.clickable(
-                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
-                    ) {
-                        showAttachmentMenu = false
-                        filePickerLauncher.launch(arrayOf("*/*"))
-                    }
+                    ListItem(
+                        headlineContent = { Text("Fichiers") },
+                        leadingContent = {
+                            Icon(imageVector = Icons.Default.AttachFile, contentDescription = null)
+                        },
+                        modifier = Modifier.clickable(
+                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && codexReady
+                        ) {
+                            showAttachmentMenu = false
+                            filePickerLauncher.launch(arrayOf("*/*"))
+                        }
                 )
 
                 ListItem(

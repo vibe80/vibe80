@@ -203,6 +203,7 @@ class WebSocketManager(
             val message: ServerMessage? = when (type) {
                 "ready" -> json.decodeFromString<ReadyMessage>(text)
                 "status" -> json.decodeFromString<StatusMessage>(text)
+                "provider_status" -> json.decodeFromString<ProviderStatusMessage>(text)
                 "assistant_delta" -> json.decodeFromString<AssistantDeltaMessage>(text)
                 "assistant_message" -> json.decodeFromString<AssistantMessageComplete>(text)
                 "turn_started" -> json.decodeFromString<TurnStartedMessage>(text)
@@ -213,6 +214,7 @@ class WebSocketManager(
                 "worktree_messages_sync" -> json.decodeFromString<WorktreeMessagesSyncMessage>(text)
                 "worktree_created" -> parseWorktreeCreated(jsonObject, text)
                 "worktree_updated" -> json.decodeFromString<WorktreeUpdatedMessage>(text)
+                "worktree_status" -> json.decodeFromString<WorktreeStatusMessage>(text)
                 "worktree_message" -> json.decodeFromString<WorktreeMessageEvent>(text)
                 "worktree_delta" -> json.decodeFromString<WorktreeDeltaMessage>(text)
                 "worktree_turn_started" -> json.decodeFromString<WorktreeTurnStartedMessage>(text)

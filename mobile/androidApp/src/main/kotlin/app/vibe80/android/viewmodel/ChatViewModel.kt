@@ -40,6 +40,7 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val currentStreamingMessage: String? = null,
     val activeProvider: LLMProvider = LLMProvider.CODEX,
+    val appServerReady: Boolean = false,
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
     val processing: Boolean = false,
     val repoName: String = "",
@@ -251,6 +252,7 @@ class ChatViewModel(
                     it.copy(
                         sessionId = session.sessionId,
                         activeProvider = session.activeProvider,
+                        appServerReady = session.appServerReady,
                         repoName = repoNameFromUrl(session.repoUrl),
                         submittedFormMessageIds = if (shouldResetForms) emptySet() else it.submittedFormMessageIds,
                         submittedYesNoMessageIds = if (shouldResetForms) emptySet() else it.submittedYesNoMessageIds

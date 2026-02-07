@@ -29,6 +29,14 @@ data class StatusMessage(
 ) : ServerMessage()
 
 @Serializable
+@SerialName("provider_status")
+data class ProviderStatusMessage(
+    override val type: String = "provider_status",
+    val status: String,
+    val provider: String? = null
+) : ServerMessage()
+
+@Serializable
 @SerialName("assistant_delta")
 data class AssistantDeltaMessage(
     override val type: String = "assistant_delta",
@@ -134,6 +142,15 @@ data class WorktreeUpdatedMessage(
     val worktreeId: String,
     val status: WorktreeStatus? = null,
     val changes: Map<String, JsonElement> = emptyMap()
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_status")
+data class WorktreeStatusMessage(
+    override val type: String = "worktree_status",
+    val worktreeId: String,
+    val status: WorktreeStatus? = null,
+    val error: String? = null
 ) : ServerMessage()
 
 @Serializable
