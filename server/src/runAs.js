@@ -12,6 +12,7 @@ const ALLOWED_ENV_KEYS = new Set([
   "GIT_TERMINAL_PROMPT",
   "TERM",
   "TMPDIR",
+  "CLAUDE_CODE_TMPDIR",
 ]);
 export const DEFAULT_ALLOW_RO = [
   "/bin",
