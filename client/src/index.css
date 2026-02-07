@@ -1188,6 +1188,8 @@ main.chat {
 
 .chat-meta-repo-name {
   font-weight: 500;
+  font-size: 12px;
+  color: var(--ink-muted);
 }
 
 .chat-meta-repo-branch {
@@ -1206,6 +1208,7 @@ main.chat {
   justify-content: flex-end;
   gap: 4px;
   font-size: 14px;
+  margin-bottom: 4px;
 }
 
 .chat-meta-repo-commit {
