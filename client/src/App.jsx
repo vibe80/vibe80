@@ -6483,6 +6483,15 @@ function App() {
             ),
           ],
         }
+      : showStep3
+        ? {
+            title: t("Workspace credentials"),
+            paragraphs: [
+              t(
+                "Please keep your workspace credentials (Workspace ID and Workspace Secret) for future access. We do not have a user identification mechanism; your Workspace ID is your only identifier."
+              ),
+            ],
+          }
       : showStep4
         ? {
             title: t("Clone a session"),
