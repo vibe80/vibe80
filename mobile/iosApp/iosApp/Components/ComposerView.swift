@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 struct ComposerView: View {
     @Binding var text: String
@@ -8,6 +9,10 @@ struct ComposerView: View {
 
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var pendingAttachments: [PendingAttachment] = []
+    @State private var showPhotoPicker = false
+    @State private var showFileImporter = false
+    @State private var showCameraPicker = false
+    @State private var cameraImage: UIImage?
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -21,18 +26,35 @@ struct ComposerView: View {
 
             // Input row
             HStack(alignment: .bottom, spacing: 8) {
-                // Attach button
-                PhotosPicker(
-                    selection: $selectedItems,
-                    maxSelectionCount: 5,
-                    matching: .any(of: [.images, .pdf])
-                ) {
-                    Image(systemName: "paperclip")
+                Menu {
+                    Button {
+                        showCameraPicker = true
+                    } label: {
+                        Label("Caméra", systemImage: "camera")
+                    }
+
+                    Button {
+                        showPhotoPicker = true
+                    } label: {
+                        Label("Photos", systemImage: "photo")
+                    }
+
+                    Button {
+                        showFileImporter = true
+                    } label: {
+                        Label("Fichiers", systemImage: "doc")
+                    }
+
+                    Button {
+                        // no-op
+                    } label: {
+                        Label("Modèle", systemImage: "sparkles")
+                    }
+                    .disabled(true)
+                } label: {
+                    Image(systemName: "plus.circle.fill")
                         .font(.title2)
                         .foregroundColor(.blue)
-                }
-                .onChange(of: selectedItems) { items in
-                    handleSelectedItems(items)
                 }
 
                 // Text input
@@ -56,6 +78,30 @@ struct ComposerView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(Color(.systemBackground))
+        }
+        .photosPicker(
+            isPresented: $showPhotoPicker,
+            selection: $selectedItems,
+            maxSelectionCount: 5,
+            matching: .images
+        )
+        .onChange(of: selectedItems) { items in
+            handleSelectedItems(items)
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.image, .pdf, .data],
+            allowsMultipleSelection: true
+        ) { result in
+            handleImportedFiles(result)
+        }
+        .sheet(isPresented: $showCameraPicker) {
+            ImagePicker(sourceType: .camera, selectedImage: $cameraImage)
+        }
+        .onChange(of: cameraImage) { image in
+            guard let image else { return }
+            addImageAttachment(image)
+            cameraImage = nil
         }
     }
 
@@ -150,6 +196,47 @@ struct ComposerView: View {
                 }
             }
         }
+    }
+
+    private func handleImportedFiles(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            Task {
+                for url in urls {
+                    guard let data = try? Data(contentsOf: url) else { continue }
+                    let name = url.lastPathComponent
+                    let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
+                        ?? "application/octet-stream"
+                    let thumbnail = UIImage(data: data)?.preparingThumbnail(of: CGSize(width: 48, height: 48))
+                    let attachment = PendingAttachment(
+                        id: UUID(),
+                        name: name,
+                        data: data,
+                        thumbnail: thumbnail,
+                        mimeType: mimeType
+                    )
+                    await MainActor.run {
+                        pendingAttachments.append(attachment)
+                    }
+                }
+            }
+        case .failure:
+            break
+        }
+    }
+
+    private func addImageAttachment(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.9) else { return }
+        let name = "photo_\(Date().timeIntervalSince1970).jpg"
+        let thumbnail = image.preparingThumbnail(of: CGSize(width: 48, height: 48))
+        let attachment = PendingAttachment(
+            id: UUID(),
+            name: name,
+            data: data,
+            thumbnail: thumbnail,
+            mimeType: "image/jpeg"
+        )
+        pendingAttachments.append(attachment)
     }
 
     private func removeAttachment(_ attachment: PendingAttachment) {

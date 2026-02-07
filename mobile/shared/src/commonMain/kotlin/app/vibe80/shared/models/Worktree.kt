@@ -73,6 +73,17 @@ data class WorktreeCreateRequest(
 )
 
 @Serializable
+data class WorktreeCreateApiRequest(
+    val session: String,
+    val provider: String,
+    val name: String? = null,
+    val parentWorktreeId: String? = null,
+    val startingBranch: String? = null,
+    val model: String? = null,
+    val reasoningEffort: String? = null
+)
+
+@Serializable
 data class WorktreeCreateResponse(
     val worktreeId: String,
     val name: String? = null,

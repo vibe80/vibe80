@@ -1,5 +1,6 @@
 package app.vibe80.android.ui.screens
 
+import android.Manifest
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.BugReport
@@ -41,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import app.vibe80.android.R
 import app.vibe80.android.ui.components.CreateWorktreeSheet
 import app.vibe80.android.ui.components.DiffSheetContent
@@ -146,6 +150,53 @@ fun ChatScreen(
         pendingCameraPhoto = null
     }
 
+    var showAttachmentMenu by remember { mutableStateOf(false) }
+    var pendingCameraLaunch by remember { mutableStateOf(false) }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted && pendingCameraLaunch) {
+            pendingCameraLaunch = false
+            val photoFile = createTempImageFile(context)
+            val photoUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            pendingCameraPhoto = CameraPhoto(
+                uri = photoUri,
+                name = photoFile.name,
+                file = photoFile
+            )
+            cameraLauncher.launch(photoUri)
+        }
+    }
+
+    fun launchCameraWithPermission() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            val photoFile = createTempImageFile(context)
+            val photoUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            pendingCameraPhoto = CameraPhoto(
+                uri = photoUri,
+                name = photoFile.name,
+                file = photoFile
+            )
+            cameraLauncher.launch(photoUri)
+        } else {
+            pendingCameraLaunch = true
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     // Auto-scroll to bottom on new messages
     LaunchedEffect(uiState.messages.size, uiState.currentStreamingMessage) {
         if (uiState.messages.isNotEmpty()) {
@@ -163,6 +214,7 @@ fun ChatScreen(
     )
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
@@ -413,6 +465,7 @@ fun ChatScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .imePadding()
                     .onSizeChanged { inputBarSize = it }
             ) {
@@ -459,40 +512,13 @@ fun ChatScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Attach button
                             IconButton(
-                                onClick = {
-                                    filePickerLauncher.launch(arrayOf("*/*"))
-                                },
+                                onClick = { showAttachmentMenu = true },
                                 enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.AttachFile,
-                                    contentDescription = "Joindre un fichier"
-                                )
-                            }
-
-                            // Camera button
-                            IconButton(
-                                onClick = {
-                                    val photoFile = createTempImageFile(context)
-                                    val photoUri = FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        photoFile
-                                    )
-                                    pendingCameraPhoto = CameraPhoto(
-                                        uri = photoUri,
-                                        name = photoFile.name,
-                                        file = photoFile
-                                    )
-                                    cameraLauncher.launch(photoUri)
-                                },
-                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhotoCamera,
-                                    contentDescription = "Appareil photo"
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Ajouter"
                                 )
                             }
 
@@ -520,6 +546,77 @@ fun ChatScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    if (showAttachmentMenu) {
+        ModalBottomSheet(
+            onDismissRequest = { showAttachmentMenu = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Ajouter",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                ListItem(
+                    headlineContent = { Text("Caméra") },
+                    leadingContent = {
+                        Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable(
+                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                    ) {
+                        showAttachmentMenu = false
+                        launchCameraWithPermission()
+                    }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Photos") },
+                    leadingContent = {
+                        Icon(imageVector = Icons.Default.Image, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable(
+                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                    ) {
+                        showAttachmentMenu = false
+                        filePickerLauncher.launch(arrayOf("image/*"))
+                    }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Fichiers") },
+                    leadingContent = {
+                        Icon(imageVector = Icons.Default.AttachFile, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable(
+                        enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing
+                    ) {
+                        showAttachmentMenu = false
+                        filePickerLauncher.launch(arrayOf("*/*"))
+                    }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Modèle") },
+                    supportingContent = { Text("Bientôt disponible") },
+                    leadingContent = {
+                        Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null)
+                    },
+                    colors = ListItemDefaults.colors(
+                        headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        supportingColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
             }
         }
     }

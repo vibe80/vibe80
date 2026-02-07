@@ -586,33 +586,38 @@ class SessionRepository(
     ) {
         val sessionId = _sessionState.value?.sessionId
             ?: return
-        val response = apiClient.createWorktree(
-            sessionId,
-            WorktreeCreateRequest(
-                provider = provider.name.lowercase(),
-                parentWorktreeId = _activeWorktreeId.value,
-                name = name,
-                startingBranch = branchName,
-                model = model,
-                reasoningEffort = reasoningEffort
-            )
+        val request = WorktreeCreateApiRequest(
+            session = sessionId,
+            provider = provider.name.lowercase(),
+            name = name,
+            parentWorktreeId = _activeWorktreeId.value,
+            startingBranch = branchName,
+            model = model,
+            reasoningEffort = reasoningEffort
         )
-        response.onSuccess { payload ->
+        val result = apiClient.createWorktree(request)
+        result.onFailure { handleApiFailure(it, "createWorktree") }
+        result.onSuccess { response ->
+            val resolvedProvider = when (response.provider?.lowercase()) {
+                "claude" -> LLMProvider.CLAUDE
+                "codex" -> LLMProvider.CODEX
+                else -> provider
+            }
             val worktree = Worktree(
-                id = payload.worktreeId,
-                name = payload.name ?: payload.worktreeId,
-                branchName = payload.branchName ?: "",
-                provider = payload.provider?.let { LLMProvider.fromRaw(it) } ?: provider,
-                status = payload.status ?: WorktreeStatus.CREATING,
-                color = payload.color ?: Worktree.COLORS.first(),
-                internetAccess = payload.internetAccess ?: true,
-                denyGitCredentialsAccess = payload.denyGitCredentialsAccess ?: false
+                id = response.worktreeId,
+                name = response.name ?: response.branchName ?: "worktree",
+                branchName = response.branchName ?: "main",
+                provider = resolvedProvider,
+                status = response.status ?: WorktreeStatus.CREATING,
+                color = response.color ?: Worktree.COLORS.first()
             )
-            _worktrees.update { it + (worktree.id to worktree) }
-            _worktreeMessages.update { it + (worktree.id to emptyList()) }
+            _worktrees.update { current ->
+                current + (worktree.id to worktree)
+            }
+            _worktreeMessages.update { current ->
+                current + (worktree.id to emptyList())
+            }
             _activeWorktreeId.value = worktree.id
-        }.onFailure {
-            handleApiFailure(it, "createWorktree")
         }
     }
 

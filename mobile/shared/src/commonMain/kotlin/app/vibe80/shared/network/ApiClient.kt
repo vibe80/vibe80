@@ -361,6 +361,29 @@ class ApiClient(
     }
 
     /**
+     * Create a worktree via REST API
+     */
+    suspend fun createWorktree(request: WorktreeCreateApiRequest): Result<WorktreeCreateResponse> {
+        val url = "$baseUrl/api/worktree"
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.post(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                    applyAuth(this)
+                }
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Get a worktree file content
      */
     suspend fun getWorktreeFile(
