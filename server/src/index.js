@@ -101,7 +101,6 @@ const accessTokenTtlSeconds = Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 60
 const refreshTokenTtlSeconds =
   Number(process.env.REFRESH_TOKEN_TTL_SECONDS) || 30 * 24 * 60 * 60;
 const refreshTokenTtlMs = refreshTokenTtlSeconds * 1000;
-const refreshTokenTtlSeconds = Math.floor(refreshTokenTtlMs / 1000);
 const debugApiWsLog = /^(1|true|yes|on)$/i.test(
   process.env.DEBUG_API_WS_LOG || ""
 );
