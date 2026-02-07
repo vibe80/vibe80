@@ -7554,16 +7554,12 @@ function App() {
                         <div className="chat-meta-card">
                           <div className="chat-meta-section chat-meta-repo">
                             <div className="chat-meta-repo-title">
-                              <span className="chat-meta-repo-name">
-                                {repoTitle}
-                              </span>
+                              <span className="chat-meta-repo-name">{repoTitle}</span>
                               <span className="chat-meta-repo-slash">/</span>
-                              <span className="chat-meta-repo-branch">
-                                <span className="chat-meta-repo-icon" aria-hidden="true">
-                                  <FontAwesomeIcon icon={faCodeBranch} />
-                                </span>
-                                <span>{activeBranchLabel}</span>
+                              <span className="chat-meta-repo-icon" aria-hidden="true">
+                                <FontAwesomeIcon icon={faCodeBranch} />
                               </span>
+                              <span className="chat-meta-repo-branch">{activeBranchLabel}</span>
                             </div>
                             <div className="chat-meta-repo-commit">
                               <span className="chat-meta-hash">{shortSha}</span>
@@ -7578,13 +7574,9 @@ function App() {
                               <span className="chat-meta-provider-icon" aria-hidden="true">
                                 <FontAwesomeIcon icon={faDice} />
                               </span>
-                              <span className="chat-meta-provider-label">
-                                {activeProviderLabel}
-                              </span>
+                              <span className="chat-meta-provider-label">{activeProviderLabel}</span>
                               <span className="chat-meta-provider-sep">•</span>
-                              <span className="chat-meta-provider-model">
-                                {activeModelLabel}
-                              </span>
+                              <span className="chat-meta-provider-model">{activeModelLabel}</span>
                             </div>
                           )}
 

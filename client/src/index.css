@@ -1184,10 +1184,7 @@ main.chat {
 }
 
 .chat-meta-repo-title {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
+  display: inline;
   font-size: 14px;
 }
 
@@ -1197,24 +1194,25 @@ main.chat {
 
 .chat-meta-repo-slash {
   opacity: 0.6;
+  margin: 0 4px;
 }
 
 .chat-meta-repo-branch {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   font-weight: 700;
 }
 
 .chat-meta-repo-icon {
+  display: inline-block;
   font-size: 12px;
+  margin: 0 4px 0 0;
 }
 
 .chat-meta-repo-commit {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  display: inline;
+}
+
+.chat-meta-message {
+  margin-left: 8px;
 }
 
 .chat-meta-hash {
@@ -1231,18 +1229,17 @@ main.chat {
 }
 
 .chat-meta-provider {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  justify-content: flex-end;
+  display: inline;
   color: var(--ink-muted);
   font-size: 12px;
   font-weight: 600;
 }
 
 .chat-meta-provider-icon {
+  display: inline-block;
   font-size: 12px;
   color: var(--ink-muted);
+  margin-right: 4px;
 }
 
 .chat-meta-provider-label {
