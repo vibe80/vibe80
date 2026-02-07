@@ -150,6 +150,7 @@ textarea {
 .session-gate .session-header .brand-logo {
   grid-area: logo;
   justify-self: end;
+  height: 24px;
 }
 
 .session-gate .session-header .session-hint {
