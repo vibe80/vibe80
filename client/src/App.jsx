@@ -6757,6 +6757,7 @@ function App() {
                     setSessionMode("existing");
                     setSessionRequested(false);
                     setAttachmentsError("");
+                    loadWorkspaceSessions();
                   }}
                   disabled={formDisabled}
                   aria-pressed={sessionMode === "existing"}
