@@ -6505,17 +6505,6 @@ function App() {
         <div className="session-layout session-layout--fullscreen">
           <div className="session-shell">
             <div className="session-header">
-              {showStep4 && deploymentMode !== "mono_user" && (
-                <button
-                  type="button"
-                  className="icon-button session-card-action"
-                  onClick={handleLeaveWorkspace}
-                  aria-label={t("Leave workspace")}
-                  title={t("Leave workspace")}
-                >
-                  <FontAwesomeIcon icon={faRightFromBracket} />
-                </button>
-              )}
               <img className="brand-logo" src={brandLogo} alt="vibe80" />
               <h1>
                 {showStep4
@@ -6846,6 +6835,20 @@ function App() {
                     {t("Resume an existing session")}
                   </span>
                 </button>
+                {deploymentMode !== "mono_user" && (
+                  <button
+                    type="button"
+                    className="session-workspace-option is-compact"
+                    onClick={handleLeaveWorkspace}
+                  >
+                    <span className="session-workspace-icon is-leave" aria-hidden="true">
+                      <FontAwesomeIcon icon={faRightFromBracket} />
+                    </span>
+                    <span className="session-workspace-option-title">
+                      {t("Leave workspace")}
+                    </span>
+                  </button>
+                )}
               </div>
               <div
                 className={`session-panel ${

@@ -496,6 +496,10 @@ textarea {
   background: #f3a66b;
 }
 
+.session-workspace-icon.is-leave {
+  background: #9aa4b2;
+}
+
 .session-workspace-option-text {
   display: flex;
   flex-direction: column;
