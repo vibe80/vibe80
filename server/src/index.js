@@ -3787,18 +3787,18 @@ app.post("/api/workspaces/login", async (req, res) => {
   const workspaceId = req.body?.workspaceId;
   const workspaceSecret = req.body?.workspaceSecret;
   if (!workspaceId || !workspaceSecret) {
-    res.status(400).json({ error: "workspaceId and workspaceSecret are required." });
+    res.status(401).json({ error: "Invalid workspace credentials." });
     return;
   }
   if (!workspaceIdPattern.test(workspaceId)) {
-    res.status(400).json({ error: "Invalid workspaceId." });
+    res.status(401).json({ error: "Invalid workspace credentials." });
     return;
   }
   try {
     const storedSecret = await readWorkspaceSecret(workspaceId);
     if (storedSecret !== workspaceSecret) {
       await appendAuditLog(workspaceId, "workspace_login_failed");
-      res.status(403).json({ error: "Invalid workspace credentials." });
+      res.status(401).json({ error: "Invalid workspace credentials." });
       return;
     }
     await getWorkspaceUserIds(workspaceId);
@@ -3807,7 +3807,7 @@ app.post("/api/workspaces/login", async (req, res) => {
     res.json(tokens);
   } catch (error) {
     await appendAuditLog(workspaceId, "workspace_login_failed");
-    res.status(403).json({ error: "Invalid workspace credentials." });
+    res.status(401).json({ error: "Invalid workspace credentials." });
   }
 });
 
