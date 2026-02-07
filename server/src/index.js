@@ -856,6 +856,7 @@ const validateProvidersConfig = (providers) => {
   if (!providers || typeof providers !== "object") {
     return "providers is required.";
   }
+  let enabledCount = 0;
   for (const [provider, config] of Object.entries(providers)) {
     if (!allowedProviders.has(provider)) {
       return `Unknown provider ${provider}.`;
@@ -865,6 +866,9 @@ const validateProvidersConfig = (providers) => {
     }
     if (typeof config.enabled !== "boolean") {
       return `Provider ${provider} must include enabled boolean.`;
+    }
+    if (config.enabled) {
+      enabledCount += 1;
     }
     if (config.enabled && !config.auth) {
       return `Provider ${provider} auth is required when enabled.`;
@@ -886,7 +890,57 @@ const validateProvidersConfig = (providers) => {
       }
     }
   }
+  if (enabledCount === 0) {
+    return "At least one provider must be enabled.";
+  }
   return null;
+};
+
+const sanitizeProvidersForResponse = (providers = {}) => {
+  const sanitized = {};
+  for (const [provider, config] of Object.entries(providers || {})) {
+    if (!config || typeof config !== "object") {
+      continue;
+    }
+    sanitized[provider] = {
+      enabled: Boolean(config.enabled),
+      auth: config.auth?.type ? { type: config.auth.type } : null,
+    };
+  }
+  return sanitized;
+};
+
+const hasAuthValue = (auth) =>
+  Boolean(auth && typeof auth.value === "string" && auth.value.trim());
+
+const mergeProvidersForUpdate = (existingProviders = {}, incomingProviders = {}) => {
+  const merged = { ...existingProviders };
+  for (const [provider, config] of Object.entries(incomingProviders)) {
+    if (!config || typeof config !== "object") {
+      continue;
+    }
+    const previous = existingProviders?.[provider] || {};
+    const previousAuthType = previous?.auth?.type || null;
+    const incomingAuthType = config.auth?.type || previousAuthType || null;
+    const authTypeChanged =
+      incomingAuthType && previousAuthType && incomingAuthType !== previousAuthType;
+    const nextAuthValue = hasAuthValue(config.auth)
+      ? config.auth.value
+      : previous?.auth?.value || "";
+    if ((authTypeChanged || config.enabled) && !nextAuthValue) {
+      throw new Error(`Provider ${provider} auth value is required.`);
+    }
+    merged[provider] = {
+      enabled: Boolean(config.enabled),
+      auth: incomingAuthType
+        ? {
+            type: incomingAuthType,
+            value: nextAuthValue,
+          }
+        : null,
+    };
+  }
+  return merged;
 };
 
 const listEnabledProviders = (providers) =>
@@ -3783,6 +3837,24 @@ app.post("/api/workspaces/refresh", async (req, res) => {
   }
 });
 
+app.get("/api/workspaces/:workspaceId", async (req, res) => {
+  const workspaceId = req.params.workspaceId;
+  if (!workspaceIdPattern.test(workspaceId)) {
+    res.status(400).json({ error: "Invalid workspaceId." });
+    return;
+  }
+  if (req.workspaceId && req.workspaceId !== workspaceId) {
+    res.status(403).json({ error: "Forbidden." });
+    return;
+  }
+  try {
+    const config = await readWorkspaceConfig(workspaceId);
+    res.json({ workspaceId, providers: sanitizeProvidersForResponse(config?.providers) });
+  } catch (error) {
+    res.status(400).json({ error: error.message || "Failed to load workspace." });
+  }
+});
+
 app.patch("/api/workspaces/:workspaceId", async (req, res) => {
   const workspaceId = req.params.workspaceId;
   if (!workspaceIdPattern.test(workspaceId)) {
@@ -3794,9 +3866,13 @@ app.patch("/api/workspaces/:workspaceId", async (req, res) => {
     return;
   }
   try {
-    const providers = req.body?.providers;
-    const payload = await updateWorkspace(workspaceId, providers);
-    res.json({ workspaceId, providers: payload.providers });
+    const existing = await readWorkspaceConfig(workspaceId).catch(() => null);
+    const mergedProviders = mergeProvidersForUpdate(
+      existing?.providers || {},
+      req.body?.providers || {}
+    );
+    const payload = await updateWorkspace(workspaceId, mergedProviders);
+    res.json({ workspaceId, providers: sanitizeProvidersForResponse(payload.providers) });
   } catch (error) {
     res.status(400).json({ error: error.message || "Failed to update workspace." });
   }

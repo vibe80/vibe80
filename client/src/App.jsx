@@ -763,8 +763,18 @@ function App() {
   const [handoffError, setHandoffError] = useState("");
   const [handoffRemaining, setHandoffRemaining] = useState(null);
   const [workspaceProviders, setWorkspaceProviders] = useState(() => ({
-    codex: { enabled: false, authType: "api_key", authValue: "" },
-    claude: { enabled: false, authType: "api_key", authValue: "" },
+    codex: {
+      enabled: false,
+      authType: "api_key",
+      authValue: "",
+      previousAuthType: "api_key",
+    },
+    claude: {
+      enabled: false,
+      authType: "api_key",
+      authValue: "",
+      previousAuthType: "api_key",
+    },
   }));
   const [llmProvider, setLlmProvider] = useState(readLlmProvider);
   const [selectedProviders, setSelectedProviders] = useState(readLlmProviders);
@@ -1695,6 +1705,56 @@ function App() {
     }
     loadWorkspaceSessions();
   }, [workspaceStep, workspaceToken, loadWorkspaceSessions]);
+
+  const loadWorkspaceProviders = useCallback(async () => {
+    const activeWorkspaceId = (workspaceId || workspaceIdInput || "").trim();
+    if (!activeWorkspaceId) {
+      return;
+    }
+    setWorkspaceBusy(true);
+    setWorkspaceError("");
+    try {
+      const response = await apiFetch(
+        `/api/workspaces/${encodeURIComponent(activeWorkspaceId)}`
+      );
+      if (response.status === 401) {
+        handleLeaveWorkspace();
+        return;
+      }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || t("Unable to load providers."));
+      }
+      const data = await response.json();
+      const providers = data?.providers || {};
+      setWorkspaceProviders((current) => ({
+        codex: {
+          ...current.codex,
+          enabled: Boolean(providers?.codex?.enabled),
+          authType: providers?.codex?.auth?.type || "api_key",
+          previousAuthType: providers?.codex?.auth?.type || "api_key",
+          authValue: "",
+        },
+        claude: {
+          ...current.claude,
+          enabled: Boolean(providers?.claude?.enabled),
+          authType: providers?.claude?.auth?.type || "api_key",
+          previousAuthType: providers?.claude?.auth?.type || "api_key",
+          authValue: "",
+        },
+      }));
+      setWorkspaceAuthExpanded((current) => ({
+        ...current,
+        codex: Boolean(providers?.codex?.enabled),
+        claude: Boolean(providers?.claude?.enabled),
+      }));
+      setWorkspaceAuthFiles({ codex: "", claude: "" });
+    } catch (error) {
+      setWorkspaceError(error.message || t("Unable to load providers."));
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  }, [apiFetch, handleLeaveWorkspace, t, workspaceId, workspaceIdInput]);
 
   useEffect(() => {
     try {
@@ -4015,19 +4075,35 @@ function App() {
       ["codex", "claude"].forEach((provider) => {
         const config = workspaceProviders[provider];
         if (!config?.enabled) {
+          providersPayload[provider] = { enabled: false };
           return;
         }
         const trimmedValue = (config.authValue || "").trim();
-        if (!trimmedValue) {
+        const type = getProviderAuthType(provider, config) || "api_key";
+        if (
+          workspaceProvidersEditing &&
+          config.previousAuthType &&
+          type !== config.previousAuthType &&
+          !trimmedValue
+        ) {
           throw new Error(t("Key required for {{provider}}.", { provider }));
         }
-        const type = getProviderAuthType(provider, config) || "api_key";
-        const value =
-          type === "auth_json_b64" ? encodeBase64(trimmedValue) : trimmedValue;
-        providersPayload[provider] = {
-          enabled: true,
-          auth: { type, value },
-        };
+        if (!workspaceProvidersEditing && !trimmedValue) {
+          throw new Error(t("Key required for {{provider}}.", { provider }));
+        }
+        if (trimmedValue) {
+          const value =
+            type === "auth_json_b64" ? encodeBase64(trimmedValue) : trimmedValue;
+          providersPayload[provider] = {
+            enabled: true,
+            auth: { type, value },
+          };
+        } else {
+          providersPayload[provider] = {
+            enabled: true,
+            auth: { type },
+          };
+        }
       });
       if (Object.keys(providersPayload).length === 0) {
         throw new Error(t("Select at least one provider."));
@@ -6595,6 +6671,7 @@ function App() {
                                     [provider]: {
                                       ...current[provider],
                                       authType: event.target.value,
+                                      authValue: "",
                                     },
                                   }))
                                 }
@@ -7060,6 +7137,7 @@ function App() {
                       setWorkspaceProvidersEditing(true);
                       setWorkspaceError("");
                       setProvidersBackStep(4);
+                      loadWorkspaceProviders();
                       setWorkspaceStep(2);
                     }}
                   >
@@ -7075,6 +7153,7 @@ function App() {
                       setWorkspaceProvidersEditing(true);
                       setWorkspaceError("");
                       setProvidersBackStep(4);
+                      loadWorkspaceProviders();
                       setWorkspaceStep(2);
                     }}
                     >
