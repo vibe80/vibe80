@@ -120,6 +120,8 @@ export default function ExplorerPanel({
                     minimap: { enabled: false },
                     fontSize: 12,
                     lineHeight: 18,
+                    fontFamily:
+                      '"Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
                     wordWrap: "off",

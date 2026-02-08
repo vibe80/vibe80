@@ -140,7 +140,7 @@ export default function useTerminalSession({
     const isDark = themeMode === "dark";
     const term = new Terminal({
       fontFamily:
-        '"SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace',
+        '"Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       fontSize: 13,
       cursorBlink: true,
       theme: {
