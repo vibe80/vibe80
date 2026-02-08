@@ -345,80 +345,26 @@ wss.on("connection", (socket, req) => {
   void (async () => {
     attachWebSocketDebug(socket, req, "chat");
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const token = url.searchParams.get("token");
-    if (!token) {
-      socket.send(JSON.stringify({ type: "error", message: "Missing workspace token." }));
-      socket.close();
-      return;
-    }
-    let workspaceId = null;
-    try {
-      workspaceId = verifyWorkspaceToken(token);
-    } catch (error) {
-      socket.send(JSON.stringify({ type: "error", message: "Invalid workspace token." }));
-      socket.close();
-      return;
-    }
     const sessionId = url.searchParams.get("session");
-    const session = await getSession(sessionId, workspaceId);
-    if (!session) {
-      socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
+    if (!sessionId) {
+      socket.send(JSON.stringify({ type: "error", message: "Missing session id." }));
       socket.close();
       return;
     }
-    await ensureWorkspaceUserExists(session.workspaceId);
-    const runtime = getSessionRuntime(sessionId);
-    if (!runtime) {
-      socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
-      socket.close();
-      return;
-    }
-    runtime.sockets.add(socket);
 
-    await ensureClaudeWorktreeClients(session);
-    await ensureCodexWorktreeClients(session);
+    let workspaceId = null;
+    let runtime = null;
+    let authenticated = false;
+    let authTimeout = null;
 
-    if (session.activeProvider === "codex") {
-      const existingClient = getActiveClient(session);
-      const procExited = existingClient?.proc && existingClient.proc.exitCode != null;
-      if (procExited && runtime.clients?.codex) {
-        delete runtime.clients.codex;
+    const clearAuthTimeout = () => {
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+        authTimeout = null;
       }
-      const client = await getOrCreateClient(session, "codex");
-      if (!client.listenerCount("ready")) {
-        attachClientEvents(sessionId, client, "codex");
-      }
-      if (!client.ready && !client.proc) {
-        client.start().catch((error) => {
-          console.error("Failed to restart Codex app-server:", error);
-          broadcastToSession(sessionId, {
-            type: "error",
-            message: "Codex app-server failed to start.",
-          });
-        });
-      }
-    }
+    };
 
-    const activeClient = getActiveClient(session);
-    if (activeClient?.ready && activeClient?.threadId) {
-      socket.send(
-        JSON.stringify({
-          type: "ready",
-          threadId: activeClient.threadId,
-          provider: session.activeProvider,
-        })
-      );
-    } else {
-      socket.send(
-        JSON.stringify({
-          type: "status",
-          message: `Starting ${getProviderLabel(session)}...`,
-          provider: session.activeProvider,
-        })
-      );
-    }
-
-    socket.on("message", async (data) => {
+    const handleChatMessage = async (data) => {
       const session = await getSession(sessionId, workspaceId);
       if (!session) {
         socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
@@ -846,7 +792,111 @@ wss.on("connection", (socket, req) => {
     });
 
     socket.on("close", () => {
-      runtime.sockets.delete(socket);
+      if (runtime) {
+        runtime.sockets.delete(socket);
+      }
+      clearAuthTimeout();
+    });
+
+    authTimeout = setTimeout(() => {
+      if (!authenticated) {
+        socket.send(JSON.stringify({ type: "error", message: "Auth timeout." }));
+        socket.close();
+      }
+    }, 5000);
+
+    socket.on("message", async function handleAuth(data) {
+      let payload;
+      try {
+        payload = JSON.parse(data.toString());
+      } catch {
+        socket.send(JSON.stringify({ type: "error", message: "Invalid JSON message." }));
+        return;
+      }
+      if (payload?.type !== "auth") {
+        socket.send(JSON.stringify({ type: "error", message: "Auth required." }));
+        return;
+      }
+      if (authenticated) {
+        return;
+      }
+      const token = typeof payload?.token === "string" ? payload.token : "";
+      if (!token) {
+        socket.send(JSON.stringify({ type: "error", message: "Missing workspace token." }));
+        socket.close();
+        return;
+      }
+      try {
+        workspaceId = verifyWorkspaceToken(token);
+      } catch (error) {
+        socket.send(JSON.stringify({ type: "error", message: "Invalid workspace token." }));
+        socket.close();
+        return;
+      }
+      const session = await getSession(sessionId, workspaceId);
+      if (!session) {
+        socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
+        socket.close();
+        return;
+      }
+      await ensureWorkspaceUserExists(session.workspaceId);
+      runtime = getSessionRuntime(sessionId);
+      if (!runtime) {
+        socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
+        socket.close();
+        return;
+      }
+      runtime.sockets.add(socket);
+
+      await ensureClaudeWorktreeClients(session);
+      await ensureCodexWorktreeClients(session);
+
+      if (session.activeProvider === "codex") {
+        const existingClient = getActiveClient(session);
+        const procExited = existingClient?.proc && existingClient.proc.exitCode != null;
+        if (procExited && runtime.clients?.codex) {
+          delete runtime.clients.codex;
+        }
+        const client = await getOrCreateClient(session, "codex");
+        if (!client.listenerCount("ready")) {
+          attachClientEvents(sessionId, client, "codex");
+        }
+        if (!client.ready && !client.proc) {
+          client.start().catch((error) => {
+            console.error("Failed to restart Codex app-server:", error);
+            broadcastToSession(sessionId, {
+              type: "error",
+              message: "Codex app-server failed to start.",
+            });
+          });
+        }
+      }
+
+      authenticated = true;
+      clearAuthTimeout();
+      socket.off("message", handleAuth);
+      socket.on("message", handleChatMessage);
+
+      socket.send(JSON.stringify({ type: "auth_ok" }));
+
+      const activeClient = getActiveClient(session);
+      if (activeClient?.ready && activeClient?.threadId) {
+        socket.send(
+          JSON.stringify({
+            type: "ready",
+            threadId: activeClient.threadId,
+            provider: session.activeProvider,
+          })
+        );
+      } else {
+        socket.send(
+          JSON.stringify({
+            type: "status",
+            message: `Starting ${getProviderLabel(session)}...`,
+            provider: session.activeProvider,
+          })
+        );
+      }
     });
   })();
 });
@@ -859,39 +909,21 @@ if (terminalWss) {
   terminalWss.on("connection", (socket, req) => {
   void (async () => {
     attachWebSocketDebug(socket, req, "terminal");
-    let workspaceId = null;
-    try {
-      const url = new URL(req.url, `http://${req.headers.host}`);
-      const token = url.searchParams.get("token");
-      if (!token) {
-        socket.close();
-        return;
-      }
-      workspaceId = verifyWorkspaceToken(token);
-    } catch {
-      socket.close();
-      return;
-    }
-    req.workspaceId = workspaceId;
-    const session = await getSessionFromRequest(req);
-    if (!session) {
-      socket.close();
-      return;
-    }
-    await touchSession(session);
-    let worktree = null;
-    try {
-      const url = new URL(req.url, `http://${req.headers.host}`);
-      const worktreeId = url.searchParams.get("worktreeId");
-      if (worktreeId && worktreeId !== "main") {
-        worktree = await getWorktree(session, worktreeId);
-      }
-    } catch {
-      // Ignore invalid URL parsing; fall back to main repo.
-    }
     const shell = "/bin/bash";
     let term = null;
     let closed = false;
+    let authenticated = false;
+    let workspaceId = null;
+    let session = null;
+    let worktree = null;
+    let authTimeout = null;
+
+    const clearAuthTimeout = () => {
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+        authTimeout = null;
+      }
+    };
 
   const startTerminal = (cols = 80, rows = 24) => {
     if (term) {
@@ -968,7 +1000,7 @@ if (terminalWss) {
     });
   };
 
-    socket.on("message", (raw) => {
+    const handleTerminalMessage = async (raw) => {
       let message = null;
       try {
         message = JSON.parse(raw.toString());
@@ -976,6 +1008,46 @@ if (terminalWss) {
         return;
       }
       if (!message?.type) {
+        return;
+      }
+      if (!authenticated) {
+        if (message.type !== "auth") {
+          socket.send(JSON.stringify({ type: "error", message: "Auth required." }));
+          return;
+        }
+        const token = typeof message?.token === "string" ? message.token : "";
+        if (!token) {
+          socket.send(JSON.stringify({ type: "error", message: "Missing workspace token." }));
+          socket.close();
+          return;
+        }
+        try {
+          workspaceId = verifyWorkspaceToken(token);
+        } catch {
+          socket.send(JSON.stringify({ type: "error", message: "Invalid workspace token." }));
+          socket.close();
+          return;
+        }
+        req.workspaceId = workspaceId;
+        session = await getSessionFromRequest(req);
+        if (!session) {
+          socket.send(JSON.stringify({ type: "error", message: "Unknown session." }));
+          socket.close();
+          return;
+        }
+        await touchSession(session);
+        try {
+          const url = new URL(req.url, `http://${req.headers.host}`);
+          const worktreeId = url.searchParams.get("worktreeId");
+          if (worktreeId && worktreeId !== "main") {
+            worktree = await getWorktree(session, worktreeId);
+          }
+        } catch {
+          // Ignore invalid URL parsing; fall back to main repo.
+        }
+        authenticated = true;
+        clearAuthTimeout();
+        socket.send(JSON.stringify({ type: "auth_ok" }));
         return;
       }
       if (message.type === "init") {
@@ -998,10 +1070,20 @@ if (terminalWss) {
       if (message.type === "input" && typeof message.data === "string" && term) {
         term.write(message.data);
       }
-    });
+    };
+
+    authTimeout = setTimeout(() => {
+      if (!authenticated) {
+        socket.send(JSON.stringify({ type: "error", message: "Auth timeout." }));
+        socket.close();
+      }
+    }, 5000);
+
+    socket.on("message", handleTerminalMessage);
 
     socket.on("close", () => {
       closed = true;
+      clearAuthTimeout();
       if (term) {
         term.kill();
         term = null;

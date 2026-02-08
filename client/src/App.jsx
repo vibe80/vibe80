@@ -116,21 +116,18 @@ const getProviderAuthType = (provider, config) => {
   return allowed.includes(config?.authType) ? config.authType : allowed[0];
 };
 
-const wsUrl = (sessionId, token) => {
+const wsUrl = (sessionId) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const params = new URLSearchParams();
   if (sessionId) {
     params.set("session", sessionId);
-  }
-  if (token) {
-    params.set("token", token);
   }
   const query = params.toString();
   const suffix = query ? `?${query}` : "";
   return `${protocol}://${window.location.host}/ws${suffix}`;
 };
 
-const terminalWsUrl = (sessionId, worktreeId, token) => {
+const terminalWsUrl = (sessionId, worktreeId) => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
   const params = new URLSearchParams();
   if (sessionId) {
@@ -138,9 +135,6 @@ const terminalWsUrl = (sessionId, worktreeId, token) => {
   }
   if (worktreeId) {
     params.set("worktreeId", worktreeId);
-  }
-  if (token) {
-    params.set("token", token);
   }
   const query = params.toString();
   const suffix = query ? `?${query}` : "";
@@ -2435,21 +2429,17 @@ function App() {
       term.reset();
     }
     const socket = new WebSocket(
-      terminalWsUrl(sessionId, worktreeId, workspaceToken)
+      terminalWsUrl(sessionId, worktreeId)
     );
     terminalSocketRef.current = socket;
     terminalSessionRef.current = sessionId;
     terminalWorktreeRef.current = worktreeId;
+    let authenticated = false;
 
     socket.addEventListener("open", () => {
-      const term = terminalRef.current;
-      const fitAddon = terminalFitRef.current;
-      if (term && fitAddon) {
-        fitAddon.fit();
-        socket.send(
-          JSON.stringify({ type: "init", cols: term.cols, rows: term.rows })
-        );
-      }
+      socket.send(
+        JSON.stringify({ type: "auth", token: workspaceToken })
+      );
     });
 
     socket.addEventListener("message", (event) => {
@@ -2460,6 +2450,24 @@ function App() {
         return;
       }
       if (!payload?.type) {
+        return;
+      }
+      if (payload.type === "auth_ok") {
+        if (authenticated) {
+          return;
+        }
+        authenticated = true;
+        const term = terminalRef.current;
+        const fitAddon = terminalFitRef.current;
+        if (term && fitAddon) {
+          fitAddon.fit();
+          socket.send(
+            JSON.stringify({ type: "init", cols: term.cols, rows: term.rows })
+          );
+        }
+        return;
+      }
+      if (!authenticated) {
         return;
       }
       const term = terminalRef.current;
@@ -2677,8 +2685,9 @@ function App() {
         return;
       }
       setStatus(t("Connecting..."));
-      const socket = new WebSocket(wsUrl(attachmentSession.sessionId, workspaceToken));
+      const socket = new WebSocket(wsUrl(attachmentSession.sessionId));
       socketRef.current = socket;
+      let authenticated = false;
 
       const isCurrent = () => socketRef.current === socket;
 
@@ -2686,14 +2695,9 @@ function App() {
         if (!isCurrent()) {
           return;
         }
-        reconnectAttemptRef.current = 0;
-        clearReconnectTimer();
-        setConnected(true);
-        setStatus(t("Connected"));
-        startPingInterval();
-        void resyncSession();
-        requestMessageSync();
-        requestWorktreesList();
+        socket.send(
+          JSON.stringify({ type: "auth", token: workspaceToken })
+        );
       });
 
       socket.addEventListener("close", () => {
@@ -2728,6 +2732,25 @@ function App() {
         }
 
         const isWorktreeScoped = Boolean(payload.worktreeId);
+
+        if (payload.type === "auth_ok") {
+          if (!authenticated) {
+            authenticated = true;
+            reconnectAttemptRef.current = 0;
+            clearReconnectTimer();
+            setConnected(true);
+            setStatus(t("Connected"));
+            startPingInterval();
+            void resyncSession();
+            requestMessageSync();
+            requestWorktreesList();
+          }
+          return;
+        }
+
+        if (!authenticated) {
+          return;
+        }
 
         if (payload.type === "pong") {
           lastPongRef.current = Date.now();
