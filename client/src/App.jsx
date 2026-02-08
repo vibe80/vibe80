@@ -8,32 +8,25 @@ import "@xterm/xterm/css/xterm.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowLeft,
-  faBroom,
   faChevronDown,
   faChevronRight,
-  faClipboardList,
-  faComments,
-  faCodeCompare,
   faCopy,
-  faDownload,
   faFileLines,
-  faFolderTree,
   faGear,
   faPaperclip,
-  faQrcode,
   faPlus,
   faCheck,
   faRightFromBracket,
-  faTerminal,
   faUser,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import ChatMessages from "./components/Chat/ChatMessages.jsx";
 import ChatComposer from "./components/Chat/ChatComposer.jsx";
+import ChatToolbar from "./components/Chat/ChatToolbar.jsx";
 import useChatComposer from "./components/Chat/useChatComposer.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
+import Topbar from "./components/Topbar/Topbar.jsx";
 import QRCode from "qrcode";
 import vibe80LogoDark from "./assets/vibe80_dark.svg";
 import vibe80LogoLight from "./assets/vibe80_light.svg";
@@ -7125,70 +7118,35 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="topbar-left">
-          <div className="topbar-spacer" />
-          <div className="topbar-brand">
-            <img className="brand-logo" src={brandLogo} alt="vibe80" />
-          </div>
-          <div className="topbar-tabs">
-            <WorktreeTabs
-              worktrees={allTabs}
-              activeWorktreeId={activeWorktreeId}
-              onSelect={handleSelectWorktree}
-              onCreate={createWorktree}
-              onClose={openCloseConfirm}
-              onRename={renameWorktreeHandler}
-              provider={llmProvider}
-              providers={
-                availableProviders.length
-                  ? availableProviders
-                  : [llmProvider]
-              }
-              branches={branches}
-              defaultBranch={defaultBranch || currentBranch}
-              branchLoading={branchLoading}
-              branchError={branchError}
-              defaultInternetAccess={defaultInternetAccess}
-              defaultDenyGitCredentialsAccess={defaultDenyGitCredentialsAccess}
-              onRefreshBranches={loadBranches}
-              providerModelState={providerModelState}
-              onRequestProviderModels={loadProviderModels}
-              disabled={!connected}
-              isMobile={isMobileLayout}
-            />
-          </div>
-        </div>
-
-        <div className="topbar-right">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t("Resume on mobile")}
-            title={t("Resume on mobile")}
-            onClick={requestHandoffQr}
-            disabled={!attachmentSession?.sessionId || handoffLoading}
-          >
-            <FontAwesomeIcon icon={faQrcode} />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t("Open settings")}
-            onClick={handleOpenSettings}
-          >
-            <FontAwesomeIcon icon={faGear} />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t("Leave session")}
-            onClick={handleLeaveSession}
-          >
-            <FontAwesomeIcon icon={faRightFromBracket} />
-          </button>
-        </div>
-      </header>
+      <Topbar
+        t={t}
+        brandLogo={brandLogo}
+        allTabs={allTabs}
+        activeWorktreeId={activeWorktreeId}
+        handleSelectWorktree={handleSelectWorktree}
+        createWorktree={createWorktree}
+        openCloseConfirm={openCloseConfirm}
+        renameWorktreeHandler={renameWorktreeHandler}
+        llmProvider={llmProvider}
+        availableProviders={availableProviders}
+        branches={branches}
+        defaultBranch={defaultBranch}
+        currentBranch={currentBranch}
+        branchLoading={branchLoading}
+        branchError={branchError}
+        defaultInternetAccess={defaultInternetAccess}
+        defaultDenyGitCredentialsAccess={defaultDenyGitCredentialsAccess}
+        loadBranches={loadBranches}
+        providerModelState={providerModelState}
+        loadProviderModels={loadProviderModels}
+        connected={connected}
+        isMobileLayout={isMobileLayout}
+        requestHandoffQr={requestHandoffQr}
+        attachmentSession={attachmentSession}
+        handoffLoading={handoffLoading}
+        handleOpenSettings={handleOpenSettings}
+        handleLeaveSession={handleLeaveSession}
+      />
 
       <div
         className={`layout ${sideOpen ? "is-side-open" : "is-side-collapsed"} ${
@@ -7286,172 +7244,21 @@ function App() {
           ref={conversationRef}
         >
           <div className="pane-stack">
-            {activePane !== "settings" && (
-              <div
-                className="chat-toolbar"
-                role="toolbar"
-                aria-label={t("Chat tools")}
-              >
-              <div className="chat-toolbar-group">
-                <button
-                  type="button"
-                  className={`chat-toolbar-button ${
-                    activePane === "chat" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("chat")}
-                  aria-pressed={activePane === "chat"}
-                  aria-label={t("Messages")}
-                  title={t("Messages")}
-                >
-                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon">
-                      <FontAwesomeIcon icon={faComments} />
-                    </span>
-                  </span>
-                  <span className="chat-toolbar-label">{t("Messages")}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`chat-toolbar-button ${
-                    activePane === "diff" ? "is-active" : ""
-                  }`}
-                  onClick={handleDiffSelect}
-                  aria-pressed={activePane === "diff"}
-                  aria-label={t("Diff")}
-                  title={t("Diff")}
-                >
-                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon">
-                      <FontAwesomeIcon icon={faCodeCompare} />
-                    </span>
-                  </span>
-                  <span className="chat-toolbar-label">{t("Diff")}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`chat-toolbar-button ${
-                    activePane === "explorer" ? "is-active" : ""
-                  }`}
-                  onClick={() => handleViewSelect("explorer")}
-                  aria-pressed={activePane === "explorer"}
-                  aria-label={t("Explorer")}
-                  title={t("Explorer")}
-                >
-                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon" aria-hidden="true">
-                      <FontAwesomeIcon icon={faFolderTree} />
-                    </span>
-                  </span>
-                  <span className="chat-toolbar-label">{t("Explorer")}</span>
-                </button>
-                {terminalEnabled && (
-                  <button
-                    type="button"
-                    className={`chat-toolbar-button ${
-                      activePane === "terminal" ? "is-active" : ""
-                    }`}
-                    onClick={() => handleViewSelect("terminal")}
-                    aria-pressed={activePane === "terminal"}
-                    aria-label={t("Terminal")}
-                    title={t("Terminal")}
-                  >
-                    <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                      <span className="chat-toolbar-icon">
-                        <FontAwesomeIcon icon={faTerminal} />
-                      </span>
-                    </span>
-                    <span className="chat-toolbar-label">{t("Terminal")}</span>
-                  </button>
-                )}
-                {debugMode && rpcLogsEnabled && (
-                  <button
-                    type="button"
-                    className={`chat-toolbar-button ${
-                      activePane === "logs" ? "is-active" : ""
-                    }`}
-                    onClick={() => handleViewSelect("logs")}
-                    aria-pressed={activePane === "logs"}
-                    aria-label={t("Logs")}
-                    title={t("Logs")}
-                  >
-                    <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                      <span className="chat-toolbar-icon" aria-hidden="true">
-                        <FontAwesomeIcon icon={faClipboardList} />
-                      </span>
-                    </span>
-                    <span className="chat-toolbar-label">{t("Logs")}</span>
-                  </button>
-                )}
-              </div>
-              <div className="chat-toolbar-divider" />
-              <div className="chat-toolbar-group">
-                {debugMode && (
-                  <div className="chat-toolbar-item" ref={toolbarExportRef}>
-                    <button
-                      type="button"
-                      className={`chat-toolbar-button ${
-                        toolbarExportOpen ? "is-open" : ""
-                      }`}
-                      onClick={() => {
-                        if (!hasMessages) {
-                          return;
-                        }
-                        setToolbarExportOpen((current) => !current);
-                      }}
-                      aria-expanded={toolbarExportOpen}
-                      aria-label={t("Export")}
-                      title={t("Export")}
-                      disabled={!hasMessages}
-                      >
-                        <span
-                          className="chat-toolbar-icon-wrap"
-                          aria-hidden="true"
-                        >
-                          <span className="chat-toolbar-icon">
-                            <FontAwesomeIcon icon={faDownload} />
-                          </span>
-                        </span>
-                        <span className="chat-toolbar-label">{t("Export")}</span>
-                      </button>
-                    {toolbarExportOpen && (
-                      <div className="chat-toolbar-menu">
-                        <button
-                          type="button"
-                          className="chat-toolbar-menu-item"
-                          onClick={() => handleExportChat("markdown")}
-                          disabled={!hasMessages}
-                        >
-                          {t("Markdown")}
-                        </button>
-                        <button
-                          type="button"
-                          className="chat-toolbar-menu-item"
-                          onClick={() => handleExportChat("json")}
-                          disabled={!hasMessages}
-                        >
-                          {t("JSON")}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="chat-toolbar-button is-danger"
-                  onClick={() => handleClearChat()}
-                  aria-label={t("Clear")}
-                  title={t("Clear")}
-                  disabled={!hasMessages}
-                >
-                  <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-                    <span className="chat-toolbar-icon" aria-hidden="true">
-                      <FontAwesomeIcon icon={faBroom} />
-                    </span>
-                  </span>
-                  <span className="chat-toolbar-label">{t("Clear")}</span>
-                </button>
-              </div>
-            </div>
+            <ChatToolbar
+              t={t}
+              activePane={activePane}
+              handleViewSelect={handleViewSelect}
+              handleDiffSelect={handleDiffSelect}
+              debugMode={debugMode}
+              rpcLogsEnabled={rpcLogsEnabled}
+              terminalEnabled={terminalEnabled}
+              toolbarExportOpen={toolbarExportOpen}
+              setToolbarExportOpen={setToolbarExportOpen}
+              toolbarExportRef={toolbarExportRef}
+              handleExportChat={handleExportChat}
+              hasMessages={hasMessages}
+              handleClearChat={handleClearChat}
+            />
             <ChatMessages
               t={t}
               activePane={activePane}
