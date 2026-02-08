@@ -1,7 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-export default function useRpcLogView({ rpcLogs, activeWorktreeId, locale }) {
-  const [logFilterByTab, setLogFilterByTab] = useState({ main: "all" });
+export default function useRpcLogView({
+  rpcLogs,
+  activeWorktreeId,
+  locale,
+  logFilterByTab,
+  setLogFilterByTab,
+}) {
   const logFilter = logFilterByTab[activeWorktreeId] || "all";
   const setLogFilter = useCallback(
     (value) => {
