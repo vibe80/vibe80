@@ -21,6 +21,8 @@ export default function useChatCommands({
   setCommandMenuOpen,
   setDraftAttachments,
   setInput,
+  setMessages,
+  setWorktrees,
   socketRef,
   t,
   showToast,
@@ -48,18 +50,53 @@ export default function useChatCommands({
         return;
       }
       if (rawText.startsWith("/backlog")) {
-        if (!socketRef.current || !connected) {
-          showToast(t("Disconnected"), "error");
+        if (!attachmentSessionId) {
+          showToast(t("Session not found."), "error");
           return;
         }
-        const targetWorktreeId =
-          isInWorktree && activeWorktreeId ? activeWorktreeId : null;
-        socketRef.current.send(
-          JSON.stringify({
-            type: "backlog_view_request",
-            worktreeId: targetWorktreeId || undefined,
-          })
-        );
+        void (async () => {
+          try {
+            const response = await apiFetch(
+              `/api/session/${encodeURIComponent(attachmentSessionId)}/backlog`
+            );
+            if (!response.ok) {
+              const payload = await response.json().catch(() => null);
+              throw new Error(payload?.error || t("Unable to load backlog."));
+            }
+            const payload = await response.json().catch(() => ({}));
+            const items = Array.isArray(payload?.items) ? payload.items : [];
+            const messageId = `backlog-${Date.now()}-${Math.random()
+              .toString(16)
+              .slice(2, 8)}`;
+            const backlogMessage = {
+              id: messageId,
+              role: "assistant",
+              type: "backlog_view",
+              text: "Backlog",
+              backlog: {
+                items,
+                page: 0,
+              },
+            };
+            if (isInWorktree && activeWorktreeId) {
+              setWorktrees((current) => {
+                const next = new Map(current);
+                const wt = next.get(activeWorktreeId);
+                if (wt) {
+                  next.set(activeWorktreeId, {
+                    ...wt,
+                    messages: [...(wt.messages || []), backlogMessage],
+                  });
+                }
+                return next;
+              });
+            } else {
+              setMessages((current) => [...current, backlogMessage]);
+            }
+          } catch (error) {
+            showToast(error.message || t("Unable to load backlog."), "error");
+          }
+        })();
         setInput("");
         setDraftAttachments([]);
         setCommandMenuOpen(false);
