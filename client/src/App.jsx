@@ -946,6 +946,26 @@ function App() {
     rpcLogsEnabledRef.current = rpcLogsEnabled;
   }, [rpcLogsEnabled]);
 
+  const {
+    attachmentPreview,
+    attachmentsError,
+    attachmentsLoading,
+    draftAttachments,
+    renderMessageAttachments,
+    setAttachmentPreview,
+    setAttachmentsError,
+    setAttachmentsLoading,
+    setDraftAttachments,
+  } = useAttachments({
+    attachmentSessionId: attachmentSession?.sessionId,
+    workspaceToken,
+    normalizeAttachments,
+    isImageAttachment,
+    getAttachmentName,
+    attachmentIcon: <FontAwesomeIcon icon={faPaperclip} />,
+    t,
+  });
+
   const choicesKey = useMemo(
     () =>
       attachmentSession?.sessionId
@@ -1074,25 +1094,6 @@ function App() {
   const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
   const { ensureNotificationPermission, maybeNotify } = useNotifications({
     notificationsEnabled,
-    t,
-  });
-  const {
-    attachmentPreview,
-    attachmentsError,
-    attachmentsLoading,
-    draftAttachments,
-    renderMessageAttachments,
-    setAttachmentPreview,
-    setAttachmentsError,
-    setAttachmentsLoading,
-    setDraftAttachments,
-  } = useAttachments({
-    attachmentSessionId: attachmentSession?.sessionId,
-    workspaceToken,
-    normalizeAttachments,
-    isImageAttachment,
-    getAttachmentName,
-    attachmentIcon: <FontAwesomeIcon icon={faPaperclip} />,
     t,
   });
   const {
