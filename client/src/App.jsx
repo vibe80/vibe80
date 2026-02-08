@@ -27,6 +27,7 @@ import useBacklog from "./hooks/useBacklog.js";
 import useChatCommands from "./hooks/useChatCommands.js";
 import useRepoBranchesModels from "./hooks/useRepoBranchesModels.js";
 import useSessionLifecycle from "./hooks/useSessionLifecycle.js";
+import useSessionHandoff from "./hooks/useSessionHandoff.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -34,7 +35,6 @@ import TerminalPanel from "./components/Terminal/TerminalPanel.jsx";
 import SessionGate from "./components/SessionGate/SessionGate.jsx";
 import SettingsPanel from "./components/Settings/SettingsPanel.jsx";
 import LogsPanel from "./components/Logs/LogsPanel.jsx";
-import QRCode from "qrcode";
 import vibe80LogoDark from "./assets/vibe80_dark.svg";
 import vibe80LogoLight from "./assets/vibe80_light.svg";
 import { useI18n } from "./i18n.jsx";
@@ -660,12 +660,6 @@ function App() {
   const [defaultInternetAccess, setDefaultInternetAccess] = useState(true);
   const [defaultDenyGitCredentialsAccess, setDefaultDenyGitCredentialsAccess] = useState(true);
   const [toast, setToast] = useState(null);
-  const [handoffOpen, setHandoffOpen] = useState(false);
-  const [handoffQrDataUrl, setHandoffQrDataUrl] = useState("");
-  const [handoffExpiresAt, setHandoffExpiresAt] = useState(null);
-  const [handoffLoading, setHandoffLoading] = useState(false);
-  const [handoffError, setHandoffError] = useState("");
-  const [handoffRemaining, setHandoffRemaining] = useState(null);
   const [llmProvider, setLlmProvider] = useState(readLlmProvider);
   const [selectedProviders, setSelectedProviders] = useState(readLlmProviders);
   const [providerSwitching, setProviderSwitching] = useState(false);
@@ -878,85 +872,20 @@ function App() {
     showToast,
     getProviderAuthType,
   });
-
-  const buildHandoffPayload = (token, expiresAt) =>
-    JSON.stringify({
-      type: "vibe80_handoff",
-      handoffToken: token,
-      baseUrl: window.location.origin,
-      expiresAt,
-    });
-
-  const requestHandoffQr = useCallback(async () => {
-    const sessionId = attachmentSession?.sessionId;
-    if (!sessionId) {
-      return;
-    }
-    setHandoffLoading(true);
-    setHandoffError("");
-    try {
-      const response = await apiFetch("/api/sessions/handoff", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(
-          payload?.error || t("Unable to generate the QR code.")
-        );
-      }
-      const data = await response.json();
-      const token = data?.handoffToken;
-      if (!token) {
-        throw new Error(t("Invalid resume token."));
-      }
-      const expiresAt = data?.expiresAt ?? null;
-      const payload = buildHandoffPayload(token, expiresAt);
-      const qrDataUrl = await QRCode.toDataURL(payload, {
-        width: 260,
-        margin: 1,
-      });
-      setHandoffQrDataUrl(qrDataUrl);
-      setHandoffExpiresAt(expiresAt);
-      setHandoffOpen(true);
-    } catch (error) {
-      setHandoffError(error?.message || t("Error during generation."));
-    } finally {
-      setHandoffLoading(false);
-    }
-  }, [attachmentSession?.sessionId, apiFetch, t]);
-
-  const closeHandoffQr = useCallback(() => {
-    setHandoffOpen(false);
-    setHandoffError("");
-    setHandoffQrDataUrl("");
-    setHandoffExpiresAt(null);
-    setHandoffRemaining(null);
-  }, []);
-
-  useEffect(() => {
-    if (!handoffOpen || !handoffExpiresAt) {
-      setHandoffRemaining(null);
-      return;
-    }
-    const expiresAtMs =
-      typeof handoffExpiresAt === "number"
-        ? handoffExpiresAt
-        : new Date(handoffExpiresAt).getTime();
-    if (!Number.isFinite(expiresAtMs)) {
-      setHandoffRemaining(null);
-      return;
-    }
-    const tick = () => {
-      const remainingMs = expiresAtMs - Date.now();
-      const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-      setHandoffRemaining(remainingSeconds);
-    };
-    tick();
-    const intervalId = setInterval(tick, 1000);
-    return () => clearInterval(intervalId);
-  }, [handoffOpen, handoffExpiresAt]);
+  const {
+    handoffOpen,
+    handoffQrDataUrl,
+    handoffExpiresAt,
+    handoffLoading,
+    handoffError,
+    handoffRemaining,
+    requestHandoffQr,
+    closeHandoffQr,
+  } = useSessionHandoff({
+    t,
+    apiFetch,
+    attachmentSessionId: attachmentSession?.sessionId,
+  });
 
 
   const loadGitIdentity = useCallback(async () => {
