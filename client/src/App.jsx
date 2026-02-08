@@ -46,6 +46,7 @@ import useChatMessagesState from "./hooks/useChatMessagesState.js";
 import useWorktreeCloseConfirm from "./hooks/useWorktreeCloseConfirm.js";
 import useRpcLogActions from "./hooks/useRpcLogActions.js";
 import useExplorerActions from "./hooks/useExplorerActions.js";
+import useProviderSelection from "./hooks/useProviderSelection.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1380,52 +1381,20 @@ function App() {
     );
   }, [attachmentSession?.repoUrl]);
 
-  const handleProviderSwitch = useCallback(
-    (newProvider) => {
-      if (
-        !socketRef.current ||
-        socketRef.current.readyState !== WebSocket.OPEN
-      ) {
-        return;
-      }
-      if (!availableProviders.includes(newProvider)) {
-        return;
-      }
-      if (newProvider === llmProvider || providerSwitching || processing) {
-        return;
-      }
-      setProviderSwitching(true);
-      setStatus(t("Switching to {{provider}}...", { provider: newProvider }));
-      socketRef.current.send(
-        JSON.stringify({ type: "switch_provider", provider: newProvider })
-      );
-    },
-    [llmProvider, providerSwitching, processing, availableProviders, t]
-  );
-
-  const toggleProviderSelection = useCallback(
-    (provider) => {
-      if (attachmentSession?.sessionId) {
-        return;
-      }
-      setSelectedProviders((current) => {
-        const exists = current.includes(provider);
-        const next = exists
-          ? current.filter((item) => item !== provider)
-          : [...current, provider];
-        if (!exists) {
-          setLlmProvider(provider);
-        } else if (provider === llmProvider) {
-          const fallback = next[0] || provider;
-          if (fallback !== llmProvider) {
-            setLlmProvider(fallback);
-          }
-        }
-        return next;
-      });
-    },
-    [attachmentSession?.sessionId, llmProvider]
-  );
+  const { handleProviderSwitch, toggleProviderSelection } =
+    useProviderSelection({
+      attachmentSessionId: attachmentSession?.sessionId,
+      socketRef,
+      availableProviders,
+      llmProvider,
+      providerSwitching,
+      processing,
+      setProviderSwitching,
+      setStatus,
+      setSelectedProviders,
+      setLlmProvider,
+      t,
+    });
 
   const {
     commandMenuOpen,
