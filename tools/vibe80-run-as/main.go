@@ -6,6 +6,7 @@ import (
   "fmt"
   "os"
   "os/exec"
+  "os/signal"
   "path/filepath"
   "regexp"
   "strconv"
@@ -195,8 +196,27 @@ func main() {
   cmd.Stdout = os.Stdout
   cmd.Stderr = os.Stderr
   cmd.SysProcAttr = &syscall.SysProcAttr{
+    Setpgid: true,
     Credential: &syscall.Credential{Uid: uid, Gid: gid},
   }
+
+  sigCh := make(chan os.Signal, 1)
+  signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+  defer signal.Stop(sigCh)
+
+  go func() {
+    for sig := range sigCh {
+      if cmd.Process == nil {
+        continue
+      }
+      pgid, err := syscall.Getpgid(cmd.Process.Pid)
+      if err != nil {
+        _ = cmd.Process.Signal(sig)
+        continue
+      }
+      _ = syscall.Kill(-pgid, sig.(syscall.Signal))
+    }
+  }()
 
   allowRO = uniqueStrings(allowRO)
   allowRW = uniqueStrings(allowRW)
