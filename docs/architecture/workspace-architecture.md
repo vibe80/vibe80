@@ -50,6 +50,12 @@
   - Optional: `REDIS_KEY_PREFIX` (default: `v80`)
 - When `STORAGE_BACKEND=sqlite`:
   - `SQLITE_PATH` is required (absolute or relative path to the DB file)
+- Optional:
+  - `TRUST_PROXY` controls Express `trust proxy` (for reverse proxy deployments)
+    - `1` for a single proxy hop (e.g. nginx)
+    - `true` to trust all proxies
+    - `false` to disable trust proxy
+    - can also be a CIDR/subnet or a comma-separated list
 
 ## Providers
 - Providers are configured at workspace creation
