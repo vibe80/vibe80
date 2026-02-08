@@ -12,14 +12,13 @@ export default function useTurnInterrupt({
     if (!currentTurnIdForActive || !socketRef.current) {
       return;
     }
+    const payload = {
+      type: "turn_interrupt",
+      turnId: currentTurnIdForActive,
+      worktreeId: isInWorktree && activeWorktreeId ? activeWorktreeId : undefined,
+    };
+    socketRef.current.send(JSON.stringify(payload));
     if (isInWorktree && activeWorktreeId) {
-      socketRef.current.send(
-        JSON.stringify({
-          type: "worktree_turn_interrupt",
-          worktreeId: activeWorktreeId,
-          turnId: currentTurnIdForActive,
-        })
-      );
       setWorktrees((current) => {
         const next = new Map(current);
         const wt = next.get(activeWorktreeId);
@@ -30,9 +29,6 @@ export default function useTurnInterrupt({
       });
       return;
     }
-    socketRef.current.send(
-      JSON.stringify({ type: "turn_interrupt", turnId: currentTurnIdForActive })
-    );
     setActivity("Interruption...");
   }, [
     activeWorktreeId,
