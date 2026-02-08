@@ -51,6 +51,7 @@ export default function useRpcLogView({
     setLogFilterByTab,
     logFilter,
     setLogFilter,
+    scopedRpcLogs,
     formattedRpcLogs,
     filteredRpcLogs,
   };

@@ -1083,7 +1083,13 @@ function App() {
     showToast,
     t,
   });
-  const { logFilter, setLogFilter, formattedRpcLogs, filteredRpcLogs } =
+  const {
+    logFilter,
+    setLogFilter,
+    scopedRpcLogs,
+    formattedRpcLogs,
+    filteredRpcLogs,
+  } =
     useRpcLogView({
       rpcLogs,
       activeWorktreeId,
