@@ -23,6 +23,7 @@ import useTerminalSession from "./hooks/useTerminalSession.js";
 import useNotifications from "./hooks/useNotifications.js";
 import useRepoStatus from "./hooks/useRepoStatus.js";
 import useAttachments from "./hooks/useAttachments.js";
+import useBacklog from "./hooks/useBacklog.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -760,7 +761,6 @@ function App() {
     []
   );
   const [explorerByTab, setExplorerByTab] = useState({});
-  const [backlog, setBacklog] = useState([]);
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [rpcLogs, setRpcLogs] = useState([]);
   const [rpcLogsEnabled, setRpcLogsEnabled] = useState(true);
@@ -1074,13 +1074,6 @@ function App() {
         ? `choices:${attachmentSession.sessionId}`
         : null,
     [attachmentSession?.sessionId, apiFetch]
-  );
-  const backlogKey = useMemo(
-    () =>
-      attachmentSession?.sessionId
-        ? `backlog:${attachmentSession.sessionId}`
-        : null,
-    [attachmentSession?.sessionId]
   );
   const groupedMessages = useMemo(() => {
     const grouped = [];
@@ -2149,157 +2142,6 @@ function App() {
     [models, selectedModel]
   );
 
-  useEffect(() => {
-    if (!backlogKey) {
-      return;
-    }
-    try {
-      const stored = JSON.parse(localStorage.getItem(backlogKey) || "[]");
-      setBacklog(Array.isArray(stored) ? stored : []);
-    } catch {
-      setBacklog([]);
-    }
-  }, [backlogKey]);
-
-  useEffect(() => {
-    if (!backlogKey) {
-      return;
-    }
-    localStorage.setItem(backlogKey, JSON.stringify(backlog));
-  }, [backlog, backlogKey]);
-
-  const updateBacklogMessages = useCallback((updateFn) => {
-    setMessages((current) =>
-      current.map((message) => {
-        if (message?.type !== "backlog_view") {
-          return message;
-        }
-        const items = Array.isArray(message.backlog?.items)
-          ? message.backlog.items
-          : [];
-        const updatedItems = updateFn(items);
-        if (updatedItems === items) {
-          return message;
-        }
-        return {
-          ...message,
-          backlog: {
-            ...(message.backlog || {}),
-            items: updatedItems,
-          },
-        };
-      })
-    );
-    setWorktrees((current) => {
-      const next = new Map(current);
-      next.forEach((wt, id) => {
-        if (!Array.isArray(wt?.messages)) {
-          return;
-        }
-        let changed = false;
-        const updatedMessages = wt.messages.map((message) => {
-          if (message?.type !== "backlog_view") {
-            return message;
-          }
-          const items = Array.isArray(message.backlog?.items)
-            ? message.backlog.items
-            : [];
-          const updatedItems = updateFn(items);
-          if (updatedItems === items) {
-            return message;
-          }
-          changed = true;
-          return {
-            ...message,
-            backlog: {
-              ...(message.backlog || {}),
-              items: updatedItems,
-            },
-          };
-        });
-        if (changed) {
-          next.set(id, { ...wt, messages: updatedMessages });
-        }
-      });
-      return next;
-    });
-  }, []);
-
-  const setBacklogMessagePage = useCallback((targetWorktreeId, messageId, page) => {
-    if (targetWorktreeId && targetWorktreeId !== "main") {
-      setWorktrees((current) => {
-        const next = new Map(current);
-        const wt = next.get(targetWorktreeId);
-        if (!wt) {
-          return current;
-        }
-        const updatedMessages = wt.messages.map((message) =>
-          message?.id === messageId && message.type === "backlog_view"
-            ? {
-                ...message,
-                backlog: {
-                  ...(message.backlog || {}),
-                  page,
-                },
-              }
-            : message
-        );
-        next.set(targetWorktreeId, { ...wt, messages: updatedMessages });
-        return next;
-      });
-      return;
-    }
-    setMessages((current) =>
-      current.map((message) =>
-        message?.id === messageId && message.type === "backlog_view"
-          ? {
-              ...message,
-              backlog: {
-                ...(message.backlog || {}),
-                page,
-              },
-            }
-          : message
-      )
-    );
-  }, []);
-
-  const markBacklogItemDone = useCallback(
-    async (itemId) => {
-      const sessionId = attachmentSession?.sessionId;
-      if (!sessionId) {
-        showToast(t("Session not found."), "error");
-        return;
-      }
-      try {
-        const response = await apiFetch(
-          `/api/session/${encodeURIComponent(sessionId)}/backlog`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: itemId, done: true }),
-          }
-        );
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.error || t("Unable to update backlog."));
-        }
-        const payload = await response.json().catch(() => ({}));
-        const updatedItem = payload?.item;
-        updateBacklogMessages((items) =>
-          items.map((item) =>
-            item?.id === itemId
-              ? { ...item, ...updatedItem, done: true }
-              : item
-          )
-        );
-      } catch (error) {
-        showToast(error.message || t("Unable to update backlog."), "error");
-      }
-    },
-    [apiFetch, attachmentSession?.sessionId, showToast, t, updateBacklogMessages]
-  );
-
   const {
     commandMenuOpen,
     setCommandMenuOpen,
@@ -2686,35 +2528,31 @@ function App() {
     [activeForm, activeFormValues, sendFormMessage, closeVibe80Form]
   );
 
-  const addToBacklog = () => {
-    const trimmed = input.trim();
-    if (!trimmed) {
-      return;
-    }
-    const entry = {
-      id: `backlog-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      text: trimmed,
-      createdAt: Date.now(),
-      attachments: draftAttachments,
-    };
-    setBacklog((current) => [entry, ...current]);
-    setInput("");
-  };
-
-  const removeFromBacklog = (id) => {
-    setBacklog((current) => current.filter((item) => item.id !== id));
-  };
-
-  const editBacklogItem = (item) => {
-    setInput(item.text || "");
-    setDraftAttachments(normalizeAttachments(item.attachments || []));
-    inputRef.current?.focus();
-  };
-
-  const launchBacklogItem = (item) => {
-    sendMessage(item.text || "", item.attachments || []);
-    removeFromBacklog(item.id);
-  };
+  const {
+    addToBacklog,
+    backlog,
+    editBacklogItem,
+    launchBacklogItem,
+    markBacklogItemDone,
+    removeFromBacklog,
+    setBacklog,
+    setBacklogMessagePage,
+    updateBacklogMessages,
+  } = useBacklog({
+    attachmentSessionId: attachmentSession?.sessionId,
+    apiFetch,
+    normalizeAttachments,
+    sendMessage,
+    setInput,
+    setMessages,
+    setWorktrees,
+    setDraftAttachments,
+    input,
+    draftAttachments,
+    inputRef,
+    showToast,
+    t,
+  });
 
   const interruptTurn = () => {
     if (!currentTurnIdForActive || !socketRef.current) {
