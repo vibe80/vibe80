@@ -1091,10 +1091,11 @@ function App() {
       logFilterByTab,
       setLogFilterByTab,
     });
-  const { ensureNotificationPermission, maybeNotify } = useNotifications({
-    notificationsEnabled,
-    t,
-  });
+  const { ensureNotificationPermission, maybeNotify, lastNotifiedIdRef } =
+    useNotifications({
+      notificationsEnabled,
+      t,
+    });
   const loadRepoLastCommitRef = useRef(() => {});
   const loadRepoLastCommitProxy = useCallback(
     (...args) => loadRepoLastCommitRef.current?.(...args),
