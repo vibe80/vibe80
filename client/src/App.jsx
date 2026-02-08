@@ -37,6 +37,7 @@ import useToolbarExport from "./hooks/useToolbarExport.js";
 import usePanelState from "./hooks/usePanelState.js";
 import usePaneNavigation from "./hooks/usePaneNavigation.js";
 import useSessionReset from "./hooks/useSessionReset.js";
+import useTurnInterrupt from "./hooks/useTurnInterrupt.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1861,33 +1862,14 @@ function App() {
     t,
   });
 
-  const interruptTurn = () => {
-    if (!currentTurnIdForActive || !socketRef.current) {
-      return;
-    }
-    if (isInWorktree && activeWorktreeId) {
-      socketRef.current.send(
-        JSON.stringify({
-          type: "worktree_turn_interrupt",
-          worktreeId: activeWorktreeId,
-          turnId: currentTurnIdForActive,
-        })
-      );
-      setWorktrees((current) => {
-        const next = new Map(current);
-        const wt = next.get(activeWorktreeId);
-        if (wt) {
-          next.set(activeWorktreeId, { ...wt, activity: "Interruption..." });
-        }
-        return next;
-      });
-      return;
-    }
-    socketRef.current.send(
-      JSON.stringify({ type: "turn_interrupt", turnId: currentTurnIdForActive })
-    );
-    setActivity("Interruption...");
-  };
+  const { interruptTurn } = useTurnInterrupt({
+    activeWorktreeId,
+    isInWorktree,
+    currentTurnIdForActive,
+    socketRef,
+    setWorktrees,
+    setActivity,
+  });
 
   const { handleLeaveSession } = useSessionReset({
     setAttachmentSession,
