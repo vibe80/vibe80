@@ -649,7 +649,10 @@ wss.on("connection", (socket, req) => {
       }
 
       if (payload.type === "turn_interrupt") {
-        const client = getActiveClient(session);
+        const worktreeId = payload.worktreeId;
+        const client = worktreeId
+          ? runtime?.worktreeClients?.get(worktreeId)
+          : getActiveClient(session);
         if (!client?.ready) {
           socket.send(
             JSON.stringify({
