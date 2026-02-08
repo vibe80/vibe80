@@ -51,7 +51,7 @@ import {
   broadcastRepoDiff,
   broadcastWorktreeDiff,
   appendMainMessage,
-  getMessagesSince,
+  getWorktreeMessages,
   appendRpcLog,
   getProviderLabel,
   resolveDefaultDenyGitCredentialsAccess,
@@ -531,7 +531,14 @@ wss.on("connection", (socket, req) => {
           socket.send(JSON.stringify({ type: "error", message: "Worktree not found." }));
           return;
         }
-        const messages = getMessagesSince(worktree.messages, payload.lastSeenMessageId);
+        const requestedLimit = Number.parseInt(payload?.limit, 10);
+        const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+          ? requestedLimit
+          : 50;
+        const messages = await getWorktreeMessages(session, worktreeId, {
+          limit,
+          beforeMessageId: payload.lastSeenMessageId || null,
+        });
         const status = worktree.status || "idle";
 
         socket.send(
@@ -751,10 +758,10 @@ wss.on("connection", (socket, req) => {
         }
 
         if (session.activeProvider === newProvider) {
-          const mainWorktree = await getWorktree(session, "main");
-          const messages = Array.isArray(mainWorktree?.messages)
-            ? mainWorktree.messages
-            : [];
+          const messages = await getWorktreeMessages(session, "main", {
+            limit: 50,
+            beforeMessageId: null,
+          });
           socket.send(
             JSON.stringify({
               type: "provider_switched",
@@ -798,10 +805,10 @@ wss.on("connection", (socket, req) => {
             // Models fetch failed, continue without models
           }
 
-          const mainWorktree = await getWorktree(session, "main");
-          const messages = Array.isArray(mainWorktree?.messages)
-            ? mainWorktree.messages
-            : [];
+          const messages = await getWorktreeMessages(session, "main", {
+            limit: 50,
+            beforeMessageId: null,
+          });
           broadcastToSession(sessionId, {
             type: "provider_switched",
             provider: newProvider,

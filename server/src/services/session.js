@@ -44,6 +44,7 @@ import {
   getWorktreeDiff,
   updateWorktreeStatus,
   updateWorktreeThreadId,
+  getMainWorktreeStorageId,
 } from "../worktreeManager.js";
 
 // ---------------------------------------------------------------------------
@@ -573,18 +574,21 @@ export const appendMainMessage = async (session, message) => {
   await appendWorktreeMessage(session, "main", message);
 };
 
-export const getMessagesSince = (messages, lastSeenMessageId) => {
-  if (!Array.isArray(messages)) {
+export const getWorktreeMessages = async (
+  session,
+  worktreeId,
+  { limit = null, beforeMessageId = null } = {}
+) => {
+  if (!session) {
     return [];
   }
-  if (!lastSeenMessageId) {
-    return messages;
-  }
-  const index = messages.findIndex((message) => message?.id === lastSeenMessageId);
-  if (index === -1) {
-    return messages;
-  }
-  return messages.slice(index + 1);
+  const resolvedId =
+    worktreeId === "main" ? getMainWorktreeStorageId(session.sessionId) : worktreeId;
+  await getWorktree(session, worktreeId);
+  return storage.getWorktreeMessages(session.sessionId, resolvedId, {
+    limit,
+    beforeMessageId,
+  });
 };
 
 export const appendRpcLog = async (sessionId, entry) => {

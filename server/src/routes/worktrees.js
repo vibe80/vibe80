@@ -14,6 +14,7 @@ import {
   readWorkspaceFileBuffer,
   writeWorkspaceFilePreserveMode,
   getWorktree,
+  getWorktreeMessages,
   getWorktreeDiff,
 } from "../services/session.js";
 import { getSessionTmpDir } from "../helpers.js";
@@ -158,6 +159,13 @@ export default function worktreeRoutes(deps) {
 
     try {
       const diff = await getWorktreeDiff(session, worktree.id);
+      const limitValue = Number.parseInt(req.query?.limit, 10);
+      const limit =
+        Number.isFinite(limitValue) && limitValue > 0 ? limitValue : 50;
+      const messages = await getWorktreeMessages(session, worktree.id, {
+        limit,
+        beforeMessageId: null,
+      });
       res.json({
         id: worktree.id,
         name: worktree.name,
@@ -171,7 +179,7 @@ export default function worktreeRoutes(deps) {
             ? worktree.denyGitCredentialsAccess
             : true,
         status: worktree.status,
-        messages: worktree.messages,
+        messages,
         color: worktree.color,
         createdAt: worktree.createdAt,
         diff,

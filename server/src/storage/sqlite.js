@@ -107,6 +107,23 @@ export const createSqliteStorage = () => {
     );
     await run(
       db,
+      `CREATE TABLE IF NOT EXISTS worktree_messages (
+        messageId TEXT NOT NULL,
+        sessionId TEXT NOT NULL,
+        worktreeId TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        PRIMARY KEY (worktreeId, messageId),
+        FOREIGN KEY(sessionId) REFERENCES sessions(sessionId) ON DELETE CASCADE
+      );`
+    );
+    await run(
+      db,
+      `CREATE INDEX IF NOT EXISTS worktree_messages_session_idx
+       ON worktree_messages (sessionId, worktreeId, createdAt DESC);`
+    );
+    await run(
+      db,
       `CREATE TABLE IF NOT EXISTS workspace_user_ids (
         workspaceId TEXT PRIMARY KEY,
         data TEXT NOT NULL
@@ -158,6 +175,7 @@ export const createSqliteStorage = () => {
 
   const deleteSession = async (sessionId) => {
     await ensureConnected();
+    await run(db, "DELETE FROM worktree_messages WHERE sessionId = ?", [sessionId]);
     await run(db, "DELETE FROM worktrees WHERE sessionId = ?", [sessionId]);
     await run(db, "DELETE FROM sessions WHERE sessionId = ?", [sessionId]);
   };
@@ -210,6 +228,11 @@ export const createSqliteStorage = () => {
     await ensureConnected();
     await run(
       db,
+      "DELETE FROM worktree_messages WHERE worktreeId = ? AND sessionId = ?",
+      [worktreeId, sessionId]
+    );
+    await run(
+      db,
       "DELETE FROM worktrees WHERE worktreeId = ? AND sessionId = ?",
       [worktreeId, sessionId]
     );
@@ -223,6 +246,96 @@ export const createSqliteStorage = () => {
       [sessionId]
     );
     return rows.map((row) => fromJson(row.data)).filter(Boolean);
+  };
+
+  const appendWorktreeMessage = async (sessionId, worktreeId, message) => {
+    await ensureConnected();
+    const messageId = message?.id;
+    if (!messageId) {
+      throw new Error("Message id is required.");
+    }
+    const createdAt =
+      typeof message?.createdAt === "number" ? message.createdAt : Date.now();
+    await run(
+      db,
+      `INSERT INTO worktree_messages (messageId, sessionId, worktreeId, createdAt, data)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(worktreeId, messageId) DO NOTHING;`,
+      [messageId, sessionId, worktreeId, createdAt, toJson(message)]
+    );
+  };
+
+  const getWorktreeMessages = async (
+    sessionId,
+    worktreeId,
+    { limit = null, beforeMessageId = null } = {}
+  ) => {
+    await ensureConnected();
+    let createdAfter = null;
+    if (beforeMessageId) {
+      const row = await get(
+        db,
+        `SELECT createdAt FROM worktree_messages
+         WHERE sessionId = ? AND worktreeId = ? AND messageId = ?`,
+        [sessionId, worktreeId, beforeMessageId]
+      );
+      if (!row) {
+        return [];
+      }
+      createdAfter = row.createdAt;
+    }
+
+    let rows;
+    if (createdAfter !== null) {
+      if (limit) {
+        rows = await all(
+          db,
+          `SELECT data FROM worktree_messages
+           WHERE sessionId = ? AND worktreeId = ? AND createdAt > ?
+           ORDER BY createdAt DESC
+           LIMIT ?`,
+          [sessionId, worktreeId, createdAfter, limit]
+        );
+        rows.reverse();
+      } else {
+        rows = await all(
+          db,
+          `SELECT data FROM worktree_messages
+           WHERE sessionId = ? AND worktreeId = ? AND createdAt > ?
+           ORDER BY createdAt ASC`,
+          [sessionId, worktreeId, createdAfter]
+        );
+      }
+    } else if (limit) {
+      rows = await all(
+        db,
+        `SELECT data FROM worktree_messages
+         WHERE sessionId = ? AND worktreeId = ?
+         ORDER BY createdAt DESC
+         LIMIT ?`,
+        [sessionId, worktreeId, limit]
+      );
+      rows.reverse();
+    } else {
+      rows = await all(
+        db,
+        `SELECT data FROM worktree_messages
+         WHERE sessionId = ? AND worktreeId = ?
+         ORDER BY createdAt ASC`,
+        [sessionId, worktreeId]
+      );
+    }
+
+    return rows.map((row) => fromJson(row.data)).filter(Boolean);
+  };
+
+  const clearWorktreeMessages = async (sessionId, worktreeId) => {
+    await ensureConnected();
+    await run(
+      db,
+      "DELETE FROM worktree_messages WHERE sessionId = ? AND worktreeId = ?",
+      [sessionId, worktreeId]
+    );
   };
 
   const saveWorkspaceUserIds = async (workspaceId, data) => {
@@ -312,6 +425,9 @@ export const createSqliteStorage = () => {
     getWorktree,
     deleteWorktree,
     listWorktrees,
+    appendWorktreeMessage,
+    getWorktreeMessages,
+    clearWorktreeMessages,
     saveWorkspaceUserIds,
     getWorkspaceUserIds,
     saveWorkspaceRefreshToken,

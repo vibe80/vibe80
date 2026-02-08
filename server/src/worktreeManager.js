@@ -4,6 +4,7 @@ import { runAsCommand, runAsCommandOutput } from "./runAs.js";
 import storage from "./storage/index.js";
 import { getSessionRuntime } from "./runtimeStore.js";
 import { createWorktreeClient } from "./clientFactory.js";
+import { createMessageId } from "./helpers.js";
 
 const MAIN_WORKTREE_SENTINEL = "main";
 const MAIN_WORKTREE_PREFIX = "main-";
@@ -143,9 +144,6 @@ const ensureMainWorktree = async (session) => {
   const existing = await loadWorktree(worktreeId);
   if (existing) return existing;
   const branchName = await resolveCurrentBranchName(session);
-  const seedMessages = Array.isArray(session?.messages)
-    ? session.messages
-    : session?.messagesByProvider?.[session.activeProvider] || [];
   const worktree = {
     id: worktreeId,
     sessionId: session.sessionId,
@@ -160,7 +158,6 @@ const ensureMainWorktree = async (session) => {
     denyGitCredentialsAccess: resolveSessionDenyGitCredentialsAccess(session),
     startingBranch: branchName || null,
     workspaceId: session.workspaceId,
-    messages: Array.isArray(seedMessages) ? seedMessages : [],
     status: "ready",
     parentWorktreeId: null,
     createdAt: new Date().toISOString(),
@@ -329,7 +326,6 @@ export async function createWorktree(session, options) {
     denyGitCredentialsAccess: resolvedDenyGitCredentialsAccess,
     startingBranch: startingBranch || null,
     workspaceId: session.workspaceId,
-    messages: [],
     status: "creating",
     parentWorktreeId: parentWorktreeId || null,
     createdAt: new Date().toISOString(),
@@ -534,7 +530,6 @@ export async function listWorktrees(session) {
     model: wt.model || null,
     reasoningEffort: wt.reasoningEffort || null,
     status: wt.status,
-    messageCount: Array.isArray(wt.messages) ? wt.messages.length : 0,
     parentWorktreeId: wt.parentWorktreeId,
     internetAccess: Boolean(wt.internetAccess),
     denyGitCredentialsAccess:
@@ -593,15 +588,11 @@ export async function appendWorktreeMessage(session, worktreeId, message) {
     worktree = await ensureMainWorktree(session);
   }
   if (!worktree) return;
-  const nextMessages = Array.isArray(worktree.messages)
-    ? [...worktree.messages, message]
-    : [message];
-  if (nextMessages.length > 200) {
-    nextMessages.splice(0, nextMessages.length - 200);
-  }
+  const messageId = message?.id || createMessageId();
+  const payload = message?.id ? message : { ...message, id: messageId };
+  await storage.appendWorktreeMessage(session.sessionId, resolvedId, payload);
   const updated = {
     ...worktree,
-    messages: nextMessages,
     lastActivityAt: new Date().toISOString(),
   };
   await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));
@@ -614,9 +605,9 @@ export async function clearWorktreeMessages(session, worktreeId) {
     worktree = await ensureMainWorktree(session);
   }
   if (!worktree) return;
+  await storage.clearWorktreeMessages(session.sessionId, resolvedId);
   const updated = {
     ...worktree,
-    messages: [],
     lastActivityAt: new Date().toISOString(),
   };
   await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));

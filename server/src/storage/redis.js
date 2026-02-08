@@ -28,6 +28,12 @@ export const createRedisStorage = () => {
   const workspaceSessionsKey = (workspaceId) =>
     buildKey(prefix, "workspace", workspaceId, "sessions");
   const worktreeKey = (worktreeId) => buildKey(prefix, "worktree", worktreeId);
+  const worktreeMessagesKey = (worktreeId) =>
+    buildKey(prefix, "worktree", worktreeId, "messages");
+  const worktreeMessageIndexKey = (worktreeId) =>
+    buildKey(prefix, "worktree", worktreeId, "messageIndex");
+  const worktreeMessageSeqKey = (worktreeId) =>
+    buildKey(prefix, "worktree", worktreeId, "messageSeq");
   const workspaceUserIdsKey = (workspaceId) =>
     buildKey(prefix, "workspaceUserIds", workspaceId);
   const workspaceRefreshTokenKey = (workspaceId) =>
@@ -82,7 +88,12 @@ export const createRedisStorage = () => {
     await ensureConnected();
     const worktreeIds = await client.sMembers(sessionWorktreesKey(sessionId));
     if (worktreeIds.length) {
-      const keys = worktreeIds.map((id) => worktreeKey(id));
+      const keys = worktreeIds.flatMap((id) => [
+        worktreeKey(id),
+        worktreeMessagesKey(id),
+        worktreeMessageIndexKey(id),
+        worktreeMessageSeqKey(id),
+      ]);
       await client.del(keys);
     }
     await client.del(sessionWorktreesKey(sessionId));
@@ -131,7 +142,12 @@ export const createRedisStorage = () => {
 
   const deleteWorktree = async (sessionId, worktreeId) => {
     await ensureConnected();
-    await client.del(worktreeKey(worktreeId));
+    await client.del(
+      worktreeKey(worktreeId),
+      worktreeMessagesKey(worktreeId),
+      worktreeMessageIndexKey(worktreeId),
+      worktreeMessageSeqKey(worktreeId)
+    );
     await client.sRem(sessionWorktreesKey(sessionId), worktreeId);
   };
 
@@ -144,6 +160,69 @@ export const createRedisStorage = () => {
     const keys = ids.map((id) => worktreeKey(id));
     const raw = await client.mGet(keys);
     return raw.map(fromJson).filter(Boolean);
+  };
+
+  const appendWorktreeMessage = async (sessionId, worktreeId, message) => {
+    await ensureConnected();
+    const messageId = message?.id;
+    if (!messageId) {
+      throw new Error("Message id is required.");
+    }
+    const seq = await client.incr(worktreeMessageSeqKey(worktreeId));
+    await client.hSet(worktreeMessageIndexKey(worktreeId), messageId, seq);
+    await client.rPush(worktreeMessagesKey(worktreeId), toJson(message));
+    await touchTtl(worktreeMessagesKey(worktreeId), sessionTtlMs);
+    await touchTtl(worktreeMessageIndexKey(worktreeId), sessionTtlMs);
+    await touchTtl(worktreeMessageSeqKey(worktreeId), sessionTtlMs);
+  };
+
+  const getWorktreeMessages = async (
+    sessionId,
+    worktreeId,
+    { limit = null, beforeMessageId = null } = {}
+  ) => {
+    await ensureConnected();
+    const listKey = worktreeMessagesKey(worktreeId);
+    const listLength = await client.lLen(listKey);
+    if (!listLength) {
+      return [];
+    }
+
+    let startIndex = 0;
+    let endIndex = listLength - 1;
+
+    if (beforeMessageId) {
+      const seqValue = await client.hGet(
+        worktreeMessageIndexKey(worktreeId),
+        beforeMessageId
+      );
+      const seq = Number.parseInt(seqValue, 10);
+      if (!seq || Number.isNaN(seq)) {
+        return [];
+      }
+      startIndex = seq;
+    }
+
+    if (limit && Number.isFinite(limit)) {
+      const minStart = Math.max(0, listLength - limit);
+      startIndex = Math.max(startIndex, minStart);
+    }
+
+    if (startIndex > endIndex) {
+      return [];
+    }
+
+    const raw = await client.lRange(listKey, startIndex, endIndex);
+    return raw.map(fromJson).filter(Boolean);
+  };
+
+  const clearWorktreeMessages = async (sessionId, worktreeId) => {
+    await ensureConnected();
+    await client.del(
+      worktreeMessagesKey(worktreeId),
+      worktreeMessageIndexKey(worktreeId),
+      worktreeMessageSeqKey(worktreeId)
+    );
   };
 
   const saveWorkspaceUserIds = async (workspaceId, data) => {
@@ -205,6 +284,9 @@ export const createRedisStorage = () => {
     getWorktree,
     deleteWorktree,
     listWorktrees,
+    appendWorktreeMessage,
+    getWorktreeMessages,
+    clearWorktreeMessages,
     saveWorkspaceUserIds,
     getWorkspaceUserIds,
     saveWorkspaceRefreshToken,
