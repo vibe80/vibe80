@@ -186,6 +186,8 @@ export class ClaudeCliClient extends EventEmitter {
       }
     });
 
+    this.emit("turn_started", { turnId, status: "processing" });
+
     proc.on("error", (error) => {
       const details = [
         "Claude spawn failed",
