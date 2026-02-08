@@ -434,22 +434,23 @@ export default function useExplorerActions({
       if (!tabId || !dirPath) {
         return;
       }
-      let willExpand = false;
+      const currentState = explorerRef.current[tabId] || explorerDefaultState;
+      const expanded = new Set(currentState.expandedPaths || []);
+      const willExpand = !expanded.has(dirPath);
       setExplorerByTab((current) => {
         const prev = current[tabId] || explorerDefaultState;
-        const expanded = new Set(prev.expandedPaths || []);
-        willExpand = !expanded.has(dirPath);
-        if (expanded.has(dirPath)) {
-          expanded.delete(dirPath);
+        const nextExpanded = new Set(prev.expandedPaths || []);
+        if (nextExpanded.has(dirPath)) {
+          nextExpanded.delete(dirPath);
         } else {
-          expanded.add(dirPath);
+          nextExpanded.add(dirPath);
         }
         return {
           ...current,
           [tabId]: {
             ...explorerDefaultState,
             ...prev,
-            expandedPaths: Array.from(expanded),
+            expandedPaths: Array.from(nextExpanded),
           },
         };
       });
@@ -467,6 +468,7 @@ export default function useExplorerActions({
       t,
       updateExplorerState,
       setExplorerByTab,
+      explorerRef,
     ]
   );
 
