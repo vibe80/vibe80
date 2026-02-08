@@ -33,6 +33,7 @@ import useVibe80Forms from "./hooks/useVibe80Forms.js";
 import useLocalPreferences from "./hooks/useLocalPreferences.js";
 import useLayoutMode from "./hooks/useLayoutMode.js";
 import useRpcLogView from "./hooks/useRpcLogView.js";
+import useToolbarExport from "./hooks/useToolbarExport.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -784,7 +785,6 @@ function App() {
   };
   const [commandPanelOpen, setCommandPanelOpen] = useState({});
   const [toolResultPanelOpen, setToolResultPanelOpen] = useState({});
-  const [toolbarExportOpen, setToolbarExportOpen] = useState(false);
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
   const [debugMode, setDebugMode] = useState(() => readDebugMode());
   const socketRef = useRef(null);
@@ -792,7 +792,8 @@ function App() {
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const uploadInputRef = useRef(null);
-  const toolbarExportRef = useRef(null);
+  const { toolbarExportOpen, setToolbarExportOpen, toolbarExportRef } =
+    useToolbarExport();
   const conversationRef = useRef(null);
   const composerRef = useRef(null);
   const terminalContainerRef = useRef(null);
@@ -1010,21 +1011,6 @@ function App() {
   } = useRpcLogView({ rpcLogs, activeWorktreeId, locale });
 
   const { isMobileLayout } = useLayoutMode({ themeMode, setSideOpen });
-
-  useEffect(() => {
-    if (!toolbarExportOpen) {
-      return;
-    }
-    const handlePointerDown = (event) => {
-      const target = event.target;
-      if (toolbarExportRef.current?.contains(target)) {
-        return;
-      }
-      setToolbarExportOpen(false);
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [toolbarExportOpen]);
 
   const applyMessages = useCallback(
     (items = []) => {
