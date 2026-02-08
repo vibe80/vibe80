@@ -32,6 +32,7 @@ import useGitIdentity from "./hooks/useGitIdentity.js";
 import useVibe80Forms from "./hooks/useVibe80Forms.js";
 import useLocalPreferences from "./hooks/useLocalPreferences.js";
 import useLayoutMode from "./hooks/useLayoutMode.js";
+import useRpcLogView from "./hooks/useRpcLogView.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -751,7 +752,6 @@ function App() {
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [rpcLogs, setRpcLogs] = useState([]);
   const [rpcLogsEnabled, setRpcLogsEnabled] = useState(true);
-  const [logFilterByTab, setLogFilterByTab] = useState({ main: "all" });
   const [sideOpen, setSideOpen] = useState(false);
   const [closeConfirm, setCloseConfirm] = useState(null);
   const [terminalEnabled, setTerminalEnabled] = useState(true);
@@ -1000,44 +1000,14 @@ function App() {
     });
     return grouped;
   }, [messages]);
-  const logFilter = logFilterByTab[activeWorktreeId] || "all";
-  const setLogFilter = useCallback(
-    (value) => {
-      const key = activeWorktreeId || "main";
-      setLogFilterByTab((current) => ({
-        ...current,
-        [key]: value,
-      }));
-    },
-    [activeWorktreeId]
-  );
-  const scopedRpcLogs = useMemo(() => {
-    if (activeWorktreeId && activeWorktreeId !== "main") {
-      return (rpcLogs || []).filter(
-        (entry) => entry?.worktreeId === activeWorktreeId
-      );
-    }
-    return (rpcLogs || []).filter((entry) => !entry?.worktreeId);
-  }, [rpcLogs, activeWorktreeId]);
-  const formattedRpcLogs = useMemo(
-    () =>
-      scopedRpcLogs.map((entry) => ({
-        ...entry,
-        timeLabel: entry?.timestamp
-          ? new Date(entry.timestamp).toLocaleTimeString(locale)
-          : "",
-      })),
-    [scopedRpcLogs, locale]
-  );
-  const filteredRpcLogs = useMemo(() => {
-    if (logFilter === "stdin") {
-      return formattedRpcLogs.filter((entry) => entry.direction === "stdin");
-    }
-    if (logFilter === "stdout") {
-      return formattedRpcLogs.filter((entry) => entry.direction === "stdout");
-    }
-    return formattedRpcLogs;
-  }, [formattedRpcLogs, logFilter]);
+  const {
+    logFilterByTab,
+    setLogFilterByTab,
+    logFilter,
+    setLogFilter,
+    formattedRpcLogs,
+    filteredRpcLogs,
+  } = useRpcLogView({ rpcLogs, activeWorktreeId, locale });
 
   const { isMobileLayout } = useLayoutMode({ themeMode, setSideOpen });
 
