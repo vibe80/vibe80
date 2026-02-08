@@ -24,6 +24,8 @@
 
 **Probleme :** Aucun rate limiter. Les endpoints `/api/workspaces` (creation), `/api/workspaces/login`, `/api/workspaces/refresh`, `/api/sessions` sont exposes au brute force.
 
+**Statut :** ✅ Fait
+
 **Action :**
 - Installer `express-rate-limit`
 - Appliquer un rate limiter global (`100 req/min`) sur `/api`
@@ -40,6 +42,8 @@
 
 **Probleme :** En mode `mono_user`, le workspace secret est initialise a la chaine `"default"` (ligne 1226). Tout utilisateur connaissant cette valeur peut s'authentifier.
 
+**Statut :** ❌ Non fait (spec actuelle utilise encore "default")
+
 **Action :**
 - Remplacer `"default"` par `crypto.randomBytes(32).toString("hex")` dans `ensureDefaultMonoWorkspace`
 - Ajouter un log au demarrage indiquant le chemin du fichier secret pour que l'operateur puisse le lire
@@ -54,6 +58,8 @@
 
 **Probleme :** Les connexions WebSocket passent le token JWT via `?token=...` dans l'URL. Ce token apparait dans les logs serveur, proxy et l'historique navigateur.
 
+**Statut :** ✅ Fait
+
 **Action :**
 - Cote client : envoyer le token dans le premier message WebSocket apres connexion (`{ type: "auth", token: "..." }`)
 - Cote serveur : accepter la connexion WebSocket sans auth, attendre le premier message `auth`, verifier le token, puis rattacher la socket a la session. Deconnecter apres un timeout (5s) si pas de message auth recu.
@@ -67,6 +73,8 @@
 **Fichiers concernes :** `server/src/index.js`
 
 **Probleme :** Le `setup_token` pour Claude est injecte avec `refreshToken: "dummy"` et `expiresAt: 1969350365482` hardcode (ligne 1167-1186). Fragile et potentiellement cassant.
+
+**Statut :** ❌ Non fait
 
 **Action :**
 - Documenter clairement dans le code que ce format est impose par la CLI Claude Code
@@ -85,6 +93,8 @@
 **Fichier source :** `server/src/index.js` (5 125 lignes)
 
 **Probleme :** Toutes les routes HTTP sont definies dans un seul fichier. La revue de code et la maintenance sont extremement difficiles.
+
+**Statut :** ❌ Non fait
 
 **Action :** Decouper `index.js` en modules routes :
 
@@ -122,6 +132,8 @@ server/src/
 
 **Probleme :** `attachClientEvents` et `attachClientEventsForWorktree` sont quasi-identiques (~250 lignes chacune). Meme chose pour `attachClaudeEvents` / `attachClaudeEventsForWorktree`.
 
+**Statut :** ❌ Non fait
+
 **Action :**
 - Creer un fichier `server/src/clientEvents.js`
 - Factoriser en une seule fonction parametree par `{ sessionId, worktreeId, provider, isWorktree }`
@@ -136,6 +148,8 @@ server/src/
 **Fichiers concernes :** `server/src/index.js`, `server/src/runAs.js`
 
 **Probleme :** `runCommand`, `runCommandOutput` et `runCommandOutputWithStatus` sont definis a la fois dans `index.js` (lignes 328-369) et dans `runAs.js` (lignes 149-258). Les versions sont legerement differentes (gestion du stdin).
+
+**Statut :** ❌ Non fait
 
 **Action :**
 - Garder uniquement les versions de `runAs.js` (plus completes, gerent le stdin)
@@ -153,6 +167,8 @@ server/src/
 **Fichier source :** `client/src/App.jsx` (9 318 lignes)
 
 **Probleme :** Un seul composant React monolithique. Pas de code splitting, re-renders excessifs, impossible a tester.
+
+**Statut :** 🟡 En cours (plusieurs composants/hooks extraits)
 
 **Action :** Decouper en composants et pages :
 
@@ -198,6 +214,8 @@ client/src/
 
 **Probleme :** Tout le code est charge en un seul bundle (Monaco Editor = ~2 MB, xterm.js, react-diff-view, QRCode...).
 
+**Statut :** ❌ Non fait
+
 **Action :**
 - Utiliser `React.lazy` + `Suspense` pour les composants lourds :
   - `Monaco Editor` (charge uniquement quand l'explorateur de fichiers est ouvert)
@@ -216,6 +234,8 @@ client/src/
 
 **Probleme :** ~400 lignes de CSS dans une balise `<style>` inline dans WorktreeTabs.jsx. Probablement similaire dans App.jsx.
 
+**Statut :** ❌ Non fait
+
 **Action :**
 - Extraire les styles dans des fichiers CSS modules (`*.module.css`) ou des fichiers CSS co-locates
 - Alternative : adopter un outil comme CSS Modules natif de Vite (deja supporte)
@@ -232,6 +252,8 @@ client/src/
 
 **Probleme :** Chaque message assistant declenche un `git status --porcelain` + `git diff` complet. Sur de gros repos, plusieurs messages rapprochés declenchent des diffs paralleles inutiles.
 
+**Statut :** ✅ Fait
+
 **Action :**
 - Implementer un debounce par session (500ms) sur `broadcastRepoDiff`
 - Si un diff est deja en cours pour la session, ignorer les appels suivants et planifier un dernier appel a la fin
@@ -245,6 +267,8 @@ client/src/
 **Fichiers concernes :** `server/src/index.js`
 
 **Probleme :** Chaque niveau de l'arborescence spawn un process `find`. Pour 8 niveaux de profondeur, ca peut representer des centaines de spawns.
+
+**Statut :** ✅ Fait (remplace par endpoint `browse` sans recursion)
 
 **Action :**
 - Remplacer par un seul appel `find` avec `-printf "%y\t%d\t%P\0"` sur toute la profondeur
@@ -260,6 +284,8 @@ client/src/
 
 **Probleme :** Pas de `PRAGMA busy_timeout` configure. Les acces concurrents en mode WAL peuvent generer des `SQLITE_BUSY`.
 
+**Statut :** ✅ Fait
+
 **Action :**
 - Ajouter `PRAGMA busy_timeout = 5000;` apres `PRAGMA journal_mode = WAL;`
 
@@ -272,6 +298,8 @@ client/src/
 **Fichiers concernes :** `server/src/index.js`
 
 **Probleme :** `sessions`, `workspaces`, `workspaceUserIds` sont declares comme `new Map()` en haut du fichier (lignes 63-65) mais le code utilise le storage (Redis/SQLite) via `storage.getSession()`. Ces Maps semblent etre des vestiges.
+
+**Statut :** ❌ Non fait
 
 **Action :**
 - Verifier que ces Maps ne sont referencees nulle part (grep)
@@ -289,6 +317,8 @@ client/src/
 
 **Probleme :** Contrairement a Redis (TTL natif), SQLite n'a aucune expiration automatique. Les sessions expirees restent en base indefiniment.
 
+**Statut :** ❌ Non fait
+
 **Action :**
 - Ajouter une methode `purgeExpiredSessions(maxAgMs)` dans le backend SQLite
 - Appeler cette methode depuis le session GC (`runSessionGc`)
@@ -304,6 +334,8 @@ client/src/
 
 **Probleme :** `touchTtl(globalSessionsKey(), sessionTtlMs)` est appele a chaque `saveSession`. Ce set global est constamment mis a jour inutilement.
 
+**Statut :** ❌ Non fait
+
 **Action :**
 - Supprimer le TTL sur `globalSessionsKey` (c'est un index global, il ne doit pas expirer)
 - Ou le toucher uniquement dans `touchSession`, pas dans `saveSession`
@@ -317,6 +349,8 @@ client/src/
 ### 6.1 Ajouter des tests
 
 **Probleme :** Zero test dans le projet.
+
+**Statut :** ❌ Non fait
 
 **Action :**
 - Installer un framework de test (`vitest` pour le serveur et le client car deja sur Vite)
@@ -336,6 +370,8 @@ client/src/
 
 **Probleme :** Le package racine est configure pour etre publie sur npm publiquement. Un `npm publish` accidentel exposerait les sources.
 
+**Statut :** ❌ Non fait
+
 **Action :**
 - Si la publication npm est intentionnelle : s'assurer que le champ `files` exclut les fichiers sensibles (Dockerfiles, `.drone.yml`, `tools/`)
 - Si la publication n'est pas intentionnelle : passer `"private": true`
@@ -349,6 +385,8 @@ client/src/
 **Fichiers concernes :** `Dockerfile.base`
 
 **Probleme :** `curl -fsSL https://claude.ai/install.sh | bash` installe la derniere version sans verification de signature ni pinning.
+
+**Statut :** ❌ Non fait
 
 **Action :**
 - Pinner une version specifique de la CLI Claude Code
@@ -364,6 +402,8 @@ client/src/
 **Fichiers concernes :** `client/src/i18n.jsx`
 
 **Probleme :** Dictionnaire i18n hardcode dans le code (380 lignes). Pas de pluralisation, cles = textes anglais (fragile).
+
+**Statut :** ❌ Non fait
 
 **Action :**
 - Extraire les traductions dans des fichiers JSON (`locales/en.json`, `locales/fr.json`)
