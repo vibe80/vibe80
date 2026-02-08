@@ -1733,6 +1733,8 @@ function App() {
     setCommandMenuOpen,
     setDraftAttachments,
     setInput,
+    setMessages,
+    setWorktrees,
     socketRef,
     showToast,
     t,
