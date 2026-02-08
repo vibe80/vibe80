@@ -28,6 +28,7 @@ import {
   pickDefaultProvider,
   workspacePathExists,
   listWorkspaceEntries,
+  getWorkspaceStat,
   readWorkspaceFileBuffer,
   writeWorkspaceFilePreserveMode,
   appendAuditLog,
@@ -76,8 +77,6 @@ const TREE_IGNORED_NAMES = new Set([
   "venv",
   ".venv",
 ]);
-const MAX_TREE_ENTRIES = 3000;
-const MAX_TREE_DEPTH = 8;
 export const MAX_FILE_BYTES = 200 * 1024;
 export const MAX_WRITE_BYTES = 500 * 1024;
 
@@ -729,7 +728,7 @@ export const getProviderLabel = (session) =>
 export const isValidProvider = (p) => p === "codex" || p === "claude";
 
 // ---------------------------------------------------------------------------
-// Directory tree
+// Directory browsing
 // ---------------------------------------------------------------------------
 
 export const resolveWorktreeRoot = async (session, worktreeId) => {
@@ -746,65 +745,51 @@ export const resolveWorktreeRoot = async (session, worktreeId) => {
   return { rootPath: worktree.path, worktree };
 };
 
-export const buildDirectoryTree = async (workspaceId, rootPath, options = {}) => {
-  const maxDepth = Number.isFinite(Number(options.maxDepth))
-    ? Math.min(Number(options.maxDepth), MAX_TREE_DEPTH)
-    : MAX_TREE_DEPTH;
-  const maxEntries = Number.isFinite(Number(options.maxEntries))
-    ? Math.min(Number(options.maxEntries), MAX_TREE_ENTRIES)
-    : MAX_TREE_ENTRIES;
-  let count = 0;
-  let truncated = false;
-
-  const walk = async (absPath, relPath, depth) => {
-    if (count >= maxEntries) {
-      truncated = true;
-      return [];
+export const listDirectoryEntries = async (
+  workspaceId,
+  rootPath,
+  relativePath = ""
+) => {
+  const normalized = (relativePath || "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\.\/+/, "")
+    .replace(/\/+/g, "/");
+  const absPath = path.resolve(rootPath, normalized || ".");
+  const relative = path.relative(rootPath, absPath);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("Invalid path.");
+  }
+  const stat = await getWorkspaceStat(workspaceId, absPath);
+  if (!stat?.type || stat.type !== "directory") {
+    throw new Error("Path is not a directory.");
+  }
+  const entries = await listWorkspaceEntries(workspaceId, absPath);
+  const visible = entries.filter((entry) => !TREE_IGNORED_NAMES.has(entry.name));
+  visible.sort((a, b) => {
+    const aIsDir = a.type === "d";
+    const bIsDir = b.type === "d";
+    if (aIsDir && !bIsDir) return -1;
+    if (!aIsDir && bIsDir) return 1;
+    return a.name.localeCompare(b.name);
+  });
+  const nodes = visible.map((entry) => {
+    const entryPath = normalized ? `${normalized}/${entry.name}` : entry.name;
+    if (entry.type === "d") {
+      return {
+        name: entry.name,
+        path: entryPath,
+        type: "dir",
+        children: null,
+      };
     }
-    const entries = await listWorkspaceEntries(workspaceId, absPath);
-    const visible = entries.filter((entry) => !TREE_IGNORED_NAMES.has(entry.name));
-    visible.sort((a, b) => {
-      const aIsDir = a.type === "d";
-      const bIsDir = b.type === "d";
-      if (aIsDir && !bIsDir) return -1;
-      if (!aIsDir && bIsDir) return 1;
-      return a.name.localeCompare(b.name);
-    });
-
-    const nodes = [];
-    for (const entry of visible) {
-      if (count >= maxEntries) {
-        truncated = true;
-        break;
-      }
-      const entryPath = relPath ? `${relPath}/${entry.name}` : entry.name;
-      const absEntryPath = path.join(absPath, entry.name);
-      if (entry.type === "d") {
-        count += 1;
-        const node = {
-          name: entry.name,
-          path: entryPath,
-          type: "dir",
-          children: [],
-        };
-        if (depth < maxDepth) {
-          node.children = await walk(absEntryPath, entryPath, depth + 1);
-        }
-        nodes.push(node);
-      } else {
-        count += 1;
-        nodes.push({
-          name: entry.name,
-          path: entryPath,
-          type: "file",
-        });
-      }
-    }
-    return nodes;
-  };
-
-  const tree = await walk(rootPath, "", 0);
-  return { tree, total: count, truncated };
+    return {
+      name: entry.name,
+      path: entryPath,
+      type: "file",
+    };
+  });
+  return { entries: nodes, path: normalized || "" };
 };
 
 export const ensureUniqueFilename = async (workspaceId, dir, filename, reserved) => {

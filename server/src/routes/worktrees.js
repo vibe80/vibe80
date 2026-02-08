@@ -5,7 +5,7 @@ import {
   touchSession,
   runSessionCommandOutput,
   resolveWorktreeRoot,
-  buildDirectoryTree,
+  listDirectoryEntries,
   broadcastToSession,
   isValidProvider,
   resolveDefaultDenyGitCredentialsAccess,
@@ -232,7 +232,7 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.get("/worktree/:worktreeId/tree", async (req, res) => {
+  router.get("/worktree/:worktreeId/browse", async (req, res) => {
     const sessionId = req.query.session;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
@@ -246,18 +246,19 @@ export default function worktreeRoutes(deps) {
       return;
     }
     try {
-      const payload = await buildDirectoryTree(session.workspaceId, rootPath, {
-        maxDepth: req.query?.depth,
-        maxEntries: req.query?.limit,
-      });
+      const payload = await listDirectoryEntries(
+        session.workspaceId,
+        rootPath,
+        typeof req.query?.path === "string" ? req.query.path : ""
+      );
       res.json(payload);
     } catch (error) {
-      console.error("Failed to read worktree tree:", {
+      console.error("Failed to browse worktree:", {
         sessionId,
         worktreeId: req.params.worktreeId,
         error: error?.message || error,
       });
-      res.status(500).json({ error: "Failed to read worktree tree." });
+      res.status(500).json({ error: "Failed to browse worktree." });
     }
   });
 

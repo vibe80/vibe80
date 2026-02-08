@@ -5547,6 +5547,105 @@ function App() {
     return null;
   }, []);
 
+  const updateExplorerTreeNodes = useCallback((nodes, targetPath, children) => {
+    if (!Array.isArray(nodes)) {
+      return nodes;
+    }
+    let changed = false;
+    const next = nodes.map((node) => {
+      if (!node) {
+        return node;
+      }
+      if (node.path === targetPath) {
+        changed = true;
+        return {
+          ...node,
+          children,
+        };
+      }
+      if (node.type === "dir" && node.children != null) {
+        const updatedChildren = updateExplorerTreeNodes(
+          node.children,
+          targetPath,
+          children
+        );
+        if (updatedChildren !== node.children) {
+          changed = true;
+          return {
+            ...node,
+            children: updatedChildren,
+          };
+        }
+      }
+      return node;
+    });
+    return changed ? next : nodes;
+  }, []);
+
+  const setExplorerNodeChildren = useCallback(
+    (tabId, targetPath, children) => {
+      setExplorerByTab((current) => {
+        const prev = current[tabId] || explorerDefaultState;
+        const tree = Array.isArray(prev.tree) ? prev.tree : [];
+        const nextTree = updateExplorerTreeNodes(tree, targetPath, children);
+        if (nextTree === tree) {
+          return current;
+        }
+        return {
+          ...current,
+          [tabId]: {
+            ...explorerDefaultState,
+            ...prev,
+            tree: nextTree,
+          },
+        };
+      });
+    },
+    [explorerDefaultState, updateExplorerTreeNodes]
+  );
+
+  const fetchExplorerChildren = useCallback(
+    async (tabId, dirPath) => {
+      const sessionId = attachmentSession?.sessionId;
+      if (!sessionId || !tabId) {
+        return [];
+      }
+      const pathParam = dirPath ? `&path=${encodeURIComponent(dirPath)}` : "";
+      const response = await apiFetch(
+        `/api/worktree/${encodeURIComponent(
+          tabId
+        )}/browse?session=${encodeURIComponent(sessionId)}${pathParam}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load directory");
+      }
+      const payload = await response.json().catch(() => ({}));
+      const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+      const normalized = entries.map((entry) => ({
+        ...entry,
+        children: entry?.type === "dir" ? entry?.children ?? null : undefined,
+      }));
+      if (!dirPath) {
+        updateExplorerState(tabId, {
+          tree: normalized,
+          loading: false,
+          error: "",
+          treeTruncated: false,
+          treeTotal: normalized.length,
+        });
+      } else {
+        setExplorerNodeChildren(tabId, dirPath, normalized);
+      }
+      return normalized;
+    },
+    [
+      attachmentSession?.sessionId,
+      apiFetch,
+      setExplorerNodeChildren,
+      updateExplorerState,
+    ]
+  );
+
   const normalizeOpenPath = useCallback((rawPath) => {
     if (!rawPath) {
       return "";
@@ -5597,31 +5696,39 @@ function App() {
       let tree = explorerRef.current[tabId]?.tree;
       if (!Array.isArray(tree) || tree.length === 0) {
         try {
-          const response = await apiFetch(
-            `/api/worktree/${encodeURIComponent(
-              tabId
-            )}/tree?session=${encodeURIComponent(sessionId)}`
-          );
-          if (!response.ok) {
-            throw new Error("Failed to load tree");
-          }
-          const payload = await response.json();
-          tree = Array.isArray(payload?.tree) ? payload.tree : [];
-          updateExplorerState(tabId, {
-            tree,
-            loading: false,
-            error: "",
-            treeTruncated: Boolean(payload?.truncated),
-            treeTotal: Number.isFinite(Number(payload?.total))
-              ? Number(payload.total)
-              : 0,
-          });
+          await fetchExplorerChildren(tabId, "");
+          tree = explorerRef.current[tabId]?.tree;
         } catch (error) {
-          showToast(t("Unable to load tree."), "error");
+          showToast(t("Unable to load directory."), "error");
           return;
         }
       }
-      const node = findExplorerNode(tree, normalized);
+      const parts = normalized.split("/").filter(Boolean);
+      let currentPath = "";
+      let node = null;
+      for (const part of parts) {
+        const nextPath = currentPath ? `${currentPath}/${part}` : part;
+        node = findExplorerNode(tree, nextPath);
+        if (!node) {
+          showToast(t("Path not found."), "error");
+          return;
+        }
+        if (node.type === "dir" && node.children === null) {
+          try {
+            await fetchExplorerChildren(tabId, node.path);
+            tree = explorerRef.current[tabId]?.tree;
+            node = findExplorerNode(tree, nextPath);
+            if (!node) {
+              showToast(t("Path not found."), "error");
+              return;
+            }
+          } catch (error) {
+            showToast(t("Unable to load directory."), "error");
+            return;
+          }
+        }
+        currentPath = nextPath;
+      }
       if (!node) {
         showToast(t("Path not found."), "error");
         return;
@@ -5643,6 +5750,7 @@ function App() {
       findExplorerNode,
       handleViewSelect,
       normalizeOpenPath,
+      fetchExplorerChildren,
       showToast,
       t,
       updateExplorerState,
@@ -5850,24 +5958,7 @@ function App() {
       }
       updateExplorerState(tabId, { loading: true, error: "" });
       try {
-        const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            tabId
-          )}/tree?session=${encodeURIComponent(sessionId)}`
-        );
-        if (!response.ok) {
-          throw new Error("Failed to load tree");
-        }
-        const payload = await response.json();
-        updateExplorerState(tabId, {
-          tree: Array.isArray(payload?.tree) ? payload.tree : [],
-          loading: false,
-          error: "",
-          treeTruncated: Boolean(payload?.truncated),
-          treeTotal: Number.isFinite(Number(payload?.total))
-            ? Number(payload.total)
-            : 0,
-        });
+        await fetchExplorerChildren(tabId, "");
       } catch (error) {
         updateExplorerState(tabId, {
           loading: false,
@@ -5875,7 +5966,7 @@ function App() {
         });
       }
     },
-    [attachmentSession?.sessionId, updateExplorerState, t]
+    [attachmentSession?.sessionId, fetchExplorerChildren, updateExplorerState, t]
   );
 
   useEffect(() => {
@@ -6028,6 +6119,7 @@ function App() {
       setExplorerByTab((current) => {
         const prev = current[tabId] || explorerDefaultState;
         const expanded = new Set(prev.expandedPaths || []);
+        const willExpand = !expanded.has(dirPath);
         if (expanded.has(dirPath)) {
           expanded.delete(dirPath);
         } else {
@@ -6042,8 +6134,25 @@ function App() {
           },
         };
       });
+      if (dirPath) {
+        const tree = explorerRef.current[tabId]?.tree;
+        const node = findExplorerNode(tree, dirPath);
+        if (willExpand && node?.type === "dir" && node.children === null) {
+          fetchExplorerChildren(tabId, dirPath).catch(() => {
+            updateExplorerState(tabId, {
+              error: t("Unable to load the explorer."),
+            });
+          });
+        }
+      }
     },
-    [explorerDefaultState]
+    [
+      explorerDefaultState,
+      fetchExplorerChildren,
+      findExplorerNode,
+      t,
+      updateExplorerState,
+    ]
   );
 
   const toggleExplorerEditMode = useCallback(
@@ -7307,7 +7416,7 @@ function App() {
                 </button>
                 {isExpanded
                   ? renderExplorerNodes(
-                      node.children,
+                      node.children || [],
                       tabId,
                       expandedSet,
                       selectedPath,
