@@ -27,6 +27,7 @@ import useChatComposer from "./components/Chat/useChatComposer.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
+import TerminalPanel from "./components/Terminal/TerminalPanel.jsx";
 import QRCode from "qrcode";
 import vibe80LogoDark from "./assets/vibe80_dark.svg";
 import vibe80LogoLight from "./assets/vibe80_light.svg";
@@ -7333,69 +7334,56 @@ function App() {
               getLanguageForPath={getLanguageForPath}
               themeMode={themeMode}
             />
-            <div
-                className={`terminal-panel ${
-                  activePane === "terminal" ? "" : "is-hidden"
-                }`}
-              >
-                <div className="terminal-header">
-                  <div className="terminal-title">{t("Terminal")}</div>
-                  {(repoName || activeWorktree?.branchName || activeWorktree?.name) && (
-                    <div className="terminal-meta">
-                      {isInWorktree
-                        ? activeWorktree?.branchName || activeWorktree?.name
-                        : repoName}
-                    </div>
-                  )}
-                </div>
-                <div className="terminal-body" ref={terminalContainerRef} />
-                {!attachmentSession?.sessionId && (
-                  <div className="terminal-empty">
-                    {t("Start a session to open the terminal.")}
-                  </div>
-                )}
-              </div>
-            )}
+            <TerminalPanel
+              t={t}
+              terminalEnabled={terminalEnabled}
+              activePane={activePane}
+              repoName={repoName}
+              activeWorktree={activeWorktree}
+              isInWorktree={isInWorktree}
+              terminalContainerRef={terminalContainerRef}
+              attachmentSession={attachmentSession}
+            />
             <div
               className={`logs-panel ${
                 activePane === "logs" ? "" : "is-hidden"
               }`}
             >
-            <div className="logs-header">
-              <div className="logs-title">{t("JSON-RPC")}</div>
-              <div className="logs-controls">
-                <div className="logs-count">
-                  {t("{{count}} item(s)", { count: filteredRpcLogs.length })}
-                </div>
-                <div className="logs-filters">
-                  <button
-                    type="button"
-                    className={`logs-filter ${
-                      logFilter === "all" ? "is-active" : ""
-                    }`}
-                    onClick={() => setLogFilter("all")}
-                  >
-                    {t("All")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`logs-filter ${
-                      logFilter === "stdin" ? "is-active" : ""
-                    }`}
-                    onClick={() => setLogFilter("stdin")}
-                  >
-                    {t("Stdin")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`logs-filter ${
-                      logFilter === "stdout" ? "is-active" : ""
-                    }`}
-                    onClick={() => setLogFilter("stdout")}
-                  >
-                    {t("Stdout")}
-                  </button>
-                </div>
+              <div className="logs-header">
+                <div className="logs-title">{t("JSON-RPC")}</div>
+                <div className="logs-controls">
+                  <div className="logs-count">
+                    {t("{{count}} item(s)", { count: filteredRpcLogs.length })}
+                  </div>
+                  <div className="logs-filters">
+                    <button
+                      type="button"
+                      className={`logs-filter ${
+                        logFilter === "all" ? "is-active" : ""
+                      }`}
+                      onClick={() => setLogFilter("all")}
+                    >
+                      {t("All")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`logs-filter ${
+                        logFilter === "stdin" ? "is-active" : ""
+                      }`}
+                      onClick={() => setLogFilter("stdin")}
+                    >
+                      {t("Stdin")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`logs-filter ${
+                        logFilter === "stdout" ? "is-active" : ""
+                      }`}
+                      onClick={() => setLogFilter("stdout")}
+                    >
+                      {t("Stdout")}
+                    </button>
+                  </div>
                   <button
                     type="button"
                     className="logs-clear"
@@ -7404,8 +7392,8 @@ function App() {
                   >
                     {t("Clear")}
                   </button>
+                </div>
               </div>
-            </div>
             {filteredRpcLogs.length === 0 ? (
               <div className="logs-empty">{t("No logs yet.")}</div>
             ) : (
