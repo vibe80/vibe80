@@ -5,6 +5,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
 import * as pty from "node-pty";
+import rateLimit from "express-rate-limit";
 import storage from "./storage/index.js";
 import { getSessionRuntime } from "./runtimeStore.js";
 import {
@@ -105,9 +106,36 @@ await ensureDefaultMonoWorkspace();
 // Middleware pipeline
 // ---------------------------------------------------------------------------
 
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const createLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(express.json({ limit: "10mb" }));
 app.use(errorTypesMiddleware);
 app.use(debugMiddleware);
+app.use("/api", apiLimiter);
+app.post("/api/workspaces/login", authLimiter);
+app.post("/api/workspaces/refresh", authLimiter);
+app.post("/api/workspaces", createLimiter);
+app.post("/api/session", createLimiter);
+app.post("/api/sessions", createLimiter);
 app.use("/api", authMiddleware);
 
 // ---------------------------------------------------------------------------
