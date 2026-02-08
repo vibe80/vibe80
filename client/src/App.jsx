@@ -2568,7 +2568,7 @@ function App() {
               <div className="handoff-modal-actions">
                 <button
                   type="button"
-                  className="ghost"
+                  className="session-button"
                   onClick={requestHandoffQr}
                   disabled={handoffLoading}
                 >
