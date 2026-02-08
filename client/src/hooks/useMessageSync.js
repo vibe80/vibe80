@@ -19,7 +19,7 @@ export default function useMessageSync({ socketRef, messagesRef }) {
     })();
     socket.send(
       JSON.stringify({
-        type: "sync_worktree_messages",
+        type: "worktree_messages_sync",
         worktreeId: "main",
         lastSeenMessageId,
       })

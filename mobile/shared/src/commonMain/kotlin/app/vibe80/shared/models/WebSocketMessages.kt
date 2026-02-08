@@ -154,9 +154,9 @@ data class WorktreeStatusMessage(
 ) : ServerMessage()
 
 @Serializable
-@SerialName("worktree_message")
+@SerialName("worktree_send_message")
 data class WorktreeMessageEvent(
-    override val type: String = "worktree_message",
+    override val type: String = "worktree_send_message",
     val worktreeId: String,
     val message: ChatMessage
 ) : ServerMessage()
@@ -276,7 +276,7 @@ data class SwitchProviderRequest(
 
 @Serializable
 data class WorktreeMessageRequest(
-    override val type: String = "worktree_message",
+    override val type: String = "worktree_send_message",
     val worktreeId: String,
     val text: String,
     val displayText: String? = null,
@@ -290,7 +290,7 @@ data class ListWorktreesRequest(
 
 @Serializable
 data class SyncWorktreeMessagesRequest(
-    override val type: String = "sync_worktree_messages",
+    override val type: String = "worktree_messages_sync",
     val worktreeId: String,
     val lastSeenMessageId: String? = null
 ) : ClientMessage()
