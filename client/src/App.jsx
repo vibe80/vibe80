@@ -28,10 +28,10 @@ import {
   faUser,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import Editor from "@monaco-editor/react";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
 import ChatMessages from "./components/Chat/ChatMessages.jsx";
 import ChatComposer from "./components/Chat/ChatComposer.jsx";
+import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import QRCode from "qrcode";
 import vibe80LogoDark from "./assets/vibe80_dark.svg";
 import vibe80LogoLight from "./assets/vibe80_light.svg";
@@ -7895,157 +7895,25 @@ function App() {
               )}
             </div>
             <div
-              className={`explorer-panel ${
-                activePane === "explorer" ? "" : "is-hidden"
-              }`}
-            >
-              <div className="explorer-header">
-                <div>
-                  <div className="explorer-title">{t("Explorer")}</div>
-                  {(repoName ||
-                    activeWorktree?.branchName ||
-                    activeWorktree?.name) && (
-                    <div className="explorer-subtitle">
-                      {isInWorktree
-                        ? activeWorktree?.branchName || activeWorktree?.name
-                        : repoName}
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="explorer-refresh"
-                  onClick={() =>
-                    (() => {
-                      const tabId = activeWorktreeId || "main";
-                      requestExplorerTree(tabId, true);
-                      requestExplorerStatus(tabId, true);
-                    })()
-                  }
-                  disabled={!attachmentSession?.sessionId}
-                >
-                  {t("Refresh")}
-                </button>
-              </div>
-              <div className="explorer-body">
-                <div className="explorer-tree">
-                  {activeExplorer.loading ? (
-                    <div className="explorer-empty">{t("Loading...")}</div>
-                  ) : activeExplorer.error ? (
-                    <div className="explorer-empty">
-                      {activeExplorer.error}
-                    </div>
-                  ) : Array.isArray(activeExplorer.tree) &&
-                    activeExplorer.tree.length > 0 ? (
-                    <>
-                      {renderExplorerNodes(
-                        activeExplorer.tree,
-                        activeWorktreeId || "main",
-                        new Set(activeExplorer.expandedPaths || []),
-                        activeExplorer.selectedPath,
-                        explorerStatusByPath,
-                        explorerDirStatus
-                      )}
-                      {activeExplorer.treeTruncated && (
-                        <div className="explorer-truncated">
-                          {t("List truncated after {{count}} entries.", {
-                            count: activeExplorer.treeTotal,
-                          })}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="explorer-empty">
-                      {t("No file found.")}
-                    </div>
-                  )}
-                </div>
-                <div className="explorer-editor">
-                  <div className="explorer-editor-header">
-                    <span className="explorer-editor-path">
-                      {activeExplorer.selectedPath ||
-                        t("No file selected")}
-                    </span>
-                    <div className="explorer-editor-actions">
-                      {activeExplorer.selectedPath && !activeExplorer.fileBinary && (
-                        <button
-                          type="button"
-                          className="explorer-action primary"
-                          onClick={() =>
-                            saveExplorerFile(activeWorktreeId || "main")
-                          }
-                          disabled={
-                            activeExplorer.fileSaving ||
-                            !activeExplorer.isDirty
-                          }
-                        >
-                          {activeExplorer.fileSaving
-                            ? t("Saving...")
-                            : t("Save")}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {activeExplorer.fileLoading ? (
-                    <div className="explorer-editor-empty">
-                      {t("Loading...")}
-                    </div>
-                  ) : activeExplorer.fileError ? (
-                    <div className="explorer-editor-empty">
-                      {activeExplorer.fileError}
-                    </div>
-                  ) : activeExplorer.fileBinary ? (
-                    <div className="explorer-editor-empty">
-                      {t("Binary file not displayed.")}
-                    </div>
-                  ) : activeExplorer.selectedPath ? (
-                    <>
-                      <div className="explorer-editor-input">
-                        <Editor
-                          key={activeExplorer.selectedPath}
-                          value={activeExplorer.draftContent || ""}
-                          onChange={(value) =>
-                            updateExplorerDraft(
-                              activeWorktreeId || "main",
-                              value || ""
-                            )
-                          }
-                          language={getLanguageForPath(
-                            activeExplorer.selectedPath
-                          )}
-                          theme={themeMode === "dark" ? "vs-dark" : "light"}
-                          options={{
-                            minimap: { enabled: false },
-                            fontSize: 12,
-                            lineHeight: 18,
-                            scrollBeyondLastLine: false,
-                            automaticLayout: true,
-                            wordWrap: "off",
-                            readOnly: false,
-                          }}
-                        />
-                      </div>
-                      {activeExplorer.fileSaveError && (
-                        <div className="explorer-truncated">
-                          {activeExplorer.fileSaveError}
-                        </div>
-                      )}
-                      {activeExplorer.fileTruncated && (
-                        <div className="explorer-truncated">
-                          {t("File truncated for display.")}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="explorer-editor-empty">
-                      {t("Select a file in the tree.")}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            {terminalEnabled && (
-              <div
+            <ExplorerPanel
+              t={t}
+              activePane={activePane}
+              repoName={repoName}
+              activeWorktree={activeWorktree}
+              isInWorktree={isInWorktree}
+              activeWorktreeId={activeWorktreeId}
+              attachmentSession={attachmentSession}
+              requestExplorerTree={requestExplorerTree}
+              requestExplorerStatus={requestExplorerStatus}
+              activeExplorer={activeExplorer}
+              renderExplorerNodes={renderExplorerNodes}
+              explorerStatusByPath={explorerStatusByPath}
+              explorerDirStatus={explorerDirStatus}
+              saveExplorerFile={saveExplorerFile}
+              updateExplorerDraft={updateExplorerDraft}
+              getLanguageForPath={getLanguageForPath}
+              themeMode={themeMode}
+            />
                 className={`terminal-panel ${
                   activePane === "terminal" ? "" : "is-hidden"
                 }`}
