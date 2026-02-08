@@ -2295,6 +2295,7 @@ function App() {
               handleSaveGitIdentity={handleSaveGitIdentity}
               attachmentSession={attachmentSession}
             />
+          </div>
           <ChatComposer
             t={t}
             activePane={activePane}
