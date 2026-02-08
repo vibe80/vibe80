@@ -322,7 +322,6 @@ export default function sessionRoutes(deps) {
             ? session.defaultInternetAccess
             : true,
         defaultDenyGitCredentialsAccess: resolveDefaultDenyGitCredentialsAccess(session),
-        messages: [],
         rpcLogsEnabled: debugApiWsLog,
         terminalEnabled,
       });

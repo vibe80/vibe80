@@ -159,13 +159,6 @@ export default function worktreeRoutes(deps) {
 
     try {
       const diff = await getWorktreeDiff(session, worktree.id);
-      const limitValue = Number.parseInt(req.query?.limit, 10);
-      const limit =
-        Number.isFinite(limitValue) && limitValue > 0 ? limitValue : 50;
-      const messages = await getWorktreeMessages(session, worktree.id, {
-        limit,
-        beforeMessageId: null,
-      });
       res.json({
         id: worktree.id,
         name: worktree.name,
@@ -179,7 +172,6 @@ export default function worktreeRoutes(deps) {
             ? worktree.denyGitCredentialsAccess
             : true,
         status: worktree.status,
-        messages,
         color: worktree.color,
         createdAt: worktree.createdAt,
         diff,
@@ -191,6 +183,52 @@ export default function worktreeRoutes(deps) {
         error: error?.message || error,
       });
       res.status(500).json({ error: "Failed to get worktree." });
+    }
+  });
+
+  router.get("/worktree/:worktreeId/messages", async (req, res) => {
+    const sessionId = req.query.session;
+    const session = await getSession(sessionId, req.workspaceId);
+    if (!session) {
+      res.status(400).json({ error: "Invalid session." });
+      return;
+    }
+    await touchSession(session);
+
+    const worktreeId = req.params.worktreeId;
+    const worktree = await getWorktree(session, worktreeId);
+    if (!worktree) {
+      res.status(404).json({ error: "Worktree not found." });
+      return;
+    }
+
+    try {
+      const limitValue = Number.parseInt(req.query?.limit, 10);
+      const limit =
+        Number.isFinite(limitValue) && limitValue > 0 ? limitValue : 50;
+      const beforeMessageId =
+        typeof req.query?.beforeMessageId === "string"
+          ? req.query.beforeMessageId
+          : null;
+      const messages = await getWorktreeMessages(session, worktreeId, {
+        limit: limit + 1,
+        beforeMessageId,
+      });
+      const hasMore = messages.length > limit;
+      const trimmed = hasMore ? messages.slice(1) : messages;
+
+      res.json({
+        worktreeId,
+        messages: trimmed,
+        hasMore,
+      });
+    } catch (error) {
+      console.error("Failed to get worktree messages:", {
+        sessionId,
+        worktreeId,
+        error: error?.message || error,
+      });
+      res.status(500).json({ error: "Failed to get worktree messages." });
     }
   });
 

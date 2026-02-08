@@ -758,15 +758,10 @@ wss.on("connection", (socket, req) => {
         }
 
         if (session.activeProvider === newProvider) {
-          const messages = await getWorktreeMessages(session, "main", {
-            limit: 50,
-            beforeMessageId: null,
-          });
           socket.send(
             JSON.stringify({
               type: "provider_switched",
               provider: newProvider,
-              messages,
             })
           );
           return;
@@ -805,15 +800,10 @@ wss.on("connection", (socket, req) => {
             // Models fetch failed, continue without models
           }
 
-          const messages = await getWorktreeMessages(session, "main", {
-            limit: 50,
-            beforeMessageId: null,
-          });
           broadcastToSession(sessionId, {
             type: "provider_switched",
             provider: newProvider,
             models,
-            messages,
             threadId: newClient.threadId || null,
           });
         } catch (error) {

@@ -2091,14 +2091,20 @@ function App() {
     }
     try {
       const response = await apiFetch(
-        `/api/worktree/main?session=${encodeURIComponent(sessionId)}`
+        `/api/worktree/main/messages?session=${encodeURIComponent(sessionId)}`
       );
       if (!response.ok) {
         return;
       }
       const payload = await response.json().catch(() => ({}));
       if (Array.isArray(payload?.messages)) {
-        applyMessages(payload.messages);
+        const normalized = payload.messages.map((message, index) => ({
+          ...message,
+          id: message?.id || `history-${index}`,
+          attachments: normalizeAttachments(message?.attachments || []),
+          toolResult: message?.toolResult,
+        }));
+        applyMessages(normalized);
       }
     } catch (error) {
       // Ignore snapshot failures; WS sync will retry.
@@ -2125,10 +2131,19 @@ function App() {
           return;
         }
         const payload = await response.json().catch(() => ({}));
-        if (!Array.isArray(payload?.messages)) {
+        const messagesResponse = await apiFetch(
+          `/api/worktree/${encodeURIComponent(
+            worktreeId
+          )}/messages?session=${encodeURIComponent(sessionId)}`
+        );
+        if (!messagesResponse.ok) {
           return;
         }
-        const normalizedMessages = payload.messages.map((message, index) => ({
+        const messagesPayload = await messagesResponse.json().catch(() => ({}));
+        if (!Array.isArray(messagesPayload?.messages)) {
+          return;
+        }
+        const normalizedMessages = messagesPayload.messages.map((message, index) => ({
           ...message,
           id: message?.id || `history-${index}`,
           attachments: normalizeAttachments(message?.attachments || []),
@@ -3136,11 +3151,7 @@ function App() {
         if (!isWorktreeScoped && payload.type === "provider_switched") {
           setLlmProvider(payload.provider);
           setStatus(t("Ready"));
-          if (Array.isArray(payload.messages)) {
-            applyMessages(payload.messages);
-          } else {
-            applyMessages([]);
-          }
+          void loadMainWorktreeSnapshot();
           setProviderSwitching(false);
           if (Array.isArray(payload.models)) {
             setModels(payload.models);
