@@ -1959,6 +1959,7 @@ function App() {
         workspaceCopied={workspaceCopied}
         handleWorkspaceCopy={handleWorkspaceCopy}
         infoContent={infoContent}
+        toast={toast}
       />
     );
   }

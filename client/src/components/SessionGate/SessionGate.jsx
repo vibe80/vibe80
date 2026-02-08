@@ -79,6 +79,7 @@ export default function SessionGate({
   workspaceCopied,
   handleWorkspaceCopy,
   infoContent,
+  toast,
 }) {
   return (
     <div className="session-gate session-fullscreen">
