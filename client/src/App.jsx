@@ -30,6 +30,7 @@ import useSessionLifecycle from "./hooks/useSessionLifecycle.js";
 import useSessionHandoff from "./hooks/useSessionHandoff.js";
 import useGitIdentity from "./hooks/useGitIdentity.js";
 import useVibe80Forms from "./hooks/useVibe80Forms.js";
+import useLocalPreferences from "./hooks/useLocalPreferences.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -923,6 +924,10 @@ function App() {
     explorerRef.current = explorerByTab;
   }, [explorerByTab]);
 
+  useEffect(() => {
+    rpcLogsEnabledRef.current = rpcLogsEnabled;
+  }, [rpcLogsEnabled]);
+
   const choicesKey = useMemo(
     () =>
       attachmentSession?.sessionId
@@ -947,6 +952,35 @@ function App() {
     handleSendMessageRef,
     draftAttachments,
     setDraftAttachments,
+  });
+  useLocalPreferences({
+    authMode,
+    llmProvider,
+    selectedProviders,
+    openAiAuthMode,
+    showChatCommands,
+    showToolResults,
+    chatFullWidth,
+    notificationsEnabled,
+    themeMode,
+    composerInputMode,
+    repoHistory,
+    debugMode,
+    setLlmProvider,
+    setOpenAiLoginError,
+    setClaudeLoginError,
+    AUTH_MODE_KEY,
+    LLM_PROVIDER_KEY,
+    LLM_PROVIDERS_KEY,
+    OPENAI_AUTH_MODE_KEY,
+    CHAT_COMMANDS_VISIBLE_KEY,
+    TOOL_RESULTS_VISIBLE_KEY,
+    CHAT_FULL_WIDTH_KEY,
+    NOTIFICATIONS_ENABLED_KEY,
+    THEME_MODE_KEY,
+    COMPOSER_INPUT_MODE_KEY,
+    REPO_HISTORY_KEY,
+    DEBUG_MODE_KEY,
   });
   const groupedMessages = useMemo(() => {
     const grouped = [];
@@ -1033,121 +1067,6 @@ function App() {
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [toolbarExportOpen]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(AUTH_MODE_KEY, authMode);
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [authMode]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LLM_PROVIDER_KEY, llmProvider);
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [llmProvider]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LLM_PROVIDERS_KEY, JSON.stringify(selectedProviders));
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [selectedProviders]);
-
-  useEffect(() => {
-    setOpenAiLoginError("");
-    setClaudeLoginError("");
-  }, [llmProvider]);
-
-  useEffect(() => {
-    if (selectedProviders.includes(llmProvider)) {
-      return;
-    }
-    const fallback = selectedProviders[0] || "codex";
-    if (fallback !== llmProvider) {
-      setLlmProvider(fallback);
-    }
-  }, [selectedProviders, llmProvider]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(OPENAI_AUTH_MODE_KEY, openAiAuthMode);
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [openAiAuthMode]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        CHAT_COMMANDS_VISIBLE_KEY,
-        showChatCommands ? "true" : "false"
-      );
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [showChatCommands]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        TOOL_RESULTS_VISIBLE_KEY,
-        showToolResults ? "true" : "false"
-      );
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [showToolResults]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        CHAT_FULL_WIDTH_KEY,
-        chatFullWidth ? "true" : "false"
-      );
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [chatFullWidth]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        NOTIFICATIONS_ENABLED_KEY,
-        notificationsEnabled ? "true" : "false"
-      );
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [notificationsEnabled]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(THEME_MODE_KEY, themeMode);
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [themeMode]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(COMPOSER_INPUT_MODE_KEY, composerInputMode);
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [composerInputMode]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(DEBUG_MODE_KEY, debugMode ? "true" : "false");
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [debugMode]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
@@ -1452,17 +1371,6 @@ function App() {
         lastSeenMessageId,
       })
     );
-  useEffect(() => {
-    try {
-      localStorage.setItem(REPO_HISTORY_KEY, JSON.stringify(repoHistory));
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [repoHistory]);
-
-  useEffect(() => {
-    rpcLogsEnabledRef.current = rpcLogsEnabled;
-  }, [rpcLogsEnabled]);
 
   useChatSocket({
     attachmentSessionId: attachmentSession?.sessionId,
