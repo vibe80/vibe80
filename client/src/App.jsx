@@ -41,6 +41,7 @@ import useTurnInterrupt from "./hooks/useTurnInterrupt.js";
 import useDiffNavigation from "./hooks/useDiffNavigation.js";
 import useChatCollapse from "./hooks/useChatCollapse.js";
 import useSessionResync from "./hooks/useSessionResync.js";
+import useMessageSync from "./hooks/useMessageSync.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1255,29 +1256,10 @@ function App() {
     loadMainWorktreeSnapshot,
   });
 
-  const requestMessageSync = useCallback(() => {
-    const socket = socketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    const lastSeenMessageId = (() => {
-      if (!Array.isArray(messagesRef.current)) {
-        return null;
-      }
-      for (let i = messagesRef.current.length - 1; i >= 0; i -= 1) {
-        if (messagesRef.current[i]?.id) {
-          return messagesRef.current[i].id;
-        }
-      }
-      return null;
-    })();
-    socket.send(
-      JSON.stringify({
-        type: "sync_worktree_messages",
-        worktreeId: "main",
-        lastSeenMessageId,
-      })
-    );
+  const { requestMessageSync } = useMessageSync({
+    socketRef,
+    messagesRef,
+  });
 
   useChatSocket({
     attachmentSessionId: attachmentSession?.sessionId,
