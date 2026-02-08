@@ -75,6 +75,7 @@ export const createSqliteStorage = () => {
     if (db) return;
     db = await openDatabase(resolvedPath);
     await run(db, "PRAGMA journal_mode = WAL;");
+    await run(db, "PRAGMA busy_timeout = 5000;");
     await run(db, "PRAGMA foreign_keys = ON;");
     await run(
       db,
