@@ -40,6 +40,7 @@ import useSessionReset from "./hooks/useSessionReset.js";
 import useTurnInterrupt from "./hooks/useTurnInterrupt.js";
 import useDiffNavigation from "./hooks/useDiffNavigation.js";
 import useChatCollapse from "./hooks/useChatCollapse.js";
+import useSessionResync from "./hooks/useSessionResync.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1239,57 +1240,20 @@ function App() {
     return dirStatus;
   }, [explorerStatusByPath]);
 
-  const resyncSession = useCallback(async () => {
-    const sessionId = attachmentSession?.sessionId;
-    if (!sessionId) {
-      return;
-    }
-    try {
-      const response = await apiFetch(
-        `/api/session/${encodeURIComponent(sessionId)}`
-      );
-      if (!response.ok) {
-        return;
-      }
-      const data = await response.json();
-      if (data?.default_provider && data.default_provider !== llmProvider) {
-        setLlmProvider(data.default_provider);
-      }
-      if (Array.isArray(data?.providers) && data.providers.length) {
-        const filtered = data.providers.filter(
-          (entry) => entry === "codex" || entry === "claude"
-        );
-        if (filtered.length) {
-          setSelectedProviders(filtered);
-          setOpenAiReady(filtered.includes("codex"));
-          setClaudeReady(filtered.includes("claude"));
-        }
-      }
-      if (data?.repoDiff) {
-        setRepoDiff(data.repoDiff);
-      }
-      if (typeof data?.rpcLogsEnabled === "boolean") {
-        setRpcLogsEnabled(data.rpcLogsEnabled);
-        if (!data.rpcLogsEnabled) {
-          setRpcLogs([]);
-        }
-      }
-      if (Array.isArray(data?.rpcLogs) && data?.rpcLogsEnabled !== false) {
-        setRpcLogs(data.rpcLogs);
-      }
-      if (typeof data?.terminalEnabled === "boolean") {
-        setTerminalEnabled(data.terminalEnabled);
-      }
-      void loadMainWorktreeSnapshot();
-    } catch (error) {
-      // Ignore resync failures; reconnect loop will retry.
-    }
-  }, [
-    attachmentSession?.sessionId,
-    llmProvider,
+  const { resyncSession } = useSessionResync({
+    attachmentSessionId: attachmentSession?.sessionId,
     apiFetch,
+    llmProvider,
+    setLlmProvider,
+    setSelectedProviders,
+    setOpenAiReady,
+    setClaudeReady,
+    setRepoDiff,
+    setRpcLogsEnabled,
+    setRpcLogs,
+    setTerminalEnabled,
     loadMainWorktreeSnapshot,
-  ]);
+  });
 
   const requestMessageSync = useCallback(() => {
     const socket = socketRef.current;
