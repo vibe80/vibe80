@@ -35,6 +35,7 @@ import useLayoutMode from "./hooks/useLayoutMode.js";
 import useRpcLogView from "./hooks/useRpcLogView.js";
 import useToolbarExport from "./hooks/useToolbarExport.js";
 import usePanelState from "./hooks/usePanelState.js";
+import usePaneNavigation from "./hooks/usePaneNavigation.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1821,20 +1822,17 @@ function App() {
         ? activeWorktree?.status === "ready"
         : appServerReady;
 
-  const handleViewSelect = useCallback((nextPane) => {
-    if ((!debugMode || !rpcLogsEnabled) && nextPane === "logs") {
-      return;
-    }
-    if (!terminalEnabled && nextPane === "terminal") {
-      return;
-    }
-    const key = activeWorktreeId || "main";
-    setPaneByTab((current) => ({
-      ...current,
-      [key]: nextPane,
-    }));
-    setToolbarExportOpen(false);
-  }, [activeWorktreeId, debugMode, rpcLogsEnabled, terminalEnabled]);
+  const { handleViewSelect, handleOpenSettings, handleSettingsBack } =
+    usePaneNavigation({
+      activePane,
+      activeWorktreeId,
+      debugMode,
+      rpcLogsEnabled,
+      terminalEnabled,
+      setPaneByTab,
+      setToolbarExportOpen,
+      lastPaneByTabRef,
+    });
 
   const {
     addToBacklog,
@@ -1925,33 +1923,6 @@ function App() {
     requestWorktreeDiff,
   ]);
 
-  const handleOpenSettings = useCallback(() => {
-    if (activePane !== "settings") {
-      const key = activeWorktreeId || "main";
-      lastPaneByTabRef.current.set(key, activePane);
-    }
-    handleViewSelect("settings");
-  }, [activePane, activeWorktreeId, handleViewSelect]);
-
-  const handleSettingsBack = useCallback(() => {
-    const key = activeWorktreeId || "main";
-    const previousPane = lastPaneByTabRef.current.get(key);
-    const fallbackPane =
-      previousPane && previousPane !== "settings" ? previousPane : "chat";
-    handleViewSelect(fallbackPane);
-  }, [activeWorktreeId, handleViewSelect]);
-
-  useEffect(() => {
-    if ((!debugMode || !rpcLogsEnabled) && activePane === "logs") {
-      handleViewSelect("chat");
-    }
-  }, [debugMode, rpcLogsEnabled, activePane, handleViewSelect]);
-
-  useEffect(() => {
-    if (!terminalEnabled && activePane === "terminal") {
-      handleViewSelect("chat");
-    }
-  }, [terminalEnabled, activePane, handleViewSelect]);
 
   const updateExplorerState = useCallback((tabId, patch) => {
     setExplorerByTab((current) => {
