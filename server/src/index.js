@@ -58,6 +58,7 @@ import {
   resolveDefaultDenyGitCredentialsAccess,
   sessionGcIntervalMs,
   updateWorktreeThreadId,
+  runSessionCommandOutputWithStatus,
 } from "./services/session.js";
 import healthRoutes from "./routes/health.js";
 import workspaceRoutes from "./routes/workspaces.js";
@@ -410,27 +411,88 @@ wss.on("connection", (socket, req) => {
           socket.send(JSON.stringify({ type: "error", message: "Worktree not found." }));
           return;
         }
-        const client = worktree
-          ? runtime.worktreeClients.get(worktreeId) || getActiveClient(session)
-          : getActiveClient(session);
-        if (!client?.ready) {
-          socket.send(
-            JSON.stringify({
-              type: "error",
-              message: `${getProviderLabel(session)} not ready yet.`,
-            })
-          );
-          return;
-        }
         try {
-          const result = await client.sendActionRequest(requestType, arg);
-          socket.send(
-            JSON.stringify({
-              type: "action_started",
-              requestType,
-              turnId: result?.turn?.id || null,
-            })
+          const messageId = createMessageId();
+          const actionText = `/${requestType} ${arg}`.trim();
+          const actionMessage = {
+            id: messageId,
+            role: "user",
+            type: "action_request",
+            text: actionText,
+            action: {
+              request: requestType,
+              arg,
+            },
+          };
+          await appendWorktreeMessage(session, worktreeId, actionMessage);
+          const requestPayload = {
+            type: "action_request",
+            id: messageId,
+            request: requestType,
+            arg,
+            text: actionText,
+          };
+          if (worktreeId !== "main") {
+            requestPayload.worktreeId = worktreeId;
+          }
+          broadcastToSession(session.sessionId, requestPayload);
+
+          const cwd = worktree?.path || session.repoDir;
+          const denyGitCreds = typeof worktree?.denyGitCredentialsAccess === "boolean"
+            ? worktree.denyGitCredentialsAccess
+            : resolveDefaultDenyGitCredentialsAccess(session);
+          const allowGitCreds = !denyGitCreds;
+          const gitDir = session.gitDir || path.join(session.dir, "git");
+          const sshDir = getWorkspaceSshPaths(getWorkspacePaths(session.workspaceId).homeDir).sshDir;
+          const extraAllowRw = [
+            session.repoDir,
+            worktree?.path,
+            ...(allowGitCreds ? [gitDir, sshDir] : []),
+          ].filter(Boolean);
+          const { output, code } = await runSessionCommandOutputWithStatus(
+            session,
+            requestType === "run" ? "/bin/bash" : "git",
+            requestType === "run" ? ["-lc", arg] : arg.split(/\s+/).filter(Boolean),
+            {
+              cwd,
+              sandbox: true,
+              repoDir: cwd,
+              workspaceId: session.workspaceId,
+              tmpDir: getSessionTmpDir(session.dir),
+              attachmentsDir: session.attachmentsDir,
+              netMode: requestType === "git" ? "tcp:22,53,443" : "none",
+              extraAllowRw,
+            }
           );
+          const trimmedOutput = (output || "").trim();
+          const resultText = `\`\`\`\n${trimmedOutput}${trimmedOutput ? "\n" : ""}\`\`\``;
+          const status = code === 0 ? "success" : "error";
+          const resultMessage = {
+            id: messageId,
+            role: "assistant",
+            type: "action_result",
+            text: resultText,
+            action: {
+              request: requestType,
+              arg,
+              status,
+              output: output || "",
+            },
+          };
+          await appendWorktreeMessage(session, worktreeId, resultMessage);
+          const resultPayload = {
+            type: "action_result",
+            id: messageId,
+            request: requestType,
+            arg,
+            status,
+            output: output || "",
+            text: resultText,
+          };
+          if (worktreeId !== "main") {
+            resultPayload.worktreeId = worktreeId;
+          }
+          broadcastToSession(session.sessionId, resultPayload);
         } catch (error) {
           socket.send(
             JSON.stringify({
