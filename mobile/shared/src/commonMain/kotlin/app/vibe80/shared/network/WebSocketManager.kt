@@ -217,7 +217,6 @@ class WebSocketManager(
                 "worktree_status" -> json.decodeFromString<WorktreeStatusMessage>(text)
                 "worktree_send_message" -> json.decodeFromString<WorktreeMessageEvent>(text)
                 "worktree_delta" -> json.decodeFromString<WorktreeDeltaMessage>(text)
-                "worktree_turn_started" -> json.decodeFromString<WorktreeTurnStartedMessage>(text)
                 "worktree_turn_completed" -> json.decodeFromString<WorktreeTurnCompletedMessage>(text)
                 "worktree_closed" -> json.decodeFromString<WorktreeClosedMessage>(text)
                 "worktree_merge_result" -> json.decodeFromString<WorktreeMergeResultMessage>(text)

@@ -172,14 +172,6 @@ data class WorktreeDeltaMessage(
 ) : ServerMessage()
 
 @Serializable
-@SerialName("worktree_turn_started")
-data class WorktreeTurnStartedMessage(
-    override val type: String = "worktree_turn_started",
-    val worktreeId: String,
-    val turnId: String
-) : ServerMessage()
-
-@Serializable
 @SerialName("worktree_turn_completed")
 data class WorktreeTurnCompletedMessage(
     override val type: String = "worktree_turn_completed",

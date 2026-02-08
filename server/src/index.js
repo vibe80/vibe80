@@ -554,11 +554,12 @@ wss.on("connection", (socket, req) => {
           });
           socket.send(
             JSON.stringify({
-              type: "worktree_turn_started",
+              type: "turn_started",
               worktreeId,
               turnId: result.turn.id,
               threadId: client.threadId,
               provider: worktree.provider,
+              status: "processing",
             })
           );
         } catch (error) {
