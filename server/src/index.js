@@ -76,6 +76,22 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
+const trustProxySetting = process.env.TRUST_PROXY;
+if (trustProxySetting !== undefined) {
+  const normalized = trustProxySetting.trim().toLowerCase();
+  if (normalized === "true") {
+    app.set("trust proxy", true);
+  } else if (normalized === "false") {
+    app.set("trust proxy", false);
+  } else {
+    const numeric = Number(trustProxySetting);
+    if (!Number.isNaN(numeric)) {
+      app.set("trust proxy", numeric);
+    } else {
+      app.set("trust proxy", trustProxySetting);
+    }
+  }
+}
 const terminalEnabled = !/^(0|false|no|off)$/i.test(
   process.env.TERMINAL_ENABLED || ""
 );
