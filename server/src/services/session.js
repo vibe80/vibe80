@@ -624,9 +624,33 @@ export function broadcastToSession(sessionId, payload) {
   }
 }
 
+const repoDiffTimers = new Map();
+const repoDiffInFlight = new Set();
+const repoDiffDebounceMs = 500;
+
 export const broadcastRepoDiff = async (sessionId) => {
+  if (!sessionId) {
+    return;
+  }
+  if (repoDiffInFlight.has(sessionId)) {
+    if (!repoDiffTimers.has(sessionId)) {
+      const timer = setTimeout(() => {
+        repoDiffTimers.delete(sessionId);
+        void broadcastRepoDiff(sessionId);
+      }, repoDiffDebounceMs);
+      repoDiffTimers.set(sessionId, timer);
+    }
+    return;
+  }
+  const existingTimer = repoDiffTimers.get(sessionId);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    repoDiffTimers.delete(sessionId);
+  }
+  repoDiffInFlight.add(sessionId);
   const session = await getSession(sessionId);
   if (!session) {
+    repoDiffInFlight.delete(sessionId);
     return;
   }
   try {
@@ -646,6 +670,15 @@ export const broadcastRepoDiff = async (sessionId) => {
       sessionId,
       error: error?.message || error,
     });
+  } finally {
+    repoDiffInFlight.delete(sessionId);
+    if (repoDiffTimers.has(sessionId)) {
+      const timer = setTimeout(() => {
+        repoDiffTimers.delete(sessionId);
+        void broadcastRepoDiff(sessionId);
+      }, repoDiffDebounceMs);
+      repoDiffTimers.set(sessionId, timer);
+    }
   }
 };
 
