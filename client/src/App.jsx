@@ -34,6 +34,7 @@ import useLocalPreferences from "./hooks/useLocalPreferences.js";
 import useLayoutMode from "./hooks/useLayoutMode.js";
 import useRpcLogView from "./hooks/useRpcLogView.js";
 import useToolbarExport from "./hooks/useToolbarExport.js";
+import usePanelState from "./hooks/usePanelState.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -783,8 +784,12 @@ function App() {
     }
     return "";
   };
-  const [commandPanelOpen, setCommandPanelOpen] = useState({});
-  const [toolResultPanelOpen, setToolResultPanelOpen] = useState({});
+  const {
+    commandPanelOpen,
+    setCommandPanelOpen,
+    toolResultPanelOpen,
+    setToolResultPanelOpen,
+  } = usePanelState();
   const [repoHistory, setRepoHistory] = useState(() => readRepoHistory());
   const [debugMode, setDebugMode] = useState(() => readDebugMode());
   const socketRef = useRef(null);
