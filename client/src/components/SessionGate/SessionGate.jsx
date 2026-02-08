@@ -89,7 +89,7 @@ export default function SessionGate({
             <img className="brand-logo" src={brandLogo} alt="vibe80" />
             <h1>
               {showStep4
-                ? t("Clone a session")
+                ? t("Start a session")
                 : showStep3
                   ? t("Workspace created")
                   : showStep2
@@ -164,7 +164,7 @@ export default function SessionGate({
                   >
                     <div className="session-workspace-form">
                       <div className="session-workspace-form-labels">
-                        <span>{t("Workspace name")}</span>
+                        <span>{t("Workspace ID")}</span>
                         <span>{t("Secret")}</span>
                       </div>
                       <div className="session-workspace-form-grid">

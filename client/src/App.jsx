@@ -1871,7 +1871,7 @@ function App() {
           }
       : showStep4
         ? {
-            title: t("Clone a session"),
+            title: t("Start a session"),
             paragraphs: [
               t(
                 "Vibe80 opens Git-based work sessions. Even in a secure environment, we recommend short-lived and revocable PATs or keys."
