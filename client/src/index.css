@@ -3636,6 +3636,10 @@ main.chat {
   justify-content: center;
 }
 
+.handoff-modal-actions .session-button {
+  width: 100%;
+}
+
 :root[data-theme="dark"] .worktree-close-confirm-overlay {
   background: rgba(7, 8, 7, 0.7);
 }
