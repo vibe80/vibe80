@@ -21,6 +21,7 @@ import useWorkspaceAuth from "./hooks/useWorkspaceAuth.js";
 import useWorktrees from "./hooks/useWorktrees.js";
 import useTerminalSession from "./hooks/useTerminalSession.js";
 import useNotifications from "./hooks/useNotifications.js";
+import useRepoStatus from "./hooks/useRepoStatus.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -761,15 +762,10 @@ function App() {
     []
   );
   const [explorerByTab, setExplorerByTab] = useState({});
-  const [repoDiff, setRepoDiff] = useState({ status: "", diff: "" });
   const [backlog, setBacklog] = useState([]);
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [rpcLogs, setRpcLogs] = useState([]);
   const [rpcLogsEnabled, setRpcLogsEnabled] = useState(true);
-  const [repoLastCommit, setRepoLastCommit] = useState(null);
-  const [worktreeLastCommitById, setWorktreeLastCommitById] = useState(
-    new Map()
-  );
   const [logFilterByTab, setLogFilterByTab] = useState({ main: "all" });
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
@@ -1175,35 +1171,6 @@ function App() {
         : null,
     [attachmentSession?.sessionId]
   );
-  const currentDiff = useMemo(() => {
-    if (activeWorktreeId && activeWorktreeId !== "main") {
-      const wt = worktrees.get(activeWorktreeId);
-      return wt?.diff || { status: "", diff: "" };
-    }
-    return repoDiff;
-  }, [activeWorktreeId, worktrees, repoDiff]);
-  const diffFiles = useMemo(() => {
-    if (!currentDiff.diff) {
-      return [];
-    }
-    try {
-      return parseDiff(currentDiff.diff);
-    } catch (error) {
-      return [];
-    }
-  }, [currentDiff.diff]);
-  const diffStatusLines = useMemo(
-    () =>
-      (currentDiff.status || "")
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean),
-    [currentDiff.status]
-  );
-  const hasCurrentChanges = useMemo(
-    () => diffStatusLines.length > 0 || Boolean((currentDiff.diff || "").trim()),
-    [diffStatusLines.length, currentDiff.diff]
-  );
   const groupedMessages = useMemo(() => {
     const grouped = [];
     (messages || []).forEach((message) => {
@@ -1460,62 +1427,6 @@ function App() {
     }
   }, [attachmentSession?.sessionId, apiFetch, t]);
 
-  const loadRepoLastCommit = useCallback(async () => {
-    if (!attachmentSession?.sessionId) {
-      return;
-    }
-    try {
-      const response = await apiFetch(
-        `/api/session/${encodeURIComponent(attachmentSession.sessionId)}/last-commit`
-      );
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || t("Unable to load the latest commit."));
-      }
-      const commit = payload.commit || {};
-      setRepoLastCommit({
-        branch: payload.branch || "",
-        sha: commit.sha || "",
-        message: commit.message || "",
-      });
-    } catch (error) {
-      setRepoLastCommit(null);
-    }
-  }, [attachmentSession?.sessionId, apiFetch, t]);
-
-  const loadWorktreeLastCommit = useCallback(
-    async (worktreeId) => {
-      if (!attachmentSession?.sessionId || !worktreeId) {
-        return;
-      }
-      try {
-        const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            worktreeId
-          )}/commits?session=${encodeURIComponent(
-            attachmentSession.sessionId
-          )}&limit=1`
-        );
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload.error || t("Unable to load the commit."));
-        }
-        const commit = Array.isArray(payload.commits) ? payload.commits[0] : null;
-        if (!commit?.sha) {
-          return;
-        }
-        setWorktreeLastCommitById((current) => {
-          const next = new Map(current);
-          next.set(worktreeId, { sha: commit.sha, message: commit.message || "" });
-          return next;
-        });
-      } catch (error) {
-        // Ignore worktree commit errors.
-      }
-    },
-    [attachmentSession?.sessionId, apiFetch, t]
-  );
-
   const loadProviderModels = useCallback(
     async (provider) => {
       if (!attachmentSession?.sessionId || !provider) {
@@ -1568,8 +1479,6 @@ function App() {
       setDefaultBranch("");
       setBranchError("");
       initialBranchRef.current = "";
-      setRepoLastCommit(null);
-      setWorktreeLastCommitById(new Map());
       setProviderModelState({});
       return;
     }
@@ -1577,8 +1486,7 @@ function App() {
     setDefaultBranch("");
     setProviderModelState({});
     loadBranches();
-    loadRepoLastCommit();
-  }, [attachmentSession?.sessionId, loadBranches, loadRepoLastCommit]);
+  }, [attachmentSession?.sessionId, loadBranches]);
 
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
@@ -1675,6 +1583,31 @@ function App() {
   const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
   const { ensureNotificationPermission, maybeNotify } = useNotifications({
     notificationsEnabled,
+    t,
+  });
+  const {
+    currentDiff,
+    diffFiles,
+    diffStatusLines,
+    hasCurrentChanges,
+    loadRepoLastCommit,
+    loadWorktreeLastCommit,
+    repoDiff,
+    repoLastCommit,
+    requestRepoDiff,
+    requestWorktreeDiff,
+    setRepoDiff,
+    setRepoLastCommit,
+    setWorktreeLastCommitById,
+    worktreeLastCommitById,
+  } = useRepoStatus({
+    apiFetch,
+    attachmentSessionId: attachmentSession?.sessionId,
+    currentBranch,
+    activeWorktreeId,
+    parseDiff,
+    setWorktrees,
+    worktrees,
     t,
   });
   const explorerStatusByPath = activeExplorer.statusByPath || {};
@@ -1787,71 +1720,6 @@ function App() {
         lastSeenMessageId,
       })
     );
-  const requestWorktreeDiff = useCallback(
-    async (worktreeId) => {
-      const sessionId = attachmentSession?.sessionId;
-      if (!sessionId || !worktreeId) {
-        return;
-      }
-      try {
-        const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            worktreeId
-          )}/diff?session=${encodeURIComponent(sessionId)}`
-        );
-        if (!response.ok) {
-          return;
-        }
-        const payload = await response.json();
-        if (!payload) {
-          return;
-        }
-        setWorktrees((current) => {
-          const next = new Map(current);
-          const wt = next.get(worktreeId);
-          if (wt) {
-            next.set(worktreeId, {
-              ...wt,
-              diff: {
-                status: payload.status || "",
-                diff: payload.diff || "",
-              },
-            });
-          }
-          return next;
-        });
-      } catch (error) {
-        // Ignore diff refresh failures.
-      }
-    },
-    [attachmentSession?.sessionId, apiFetch]
-  );
-
-  const requestRepoDiff = useCallback(async () => {
-    const sessionId = attachmentSession?.sessionId;
-    if (!sessionId) {
-      return;
-    }
-    try {
-      const response = await apiFetch(
-        `/api/session/${encodeURIComponent(sessionId)}/diff`
-      );
-      if (!response.ok) {
-        return;
-      }
-      const payload = await response.json();
-      if (!payload) {
-        return;
-      }
-      setRepoDiff({
-        status: payload.status || "",
-        diff: payload.diff || "",
-      });
-    } catch (error) {
-      // Ignore diff refresh failures.
-    }
-  }, [attachmentSession?.sessionId, apiFetch]);
-
   useEffect(() => {
     if (!attachmentSession?.sessionId) {
       return;
