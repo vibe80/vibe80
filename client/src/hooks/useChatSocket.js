@@ -46,6 +46,7 @@ export default function useChatSocket({
   maybeNotify,
   normalizeAttachments,
   loadRepoLastCommit,
+  loadBranches,
   loadWorktreeLastCommit,
   openAiLoginRequest,
   setOpenAiLoginRequest,
@@ -314,6 +315,9 @@ export default function useChatSocket({
           });
           if (payload.request === "run" || payload.request === "git") {
             void loadRepoLastCommit();
+            if (typeof loadBranches === "function") {
+              void loadBranches();
+            }
           }
         }
 
@@ -688,9 +692,12 @@ export default function useChatSocket({
               }
               return next;
             });
-            if (payload.request === "run" || payload.request === "git") {
-              void loadWorktreeLastCommit(wtId);
+          if (payload.request === "run" || payload.request === "git") {
+            void loadWorktreeLastCommit(wtId);
+            if (typeof loadBranches === "function" && wtId === "main") {
+              void loadBranches();
             }
+          }
           }
 
           if (payload.type === "backlog_view") {
