@@ -113,7 +113,7 @@ export default function useChatSend({
 
       socketRef.current.send(
         JSON.stringify({
-          type: "worktree_message",
+          type: "worktree_send_message",
           worktreeId,
           text,
           displayText,

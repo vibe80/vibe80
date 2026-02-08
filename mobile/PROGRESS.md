@@ -208,7 +208,7 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [x] Réception `worktree_created`
 
 #### 5.4 Messages par Worktree
-- [x] Parser `worktree_message` events
+- [x] Parser `worktree_send_message` events
 - [x] Parser `worktree_delta` events (streaming)
 - [x] Historique séparé par worktree
 - [x] Switch contexte au tap tab

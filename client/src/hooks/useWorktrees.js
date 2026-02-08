@@ -146,7 +146,7 @@ export default function useWorktrees({
           : getLastSeenMessageId(worktreesCurrent.get(worktreeId)?.messages);
       socket.send(
         JSON.stringify({
-          type: "sync_worktree_messages",
+          type: "worktree_messages_sync",
           worktreeId,
           lastSeenMessageId,
         })
