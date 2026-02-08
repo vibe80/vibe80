@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import "@uiw/react-markdown-preview/markdown.css";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
@@ -11,37 +9,33 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowLeft,
   faBroom,
-  faCodeBranch,
   faChevronDown,
   faChevronRight,
   faClipboardList,
   faComments,
   faCodeCompare,
   faCopy,
-  faDice,
   faDownload,
   faFileLines,
   faFolderTree,
   faGear,
-  faKey,
   faPaperclip,
   faQrcode,
   faPlus,
   faCheck,
   faRightFromBracket,
   faTerminal,
-  faTowerBroadcast,
-  faTriangleExclamation,
   faUser,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import Editor from "@monaco-editor/react";
 import WorktreeTabs from "./components/WorktreeTabs.jsx";
+import ChatMessages from "./components/Chat/ChatMessages.jsx";
+import ChatComposer from "./components/Chat/ChatComposer.jsx";
 import QRCode from "qrcode";
 import vibe80LogoDark from "./assets/vibe80_dark.svg";
 import vibe80LogoLight from "./assets/vibe80_light.svg";
 import { useI18n } from "./i18n.jsx";
-import { Command, CommandList, CommandItem } from "cmdk";
 
 const getSessionIdFromUrl = () =>
   new URLSearchParams(window.location.search).get("session");
@@ -7782,648 +7776,49 @@ function App() {
                 </button>
               </div>
             </div>
-            )}
-            <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
-              <div className="chat-scroll" ref={listRef}>
-                <div
-                  className={`chat-scroll-inner ${
-                    showChatInfoPanel ? "has-meta" : ""
-                  }`}
-                >
-                  <div
-                    className={`chat-history-grid ${
-                      showChatInfoPanel ? "has-meta" : ""
-                    }`}
-                  >
-                    {showChatInfoPanel && (
-                      <div className="chat-meta-rail">
-                        <div className="chat-meta-card">
-                            <div className="chat-meta-section chat-meta-repo">
-                            <div className="chat-meta-repo-title">
-                              <span className="chat-meta-repo-name">{repoTitle}</span>
-                            </div>
-                            <div className="chat-meta-repo-branch-line">
-                              <span className="chat-meta-repo-icon" aria-hidden="true">
-                                <FontAwesomeIcon icon={faCodeBranch} />
-                              </span>
-                              <span className="chat-meta-repo-branch">{activeBranchLabel}</span>
-                            </div>
-                            <div className="chat-meta-repo-commit">
-                              <span className="chat-meta-hash">{shortSha}</span>
-                              <span className="chat-meta-message">
-                                {activeCommit?.message || ""}
-                              </span>
-                            </div>
-                          </div>
-
-                          {showProviderMeta && (
-                            <div className="chat-meta-section chat-meta-provider">
-                              <span className="chat-meta-provider-icon" aria-hidden="true">
-                                <FontAwesomeIcon icon={faDice} />
-                              </span>
-                              <span className="chat-meta-provider-label">{activeProviderLabel}</span>
-                              <span className="chat-meta-provider-sep">•</span>
-                              <span className="chat-meta-provider-model">{activeModelLabel}</span>
-                            </div>
-                          )}
-
-                          {(showInternetAccess || showGitCredentialsShared || activeTaskLabel) && (
-                            <div className="chat-meta-section chat-meta-permissions">
-                              {showInternetAccess && (
-                                <div className="chat-meta-permission">
-                                  <span
-                                    className="chat-meta-permission-icon is-internet"
-                                    aria-hidden="true"
-                                  >
-                                    <FontAwesomeIcon icon={faTowerBroadcast} />
-                                  </span>
-                                  <span>{t("Internet access enabled")}</span>
-                                </div>
-                              )}
-                              {showGitCredentialsShared && (
-                                <div className="chat-meta-permission">
-                                  <span
-                                    className="chat-meta-permission-icon is-credentials"
-                                    aria-hidden="true"
-                                  >
-                                    <FontAwesomeIcon icon={faKey} />
-                                  </span>
-                                  <span>{t("Git credentials shared")}</span>
-                                </div>
-                              )}
-                              {activeTaskLabel && (
-                                <span className="chat-meta-task">
-                                  <span className="chat-meta-task-loader" aria-hidden="true" />
-                                  <ReactMarkdown
-                                    className="chat-meta-task-text"
-                                    remarkPlugins={[remarkGfm]}
-                                    components={{
-                                      p: ({ children }) => <span>{children}</span>,
-                                    }}
-                                  >
-                                    {activeTaskLabel}
-                                  </ReactMarkdown>
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    <div className="chat-history">
-                      {currentMessages.length === 0 && (
-                        <div className="empty">
-                          <p>{t("Send a message to start a session.")}</p>
-                        </div>
-                      )}
-                      {chatHistoryWindow.hiddenCount > 0 && (
-                        <button
-                          type="button"
-                          className="chat-history-reveal"
-                          onClick={() =>
-                            setShowOlderMessagesByTab((current) => ({
-                              ...current,
-                              [activeChatKey]: true,
-                            }))
-                          }
-                        >
-                          {t("View previous messages ({{count}})", {
-                            count: chatHistoryWindow.hiddenCount,
-                          })}
-                        </button>
-                      )}
-                      {chatHistoryWindow.visibleMessages.map((message) => {
-                        if (message?.groupType === "commandExecution") {
-                          return (
-                            <div
-                              key={message.id}
-                              className="bubble command-execution"
-                            >
-                              {message.items.map((item) => {
-                                const commandTitle = t("Command: {{command}}", {
-                                  command: item.command || t("Command"),
-                                });
-                                const showLoader = item.status !== "completed";
-                                const isExpandable =
-                                  item.isExpandable || Boolean(item.output);
-                                const summaryContent = (
-                                  <>
-                                    {showLoader && (
-                                      <span
-                                        className="loader command-execution-loader"
-                                        title={t("Execution in progress")}
-                                      >
-                                        <span className="dot" />
-                                        <span className="dot" />
-                                        <span className="dot" />
-                                      </span>
-                                    )}
-                                    <span className="command-execution-title">
-                                      {commandTitle}
-                                    </span>
-                                  </>
-                                );
-                                return (
-                                  <div key={item.id}>
-                                    {isExpandable ? (
-                                      <details
-                                        className="command-execution-panel"
-                                        open={Boolean(commandPanelOpen[item.id])}
-                                        onToggle={(event) => {
-                                          const isOpen = event.currentTarget.open;
-                                          setCommandPanelOpen((prev) => ({
-                                            ...prev,
-                                            [item.id]: isOpen,
-                                          }));
-                                        }}
-                                      >
-                                        <summary className="command-execution-summary">
-                                          {summaryContent}
-                                        </summary>
-                                        <pre className="command-execution-output">
-                                          {item.output || ""}
-                                        </pre>
-                                      </details>
-                                    ) : (
-                                      <div className="command-execution-summary is-static">
-                                        {summaryContent}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          );
-                        }
-                        if (message?.groupType === "toolResult") {
-                          return (
-                            <div
-                              key={message.id}
-                              className="bubble command-execution"
-                            >
-                              {message.items.map((item) => {
-                                const toolTitle = `Outil : ${
-                                  item.toolResult?.name ||
-                                  item.toolResult?.tool ||
-                                  "Tool"
-                                }`;
-                                const output =
-                                  item.toolResult?.output || item.text || "";
-                                const isExpandable = Boolean(output);
-                                const summaryContent = (
-                                  <span className="command-execution-title">
-                                    {toolTitle}
-                                  </span>
-                                );
-                                const panelKey = `tool-${item.id}`;
-                                return (
-                                  <div key={item.id}>
-                                    {isExpandable ? (
-                                      <details
-                                        className="command-execution-panel"
-                                        open={Boolean(
-                                          toolResultPanelOpen[panelKey]
-                                        )}
-                                        onToggle={(event) => {
-                                          const isOpen = event.currentTarget.open;
-                                          setToolResultPanelOpen((prev) => ({
-                                            ...prev,
-                                            [panelKey]: isOpen,
-                                          }));
-                                        }}
-                                      >
-                                        <summary className="command-execution-summary">
-                                          {summaryContent}
-                                        </summary>
-                                        <pre className="command-execution-output">
-                                          {output}
-                                        </pre>
-                                      </details>
-                                    ) : (
-                                      <div className="command-execution-summary is-static">
-                                        {summaryContent}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          );
-                        }
-                        if (message?.type === "backlog_view") {
-                          const backlogItems = Array.isArray(message.backlog?.items)
-                            ? message.backlog.items
-                            : [];
-                          const pendingItems = backlogItems.filter(
-                            (item) => !item?.done
-                          );
-                          const totalPages = Math.max(
-                            1,
-                            Math.ceil(pendingItems.length / BACKLOG_PAGE_SIZE)
-                          );
-                          const requestedPage = Number.isFinite(
-                            message.backlog?.page
-                          )
-                            ? message.backlog.page
-                            : 0;
-                          const currentPage = Math.min(
-                            Math.max(0, requestedPage),
-                            totalPages - 1
-                          );
-                          const startIndex = currentPage * BACKLOG_PAGE_SIZE;
-                          const pageItems = pendingItems.slice(
-                            startIndex,
-                            startIndex + BACKLOG_PAGE_SIZE
-                          );
-                          const backlogScopeId =
-                            activeWorktreeId && activeWorktreeId !== "main"
-                              ? activeWorktreeId
-                              : "main";
-                          return (
-                            <div
-                              key={message.id}
-                              className="bubble backlog"
-                            >
-                              <details className="command-execution-panel backlog-panel" open>
-                                <summary className="command-execution-summary">
-                                  <span className="command-execution-title">
-                                    {t("Backlog")}
-                                  </span>
-                                </summary>
-                                <div className="backlog-view">
-                                  {pageItems.length === 0 ? (
-                                    <div className="backlog-empty">
-                                      {t("No pending tasks at the moment.")}
-                                    </div>
-                                  ) : (
-                                    <div className="backlog-list">
-                                      {pageItems.map((item) => (
-                                        <div
-                                          key={item.id}
-                                          className="backlog-row"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            className="backlog-checkbox"
-                                            onChange={() =>
-                                              markBacklogItemDone(item.id)
-                                            }
-                                          />
-                                          <button
-                                            type="button"
-                                            className="backlog-text"
-                                            title={item.text}
-                                            onClick={() => {
-                                              setInput(item.text || "");
-                                              inputRef.current?.focus();
-                                            }}
-                                          >
-                                            {item.text}
-                                          </button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {totalPages > 1 ? (
-                                    <div className="backlog-pagination">
-                                      <button
-                                        type="button"
-                                        className="backlog-page-button"
-                                        disabled={currentPage === 0}
-                                        onClick={() =>
-                                          setBacklogMessagePage(
-                                            backlogScopeId,
-                                            message.id,
-                                            Math.max(0, currentPage - 1)
-                                          )
-                                        }
-                                      >
-                                        {t("Previous")}
-                                      </button>
-                                      <span className="backlog-page-status">
-                                        {currentPage + 1} / {totalPages}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        className="backlog-page-button"
-                                        disabled={currentPage >= totalPages - 1}
-                                        onClick={() =>
-                                          setBacklogMessagePage(
-                                            backlogScopeId,
-                                            message.id,
-                                            Math.min(totalPages - 1, currentPage + 1)
-                                          )
-                                        }
-                                      >
-                                        {t("Next")}
-                                      </button>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </details>
-                            </div>
-                          );
-                        }
-                        const isLongUserMessage =
-                          message.role === "user" &&
-                          (message.text || "").length > MAX_USER_DISPLAY_LENGTH;
-                        if (isLongUserMessage) {
-                          const truncatedText = getTruncatedText(
-                            message.text,
-                            MAX_USER_DISPLAY_LENGTH
-                          );
-                          return (
-                            <div
-                              key={message.id}
-                              className={`bubble ${message.role}`}
-                            >
-                              <div className="plain-text">{truncatedText}</div>
-                              {renderMessageAttachments(message.attachments)}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div key={message.id} className={`bubble ${message.role}`}>
-                            {(() => {
-                              const rawText = message.text || "";
-                              const isWarning = rawText.startsWith("⚠️");
-                              const warningText = rawText.replace(/^⚠️\s*/, "");
-                              const { cleanedText, blocks, filerefs } =
-                                extractVibe80Blocks(
-                                  isWarning ? warningText : rawText,
-                                  t
-                                );
-                              const content = (
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
-                                  components={{
-                                    a: ({ node, ...props }) => {
-                                      return (
-                                        <a
-                                          {...props}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                        />
-                                      );
-                                    },
-                                    code: ({
-                                      node,
-                                      inline,
-                                      className,
-                                      children,
-                                      ...props
-                                    }) => {
-                                      const rawText = Array.isArray(children)
-                                        ? children.join("")
-                                        : String(children);
-                                      const text = rawText.replace(/\n$/, "");
-                                      if (!inline) {
-                                        return (
-                                          <code className={className} {...props}>
-                                            {children}
-                                          </code>
-                                        );
-                                      }
-                                      const trimmed = text.trim();
-                                      const isRelativePath =
-                                        Boolean(trimmed) &&
-                                        !trimmed.startsWith("/") &&
-                                        !trimmed.startsWith("~") &&
-                                        !/^[a-zA-Z]+:\/\//.test(trimmed) &&
-                                        !trimmed.includes("\\") &&
-                                        !trimmed.includes(" ") &&
-                                        (trimmed.startsWith("./") ||
-                                          trimmed.startsWith("../") ||
-                                          trimmed.includes("/") ||
-                                          /^[\\w.-]+$/.test(trimmed));
-                                      return (
-                                        <span
-                                          className={`inline-code${
-                                            isRelativePath ? " inline-code--link" : ""
-                                          }`}
-                                        >
-                                          {isRelativePath ? (
-                                            <button
-                                              type="button"
-                                              className="inline-code-link"
-                                              onClick={(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                                setInput(`/open ${trimmed}`);
-                                                inputRef.current?.focus();
-                                              }}
-                                            >
-                                              <code className={className} {...props}>
-                                                {text}
-                                              </code>
-                                            </button>
-                                          ) : (
-                                            <code className={className} {...props}>
-                                              {text}
-                                            </code>
-                                          )}
-                                          <button
-                                            type="button"
-                                            className="code-copy"
-                                            aria-label={t("Copy code")}
-                                            title={t("Copy")}
-                                            onClick={(event) => {
-                                              event.preventDefault();
-                                              event.stopPropagation();
-                                              copyTextToClipboard(text);
-                                            }}
-                                          >
-                                            <FontAwesomeIcon icon={faCopy} />
-                                          </button>
-                                        </span>
-                                      );
-                                    },
-                                  }}
-                                >
-                                  {cleanedText}
-                                </ReactMarkdown>
-                              );
-                              return (
-                                <>
-                                  {isWarning ? (
-                                    <div className="warning-message">
-                                      <span
-                                        className="warning-icon"
-                                        aria-hidden="true"
-                                      >
-                                        <FontAwesomeIcon
-                                          icon={faTriangleExclamation}
-                                        />
-                                      </span>
-                                      <div className="warning-body">{content}</div>
-                                    </div>
-                                  ) : (
-                                    content
-                                  )}
-                                  {filerefs.length ? (
-                                    <ul className="fileref-list">
-                                      {filerefs.map((pathRef) => (
-                                        <li
-                                          key={`${message.id}-fileref-${pathRef}`}
-                                          className="fileref-item"
-                                        >
-                                          <button
-                                            type="button"
-                                            className="fileref-link"
-                                            onClick={(event) => {
-                                              event.preventDefault();
-                                              event.stopPropagation();
-                                              openFileInExplorer(pathRef);
-                                            }}
-                                          >
-                                            {pathRef}
-                                          </button>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : null}
-                                  {blocks.map((block, index) => {
-                                    const blockKey = `${message.id}-${index}`;
-                                    if (block.type === "form") {
-                                      return (
-                                        <div
-                                          className="vibe80-form"
-                                          key={blockKey}
-                                        >
-                                          <button
-                                            type="button"
-                                            className="vibe80-form-button"
-                                            onClick={() =>
-                                              openVibe80Form(block, blockKey)
-                                            }
-                                          >
-                                            {block.question ||
-                                              t("Open form")}
-                                          </button>
-                                        </div>
-                                      );
-                                    }
-
-                                    const selectedIndex =
-                                      choiceSelections[blockKey];
-                                    const choicesWithIndex = block.choices.map(
-                                      (choice, choiceIndex) => ({
-                                        choice,
-                                        choiceIndex,
-                                      })
-                                    );
-                                    const orderedChoices =
-                                      selectedIndex === undefined
-                                        ? choicesWithIndex
-                                        : [
-                                            choicesWithIndex.find(
-                                              ({ choiceIndex }) =>
-                                                choiceIndex === selectedIndex
-                                            ),
-                                            ...choicesWithIndex.filter(
-                                              ({ choiceIndex }) =>
-                                                choiceIndex !== selectedIndex
-                                            ),
-                                          ].filter(Boolean);
-
-                                    const isInline = block.type === "yesno";
-                                    return (
-                                      <div
-                                        className={`choices ${
-                                          isInline ? "is-inline" : ""
-                                        }`}
-                                        key={blockKey}
-                                      >
-                                        {block.question && (
-                                          <div className="choices-question">
-                                            {block.question}
-                                          </div>
-                                        )}
-                                        <div
-                                          className={`choices-list ${
-                                            selectedIndex !== undefined
-                                              ? "is-selected"
-                                              : ""
-                                          } ${isInline ? "is-inline" : ""}`}
-                                        >
-                                          {orderedChoices.map(
-                                            ({ choice, choiceIndex }) => {
-                                              const isSelected =
-                                                selectedIndex === choiceIndex;
-                                              return (
-                                                <button
-                                                  type="button"
-                                                  key={`${blockKey}-${choiceIndex}`}
-                                                  onClick={() =>
-                                                    handleChoiceClick(
-                                                      choice,
-                                                      blockKey,
-                                                      choiceIndex
-                                                    )
-                                                  }
-                                                  className={`choice-button ${
-                                                    isSelected
-                                                      ? "is-selected"
-                                                      : selectedIndex !== undefined
-                                                        ? "is-muted"
-                                                        : ""
-                                                  }`}
-                                                >
-                                                  <ReactMarkdown
-                                                    remarkPlugins={[remarkGfm]}
-                                                    components={{
-                                                      p: ({ node, ...props }) => (
-                                                        <span {...props} />
-                                                      ),
-                                                      a: ({ node, ...props }) => (
-                                                        <a
-                                                          {...props}
-                                                          target="_blank"
-                                                          rel="noopener noreferrer"
-                                                        />
-                                                      ),
-                                                    }}
-                                                  >
-                                                    {choice}
-                                                  </ReactMarkdown>
-                                                </button>
-                                              );
-                                            }
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                  {renderMessageAttachments(message.attachments)}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {currentProcessing && (
-                <div className="bubble assistant typing">
-                  <div className="typing-indicator">
-                    <div
-                      className="loader"
-                      title={currentActivity || t("Processing...")}
-                    >
-                      <span className="dot" />
-                      <span className="dot" />
-                      <span className="dot" />
-                    </div>
-                    <span className="typing-text">
-                      {currentActivity || t("Processing...")}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </main>
+            <ChatMessages
+              t={t}
+              activePane={activePane}
+              listRef={listRef}
+              showChatInfoPanel={showChatInfoPanel}
+              repoTitle={repoTitle}
+              activeBranchLabel={activeBranchLabel}
+              shortSha={shortSha}
+              activeCommit={activeCommit}
+              showProviderMeta={showProviderMeta}
+              activeProviderLabel={activeProviderLabel}
+              activeModelLabel={activeModelLabel}
+              showInternetAccess={showInternetAccess}
+              showGitCredentialsShared={showGitCredentialsShared}
+              activeTaskLabel={activeTaskLabel}
+              currentMessages={currentMessages}
+              chatHistoryWindow={chatHistoryWindow}
+              activeChatKey={activeChatKey}
+              setShowOlderMessagesByTab={setShowOlderMessagesByTab}
+              showChatCommands={showChatCommands}
+              showToolResults={showToolResults}
+              commandPanelOpen={commandPanelOpen}
+              setCommandPanelOpen={setCommandPanelOpen}
+              toolResultPanelOpen={toolResultPanelOpen}
+              setToolResultPanelOpen={setToolResultPanelOpen}
+              renderMessageAttachments={renderMessageAttachments}
+              currentProcessing={currentProcessing}
+              currentActivity={currentActivity}
+              extractVibe80Blocks={extractVibe80Blocks}
+              handleChoiceClick={handleChoiceClick}
+              choiceSelections={choiceSelections}
+              openVibe80Form={openVibe80Form}
+              copyTextToClipboard={copyTextToClipboard}
+              openFileInExplorer={openFileInExplorer}
+              setInput={setInput}
+              inputRef={inputRef}
+              markBacklogItemDone={markBacklogItemDone}
+              setBacklogMessagePage={setBacklogMessagePage}
+              activeWorktreeId={activeWorktreeId}
+              BACKLOG_PAGE_SIZE={BACKLOG_PAGE_SIZE}
+              MAX_USER_DISPLAY_LENGTH={MAX_USER_DISPLAY_LENGTH}
+              getTruncatedText={getTruncatedText}
+            />
             <div
               className={`diff-panel ${
                 activePane === "diff" ? "" : "is-hidden"
@@ -9003,169 +8398,44 @@ function App() {
           </div>
           </div>
 
-          {activePane === "chat" ? (
-            <form
-              className={`composer composer--sticky ${
-                isDraggingAttachments ? "is-dragging" : ""
-              }`}
-              onSubmit={onSubmit}
-              onDragEnter={onDragEnterComposer}
-              onDragOver={onDragOverComposer}
-              onDragLeave={onDragLeaveComposer}
-              onDrop={onDropAttachments}
-              ref={composerRef}
-            >
-              <div className="composer-inner">
-                {draftAttachments.length ? (
-                  <div
-                    className="composer-attachments"
-                    aria-label={t("Selected attachments")}
-                  >
-                    {draftAttachments.map((attachment) => {
-                      const label = attachment?.name || attachment?.path || "";
-                      const key = attachment?.path || attachment?.name || label;
-                      const extension = getAttachmentExtension(attachment, t);
-                      const sizeLabel =
-                        attachment?.lineCount || attachment?.lines
-                          ? t("{{count}} lines", {
-                              count: attachment.lineCount || attachment.lines,
-                            })
-                          : formatAttachmentSize(attachment?.size, t);
-                      return (
-                        <div className="attachment-card" key={key}>
-                          <div className="attachment-card-body">
-                            <div className="attachment-card-title">{label}</div>
-                            {sizeLabel ? (
-                              <div className="attachment-card-meta">
-                                {sizeLabel}
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="attachment-card-footer">
-                            <span className="attachment-card-type">
-                              {extension}
-                            </span>
-                            <button
-                              type="button"
-                              className="attachment-card-remove"
-                              aria-label={t("Remove {{label}}", {
-                                label,
-                              })}
-                              onClick={() =>
-                                removeDraftAttachment(
-                                  attachment?.path || attachment?.name
-                                )
-                              }
-                            >
-                              <FontAwesomeIcon icon={faXmark} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-                {commandMenuOpen && (
-                  <div className="composer-command-menu">
-                    <Command className="command-menu" shouldFilter={false}>
-                      <CommandList>
-                        {filteredCommands.length ? (
-                          filteredCommands.map((cmd) => (
-                            <CommandItem
-                              key={cmd.id}
-                              onSelect={() => {
-                                setInput(cmd.insert);
-                                setCommandMenuOpen(false);
-                                setCommandQuery("");
-                                inputRef.current?.focus();
-                              }}
-                              className={`command-item${
-                                cmd.id === commandSelection ? " is-selected" : ""
-                              }`}
-                            >
-                              <span className="command-item-label">
-                                {cmd.label}
-                              </span>
-                              <span className="command-item-desc">
-                                {cmd.description}
-                              </span>
-                            </CommandItem>
-                          ))
-                        ) : (
-                          <div className="command-empty">
-                            {t("No commands found.")}
-                          </div>
-                        )}
-                      </CommandList>
-                    </Command>
-                  </div>
-                )}
-                <div className="composer-main">
-                  <button
-                    type="button"
-                    className="icon-button composer-attach-button"
-                    aria-label={t("Add attachment")}
-                    onClick={triggerAttachmentPicker}
-                    disabled={!attachmentSession || attachmentsLoading}
-                  >
-                    ＋
-                    {isMobileLayout ? (
-                      <span className="attachment-badge">
-                        {draftAttachments.length}
-                      </span>
-                    ) : null}
-                  </button>
-                  <input
-                    ref={uploadInputRef}
-                    type="file"
-                    multiple
-                    onChange={onUploadAttachments}
-                    disabled={!attachmentSession || attachmentsLoading}
-                    className="visually-hidden"
-                  />
-                  <textarea
-                    className={`composer-input ${
-                      composerInputMode === "single" ? "is-single" : "is-multi"
-                    }`}
-                    value={input}
-                    onChange={handleInputChange}
-                    onKeyDown={handleComposerKeyDown}
-                    onPaste={onPasteAttachments}
-                    placeholder={t("Write your message…")}
-                    rows={composerInputMode === "single" ? 1 : 2}
-                    ref={inputRef}
-                  />
-                  {canInterrupt ? (
-                    <button
-                      type="button"
-                      className="primary stop-button"
-                      onClick={interruptTurn}
-                      aria-label={t("Stop")}
-                      title={t("Stop")}
-                    >
-                      <span className="stop-icon">⏹</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      className="primary send-button"
-                      disabled={!connected || !input.trim() || !isCodexReady}
-                      aria-label={t("Send")}
-                      title={t("Send")}
-                    >
-                      <span className="send-icon">➤</span>
-                    </button>
-                  )}
-                </div>
-
-                {attachmentsError && (
-                  <div className="attachments-error composer-attachments-error">
-                    {attachmentsError}
-                  </div>
-                )}
-              </div>
-            </form>
-          ) : null}
+          <ChatComposer
+            t={t}
+            activePane={activePane}
+            isDraggingAttachments={isDraggingAttachments}
+            onSubmit={onSubmit}
+            onDragEnterComposer={onDragEnterComposer}
+            onDragOverComposer={onDragOverComposer}
+            onDragLeaveComposer={onDragLeaveComposer}
+            onDropAttachments={onDropAttachments}
+            composerRef={composerRef}
+            draftAttachments={draftAttachments}
+            getAttachmentExtension={getAttachmentExtension}
+            formatAttachmentSize={formatAttachmentSize}
+            removeDraftAttachment={removeDraftAttachment}
+            commandMenuOpen={commandMenuOpen}
+            filteredCommands={filteredCommands}
+            setInput={setInput}
+            setCommandMenuOpen={setCommandMenuOpen}
+            setCommandQuery={setCommandQuery}
+            inputRef={inputRef}
+            commandSelection={commandSelection}
+            triggerAttachmentPicker={triggerAttachmentPicker}
+            attachmentSession={attachmentSession}
+            attachmentsLoading={attachmentsLoading}
+            isMobileLayout={isMobileLayout}
+            uploadInputRef={uploadInputRef}
+            onUploadAttachments={onUploadAttachments}
+            input={input}
+            handleInputChange={handleInputChange}
+            handleComposerKeyDown={handleComposerKeyDown}
+            onPasteAttachments={onPasteAttachments}
+            composerInputMode={composerInputMode}
+            canInterrupt={canInterrupt}
+            interruptTurn={interruptTurn}
+            connected={connected}
+            isCodexReady={isCodexReady}
+            attachmentsError={attachmentsError}
+          />
         </section>
       </div>
       {activeForm ? (
