@@ -31,6 +31,7 @@ import useSessionHandoff from "./hooks/useSessionHandoff.js";
 import useGitIdentity from "./hooks/useGitIdentity.js";
 import useVibe80Forms from "./hooks/useVibe80Forms.js";
 import useLocalPreferences from "./hooks/useLocalPreferences.js";
+import useLayoutMode from "./hooks/useLayoutMode.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -758,9 +759,6 @@ function App() {
   // Worktree states for parallel LLM requests
   const [mainTaskLabel, setMainTaskLabel] = useState("");
   const lastPaneByTabRef = useRef(new Map());
-  const [isMobileLayout, setIsMobileLayout] = useState(() =>
-    window.matchMedia("(max-width: 1024px)").matches
-  );
   const getItemActivityLabel = (item) => {
     if (!item?.type) {
       return "";
@@ -1041,17 +1039,7 @@ function App() {
     return formattedRpcLogs;
   }, [formattedRpcLogs, logFilter]);
 
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 1024px)");
-    const update = () => setIsMobileLayout(query.matches);
-    update();
-    if (query.addEventListener) {
-      query.addEventListener("change", update);
-      return () => query.removeEventListener("change", update);
-    }
-    query.addListener(update);
-    return () => query.removeListener(update);
-  }, [workspaceToken, apiFetch]);
+  const { isMobileLayout } = useLayoutMode({ themeMode, setSideOpen });
 
   useEffect(() => {
     if (!toolbarExportOpen) {
@@ -1067,16 +1055,6 @@ function App() {
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [toolbarExportOpen]);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = themeMode;
-  }, [themeMode]);
-
-  useEffect(() => {
-    if (isMobileLayout) {
-      setSideOpen(false);
-    }
-  }, [isMobileLayout]);
 
   const applyMessages = useCallback(
     (items = []) => {
