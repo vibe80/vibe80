@@ -28,6 +28,7 @@ import useChatCommands from "./hooks/useChatCommands.js";
 import useRepoBranchesModels from "./hooks/useRepoBranchesModels.js";
 import useSessionLifecycle from "./hooks/useSessionLifecycle.js";
 import useSessionHandoff from "./hooks/useSessionHandoff.js";
+import useGitIdentity from "./hooks/useGitIdentity.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -712,17 +713,6 @@ function App() {
       }
     };
   }, []);
-  const [gitIdentityName, setGitIdentityName] = useState("");
-  const [gitIdentityEmail, setGitIdentityEmail] = useState("");
-  const [gitIdentityGlobal, setGitIdentityGlobal] = useState({
-    name: "",
-    email: "",
-  });
-  const [gitIdentityRepo, setGitIdentityRepo] = useState({ name: "", email: "" });
-  const [gitIdentityLoading, setGitIdentityLoading] = useState(false);
-  const [gitIdentitySaving, setGitIdentitySaving] = useState(false);
-  const [gitIdentityError, setGitIdentityError] = useState("");
-  const [gitIdentityMessage, setGitIdentityMessage] = useState("");
   const [choiceSelections, setChoiceSelections] = useState({});
   const [activeForm, setActiveForm] = useState(null);
   const [activeFormValues, setActiveFormValues] = useState({});
@@ -886,77 +876,24 @@ function App() {
     apiFetch,
     attachmentSessionId: attachmentSession?.sessionId,
   });
+  const {
+    gitIdentityName,
+    gitIdentityEmail,
+    gitIdentityGlobal,
+    gitIdentityRepo,
+    gitIdentityLoading,
+    gitIdentitySaving,
+    gitIdentityError,
+    gitIdentityMessage,
+    setGitIdentityName,
+    setGitIdentityEmail,
+    handleSaveGitIdentity,
+  } = useGitIdentity({
+    t,
+    apiFetch,
+    attachmentSessionId: attachmentSession?.sessionId,
+  });
 
-
-  const loadGitIdentity = useCallback(async () => {
-    const sessionId = attachmentSession?.sessionId;
-    if (!sessionId) {
-      return;
-    }
-    setGitIdentityLoading(true);
-    setGitIdentityError("");
-    setGitIdentityMessage("");
-    try {
-      const response = await apiFetch(
-        `/api/session/${encodeURIComponent(sessionId)}/git-identity`
-      );
-      if (!response.ok) {
-        throw new Error(t("Unable to load Git identity."));
-      }
-      const payload = await response.json();
-      const globalName = payload?.global?.name || "";
-      const globalEmail = payload?.global?.email || "";
-      const repoName = payload?.repo?.name || "";
-      const repoEmail = payload?.repo?.email || "";
-      setGitIdentityGlobal({ name: globalName, email: globalEmail });
-      setGitIdentityRepo({ name: repoName, email: repoEmail });
-      setGitIdentityName(repoName || globalName);
-      setGitIdentityEmail(repoEmail || globalEmail);
-    } catch (error) {
-      setGitIdentityError(error?.message || t("Error during loading."));
-    } finally {
-      setGitIdentityLoading(false);
-    }
-  }, [attachmentSession?.sessionId, apiFetch, t]);
-
-  const handleSaveGitIdentity = useCallback(async () => {
-    const sessionId = attachmentSession?.sessionId;
-    if (!sessionId) {
-      return;
-    }
-    const name = gitIdentityName.trim();
-    const email = gitIdentityEmail.trim();
-    if (!name || !email) {
-      setGitIdentityError(t("Name and email required."));
-      return;
-    }
-    setGitIdentitySaving(true);
-    setGitIdentityError("");
-    setGitIdentityMessage("");
-    try {
-      const response = await apiFetch(
-        `/api/session/${encodeURIComponent(sessionId)}/git-identity`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email }),
-        }
-      );
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || t("Update failed."));
-      }
-      const payload = await response.json().catch(() => ({}));
-      const repoName = payload?.repo?.name || name;
-      const repoEmail = payload?.repo?.email || email;
-      setGitIdentityRepo({ name: repoName, email: repoEmail });
-      setGitIdentityMessage(t("Repository Git identity updated."));
-    } catch (error) {
-      setGitIdentityError(error?.message || t("Update failed."));
-    } finally {
-      setGitIdentitySaving(false);
-    }
-  }, [attachmentSession?.sessionId, apiFetch, gitIdentityEmail, gitIdentityName, t]);
 
   const messageIndex = useMemo(() => new Map(), []);
   const commandIndex = useMemo(() => new Map(), []);
@@ -1523,13 +1460,6 @@ function App() {
         lastSeenMessageId,
       })
     );
-  useEffect(() => {
-    if (!attachmentSession?.sessionId) {
-      return;
-    }
-    loadGitIdentity();
-  }, [attachmentSession?.sessionId, loadGitIdentity]);
-
   useEffect(() => {
     try {
       localStorage.setItem(REPO_HISTORY_KEY, JSON.stringify(repoHistory));
