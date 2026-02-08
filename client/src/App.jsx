@@ -1020,6 +1020,14 @@ function App() {
     REPO_HISTORY_KEY,
     DEBUG_MODE_KEY,
   });
+
+  const isInWorktree = activeWorktreeId && activeWorktreeId !== "main";
+  const activeWorktree = isInWorktree ? worktrees.get(activeWorktreeId) : null;
+  const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
+  const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
+  const currentMessages = activeWorktree ? activeWorktree.messages : messages;
+  const hasMessages =
+    Array.isArray(currentMessages) && currentMessages.length > 0;
   const groupedMessages = useMemo(() => {
     const grouped = [];
     (messages || []).forEach((message) => {
@@ -1474,40 +1482,6 @@ function App() {
   });
 
 
-  // Check if we're in a real worktree (not "main")
-  const isInWorktree = activeWorktreeId && activeWorktreeId !== "main";
-  const activeWorktree = isInWorktree ? worktrees.get(activeWorktreeId) : null;
-  const activeCommit = isInWorktree
-    ? worktreeLastCommitById.get(activeWorktreeId)
-    : repoLastCommit;
-  const activeBranchLabel = isInWorktree
-    ? activeWorktree?.branchName || activeWorktree?.name || ""
-    : currentBranch || repoLastCommit?.branch || "";
-  const shortSha =
-    typeof activeCommit?.sha === "string" ? activeCommit.sha.slice(0, 7) : "";
-  const activeTaskLabel = isInWorktree
-    ? activeWorktree?.taskLabel
-    : mainTaskLabel;
-  const showInternetAccess = isInWorktree
-    ? Boolean(activeWorktree?.internetAccess)
-    : Boolean(defaultInternetAccess);
-  const showGitCredentialsShared = isInWorktree
-    ? activeWorktree?.denyGitCredentialsAccess === false
-    : defaultDenyGitCredentialsAccess === false;
-  const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
-  const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
-  const activeProviderLabel = formatProviderLabel(activeProvider, t);
-  const activeModelLabel = activeModel || t("Default model");
-  const showProviderMeta = Boolean(activeProviderLabel && activeModelLabel);
-  const repoTitle = repoName || t("Repository");
-  const showChatInfoPanel =
-    !isMobileLayout &&
-    activePane === "chat" &&
-    Boolean(activeBranchLabel && shortSha && activeCommit?.message);
-
-  // Get current messages based on active tab
-  const currentMessages = activeWorktree ? activeWorktree.messages : messages;
-  const hasMessages = Array.isArray(currentMessages) && currentMessages.length > 0;
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
@@ -1581,6 +1555,33 @@ function App() {
     CHAT_COLLAPSE_THRESHOLD,
     CHAT_COLLAPSE_VISIBLE,
   });
+
+  // Check if we're in a real worktree (not "main")
+  const activeCommit = isInWorktree
+    ? worktreeLastCommitById.get(activeWorktreeId)
+    : repoLastCommit;
+  const activeBranchLabel = isInWorktree
+    ? activeWorktree?.branchName || activeWorktree?.name || ""
+    : currentBranch || repoLastCommit?.branch || "";
+  const shortSha =
+    typeof activeCommit?.sha === "string" ? activeCommit.sha.slice(0, 7) : "";
+  const activeTaskLabel = isInWorktree
+    ? activeWorktree?.taskLabel
+    : mainTaskLabel;
+  const showInternetAccess = isInWorktree
+    ? Boolean(activeWorktree?.internetAccess)
+    : Boolean(defaultInternetAccess);
+  const showGitCredentialsShared = isInWorktree
+    ? activeWorktree?.denyGitCredentialsAccess === false
+    : defaultDenyGitCredentialsAccess === false;
+  const activeProviderLabel = formatProviderLabel(activeProvider, t);
+  const activeModelLabel = activeModel || t("Default model");
+  const showProviderMeta = Boolean(activeProviderLabel && activeModelLabel);
+  const repoTitle = repoName || t("Repository");
+  const showChatInfoPanel =
+    !isMobileLayout &&
+    activePane === "chat" &&
+    Boolean(activeBranchLabel && shortSha && activeCommit?.message);
 
   const isWorktreeProcessing = activeWorktree?.status === "processing";
   const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
