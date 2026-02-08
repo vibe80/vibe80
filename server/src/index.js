@@ -1209,7 +1209,7 @@ server.on("upgrade", (req, socket, head) => {
     });
     return;
   }
-  if (url.pathname === "/terminal") {
+  if (url.pathname === "/terminal" || url.pathname === "/api/terminal/ws") {
     if (!terminalEnabled || !terminalWss) {
       socket.destroy();
       return;
