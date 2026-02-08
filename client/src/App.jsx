@@ -22,6 +22,7 @@ import useWorktrees from "./hooks/useWorktrees.js";
 import useTerminalSession from "./hooks/useTerminalSession.js";
 import useNotifications from "./hooks/useNotifications.js";
 import useRepoStatus from "./hooks/useRepoStatus.js";
+import useAttachments from "./hooks/useAttachments.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -643,9 +644,6 @@ function App() {
   const [activity, setActivity] = useState("");
   const [connected, setConnected] = useState(false);
   const [attachmentSession, setAttachmentSession] = useState(null);
-  const [draftAttachments, setDraftAttachments] = useState([]);
-  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  const [attachmentsError, setAttachmentsError] = useState("");
   const [repoUrl, setRepoUrl] = useState(getInitialRepoUrl);
   const [repoInput, setRepoInput] = useState(getInitialRepoUrl);
   const [sessionNameInput, setSessionNameInput] = useState("");
@@ -779,7 +777,6 @@ function App() {
   const [branchLoading, setBranchLoading] = useState(false);
   const [branchError, setBranchError] = useState("");
   const [sideOpen, setSideOpen] = useState(false);
-  const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [closeConfirm, setCloseConfirm] = useState(null);
   const [terminalEnabled, setTerminalEnabled] = useState(true);
   const explorerRef = useRef({});
@@ -1061,92 +1058,6 @@ function App() {
   const availableProviders = useMemo(
     () => selectedProviders.filter((provider) => authenticatedProviders.includes(provider)),
     [selectedProviders, authenticatedProviders]
-  );
-  const getAttachmentUrl = useCallback(
-    (attachment) => {
-      if (!attachmentSession?.sessionId) {
-        return "";
-      }
-      const url = new URL("/api/attachments/file", window.location.origin);
-      url.searchParams.set("session", attachmentSession.sessionId);
-      if (workspaceToken) {
-        url.searchParams.set("token", workspaceToken);
-      }
-      if (attachment?.path) {
-        url.searchParams.set("path", attachment.path);
-      } else if (attachment?.name) {
-        url.searchParams.set("name", attachment.name);
-      }
-      return url.toString();
-    },
-    [attachmentSession?.sessionId, workspaceToken]
-  );
-  const renderMessageAttachments = useCallback(
-    (attachments = []) => {
-      const normalized = normalizeAttachments(attachments);
-      if (!normalized.length) {
-        return null;
-      }
-      return (
-        <div className="bubble-attachments">
-          {normalized.map((attachment) => {
-            const name = getAttachmentName(attachment);
-            const url = getAttachmentUrl(attachment);
-            const key = attachment?.path || attachment?.name || name;
-            if (isImageAttachment(attachment)) {
-              return (
-                <button
-                  type="button"
-                  key={key}
-                  className="attachment-card attachment-card--image"
-                  onClick={() =>
-                    url ? setAttachmentPreview({ url, name }) : null
-                  }
-                  disabled={!url}
-                >
-                  {url ? (
-                    <img
-                      src={url}
-                      alt={name || t("Attached image")}
-                      className="attachment-thumb"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="attachment-thumb attachment-thumb--empty" />
-                  )}
-                  <span className="attachment-name">{name}</span>
-                </button>
-              );
-            }
-            if (url) {
-              return (
-                <a
-                  key={key}
-                  className="attachment-card"
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="attachment-icon" aria-hidden="true">
-                    <FontAwesomeIcon icon={faPaperclip} />
-                  </span>
-                  <span className="attachment-name">{name}</span>
-                </a>
-              );
-            }
-            return (
-              <div key={key} className="attachment-card">
-                <span className="attachment-icon" aria-hidden="true">
-                  <FontAwesomeIcon icon={faPaperclip} />
-                </span>
-                <span className="attachment-name">{name}</span>
-              </div>
-            );
-          })}
-        </div>
-      );
-    },
-    [getAttachmentUrl, t]
   );
 
   useEffect(() => {
@@ -1489,12 +1400,6 @@ function App() {
   }, [attachmentSession?.sessionId, loadBranches]);
 
   useEffect(() => {
-    if (!attachmentSession?.sessionId) {
-      setDraftAttachments([]);
-    }
-  }, [attachmentSession?.sessionId, apiFetch]);
-
-  useEffect(() => {
     if (isMobileLayout) {
       setSideOpen(false);
     }
@@ -1583,6 +1488,25 @@ function App() {
   const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
   const { ensureNotificationPermission, maybeNotify } = useNotifications({
     notificationsEnabled,
+    t,
+  });
+  const {
+    attachmentPreview,
+    attachmentsError,
+    attachmentsLoading,
+    draftAttachments,
+    renderMessageAttachments,
+    setAttachmentPreview,
+    setAttachmentsError,
+    setAttachmentsLoading,
+    setDraftAttachments,
+  } = useAttachments({
+    attachmentSessionId: attachmentSession?.sessionId,
+    workspaceToken,
+    normalizeAttachments,
+    isImageAttachment,
+    getAttachmentName,
+    attachmentIcon: <FontAwesomeIcon icon={faPaperclip} />,
     t,
   });
   const {
