@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@uiw/react-markdown-preview/markdown.css";
 import { parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -21,6 +19,7 @@ import useChatComposer from "./components/Chat/useChatComposer.js";
 import useChatSocket from "./hooks/useChatSocket.js";
 import useWorkspaceAuth from "./hooks/useWorkspaceAuth.js";
 import useWorktrees from "./hooks/useWorktrees.js";
+import useTerminalSession from "./hooks/useTerminalSession.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -76,20 +75,6 @@ const getProviderAuthType = (provider, config) => {
     return config?.authType || "api_key";
   }
   return allowed.includes(config?.authType) ? config.authType : allowed[0];
-};
-
-const terminalWsUrl = (sessionId, worktreeId) => {
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const params = new URLSearchParams();
-  if (sessionId) {
-    params.set("session", sessionId);
-  }
-  if (worktreeId) {
-    params.set("worktreeId", worktreeId);
-  }
-  const query = params.toString();
-  const suffix = query ? `?${query}` : "";
-  return `${protocol}://${window.location.host}/terminal${suffix}`;
 };
 
 const normalizeVibe80Question = (rawQuestion) => {
@@ -1865,99 +1850,6 @@ function App() {
     }
   }, [attachmentSession?.sessionId, apiFetch]);
 
-  const connectTerminal = useCallback(() => {
-    if (!terminalEnabled) {
-      return;
-    }
-    if (!workspaceToken) {
-      return;
-    }
-    const sessionId = attachmentSession?.sessionId;
-    if (!sessionId) {
-      return;
-    }
-    const worktreeId =
-      activeWorktreeId && activeWorktreeId !== "main"
-        ? activeWorktreeId
-        : null;
-    if (
-      terminalSocketRef.current &&
-      terminalSocketRef.current.readyState <= WebSocket.OPEN &&
-      terminalSessionRef.current === sessionId &&
-      terminalWorktreeRef.current === worktreeId
-    ) {
-      return;
-    }
-    if (terminalSocketRef.current) {
-      terminalSocketRef.current.close();
-    }
-    const term = terminalRef.current;
-    if (term) {
-      term.reset();
-    }
-    const socket = new WebSocket(
-      terminalWsUrl(sessionId, worktreeId)
-    );
-    terminalSocketRef.current = socket;
-    terminalSessionRef.current = sessionId;
-    terminalWorktreeRef.current = worktreeId;
-    let authenticated = false;
-
-    socket.addEventListener("open", () => {
-      socket.send(
-        JSON.stringify({ type: "auth", token: workspaceToken })
-      );
-    });
-
-    socket.addEventListener("message", (event) => {
-      let payload = null;
-      try {
-        payload = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-      if (!payload?.type) {
-        return;
-      }
-      if (payload.type === "auth_ok") {
-        if (authenticated) {
-          return;
-        }
-        authenticated = true;
-        const term = terminalRef.current;
-        const fitAddon = terminalFitRef.current;
-        if (term && fitAddon) {
-          fitAddon.fit();
-          socket.send(
-            JSON.stringify({ type: "init", cols: term.cols, rows: term.rows })
-          );
-        }
-        return;
-      }
-      if (!authenticated) {
-        return;
-      }
-      const term = terminalRef.current;
-      if (!term) {
-        return;
-      }
-      if (payload.type === "output" && typeof payload.data === "string") {
-        term.write(payload.data);
-        return;
-      }
-      if (payload.type === "exit") {
-        term.write(`\r\n[terminal exited ${payload.code}]\r\n`);
-      }
-    });
-
-    socket.addEventListener("close", () => {
-      const term = terminalRef.current;
-      if (term) {
-        term.write("\r\n[terminal disconnected]\r\n");
-      }
-    });
-  }, [attachmentSession?.sessionId, activeWorktreeId, terminalEnabled, workspaceToken]);
-
   const ensureNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
       return "unsupported";
@@ -2138,179 +2030,21 @@ function App() {
     connected,
   });
 
-  useEffect(() => {
-    if (!terminalEnabled) {
-      return;
-    }
-    if (activePane !== "terminal") {
-      return;
-    }
-    if (!terminalContainerRef.current || terminalRef.current) {
-      return;
-    }
-    const isDark = themeMode === "dark";
-    const term = new Terminal({
-      fontFamily:
-        '"SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace',
-      fontSize: 13,
-      cursorBlink: true,
-      theme: {
-        background: isDark ? "#0f1110" : "#fbf6ee",
-        foreground: isDark ? "#e6edf3" : "#2a2418",
-        cursor: isDark ? "#e6edf3" : "#2a2418",
-        selection: isDark
-          ? "rgba(255, 255, 255, 0.2)"
-          : "rgba(20, 19, 17, 0.15)",
-      },
-    });
-    if (typeof term.setOption !== "function") {
-      term.setOption = (key, value) => {
-        if (key && typeof key === "object") {
-          term.options = key;
-          return;
-        }
-        term.options = { [key]: value };
-      };
-    }
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-    term.open(terminalContainerRef.current);
-    fitAddon.fit();
-    term.focus();
-    terminalRef.current = term;
-    terminalFitRef.current = fitAddon;
-    terminalDisposableRef.current = term.onData((data) => {
-      const socket = terminalSocketRef.current;
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "input", data }));
-      }
-    });
-  }, [activePane, terminalEnabled, themeMode]);
-
-  useEffect(() => {
-    const term = terminalRef.current;
-    if (!term) {
-      return;
-    }
-    const theme =
-      themeMode === "dark"
-        ? {
-            background: "#15120d",
-            foreground: "#f2e9dc",
-            cursor: "#f2e9dc",
-          }
-        : {
-            background: "#fbf6ee",
-            foreground: "#2a2418",
-            cursor: "#2a2418",
-          };
-    if (typeof term.setOption === "function") {
-      term.setOption("theme", theme);
-    } else {
-      term.options = { theme };
-    }
-  }, [themeMode]);
-
-  useEffect(() => {
-    return () => {
-      if (terminalDisposableRef.current) {
-        terminalDisposableRef.current.dispose();
-        terminalDisposableRef.current = null;
-      }
-      if (terminalRef.current) {
-        terminalRef.current.dispose();
-        terminalRef.current = null;
-      }
-      terminalFitRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (activePane !== "terminal") {
-      return;
-    }
-    if (!terminalEnabled) {
-      return;
-    }
-    if (terminalRef.current) {
-      const isDark = themeMode === "dark";
-      terminalRef.current.setOption("theme", {
-        background: isDark ? "#0f1110" : "#fbf6ee",
-        foreground: isDark ? "#e6edf3" : "#2a2418",
-        cursor: isDark ? "#e6edf3" : "#2a2418",
-        selection: isDark
-          ? "rgba(255, 255, 255, 0.2)"
-          : "rgba(20, 19, 17, 0.15)",
-      });
-    }
-    if (terminalFitRef.current) {
-      requestAnimationFrame(() => {
-        const fitAddon = terminalFitRef.current;
-        const term = terminalRef.current;
-        if (!fitAddon || !term) {
-          return;
-        }
-        fitAddon.fit();
-        term.focus();
-        const socket = terminalSocketRef.current;
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(
-            JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })
-          );
-        }
-      });
-    }
-    connectTerminal();
-  }, [activePane, connectTerminal, terminalEnabled, themeMode]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      const term = terminalRef.current;
-      const fitAddon = terminalFitRef.current;
-      const socket = terminalSocketRef.current;
-      if (!term || !fitAddon) {
-        return;
-      }
-      fitAddon.fit();
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(
-          JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows })
-        );
-      }
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (!attachmentSession?.sessionId && terminalSocketRef.current) {
-      terminalSocketRef.current.close();
-      terminalSocketRef.current = null;
-      terminalSessionRef.current = null;
-      terminalWorktreeRef.current = null;
-    }
-  }, [attachmentSession?.sessionId]);
-
-  useEffect(() => {
-    if (terminalEnabled) {
-      return;
-    }
-    if (terminalSocketRef.current) {
-      terminalSocketRef.current.close();
-      terminalSocketRef.current = null;
-    }
-    terminalSessionRef.current = null;
-    terminalWorktreeRef.current = null;
-    if (terminalDisposableRef.current) {
-      terminalDisposableRef.current.dispose();
-      terminalDisposableRef.current = null;
-    }
-    if (terminalRef.current) {
-      terminalRef.current.dispose();
-      terminalRef.current = null;
-    }
-    terminalFitRef.current = null;
-  }, [terminalEnabled]);
+  useTerminalSession({
+    activePane,
+    activeWorktreeId,
+    attachmentSessionId: attachmentSession?.sessionId,
+    terminalEnabled,
+    terminalContainerRef,
+    terminalDisposableRef,
+    terminalFitRef,
+    terminalRef,
+    terminalSessionRef,
+    terminalSocketRef,
+    terminalWorktreeRef,
+    themeMode,
+    workspaceToken,
+  });
 
   useEffect(() => {
     const sessionId = getSessionIdFromUrl();
