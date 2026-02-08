@@ -20,6 +20,7 @@ import ChatToolbar from "./components/Chat/ChatToolbar.jsx";
 import useChatComposer from "./components/Chat/useChatComposer.js";
 import useChatSocket from "./hooks/useChatSocket.js";
 import useWorkspaceAuth from "./hooks/useWorkspaceAuth.js";
+import useWorktrees from "./hooks/useWorktrees.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -802,51 +803,11 @@ function App() {
   const [terminalEnabled, setTerminalEnabled] = useState(true);
   const explorerRef = useRef({});
   // Worktree states for parallel LLM requests
-  const [worktrees, setWorktrees] = useState(new Map());
-  const worktreesRef = useRef(new Map());
-  const [activeWorktreeId, setActiveWorktreeId] = useState("main"); // "main" = legacy mode, other = worktree mode
   const [mainTaskLabel, setMainTaskLabel] = useState("");
-  const activePane = paneByTab[activeWorktreeId] || "chat";
-  const activeWorktreeIdRef = useRef("main");
   const lastPaneByTabRef = useRef(new Map());
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia("(max-width: 1024px)").matches
   );
-  const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
-  const explorerStatusByPath = activeExplorer.statusByPath || {};
-  const explorerDirStatus = useMemo(() => {
-    const dirStatus = {};
-    const setStatus = (dirPath, type) => {
-      if (!dirPath) {
-        return;
-      }
-      const existing = dirStatus[dirPath];
-      if (existing === "untracked") {
-        return;
-      }
-      if (type === "untracked") {
-        dirStatus[dirPath] = "untracked";
-        return;
-      }
-      if (!existing) {
-        dirStatus[dirPath] = type;
-      }
-    };
-    Object.entries(explorerStatusByPath).forEach(([path, type]) => {
-      if (!path) {
-        return;
-      }
-      const parts = path.split("/").filter(Boolean);
-      if (parts.length <= 1) {
-        return;
-      }
-      for (let i = 0; i < parts.length - 1; i += 1) {
-        const dirPath = parts.slice(0, i + 1).join("/");
-        setStatus(dirPath, type);
-      }
-    });
-    return dirStatus;
-  }, [explorerStatusByPath]);
   const getItemActivityLabel = (item) => {
     if (!item?.type) {
       return "";
@@ -1217,13 +1178,6 @@ function App() {
     explorerRef.current = explorerByTab;
   }, [explorerByTab]);
 
-  useEffect(() => {
-    activeWorktreeIdRef.current = activeWorktreeId;
-  }, [activeWorktreeId]);
-
-  useEffect(() => {
-    worktreesRef.current = worktrees;
-  }, [worktrees]);
   const choicesKey = useMemo(
     () =>
       attachmentSession?.sessionId
@@ -1705,89 +1659,71 @@ function App() {
     [applyMessages]
   );
 
-  const loadMainWorktreeSnapshot = useCallback(async () => {
-    const sessionId = attachmentSession?.sessionId;
-    if (!sessionId) {
-      return;
-    }
-    try {
-      const response = await apiFetch(
-        `/api/worktree/main/messages?session=${encodeURIComponent(sessionId)}`
-      );
-      if (!response.ok) {
+  const {
+    activeWorktreeId,
+    activeWorktreeIdRef,
+    applyWorktreesList,
+    closeWorktree,
+    createWorktree,
+    handleSelectWorktree,
+    loadMainWorktreeSnapshot,
+    loadWorktreeSnapshot,
+    requestWorktreeMessages,
+    requestWorktreesList,
+    renameWorktreeHandler,
+    setActiveWorktreeId,
+    setWorktrees,
+    worktrees,
+  } = useWorktrees({
+    apiFetch,
+    attachmentSessionId: attachmentSession?.sessionId,
+    availableProviders,
+    llmProvider,
+    messagesRef,
+    normalizeAttachments,
+    applyMessages,
+    socketRef,
+    setPaneByTab,
+    setLogFilterByTab,
+    showToast,
+    t,
+  });
+  const activePane = paneByTab[activeWorktreeId] || "chat";
+  const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
+  const explorerStatusByPath = activeExplorer.statusByPath || {};
+  const explorerDirStatus = useMemo(() => {
+    const dirStatus = {};
+    const setStatus = (dirPath, type) => {
+      if (!dirPath) {
         return;
       }
-      const payload = await response.json().catch(() => ({}));
-      if (Array.isArray(payload?.messages)) {
-        const normalized = payload.messages.map((message, index) => ({
-          ...message,
-          id: message?.id || `history-${index}`,
-          attachments: normalizeAttachments(message?.attachments || []),
-          toolResult: message?.toolResult,
-        }));
-        applyMessages(normalized);
-      }
-    } catch (error) {
-      // Ignore snapshot failures; WS sync will retry.
-    }
-  }, [attachmentSession?.sessionId, apiFetch, applyMessages]);
-
-  const loadWorktreeSnapshot = useCallback(
-    async (worktreeId) => {
-      const sessionId = attachmentSession?.sessionId;
-      if (!sessionId || !worktreeId) {
+      const existing = dirStatus[dirPath];
+      if (existing === "untracked") {
         return;
       }
-      if (worktreeId === "main") {
-        await loadMainWorktreeSnapshot();
+      if (type === "untracked") {
+        dirStatus[dirPath] = "untracked";
         return;
       }
-      try {
-        const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            worktreeId
-          )}?session=${encodeURIComponent(sessionId)}`
-        );
-        if (!response.ok) {
-          return;
-        }
-        const payload = await response.json().catch(() => ({}));
-        const messagesResponse = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            worktreeId
-          )}/messages?session=${encodeURIComponent(sessionId)}`
-        );
-        if (!messagesResponse.ok) {
-          return;
-        }
-        const messagesPayload = await messagesResponse.json().catch(() => ({}));
-        if (!Array.isArray(messagesPayload?.messages)) {
-          return;
-        }
-        const normalizedMessages = messagesPayload.messages.map((message, index) => ({
-          ...message,
-          id: message?.id || `history-${index}`,
-          attachments: normalizeAttachments(message?.attachments || []),
-          toolResult: message?.toolResult,
-        }));
-        setWorktrees((current) => {
-          const next = new Map(current);
-          const wt = next.get(worktreeId);
-          if (wt) {
-            next.set(worktreeId, {
-              ...wt,
-              messages: normalizedMessages,
-              status: payload.status || wt.status,
-            });
-          }
-          return next;
-        });
-      } catch (error) {
-        // Ignore snapshot failures; WS sync will retry.
+      if (!existing) {
+        dirStatus[dirPath] = type;
       }
-    },
-    [attachmentSession?.sessionId, apiFetch, loadMainWorktreeSnapshot]
-  );
+    };
+    Object.entries(explorerStatusByPath).forEach(([path, type]) => {
+      if (!path) {
+        return;
+      }
+      const parts = path.split("/").filter(Boolean);
+      if (parts.length <= 1) {
+        return;
+      }
+      for (let i = 0; i < parts.length - 1; i += 1) {
+        const dirPath = parts.slice(0, i + 1).join("/");
+        setStatus(dirPath, type);
+      }
+    });
+    return dirStatus;
+  }, [explorerStatusByPath]);
 
   const resyncSession = useCallback(async () => {
     const sessionId = attachmentSession?.sessionId;
@@ -1841,24 +1777,22 @@ function App() {
     loadMainWorktreeSnapshot,
   ]);
 
-  const getLastSeenMessageId = useCallback((items) => {
-    if (!Array.isArray(items)) {
-      return null;
-    }
-    for (let i = items.length - 1; i >= 0; i -= 1) {
-      if (items[i]?.id) {
-        return items[i].id;
-      }
-    }
-    return null;
-  }, []);
-
   const requestMessageSync = useCallback(() => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return;
     }
-    const lastSeenMessageId = getLastSeenMessageId(messagesRef.current);
+    const lastSeenMessageId = (() => {
+      if (!Array.isArray(messagesRef.current)) {
+        return null;
+      }
+      for (let i = messagesRef.current.length - 1; i >= 0; i -= 1) {
+        if (messagesRef.current[i]?.id) {
+          return messagesRef.current[i].id;
+        }
+      }
+      return null;
+    })();
     socket.send(
       JSON.stringify({
         type: "sync_worktree_messages",
@@ -1866,89 +1800,6 @@ function App() {
         lastSeenMessageId,
       })
     );
-  }, [getLastSeenMessageId]);
-
-  const requestWorktreeMessages = useCallback((worktreeId) => {
-    const socket = socketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    if (!worktreeId) {
-      return;
-    }
-    const worktreesCurrent = worktreesRef.current;
-    const lastSeenMessageId =
-      worktreeId === "main"
-        ? getLastSeenMessageId(messagesRef.current)
-        : getLastSeenMessageId(worktreesCurrent.get(worktreeId)?.messages);
-    socket.send(
-      JSON.stringify({
-        type: "sync_worktree_messages",
-        worktreeId,
-        lastSeenMessageId,
-      })
-    );
-  }, [getLastSeenMessageId]);
-
-  const applyWorktreesList = useCallback((worktreesList) => {
-    if (!Array.isArray(worktreesList)) {
-      return;
-    }
-    const nextMap = new Map();
-    worktreesList.forEach((wt) => {
-      nextMap.set(wt.id, {
-        ...wt,
-        messages: [],
-        activity: "",
-        currentTurnId: null,
-      });
-    });
-    setWorktrees(nextMap);
-    setPaneByTab((current) => {
-      const next = { ...current };
-      worktreesList.forEach((wt) => {
-        if (!next[wt.id]) {
-          next[wt.id] = "chat";
-        }
-      });
-      return next;
-    });
-    setLogFilterByTab((current) => {
-      const next = { ...current };
-      worktreesList.forEach((wt) => {
-        if (!next[wt.id]) {
-          next[wt.id] = "all";
-        }
-      });
-      return next;
-    });
-    if (
-      activeWorktreeIdRef.current !== "main" &&
-      !worktreesList.some((wt) => wt.id === activeWorktreeIdRef.current)
-    ) {
-      setActiveWorktreeId("main");
-    }
-  }, [requestWorktreeMessages]);
-
-  const requestWorktreesList = useCallback(async () => {
-    const sessionId = attachmentSession?.sessionId;
-    if (!sessionId) {
-      return;
-    }
-    try {
-      const response = await apiFetch(
-        `/api/worktrees?session=${encodeURIComponent(sessionId)}`
-      );
-      if (!response.ok) {
-        return;
-      }
-      const payload = await response.json();
-      applyWorktreesList(payload?.worktrees);
-    } catch (error) {
-      // Ignore worktree list failures (retry on next reconnect).
-    }
-  }, [attachmentSession?.sessionId, apiFetch, applyWorktreesList]);
-
   const requestWorktreeDiff = useCallback(
     async (worktreeId) => {
       const sessionId = attachmentSession?.sessionId;
@@ -1987,17 +1838,6 @@ function App() {
       }
     },
     [attachmentSession?.sessionId, apiFetch]
-  );
-
-  const handleSelectWorktree = useCallback(
-    (worktreeId) => {
-      if (!worktreeId) {
-        return;
-      }
-      setActiveWorktreeId(worktreeId);
-      void loadWorktreeSnapshot(worktreeId);
-    },
-    [loadWorktreeSnapshot]
   );
 
   const requestRepoDiff = useCallback(async () => {
@@ -3129,89 +2969,6 @@ function App() {
     handleSendMessageRef.current(text, []);
   };
 
-  // ============== Worktree Functions ==============
-
-  const createWorktree = useCallback(
-    async ({
-      name,
-      provider: wtProvider,
-      startingBranch,
-      model,
-      reasoningEffort,
-      internetAccess,
-      denyGitCredentialsAccess,
-    }) => {
-      const sessionId = attachmentSession?.sessionId;
-      if (!sessionId) {
-        showToast(t("Session not found."), "error");
-        return;
-      }
-      try {
-        const response = await apiFetch("/api/worktree", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            session: sessionId,
-            provider: availableProviders.includes(wtProvider)
-              ? wtProvider
-              : llmProvider,
-            name: name || null,
-            startingBranch: startingBranch || null,
-            model: model || null,
-            reasoningEffort: reasoningEffort ?? null,
-            internetAccess: Boolean(internetAccess),
-            denyGitCredentialsAccess: Boolean(denyGitCredentialsAccess),
-          }),
-        });
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null);
-          throw new Error(payload?.error || t("Failed to create parallel request."));
-        }
-        const payload = await response.json();
-        setWorktrees((current) => {
-          const next = new Map(current);
-          next.set(payload.worktreeId, {
-            id: payload.worktreeId,
-            name: payload.name,
-            branchName: payload.branchName,
-            provider: payload.provider,
-            model: payload.model || null,
-            reasoningEffort: payload.reasoningEffort || null,
-            internetAccess: Boolean(payload.internetAccess),
-            denyGitCredentialsAccess: Boolean(payload.denyGitCredentialsAccess),
-            status: payload.status || "creating",
-            color: payload.color,
-            messages: [],
-            activity: "",
-            currentTurnId: null,
-          });
-          return next;
-        });
-        setPaneByTab((current) => ({
-          ...current,
-          [payload.worktreeId]: current[payload.worktreeId] || "chat",
-        }));
-        setLogFilterByTab((current) => ({
-          ...current,
-          [payload.worktreeId]: current[payload.worktreeId] || "all",
-        }));
-        setActiveWorktreeId(payload.worktreeId);
-        void requestWorktreesList();
-      } catch (error) {
-        showToast(error.message || t("Failed to create parallel request."), "error");
-      }
-    },
-    [
-      apiFetch,
-      attachmentSession?.sessionId,
-      availableProviders,
-      llmProvider,
-      requestWorktreesList,
-      showToast,
-      t,
-    ]
-  );
-
   const sendWorktreeMessage = useCallback(
     (worktreeId, textOverride, attachmentsOverride) => {
       const rawText = (textOverride ?? input).trim();
@@ -3264,27 +3021,6 @@ function App() {
     [connected, input, draftAttachments]
   );
 
-  const closeWorktree = useCallback(
-    async (worktreeId) => {
-      if (!attachmentSession?.sessionId) return;
-
-      try {
-        const response = await apiFetch(
-          `/api/worktree/${worktreeId}?session=${encodeURIComponent(
-            attachmentSession.sessionId
-          )}`,
-          { method: "DELETE" }
-        );
-        if (!response.ok) {
-          console.error("Failed to close worktree");
-        }
-      } catch (error) {
-        console.error("Error closing worktree:", error);
-      }
-    },
-    [attachmentSession?.sessionId]
-  );
-
   const mergeTargetBranch = defaultBranch || currentBranch || "main";
 
   const openCloseConfirm = useCallback((worktreeId) => {
@@ -3321,30 +3057,6 @@ function App() {
     setCloseConfirm(null);
   }, [closeConfirm, closeWorktree]);
 
-  const renameWorktreeHandler = useCallback(
-    async (worktreeId, newName) => {
-      if (!attachmentSession?.sessionId) return;
-
-      try {
-        const response = await apiFetch(
-          `/api/worktree/${worktreeId}?session=${encodeURIComponent(
-            attachmentSession.sessionId
-          )}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: newName }),
-          }
-        );
-        if (!response.ok) {
-          console.error("Failed to rename worktree");
-        }
-      } catch (error) {
-        console.error("Error renaming worktree:", error);
-      }
-    },
-    [attachmentSession?.sessionId]
-  );
 
   // Check if we're in a real worktree (not "main")
   const isInWorktree = activeWorktreeId && activeWorktreeId !== "main";
