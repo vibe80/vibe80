@@ -39,6 +39,7 @@ import usePaneNavigation from "./hooks/usePaneNavigation.js";
 import useSessionReset from "./hooks/useSessionReset.js";
 import useTurnInterrupt from "./hooks/useTurnInterrupt.js";
 import useDiffNavigation from "./hooks/useDiffNavigation.js";
+import useChatCollapse from "./hooks/useChatCollapse.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -696,7 +697,6 @@ function App() {
     readToolResultsVisible
   );
   const [chatFullWidth, setChatFullWidth] = useState(readChatFullWidth);
-  const [showOlderMessagesByTab, setShowOlderMessagesByTab] = useState({});
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     readNotificationsEnabled
   );
@@ -1790,26 +1790,17 @@ function App() {
     return grouped;
   }, [currentMessages, showChatCommands, showToolResults]);
   const activeChatKey = activeWorktreeId || "main";
-  const showOlderMessages = Boolean(showOlderMessagesByTab[activeChatKey]);
-  const chatHistoryWindow = useMemo(() => {
-    const total = displayedGroupedMessages.length;
-    const shouldCollapse = !showOlderMessages && total > CHAT_COLLAPSE_THRESHOLD;
-    if (!shouldCollapse) {
-      return {
-        visibleMessages: displayedGroupedMessages,
-        hiddenCount: 0,
-        isCollapsed: false,
-      };
-    }
-    const visibleMessages = displayedGroupedMessages.slice(
-      Math.max(0, total - CHAT_COLLAPSE_VISIBLE)
-    );
-    return {
-      visibleMessages,
-      hiddenCount: Math.max(0, total - visibleMessages.length),
-      isCollapsed: true,
-    };
-  }, [displayedGroupedMessages, showOlderMessages]);
+  const {
+    showOlderMessagesByTab,
+    setShowOlderMessagesByTab,
+    showOlderMessages,
+    collapsedMessages: chatHistoryWindow,
+  } = useChatCollapse({
+    activeChatKey,
+    displayedGroupedMessages,
+    CHAT_COLLAPSE_THRESHOLD,
+    CHAT_COLLAPSE_VISIBLE,
+  });
 
   const isWorktreeProcessing = activeWorktree?.status === "processing";
   const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
