@@ -42,6 +42,7 @@ import useDiffNavigation from "./hooks/useDiffNavigation.js";
 import useChatCollapse from "./hooks/useChatCollapse.js";
 import useSessionResync from "./hooks/useSessionResync.js";
 import useMessageSync from "./hooks/useMessageSync.js";
+import useChatMessagesState from "./hooks/useChatMessagesState.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1023,55 +1024,15 @@ function App() {
 
   const { isMobileLayout } = useLayoutMode({ themeMode, setSideOpen });
 
-  const applyMessages = useCallback(
-    (items = []) => {
-      const normalized = items.map((item, index) => ({
-        id: item.id || `history-${index}`,
-        role: item.role,
-        text: item.text,
-        toolResult: item.toolResult,
-        attachments: normalizeAttachments(item.attachments || []),
-      }));
-      messageIndex.clear();
-      commandIndex.clear();
-      normalized.forEach((item, index) => {
-        if (item.role === "assistant") {
-          messageIndex.set(item.id, index);
-        }
-      });
-      setMessages(normalized);
-      setCommandPanelOpen({});
-      setToolResultPanelOpen({});
-    },
-    [messageIndex, commandIndex]
-  );
-
-  const mergeAndApplyMessages = useCallback(
-    (incoming = []) => {
-      if (!Array.isArray(incoming) || incoming.length === 0) {
-        return;
-      }
-      const current = Array.isArray(messagesRef.current)
-        ? messagesRef.current
-        : [];
-      const seen = new Set(
-        current.map((item) => item?.id).filter(Boolean)
-      );
-      const merged = [...current];
-      for (const item of incoming) {
-        const id = item?.id;
-        if (id && seen.has(id)) {
-          continue;
-        }
-        if (id) {
-          seen.add(id);
-        }
-        merged.push(item);
-      }
-      applyMessages(merged);
-    },
-    [applyMessages]
-  );
+  const { applyMessages, mergeAndApplyMessages } = useChatMessagesState({
+    normalizeAttachments,
+    messageIndex,
+    commandIndex,
+    messagesRef,
+    setMessages,
+    setCommandPanelOpen,
+    setToolResultPanelOpen,
+  });
 
   const {
     activeWorktreeId,
