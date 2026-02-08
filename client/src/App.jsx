@@ -1679,6 +1679,12 @@ function App() {
     setActivity,
   });
 
+  useEffect(() => {
+    if (!workspaceToken && attachmentSession?.sessionId) {
+      handleLeaveSession();
+    }
+  }, [workspaceToken, attachmentSession?.sessionId, handleLeaveSession]);
+
   const { handleDiffSelect } = useDiffNavigation({
     activeWorktreeId,
     handleViewSelect,
