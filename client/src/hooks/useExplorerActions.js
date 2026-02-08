@@ -434,10 +434,11 @@ export default function useExplorerActions({
       if (!tabId || !dirPath) {
         return;
       }
+      let willExpand = false;
       setExplorerByTab((current) => {
         const prev = current[tabId] || explorerDefaultState;
         const expanded = new Set(prev.expandedPaths || []);
-        const willExpand = !expanded.has(dirPath);
+        willExpand = !expanded.has(dirPath);
         if (expanded.has(dirPath)) {
           expanded.delete(dirPath);
         } else {
@@ -452,26 +453,20 @@ export default function useExplorerActions({
           },
         };
       });
-      if (dirPath) {
-        const tree = explorerRef.current[tabId]?.tree;
-        const node = findExplorerNode(tree, dirPath);
-        if (willExpand && node?.type === "dir" && node.children === null) {
-          fetchExplorerChildren(tabId, dirPath).catch(() => {
-            updateExplorerState(tabId, {
-              error: t("Unable to load the explorer."),
-            });
+      if (willExpand) {
+        fetchExplorerChildren(tabId, dirPath).catch(() => {
+          updateExplorerState(tabId, {
+            error: t("Unable to load the explorer."),
           });
-        }
+        });
       }
     },
     [
       explorerDefaultState,
       fetchExplorerChildren,
-      findExplorerNode,
       t,
       updateExplorerState,
       setExplorerByTab,
-      explorerRef,
     ]
   );
 
