@@ -1107,6 +1107,7 @@ function App() {
     branchLoading,
     currentBranch,
     defaultBranch,
+    loadBranches,
     loadProviderModels,
     providerModelState,
     selectedModel,
