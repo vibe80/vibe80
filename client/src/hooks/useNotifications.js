@@ -123,5 +123,6 @@ export default function useNotifications({ notificationsEnabled, t }) {
   return {
     ensureNotificationPermission,
     maybeNotify,
+    lastNotifiedIdRef,
   };
 }
