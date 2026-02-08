@@ -406,43 +406,6 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/tree": {
-      "get": {
-        "summary": "Get directory tree",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/WorktreeId"
-          },
-          {
-            "$ref": "#/components/parameters/SessionQuery"
-          },
-          {
-            "$ref": "#/components/parameters/TreeDepth"
-          },
-          {
-            "$ref": "#/components/parameters/TreeLimit"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Directory tree",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DirectoryTree"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
     "/api/worktree/{worktreeId}/file": {
       "get": {
         "summary": "Read file",
@@ -1136,6 +1099,240 @@
           }
         }
       }
+    },
+    "/api/worktree/{worktreeId}/browse": {
+      "get": {
+        "summary": "Browse worktree directory",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          },
+          {
+            "$ref": "#/components/parameters/BrowsePath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Directory entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryBrowseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/worktree/{worktreeId}/messages": {
+      "get": {
+        "summary": "Get worktree messages",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionQuery"
+          },
+          {
+            "$ref": "#/components/parameters/MessagesLimit"
+          },
+          {
+            "$ref": "#/components/parameters/BeforeMessageId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Worktree messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorktreeMessagesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/session/{sessionId}/backlog": {
+      "get": {
+        "summary": "Get session backlog",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backlog items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklogListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add backlog item",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacklogCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Backlog item created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklogCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update backlog item",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacklogUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Backlog item updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacklogUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/sessions/handoff": {
+      "post": {
+        "summary": "Create session handoff token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoffRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Handoff token created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/sessions/handoff/consume": {
+      "post": {
+        "summary": "Consume session handoff token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoffConsumeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Handoff token consumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffConsumeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1231,6 +1428,34 @@
         "schema": {
           "type": "string",
           "pattern": "^w[0-9a-f]{24}$"
+        }
+      },
+      "BrowsePath": {
+        "name": "path",
+        "in": "query",
+        "description": "Relative path to browse (defaults to root).",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "MessagesLimit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Max number of messages to return (default 50).",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "BeforeMessageId": {
+        "name": "beforeMessageId",
+        "in": "query",
+        "description": "Return messages before this message id (exclusive).",
+        "required": false,
+        "schema": {
+          "type": "string"
         }
       }
     },
@@ -1335,6 +1560,9 @@
           },
           "provider": {
             "$ref": "#/components/schemas/Provider"
+          },
+          "deploymentMode": {
+            "type": "string"
           }
         },
         "required": [
@@ -1452,12 +1680,6 @@
               "$ref": "#/components/schemas/Provider"
             }
           },
-          "messages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Message"
-            }
-          },
           "repoDiff": {
             "$ref": "#/components/schemas/RepoDiff"
           },
@@ -1492,7 +1714,6 @@
           "path",
           "repoUrl",
           "default_provider",
-          "messages",
           "repoDiff",
           "workspaceId"
         ],
@@ -1543,12 +1764,6 @@
               "$ref": "#/components/schemas/Provider"
             }
           },
-          "messages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Message"
-            }
-          },
           "terminalEnabled": {
             "type": "boolean"
           },
@@ -1574,7 +1789,6 @@
           "path",
           "repoUrl",
           "default_provider",
-          "messages",
           "workspaceId"
         ],
         "additionalProperties": true
@@ -1582,9 +1796,6 @@
       "SessionClearRequest": {
         "type": "object",
         "properties": {
-          "provider": {
-            "$ref": "#/components/schemas/Provider"
-          },
           "worktreeId": {
             "type": "string"
           }
@@ -1698,6 +1909,18 @@
           },
           "denyGitCredentialsAccess": {
             "type": "boolean"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reasoningEffort": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1819,12 +2042,6 @@
           "status": {
             "type": "string"
           },
-          "messages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Message"
-            }
-          },
           "color": {
             "type": "string"
           },
@@ -1843,6 +2060,18 @@
           },
           "denyGitCredentialsAccess": {
             "type": "boolean"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reasoningEffort": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1851,7 +2080,6 @@
           "branchName",
           "provider",
           "status",
-          "messages",
           "diff"
         ],
         "additionalProperties": true
@@ -2179,8 +2407,7 @@
           }
         },
         "required": [
-          "type",
-          "value"
+          "type"
         ],
         "additionalProperties": false
       },
@@ -2366,6 +2593,9 @@
                 "type": "null"
               }
             ]
+          },
+          "name": {
+            "type": "string"
           }
         },
         "required": [
@@ -2503,6 +2733,226 @@
           "repo"
         ],
         "additionalProperties": false
+      },
+      "DirectoryBrowseResponse": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryNode"
+            }
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "entries",
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "WorktreeMessagesResponse": {
+        "type": "object",
+        "properties": {
+          "worktreeId": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "worktreeId",
+          "messages",
+          "hasMore"
+        ],
+        "additionalProperties": false
+      },
+      "BacklogItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "number"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "doneAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "createdAt",
+          "done"
+        ],
+        "additionalProperties": true
+      },
+      "BacklogListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BacklogItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "BacklogCreateRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "BacklogCreateResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "item": {
+            "$ref": "#/components/schemas/BacklogItem"
+          }
+        },
+        "required": [
+          "ok",
+          "item"
+        ],
+        "additionalProperties": false
+      },
+      "BacklogUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "done": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "done"
+        ],
+        "additionalProperties": false
+      },
+      "BacklogUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "item": {
+            "$ref": "#/components/schemas/BacklogItem"
+          }
+        },
+        "required": [
+          "ok",
+          "item"
+        ],
+        "additionalProperties": false
+      },
+      "HandoffRequest": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId"
+        ],
+        "additionalProperties": false
+      },
+      "HandoffResponse": {
+        "type": "object",
+        "properties": {
+          "handoffToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": [
+              "number",
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "handoffToken"
+        ],
+        "additionalProperties": false
+      },
+      "HandoffConsumeRequest": {
+        "type": "object",
+        "properties": {
+          "handoffToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "handoffToken"
+        ],
+        "additionalProperties": false
+      },
+      "HandoffConsumeResponse": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer"
+          },
+          "refreshExpiresIn": {
+            "type": "integer"
+          },
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "workspaceToken",
+          "refreshToken",
+          "sessionId"
+        ],
+        "additionalProperties": true
       }
     },
     "securitySchemes": {

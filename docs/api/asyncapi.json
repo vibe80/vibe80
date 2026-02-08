@@ -25,12 +25,6 @@
           "schema": {
             "type": "string"
           }
-        },
-        "token": {
-          "description": "Workspace JWT token (24h)",
-          "schema": {
-            "type": "string"
-          }
         }
       },
       "publish": {
@@ -56,12 +50,6 @@
         },
         "worktreeId": {
           "description": "Optional worktree id",
-          "schema": {
-            "type": "string"
-          }
-        },
-        "token": {
-          "description": "Workspace JWT token (24h)",
           "schema": {
             "type": "string"
           }
@@ -183,9 +171,6 @@
             "$ref": "#/components/messages/WorktreeMessage"
           },
           {
-            "$ref": "#/components/messages/CreateParallelRequest"
-          },
-          {
             "$ref": "#/components/messages/WorktreeTurnInterrupt"
           },
           {
@@ -208,6 +193,12 @@
           },
           {
             "$ref": "#/components/messages/SwitchProvider"
+          },
+          {
+            "$ref": "#/components/messages/Auth"
+          },
+          {
+            "$ref": "#/components/messages/ActionRequest"
           }
         ]
       },
@@ -299,6 +290,15 @@
           },
           {
             "$ref": "#/components/messages/RpcLog"
+          },
+          {
+            "$ref": "#/components/messages/AuthOk"
+          },
+          {
+            "$ref": "#/components/messages/ActionStarted"
+          },
+          {
+            "$ref": "#/components/messages/WorktreeTurnStarted"
           }
         ]
       },
@@ -425,12 +425,12 @@
         }
       },
       "WorktreeMessage": {
-        "name": "worktree_message",
+        "name": "worktree_send_message",
         "payload": {
           "type": "object",
           "properties": {
             "type": {
-              "const": "worktree_message"
+              "const": "worktree_send_message"
             },
             "worktreeId": {
               "type": "string"
@@ -479,18 +479,21 @@
         }
       },
       "SyncWorktreeMessages": {
-        "name": "sync_worktree_messages",
+        "name": "worktree_messages_sync",
         "payload": {
           "type": "object",
           "properties": {
             "type": {
-              "const": "sync_worktree_messages"
+              "const": "worktree_messages_sync"
             },
             "worktreeId": {
               "type": "string"
             },
             "lastSeenMessageId": {
               "type": "string"
+            },
+            "limit": {
+              "type": "integer"
             }
           },
           "required": [
@@ -1424,6 +1427,127 @@
             "code"
           ],
           "additionalProperties": false
+        }
+      },
+      "Auth": {
+        "name": "auth",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "auth"
+            },
+            "token": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "token"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "AuthOk": {
+        "name": "auth_ok",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "auth_ok"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "ActionRequest": {
+        "name": "action_request",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "action_request"
+            },
+            "request": {
+              "type": "string",
+              "enum": [
+                "run",
+                "git"
+              ]
+            },
+            "arg": {
+              "type": "string"
+            },
+            "worktreeId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "request",
+            "arg"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "ActionStarted": {
+        "name": "action_started",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "action_started"
+            },
+            "requestType": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "requestType"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "WorktreeTurnStarted": {
+        "name": "worktree_turn_started",
+        "payload": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "worktree_turn_started"
+            },
+            "worktreeId": {
+              "type": "string"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "threadId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "provider": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "worktreeId",
+            "turnId"
+          ],
+          "additionalProperties": true
         }
       }
     },
