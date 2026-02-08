@@ -36,6 +36,7 @@ import useRpcLogView from "./hooks/useRpcLogView.js";
 import useToolbarExport from "./hooks/useToolbarExport.js";
 import usePanelState from "./hooks/usePanelState.js";
 import usePaneNavigation from "./hooks/usePaneNavigation.js";
+import useSessionReset from "./hooks/useSessionReset.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1888,26 +1889,23 @@ function App() {
     setActivity("Interruption...");
   };
 
-  const handleLeaveSession = useCallback(() => {
-    setAttachmentSession(null);
-    setRepoUrl("");
-    setRepoInput("");
-    setRepoAuth(null);
-    setSessionRequested(false);
-    setAttachmentsError("");
-    setAttachmentsLoading(false);
-    setMessages([]);
-    setRepoDiff({ status: "", diff: "" });
-    setRpcLogs([]);
-    setRpcLogsEnabled(true);
-    setRepoLastCommit(null);
-    setWorktreeLastCommitById(new Map());
-    setCurrentTurnId(null);
-    setActivity("");
-    const url = new URL(window.location.href);
-    url.searchParams.delete("session");
-    window.history.replaceState({}, "", url);
-  }, []);
+  const { handleLeaveSession } = useSessionReset({
+    setAttachmentSession,
+    setRepoUrl,
+    setRepoInput,
+    setRepoAuth,
+    setSessionRequested,
+    setAttachmentsError,
+    setAttachmentsLoading,
+    setMessages,
+    setRepoDiff,
+    setRpcLogs,
+    setRpcLogsEnabled,
+    setRepoLastCommit,
+    setWorktreeLastCommitById,
+    setCurrentTurnId,
+    setActivity,
+  });
 
   const handleDiffSelect = useCallback(() => {
     handleViewSelect("diff");
