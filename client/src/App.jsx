@@ -43,6 +43,7 @@ import useChatCollapse from "./hooks/useChatCollapse.js";
 import useSessionResync from "./hooks/useSessionResync.js";
 import useMessageSync from "./hooks/useMessageSync.js";
 import useChatMessagesState from "./hooks/useChatMessagesState.js";
+import useWorktreeCloseConfirm from "./hooks/useWorktreeCloseConfirm.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1566,39 +1567,21 @@ function App() {
 
   const mergeTargetBranch = defaultBranch || currentBranch || "main";
 
-  const openCloseConfirm = useCallback((worktreeId) => {
-    if (!worktreeId || worktreeId === "main") {
-      return;
-    }
-    setCloseConfirm({ worktreeId });
-  }, []);
-
-  const closeCloseConfirm = useCallback(() => {
-    setCloseConfirm(null);
-  }, []);
-
-  const handleConfirmMerge = useCallback(() => {
-    if (!closeConfirm?.worktreeId) {
-      return;
-    }
-    sendWorktreeMessage(
-      closeConfirm.worktreeId,
-      t("Merge into {{branch}}", { branch: mergeTargetBranch }),
-      []
-    );
-    setCloseConfirm(null);
-  }, [closeConfirm, mergeTargetBranch, sendWorktreeMessage, t]);
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!closeConfirm?.worktreeId) {
-      return;
-    }
-    if (activeWorktreeIdRef.current === closeConfirm.worktreeId) {
-      setActiveWorktreeId("main");
-    }
-    await closeWorktree(closeConfirm.worktreeId);
-    setCloseConfirm(null);
-  }, [closeConfirm, closeWorktree]);
+  const {
+    openCloseConfirm,
+    closeCloseConfirm,
+    handleConfirmMerge,
+    handleConfirmDelete,
+  } = useWorktreeCloseConfirm({
+    closeConfirm,
+    setCloseConfirm,
+    setActiveWorktreeId,
+    activeWorktreeIdRef,
+    closeWorktree,
+    sendWorktreeMessage,
+    mergeTargetBranch,
+    t,
+  });
 
 
   // Check if we're in a real worktree (not "main")
