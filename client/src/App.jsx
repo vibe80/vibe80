@@ -38,6 +38,7 @@ import usePanelState from "./hooks/usePanelState.js";
 import usePaneNavigation from "./hooks/usePaneNavigation.js";
 import useSessionReset from "./hooks/useSessionReset.js";
 import useTurnInterrupt from "./hooks/useTurnInterrupt.js";
+import useDiffNavigation from "./hooks/useDiffNavigation.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -1889,19 +1890,12 @@ function App() {
     setActivity,
   });
 
-  const handleDiffSelect = useCallback(() => {
-    handleViewSelect("diff");
-    if (activeWorktreeId && activeWorktreeId !== "main") {
-      requestWorktreeDiff(activeWorktreeId);
-    } else {
-      requestRepoDiff();
-    }
-  }, [
+  const { handleDiffSelect } = useDiffNavigation({
     activeWorktreeId,
     handleViewSelect,
-    requestRepoDiff,
     requestWorktreeDiff,
-  ]);
+    requestRepoDiff,
+  });
 
 
   const updateExplorerState = useCallback((tabId, patch) => {
