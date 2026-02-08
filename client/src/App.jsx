@@ -44,6 +44,7 @@ import useSessionResync from "./hooks/useSessionResync.js";
 import useMessageSync from "./hooks/useMessageSync.js";
 import useChatMessagesState from "./hooks/useChatMessagesState.js";
 import useWorktreeCloseConfirm from "./hooks/useWorktreeCloseConfirm.js";
+import useRpcLogActions from "./hooks/useRpcLogActions.js";
 import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
 import DiffPanel from "./components/Diff/DiffPanel.jsx";
 import Topbar from "./components/Topbar/Topbar.jsx";
@@ -2338,16 +2339,10 @@ function App() {
     ]
   );
 
-  const handleClearRpcLogs = useCallback(() => {
-    setRpcLogs((current) => {
-      if (activeWorktreeId && activeWorktreeId !== "main") {
-        return current.filter(
-          (entry) => entry?.worktreeId !== activeWorktreeId
-        );
-      }
-      return current.filter((entry) => Boolean(entry?.worktreeId));
-    });
-  }, [activeWorktreeId]);
+  const { handleClearRpcLogs } = useRpcLogActions({
+    activeWorktreeId,
+    setRpcLogs,
+  });
 
   useEffect(() => {
     if (activePane !== "diff") {
