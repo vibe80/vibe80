@@ -768,6 +768,7 @@ function App() {
   const [currentTurnId, setCurrentTurnId] = useState(null);
   const [rpcLogs, setRpcLogs] = useState([]);
   const [rpcLogsEnabled, setRpcLogsEnabled] = useState(true);
+  const [logFilterByTab, setLogFilterByTab] = useState({ main: "all" });
   const [sideOpen, setSideOpen] = useState(false);
   const [closeConfirm, setCloseConfirm] = useState(null);
   const [terminalEnabled, setTerminalEnabled] = useState(true);
@@ -1021,13 +1022,6 @@ function App() {
     DEBUG_MODE_KEY,
   });
 
-  const isInWorktree = activeWorktreeId && activeWorktreeId !== "main";
-  const activeWorktree = isInWorktree ? worktrees.get(activeWorktreeId) : null;
-  const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
-  const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
-  const currentMessages = activeWorktree ? activeWorktree.messages : messages;
-  const hasMessages =
-    Array.isArray(currentMessages) && currentMessages.length > 0;
   const groupedMessages = useMemo(() => {
     const grouped = [];
     (messages || []).forEach((message) => {
@@ -1048,15 +1042,6 @@ function App() {
     });
     return grouped;
   }, [messages]);
-  const {
-    logFilterByTab,
-    setLogFilterByTab,
-    logFilter,
-    setLogFilter,
-    formattedRpcLogs,
-    filteredRpcLogs,
-  } = useRpcLogView({ rpcLogs, activeWorktreeId, locale });
-
   const { isMobileLayout } = useLayoutMode({ themeMode, setSideOpen });
 
   const { applyMessages, mergeAndApplyMessages } = useChatMessagesState({
@@ -1098,10 +1083,45 @@ function App() {
     showToast,
     t,
   });
-  const activePane = paneByTab[activeWorktreeId] || "chat";
-  const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
+  const { logFilter, setLogFilter, formattedRpcLogs, filteredRpcLogs } =
+    useRpcLogView({
+      rpcLogs,
+      activeWorktreeId,
+      locale,
+      logFilterByTab,
+      setLogFilterByTab,
+    });
   const { ensureNotificationPermission, maybeNotify } = useNotifications({
     notificationsEnabled,
+    t,
+  });
+  const loadRepoLastCommitRef = useRef(() => {});
+  const loadRepoLastCommitProxy = useCallback(
+    (...args) => loadRepoLastCommitRef.current?.(...args),
+    []
+  );
+  const {
+    branches,
+    branchError,
+    branchLoading,
+    currentBranch,
+    defaultBranch,
+    loadProviderModels,
+    providerModelState,
+    selectedModel,
+    setModelError,
+    setModelLoading,
+    setModels,
+    setProviderModelState,
+    setSelectedModel,
+    setSelectedReasoningEffort,
+  } = useRepoBranchesModels({
+    apiFetch,
+    attachmentSessionId: attachmentSession?.sessionId,
+    llmProvider,
+    loadRepoLastCommit: loadRepoLastCommitProxy,
+    processing,
+    socketRef,
     t,
   });
   const {
@@ -1129,30 +1149,18 @@ function App() {
     worktrees,
     t,
   });
-  const {
-    branches,
-    branchError,
-    branchLoading,
-    currentBranch,
-    defaultBranch,
-    loadProviderModels,
-    providerModelState,
-    selectedModel,
-    setModelError,
-    setModelLoading,
-    setModels,
-    setProviderModelState,
-    setSelectedModel,
-    setSelectedReasoningEffort,
-  } = useRepoBranchesModels({
-    apiFetch,
-    attachmentSessionId: attachmentSession?.sessionId,
-    llmProvider,
-    loadRepoLastCommit,
-    processing,
-    socketRef,
-    t,
-  });
+  useEffect(() => {
+    loadRepoLastCommitRef.current = loadRepoLastCommit;
+  }, [loadRepoLastCommit]);
+  const isInWorktree = activeWorktreeId && activeWorktreeId !== "main";
+  const activeWorktree = isInWorktree ? worktrees.get(activeWorktreeId) : null;
+  const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
+  const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
+  const currentMessages = activeWorktree ? activeWorktree.messages : messages;
+  const hasMessages =
+    Array.isArray(currentMessages) && currentMessages.length > 0;
+  const activePane = paneByTab[activeWorktreeId] || "chat";
+  const activeExplorer = explorerByTab[activeWorktreeId] || explorerDefaultState;
   const { handleResumeSession, onRepoSubmit } = useSessionLifecycle({
     t,
     apiFetch,
