@@ -607,12 +607,13 @@ export default function useChatSocket({
             payload.type === "command_execution_delta" ||
             payload.type === "command_execution_completed" ||
             payload.type === "turn_started" ||
+            payload.type === "worktree_turn_started" ||
             payload.type === "turn_completed" ||
             payload.type === "turn_error")
         ) {
           const wtId = payload.worktreeId;
 
-          if (payload.type === "turn_started") {
+          if (payload.type === "turn_started" || payload.type === "worktree_turn_started") {
             setWorktrees((current) => {
               const next = new Map(current);
               const wt = next.get(wtId);
