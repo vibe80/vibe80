@@ -789,7 +789,7 @@ wss.on("connection", (socket, req) => {
           );
         }
       }
-    });
+    };
 
     socket.on("close", () => {
       if (runtime) {

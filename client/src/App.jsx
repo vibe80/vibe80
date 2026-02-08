@@ -22,7 +22,7 @@ import useWorktrees from "./hooks/useWorktrees.js";
 import useTerminalSession from "./hooks/useTerminalSession.js";
 import useNotifications from "./hooks/useNotifications.js";
 import useRepoStatus from "./hooks/useRepoStatus.js";
-import useAttachments from "./hooks/useAttachments.js";
+import useAttachments from "./hooks/useAttachments.jsx";
 import useBacklog from "./hooks/useBacklog.js";
 import useChatCommands from "./hooks/useChatCommands.js";
 import useRepoBranchesModels from "./hooks/useRepoBranchesModels.js";
@@ -2295,6 +2295,7 @@ function App() {
               handleSaveGitIdentity={handleSaveGitIdentity}
               attachmentSession={attachmentSession}
             />
+          </div>
           <ChatComposer
             t={t}
             activePane={activePane}
