@@ -105,7 +105,7 @@ class WebSocketManager(
 
                 // Send auth message expected by server
                 try {
-                    val authPayload = json.encodeToString(AuthMessage.serializer(), AuthMessage(token))
+                    val authPayload = json.encodeToString(AuthMessage.serializer(), AuthMessage(token = token))
                     AppLogger.wsSend("auth", authPayload)
                     send(Frame.Text(authPayload))
                 } catch (e: Exception) {
@@ -134,6 +134,7 @@ class WebSocketManager(
                             // Encode each message type with its specific serializer to avoid sealed class issues
                             val (messageType, jsonString) = when (message) {
                                 is PingMessage -> "ping" to json.encodeToString(PingMessage.serializer(), message)
+                                is AuthMessage -> "auth" to json.encodeToString(AuthMessage.serializer(), message)
                                 is SendMessageRequest -> "user_message" to json.encodeToString(SendMessageRequest.serializer(), message)
                                 is SwitchProviderRequest -> "switch_provider" to json.encodeToString(SwitchProviderRequest.serializer(), message)
                                 is WorktreeMessageRequest -> "worktree_send_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
