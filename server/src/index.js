@@ -456,7 +456,7 @@ wss.on("connection", (socket, req) => {
           const denyGitCreds = typeof worktree?.denyGitCredentialsAccess === "boolean"
             ? worktree.denyGitCredentialsAccess
             : resolveDefaultDenyGitCredentialsAccess(session);
-          const allowGitCreds = !denyGitCreds;
+          const allowGitCreds = requestType === "git" ? true : !denyGitCreds;
           const gitDir = session.gitDir || path.join(session.dir, "git");
           const sshDir = getWorkspaceSshPaths(getWorkspacePaths(session.workspaceId).homeDir).sshDir;
           const extraAllowRw = [
