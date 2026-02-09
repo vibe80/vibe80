@@ -53,7 +53,6 @@ export const DEFAULT_RW_HOME_DIRS = [
   ".rustup",
   ".sbt",
   ".sdkman",
-  ".ssh",
   ".stack",
   ".swiftpm",
   ".venv",
