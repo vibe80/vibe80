@@ -232,7 +232,7 @@ private fun BrandHeader(title: String, subtitle: String? = null) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
     val logoHeight = with(LocalDensity.current) {
-        MaterialTheme.typography.headlineMedium.fontSize.toDp()
+        (MaterialTheme.typography.headlineMedium.fontSize * 2).toDp()
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
