@@ -254,6 +254,12 @@ data class PingMessage(
 ) : ClientMessage()
 
 @Serializable
+data class AuthMessage(
+    override val type: String = "auth",
+    val token: String
+) : ClientMessage()
+
+@Serializable
 data class SendMessageRequest(
     override val type: String = "user_message",
     val text: String,

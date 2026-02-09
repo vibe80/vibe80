@@ -92,7 +92,7 @@ class WebSocketManager(
                 .replace("http://", "ws://")
                 .replace("https://", "wss://")
 
-            val fullWsUrl = "$wsUrl/ws?session=$currentSessionId&token=$token"
+            val fullWsUrl = "$wsUrl/ws?session=$currentSessionId"
             AppLogger.wsConnecting(fullWsUrl)
             AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Starting WebSocket connection", "url=$fullWsUrl")
 
@@ -102,6 +102,16 @@ class WebSocketManager(
                 reconnectAttempt = 0
                 AppLogger.wsConnected(fullWsUrl)
                 AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "WebSocket session established", "session=${this::class.simpleName}")
+
+                // Send auth message expected by server
+                try {
+                    val authPayload = json.encodeToString(AuthMessage.serializer(), AuthMessage(token))
+                    AppLogger.wsSend("auth", authPayload)
+                    send(Frame.Text(authPayload))
+                } catch (e: Exception) {
+                    AppLogger.error(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Auth send error: ${e::class.simpleName}", e.message ?: e.toString())
+                    throw e
+                }
 
                 // Start ping job
                 pingJob = launch {
