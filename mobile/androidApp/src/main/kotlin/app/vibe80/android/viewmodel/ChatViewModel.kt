@@ -379,6 +379,20 @@ class ChatViewModel(
         }
     }
 
+    fun openToolResult(name: String, output: String) {
+        _uiState.update {
+            it.copy(
+                showFileSheet = true,
+                fileSheetPath = "Tool: $name",
+                fileSheetContent = output,
+                fileSheetTruncated = false,
+                fileSheetBinary = false,
+                fileSheetLoading = false,
+                fileSheetError = null
+            )
+        }
+    }
+
     fun hideFileSheet() {
         _uiState.update { it.copy(showFileSheet = false) }
     }
