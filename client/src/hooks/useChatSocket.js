@@ -297,20 +297,24 @@ export default function useChatSocket({
             const existingIndex = next.findIndex(
               (item) => item?.id === payload.id
             );
-            if (existingIndex === -1) {
-              next.push({
-                id: payload.id,
-                role: "assistant",
-                type: "action_result",
-                text: payload.text || "",
-                action: {
-                  request: payload.request,
-                  arg: payload.arg,
-                  status: payload.status,
-                  output: payload.output,
-                },
-              });
+            if (
+              existingIndex !== -1 &&
+              next[existingIndex]?.type === "action_result"
+            ) {
+              return next;
             }
+            next.push({
+              id: payload.id,
+              role: "assistant",
+              type: "action_result",
+              text: payload.text || "",
+              action: {
+                request: payload.request,
+                arg: payload.arg,
+                status: payload.status,
+                output: payload.output,
+              },
+            });
             return next;
           });
           if (payload.request === "run" || payload.request === "git") {
