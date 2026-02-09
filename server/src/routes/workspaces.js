@@ -33,6 +33,24 @@ const stableStringify = (value) => {
 const providersConfigChanged = (beforeConfig, afterConfig) =>
   stableStringify(beforeConfig ?? null) !== stableStringify(afterConfig ?? null);
 
+const sessionUsesProvider = (session, provider) => {
+  if (!session || !provider) {
+    return false;
+  }
+  if (Array.isArray(session.providers) && session.providers.length) {
+    return session.providers.includes(provider);
+  }
+  if (typeof session.activeProvider === "string") {
+    return session.activeProvider === provider;
+  }
+  return false;
+};
+
+const providerHasActiveSessions = async (workspaceId, provider) => {
+  const sessions = await storage.listSessions(workspaceId);
+  return sessions.some((session) => sessionUsesProvider(session, provider));
+};
+
 const restartCodexClientsForWorkspace = async (workspaceId) => {
   const sessions = await storage.listSessions(workspaceId);
   for (const session of sessions) {
@@ -167,6 +185,25 @@ export default function workspaceRoutes() {
         existing?.providers || {},
         req.body?.providers || {}
       );
+      const providersToDisable = Object.entries(mergedProviders)
+        .filter(([provider, config]) => {
+          if (!config || typeof config !== "object") {
+            return false;
+          }
+          const wasEnabled = Boolean(existing?.providers?.[provider]?.enabled);
+          return wasEnabled && config.enabled === false;
+        })
+        .map(([provider]) => provider);
+      if (providersToDisable.length) {
+        for (const provider of providersToDisable) {
+          if (await providerHasActiveSessions(workspaceId, provider)) {
+            res.status(403).json({
+              error: "Provider cannot be disabled: active sessions use it.",
+            });
+            return;
+          }
+        }
+      }
       const codexChanged = providersConfigChanged(
         existing?.providers?.codex,
         mergedProviders?.codex

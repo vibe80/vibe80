@@ -45,6 +45,12 @@ export default function sessionRoutes(deps) {
           createdAt: session.createdAt || null,
           lastActivityAt: session.lastActivityAt || null,
           activeProvider: session.activeProvider || null,
+          providers:
+            Array.isArray(session.providers) && session.providers.length
+              ? session.providers
+              : session.activeProvider
+                ? [session.activeProvider]
+                : [],
         }));
         payload.sort((a, b) => {
           const aTime = a.lastActivityAt || a.createdAt || 0;

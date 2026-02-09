@@ -1,1 +1,3 @@
-{}
+{
+  "Provider cannot be disabled: active sessions use it.": "Provider cannot be disabled: active sessions use it."
+}
