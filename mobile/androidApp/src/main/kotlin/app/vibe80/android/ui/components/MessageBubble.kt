@@ -139,8 +139,8 @@ fun MessageBubble(
                 if (!isUser && message != null && message.role != MessageRole.ASSISTANT) {
                     if (showToolBadge) {
                         AssistChip(
-                            onClick = { onToolResultSelected?.invoke(toolName.orEmpty(), toolOutput) },
-                            label = { Text("Tool : ${toolName.orEmpty()}") },
+                            onClick = { onToolResultSelected?.invoke(toolName, toolOutput) },
+                            label = { Text("Tool : $toolName") },
                             colors = AssistChipDefaults.assistChipColors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 labelColor = MaterialTheme.colorScheme.onSecondaryContainer
