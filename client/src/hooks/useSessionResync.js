@@ -20,14 +20,14 @@ export default function useSessionResync({
     }
     try {
       const response = await apiFetch(
-        `/api/session/${encodeURIComponent(attachmentSessionId)}`
+        `/api/sessions/${encodeURIComponent(attachmentSessionId)}`
       );
       if (!response.ok) {
         return;
       }
       const data = await response.json();
-      if (data?.default_provider && data.default_provider !== llmProvider) {
-        setLlmProvider(data.default_provider);
+      if (data?.defaultProvider && data.defaultProvider !== llmProvider) {
+        setLlmProvider(data.defaultProvider);
       }
       if (Array.isArray(data?.providers) && data.providers.length) {
         const filtered = data.providers.filter(

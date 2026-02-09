@@ -112,11 +112,10 @@ export default function useExplorerActions({
       if (!attachmentSessionId || !tabId) {
         return [];
       }
-      const pathParam = dirPath ? `&path=${encodeURIComponent(dirPath)}` : "";
       const response = await apiFetch(
-        `/api/worktree/${encodeURIComponent(
-          tabId
-        )}/browse?session=${encodeURIComponent(attachmentSessionId)}${pathParam}`
+        `/api/sessions/${encodeURIComponent(
+          attachmentSessionId
+        )}/worktrees/${encodeURIComponent(tabId)}/browse${dirPath ? `?path=${encodeURIComponent(dirPath)}` : ""}`
       );
       if (!response.ok) {
         throw new Error("Failed to load directory");
@@ -307,9 +306,9 @@ export default function useExplorerActions({
       updateExplorerState(tabId, { statusLoading: true, statusError: "" });
       try {
         const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            tabId
-          )}/status?session=${encodeURIComponent(attachmentSessionId)}`
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(tabId)}/status`
         );
         if (!response.ok) {
           throw new Error("Failed to load status");
@@ -376,11 +375,11 @@ export default function useExplorerActions({
       });
       try {
         const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            tabId
-          )}/file?session=${encodeURIComponent(
+          `/api/sessions/${encodeURIComponent(
             attachmentSessionId
-          )}&path=${encodeURIComponent(filePath)}`
+          )}/worktrees/${encodeURIComponent(
+            tabId
+          )}/file?path=${encodeURIComponent(filePath)}`
         );
         if (!response.ok) {
           throw new Error("Failed to load file");
@@ -510,9 +509,9 @@ export default function useExplorerActions({
       updateExplorerState(tabId, { fileSaving: true, fileSaveError: "" });
       try {
         const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            tabId
-          )}/file?session=${encodeURIComponent(attachmentSessionId)}`,
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(tabId)}/file`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

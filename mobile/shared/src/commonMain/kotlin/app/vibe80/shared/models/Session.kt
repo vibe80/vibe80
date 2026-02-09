@@ -42,7 +42,7 @@ data class SessionCreateResponse(
     val sessionId: String,
     val path: String,
     val repoUrl: String,
-    @SerialName("default_provider")
+    @SerialName("defaultProvider")
     val defaultProvider: String,
     val providers: List<String>,
     val messages: List<ChatMessage> = emptyList()
@@ -52,7 +52,7 @@ data class SessionCreateResponse(
 data class SessionGetResponse(
     val rpcLogs: List<RpcLogEntry> = emptyList(),
     val repoDiff: RepoDiff? = null,
-    @SerialName("default_provider")
+    @SerialName("defaultProvider")
     val defaultProvider: String? = null,
     val providers: List<String> = emptyList()
 )

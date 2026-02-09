@@ -26,7 +26,7 @@ export default function gitRoutes(deps) {
     }
   };
 
-  router.get("/session/:sessionId/git-identity", async (req, res) => {
+  router.get("/sessions/:sessionId/git-identity", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });
@@ -64,7 +64,7 @@ export default function gitRoutes(deps) {
     }
   });
 
-  router.post("/session/:sessionId/git-identity", async (req, res) => {
+  router.post("/sessions/:sessionId/git-identity", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });
@@ -98,7 +98,7 @@ export default function gitRoutes(deps) {
     }
   });
 
-  router.get("/session/:sessionId/diff", async (req, res) => {
+  router.get("/sessions/:sessionId/diff", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });

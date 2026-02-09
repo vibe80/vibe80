@@ -110,7 +110,7 @@ export default function sessionRoutes(deps) {
     });
   });
 
-  router.get("/session/:sessionId", async (req, res) => {
+  router.get("/sessions/:sessionId", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });
@@ -125,7 +125,7 @@ export default function sessionRoutes(deps) {
       path: session.dir,
       repoUrl: session.repoUrl,
       name: session.name || "",
-      default_provider: activeProvider,
+      defaultProvider: activeProvider,
       providers: session.providers || [activeProvider],
       defaultInternetAccess:
         typeof session.defaultInternetAccess === "boolean"
@@ -139,7 +139,7 @@ export default function sessionRoutes(deps) {
     });
   });
 
-  router.delete("/session/:sessionId", async (req, res) => {
+  router.delete("/sessions/:sessionId", async (req, res) => {
     const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
@@ -154,7 +154,7 @@ export default function sessionRoutes(deps) {
     }
   });
 
-  router.get("/session/:sessionId/last-commit", async (req, res) => {
+  router.get("/sessions/:sessionId/last-commit", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });
@@ -172,7 +172,7 @@ export default function sessionRoutes(deps) {
     }
   });
 
-  router.get("/session/:sessionId/rpc-logs", async (req, res) => {
+  router.get("/sessions/:sessionId/rpc-logs", async (req, res) => {
     if (!debugApiWsLog) {
       res.status(403).json({ error: "Forbidden." });
       return;
@@ -186,7 +186,7 @@ export default function sessionRoutes(deps) {
     res.json({ rpcLogs: session.rpcLogs || [] });
   });
 
-  router.post("/session/:sessionId/clear", async (req, res) => {
+  router.post("/sessions/:sessionId/clear", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });
@@ -208,7 +208,7 @@ export default function sessionRoutes(deps) {
     res.json({ ok: true, worktreeId: "main" });
   });
 
-  router.post("/session/:sessionId/backlog", async (req, res) => {
+  router.post("/sessions/:sessionId/backlog-items", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });
@@ -236,7 +236,7 @@ export default function sessionRoutes(deps) {
     res.json({ ok: true, item });
   });
 
-  router.get("/session/:sessionId/backlog", async (req, res) => {
+  router.get("/sessions/:sessionId/backlog-items", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });
@@ -247,15 +247,16 @@ export default function sessionRoutes(deps) {
     res.json({ items: backlog });
   });
 
-  router.patch("/session/:sessionId/backlog", async (req, res) => {
+  router.patch("/sessions/:sessionId/backlog-items/:itemId", async (req, res) => {
     const session = await getSession(req.params.sessionId, req.workspaceId);
     if (!session) {
       res.status(404).json({ error: "Session not found." });
       return;
     }
-    const itemId = typeof req.body?.id === "string" ? req.body.id.trim() : "";
+    const itemId =
+      typeof req.params.itemId === "string" ? req.params.itemId.trim() : "";
     if (!itemId) {
-      res.status(400).json({ error: "id is required." });
+      res.status(400).json({ error: "itemId is required." });
       return;
     }
     if (typeof req.body?.done !== "boolean") {
@@ -285,7 +286,7 @@ export default function sessionRoutes(deps) {
     res.json({ ok: true, item: updatedItem });
   });
 
-  router.post("/session", async (req, res) => {
+  router.post("/sessions", async (req, res) => {
     const repoUrl = req.body?.repoUrl;
     if (!repoUrl) {
       res.status(400).json({ error: "repoUrl is required." });
@@ -309,13 +310,13 @@ export default function sessionRoutes(deps) {
         name,
         { getOrCreateClient, attachClientEvents, attachClaudeEvents, broadcastToSession }
       );
-      res.json({
+      res.status(201).location(`/api/sessions/${session.sessionId}`).json({
         sessionId: session.sessionId,
         workspaceId: session.workspaceId || req.workspaceId,
         path: session.dir,
         repoUrl,
         name: session.name || "",
-        default_provider: session.activeProvider || "codex",
+        defaultProvider: session.activeProvider || "codex",
         providers: session.providers || [],
         defaultInternetAccess:
           typeof session.defaultInternetAccess === "boolean"

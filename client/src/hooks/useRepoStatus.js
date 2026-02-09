@@ -55,7 +55,7 @@ export default function useRepoStatus({
     }
     try {
       const response = await apiFetch(
-        `/api/session/${encodeURIComponent(attachmentSessionId)}/last-commit`
+        `/api/sessions/${encodeURIComponent(attachmentSessionId)}/last-commit`
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -79,11 +79,9 @@ export default function useRepoStatus({
       }
       try {
         const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            worktreeId
-          )}/commits?session=${encodeURIComponent(
+          `/api/sessions/${encodeURIComponent(
             attachmentSessionId
-          )}&limit=1`
+          )}/worktrees/${encodeURIComponent(worktreeId)}/commits?limit=1`
         );
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -114,9 +112,9 @@ export default function useRepoStatus({
       }
       try {
         const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            worktreeId
-          )}/diff?session=${encodeURIComponent(attachmentSessionId)}`
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(worktreeId)}/diff`
         );
         if (!response.ok) {
           return;
@@ -152,7 +150,7 @@ export default function useRepoStatus({
     }
     try {
       const response = await apiFetch(
-        `/api/session/${encodeURIComponent(attachmentSessionId)}/diff`
+        `/api/sessions/${encodeURIComponent(attachmentSessionId)}/diff`
       );
       if (!response.ok) {
         return;

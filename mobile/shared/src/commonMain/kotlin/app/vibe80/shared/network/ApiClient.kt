@@ -124,7 +124,7 @@ class ApiClient(
      * Create a new session by cloning a repository
      */
     suspend fun createSession(request: SessionCreateRequest): Result<SessionCreateResponse> {
-        val url = "$baseUrl/api/session"
+        val url = "$baseUrl/api/sessions"
         val requestBody = json.encodeToString(request)
         AppLogger.apiRequest("POST", url, requestBody)
 
@@ -173,7 +173,7 @@ class ApiClient(
      * Get session state including messages and diff
      */
     suspend fun getSession(sessionId: String): Result<SessionGetResponse> {
-        val url = "$baseUrl/api/session/$sessionId"
+        val url = "$baseUrl/api/sessions/$sessionId"
         AppLogger.apiRequest("GET", url)
 
         return try {
@@ -320,11 +320,10 @@ class ApiClient(
      * Get worktree state including messages
      */
     suspend fun getWorktree(sessionId: String, worktreeId: String): Result<WorktreeGetResponse> {
-        val url = "$baseUrl/api/worktree/$worktreeId"
+        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId"
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
-                    parameter("session", sessionId)
                     applyAuth(this)
                 }
             }
@@ -342,11 +341,10 @@ class ApiClient(
      * Get worktree diff
      */
     suspend fun getWorktreeDiff(sessionId: String, worktreeId: String): Result<WorktreeDiffResponse> {
-        val url = "$baseUrl/api/worktree/$worktreeId/diff"
+        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/diff"
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
-                    parameter("session", sessionId)
                     applyAuth(this)
                 }
             }
@@ -364,12 +362,20 @@ class ApiClient(
      * Create a worktree via REST API
      */
     suspend fun createWorktree(request: WorktreeCreateApiRequest): Result<WorktreeCreateResponse> {
-        val url = "$baseUrl/api/worktree"
+        val url = "$baseUrl/api/sessions/${request.session}/worktrees"
+        val payload = WorktreeCreateRequest(
+            provider = request.provider,
+            parentWorktreeId = request.parentWorktreeId,
+            name = request.name,
+            startingBranch = request.startingBranch,
+            model = request.model,
+            reasoningEffort = request.reasoningEffort
+        )
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
                     contentType(ContentType.Application.Json)
-                    setBody(request)
+                    setBody(payload)
                     applyAuth(this)
                 }
             }
@@ -391,11 +397,10 @@ class ApiClient(
         worktreeId: String,
         path: String
     ): Result<WorktreeFileResponse> {
-        val url = "$baseUrl/api/worktree/$worktreeId/file"
+        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/file"
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
-                    parameter("session", sessionId)
                     parameter("path", path)
                     applyAuth(this)
                 }
@@ -413,8 +418,8 @@ class ApiClient(
     /**
      * Merge a worktree
      */
-    suspend fun mergeWorktree(worktreeId: String): Result<Unit> {
-        val url = "$baseUrl/api/worktree/$worktreeId/merge"
+    suspend fun mergeWorktree(sessionId: String, worktreeId: String): Result<Unit> {
+        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/merge"
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
@@ -438,13 +443,12 @@ class ApiClient(
         sessionId: String,
         request: WorktreeCreateRequest
     ): Result<WorktreeCreateResponse> {
-        val url = "$baseUrl/api/worktree"
+        val url = "$baseUrl/api/sessions/$sessionId/worktrees"
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
                     contentType(ContentType.Application.Json)
                     setBody(request.copy())
-                    parameter("session", sessionId)
                     applyAuth(this)
                 }
             }
@@ -462,11 +466,10 @@ class ApiClient(
      * Delete a worktree
      */
     suspend fun deleteWorktree(sessionId: String, worktreeId: String): Result<Unit> {
-        val url = "$baseUrl/api/worktree/$worktreeId"
+        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId"
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.delete(url) {
-                    parameter("session", sessionId)
                     applyAuth(this)
                 }
             }
@@ -483,8 +486,8 @@ class ApiClient(
     /**
      * Abort a merge in progress
      */
-    suspend fun abortMerge(worktreeId: String): Result<Unit> {
-        val url = "$baseUrl/api/worktree/$worktreeId/abort-merge"
+    suspend fun abortMerge(sessionId: String, worktreeId: String): Result<Unit> {
+        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/abort-merge"
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
