@@ -149,7 +149,7 @@ server/src/
 
 **Probleme :** `runCommand`, `runCommandOutput` et `runCommandOutputWithStatus` sont definis a la fois dans `index.js` (lignes 328-369) et dans `runAs.js` (lignes 149-258). Les versions sont legerement differentes (gestion du stdin).
 
-**Statut :** ❌ Non fait
+**Statut :** ✅ Fait
 
 **Action :**
 - Garder uniquement les versions de `runAs.js` (plus completes, gerent le stdin)
