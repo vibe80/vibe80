@@ -38,10 +38,15 @@ export const createRedisStorage = () => {
     buildKey(prefix, "workspaceUserIds", workspaceId);
   const workspaceRefreshTokenKey = (workspaceId) =>
     buildKey(prefix, "workspaceRefreshToken", workspaceId);
+  const workspaceUidSeqKey = () => buildKey(prefix, "workspaceUidSeq");
   const refreshTokenKey = (tokenHash) => buildKey(prefix, "refreshToken", tokenHash);
   const globalSessionsKey = () => buildKey(prefix, "sessions");
 
   const sessionTtlMs = Number.parseInt(process.env.SESSION_MAX_TTL_MS, 10) || 0;
+  const workspaceUidMin =
+    Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
+  const workspaceUidMax =
+    Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
 
   const ensureConnected = async () => {
     if (client.isOpen) {
@@ -268,6 +273,20 @@ export const createRedisStorage = () => {
     await client.del(refreshTokenKey(tokenHash));
   };
 
+  const getNextWorkspaceUid = async () => {
+    await ensureConnected();
+    const key = workspaceUidSeqKey();
+    const current = await client.get(key);
+    if (current === null) {
+      await client.set(key, String(workspaceUidMin - 1));
+    }
+    const next = await client.incr(key);
+    if (next > workspaceUidMax) {
+      throw new Error("Workspace UID range exhausted.");
+    }
+    return Number(next);
+  };
+
   return {
     init: ensureConnected,
     close: async () => {
@@ -292,5 +311,6 @@ export const createRedisStorage = () => {
     saveWorkspaceRefreshToken,
     getWorkspaceRefreshToken,
     deleteWorkspaceRefreshToken,
+    getNextWorkspaceUid,
   };
 };
