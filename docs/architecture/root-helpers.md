@@ -28,8 +28,8 @@ Flux simplifie:
 1) Le serveur appelle `sudo vibe80-root create-workspace --workspace-id <id>`
 2) Le helper cree l'utilisateur Linux (si absent)
 3) Le helper cree l'arborescence:
-   - `/home/<workspaceId>/vibe80_workspace/metadata`
-   - `/home/<workspaceId>/vibe80_workspace/sessions`
+   - `/workspaces/<workspaceId>/metadata`
+   - `/workspaces/<workspaceId>/sessions`
 4) Permissions et ownership:
    - `chown` sur l'utilisateur workspace et le groupe du workspace
    - `chmod 02750` (setgid + groupe)
@@ -47,7 +47,7 @@ Server (user: vibe80)
 Root helper (vibe80-root)
    | useradd + mkdir + chown + chmod
    v
-/home/wxxxx/vibe80_workspace/...
+/workspaces/wxxxx/...
 ```
 
 ## Execution de commandes (vibe80-run-as)
@@ -58,9 +58,9 @@ sudo -n vibe80-run-as --workspace-id <id> --cwd <path> --env KEY=VALUE -- <cmd> 
 
 Mecanismes de restriction:
 - **Allowlist de commandes**: seules les commandes explicites sont autorisees (git, ssh-keyscan, mkdir, chmod, rm, tee, codex, claude, shell, id)
-- **Allowlist d'environnement**: `GIT_SSH_COMMAND`, `GIT_CONFIG_GLOBAL`, `GIT_TERMINAL_PROMPT`, `TERM`
+- **Allowlist d'environnement**: `GIT_SSH_COMMAND`, `GIT_CONFIG_GLOBAL`, `GIT_TERMINAL_PROMPT`, `TERM`, `TMPDIR`, `CLAUDE_CODE_TMPDIR`
 - **PATH force**: `/usr/local/bin:/usr/bin:/bin`
-- **CWD confine**: le `--cwd` doit rester dans `/home/<workspaceId>`
+- **CWD confine**: le `--cwd` doit rester dans `/home/<workspaceId>` ou `/workspaces/<workspaceId>`
 - **Execution**: `syscall.Credential` force l'UID/GID du workspace
 
 Schema de flux (ASCII):
@@ -83,6 +83,7 @@ Le serveur peut redefinir les chemins suivants:
 - `VIBE80_RUN_AS_HELPER` (defaut: `/usr/local/bin/vibe80-run-as`)
 - `VIBE80_SUDO_PATH` (defaut: `sudo`)
 - `WORKSPACE_HOME_BASE` (defaut: `/home`)
+- `WORKSPACE_ROOT_DIRECTORY` (defaut: `/workspaces`)
 - `VIBE80_SERVER_USER` (defaut: `vibe80`)
 
 ## Points d'attention

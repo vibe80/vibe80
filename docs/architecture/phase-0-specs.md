@@ -51,8 +51,10 @@
 }
 ```
 
-## Storage Layout (Workspace Home)
-- `~/vibe80_workspace/`
+## Storage Layout (Workspace Data)
+- Multi-user workspace root: `/workspaces/{workspaceId}/`
+- Mono-user workspace root: `~/vibe80_workspace/`
+- Common layout:
   - `metadata/`
     - `workspace.json` (providers + config)
     - `workspace.secret` (secret)

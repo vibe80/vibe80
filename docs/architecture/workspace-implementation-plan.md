@@ -4,7 +4,7 @@
 - Define ID formats: w{hash}, s{hash}
 - Define providers/auth schema at workspace level
 - Define JWT signing key strategy and claims
-- Confirm storage paths inside workspace home
+- Confirm storage paths under /workspaces/{workspaceId} (multi_user)
 - Update API docs/specs accordingly
 
 ## Phase 1 - Workspace API + Auth (DONE)
@@ -30,7 +30,7 @@
 - Enforce no cross-workspace access (tests)
 
 ## Phase 3 - Sessions (IN PROGRESS)
-- Store sessions under ~/vibe80_workspace/sessions/{sessionId}
+- Store sessions under /workspaces/{workspaceId}/sessions/{sessionId} (multi_user)
 - Remove providers from session creation
 - Session inherits providers from workspace
 - Ensure clone per session (no shared repo)
