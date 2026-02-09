@@ -1,0 +1,403 @@
+.worktree-tabs-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.worktree-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(20, 19, 17, 0.04);
+  border-radius: 999px;
+  border: 1px solid rgba(20, 19, 17, 0.1);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.worktree-tabs-select {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.worktree-select {
+  width: 100%;
+  border: 1px solid rgba(20, 19, 17, 0.12);
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
+
+.worktree-select:focus {
+  border-color: rgba(238, 93, 59, 0.6);
+  box-shadow: 0 0 0 3px rgba(238, 93, 59, 0.12);
+}
+
+.worktree-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(20, 19, 17, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.worktree-tab:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(20, 19, 17, 0.15);
+}
+
+.worktree-tab.active {
+  background: white;
+  border-color: var(--tab-accent, #3b82f6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.worktree-status {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.worktree-status.pulse {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.worktree-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.worktree-tab-edit {
+  border: 1px solid var(--tab-accent, #3b82f6);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+  width: 80px;
+  outline: none;
+}
+
+.worktree-tab-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  margin-left: 2px;
+}
+
+.worktree-tab-close:hover {
+  color: #ef4444;
+}
+
+.worktree-tab-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px dashed rgba(20, 19, 17, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  color: #9ca3af;
+  transition: all 0.15s ease;
+}
+
+.worktree-tab-add:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--accent, #ee5d3b);
+  color: var(--accent, #ee5d3b);
+}
+
+.worktree-tab-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+:root[data-theme="dark"] .worktree-tabs {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-theme="dark"] .worktree-select {
+  background: rgba(22, 24, 23, 0.9);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .worktree-tab {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .worktree-tab:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+:root[data-theme="dark"] .worktree-tab.active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: var(--tab-accent, #3b82f6);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="dark"] .worktree-tab-close {
+  color: #c6cbd1;
+}
+
+:root[data-theme="dark"] .worktree-tab-add {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #b7ada1;
+}
+
+:root[data-theme="dark"] .worktree-tab-add:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: var(--accent, #ee5d3b);
+  color: var(--accent, #ee5d3b);
+}
+
+:root[data-theme="dark"] .worktree-create-dialog {
+  background: var(--surface-elevated, #1f2321);
+  color: var(--ink, #f2ede3);
+  box-shadow: var(--shadow);
+}
+
+:root[data-theme="dark"] .worktree-create-dialog h3 {
+  color: var(--ink, #f2ede3);
+}
+
+:root[data-theme="dark"] .worktree-create-field label {
+  color: var(--ink-muted, #b7ada1);
+}
+
+:root[data-theme="dark"] .worktree-create-field input,
+:root[data-theme="dark"] .worktree-create-field select {
+  background: var(--bg-strong, #171a18);
+  border-color: var(--border-soft, rgba(255, 255, 255, 0.12));
+  color: var(--ink, #f2ede3);
+}
+
+:root[data-theme="dark"] .worktree-create-field input::placeholder {
+  color: rgba(242, 237, 227, 0.5);
+}
+
+:root[data-theme="dark"] .worktree-btn-refresh {
+  background: var(--surface-ghost, rgba(20, 24, 22, 0.8));
+  border-color: var(--border-soft, rgba(255, 255, 255, 0.12));
+  color: var(--ink-muted, #b7ada1);
+}
+
+:root[data-theme="dark"] .worktree-btn-cancel {
+  border-color: var(--border-soft, rgba(255, 255, 255, 0.12));
+  color: var(--ink-muted, #b7ada1);
+}
+
+:root[data-theme="dark"] .worktree-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="dark"] .worktree-field-hint {
+  color: rgba(242, 237, 227, 0.55);
+}
+
+.worktree-create-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.worktree-create-dialog {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  width: min(400px, 90vw);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.worktree-create-dialog h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.worktree-create-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.worktree-create-field {
+  margin-bottom: 0;
+}
+
+.worktree-create-field label {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.worktree-create-field .worktree-toggle {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: start;
+  column-gap: 8px;
+  font-size: 13px;
+  color: inherit;
+  margin-bottom: 6px;
+  width: 100%;
+}
+
+.worktree-toggle span {
+  line-height: 1.2;
+}
+
+.worktree-toggle input {
+  accent-color: var(--accent, #ee5d3b);
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  margin-top: 0;
+}
+
+.worktree-create-field input,
+.worktree-create-field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(20, 19, 17, 0.14);
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.worktree-create-field input:focus,
+.worktree-create-field select:focus {
+  border-color: var(--accent, #ee5d3b);
+}
+
+.worktree-branch-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.worktree-branch-row select,
+.worktree-branch-row input {
+  flex: 1;
+}
+
+.worktree-create-field.is-full {
+  grid-column: 1 / -1;
+}
+
+.worktree-toggle-field {
+  align-self: start;
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.worktree-btn-refresh {
+  border: 1px solid rgba(20, 19, 17, 0.14);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: white;
+  font-size: 13px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.worktree-btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.worktree-field-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.worktree-field-error {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #ef4444;
+}
+
+.worktree-create-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.worktree-btn-cancel,
+.worktree-btn-create {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.worktree-btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(20, 19, 17, 0.14);
+  color: #6b7280;
+}
+
+.worktree-btn-cancel:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.worktree-btn-create {
+  background: var(--accent, #ee5d3b);
+  border: none;
+  color: white;
+}
+
+.worktree-btn-create:hover {
+  background: var(--accent-dark, #b43c24);
+}
+
+@media (max-width: 720px) {
+  .worktree-create-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .worktree-create-field.is-full {
+    grid-column: auto;
+  }
+}

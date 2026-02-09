@@ -94,7 +94,7 @@
 
 **Probleme :** Toutes les routes HTTP sont definies dans un seul fichier. La revue de code et la maintenance sont extremement difficiles.
 
-**Statut :** ❌ Non fait
+**Statut :** ✅ Fait
 
 **Action :** Decouper `index.js` en modules routes :
 
