@@ -77,7 +77,6 @@ export const createRedisStorage = () => {
     if (data?.workspaceId) {
       await client.sAdd(workspaceSessionsKey(data.workspaceId), sessionId);
     }
-    await touchTtl(globalSessionsKey(), sessionTtlMs);
     if (data?.workspaceId) {
       await touchTtl(workspaceSessionsKey(data.workspaceId), sessionTtlMs);
     }
@@ -129,7 +128,6 @@ export const createRedisStorage = () => {
     if (workspaceId) {
       await touchTtl(workspaceSessionsKey(workspaceId), sessionTtlMs);
     }
-    await touchTtl(globalSessionsKey(), sessionTtlMs);
   };
 
   const saveWorktree = async (sessionId, worktreeId, data) => {
