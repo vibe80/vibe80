@@ -50,6 +50,7 @@ export class CodexAppServerClient extends EventEmitter {
     this.restarting = false;
     this.starting = false;
     this.stopping = false;
+    this.lastIdleAt = Date.now();
     this.providerLogger = createProviderLogger({
       provider: "codex",
       sessionId: this.sessionId,
@@ -157,6 +158,7 @@ export class CodexAppServerClient extends EventEmitter {
       await this.#initialize();
       await this.#startThread();
       this.ready = true;
+      this.lastIdleAt = Date.now();
       this.emit("ready", { threadId: this.threadId });
       this.#restartIfIdle();
     } finally {
@@ -311,6 +313,9 @@ export class CodexAppServerClient extends EventEmitter {
         if (turnId) {
           this.activeTurnIds.delete(turnId);
         }
+        if (this.activeTurnIds.size === 0) {
+          this.lastIdleAt = Date.now();
+        }
         this.#restartIfIdle();
       }
       if (message.method === "error") {
@@ -318,6 +323,9 @@ export class CodexAppServerClient extends EventEmitter {
         const willRetry = Boolean(message?.params?.willRetry);
         if (turnId && !willRetry) {
           this.activeTurnIds.delete(turnId);
+          if (this.activeTurnIds.size === 0) {
+            this.lastIdleAt = Date.now();
+          }
           this.#restartIfIdle();
         }
       }
