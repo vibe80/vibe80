@@ -393,6 +393,12 @@ data class AuthMessage(
 ) : ClientMessage()
 
 @Serializable
+data class WakeUpRequest(
+    override val type: String = "wake_up",
+    val worktreeId: String
+) : ClientMessage()
+
+@Serializable
 data class SendMessageRequest(
     override val type: String = "user_message",
     val text: String,

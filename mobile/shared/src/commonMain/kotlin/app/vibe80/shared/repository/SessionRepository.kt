@@ -629,6 +629,9 @@ class SessionRepository(
         _activeWorktreeId.value = worktreeId
         val sessionId = _sessionState.value?.sessionId ?: return
         scope.launch {
+            if (worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                webSocketManager.wakeUpWorktree(worktreeId)
+            }
             apiClient.getWorktree(sessionId, worktreeId).onSuccess { snapshot ->
                 if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
                     _messages.value = snapshot.messages

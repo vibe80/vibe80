@@ -135,6 +135,7 @@ class WebSocketManager(
                             val (messageType, jsonString) = when (message) {
                                 is PingMessage -> "ping" to json.encodeToString(PingMessage.serializer(), message)
                                 is AuthMessage -> "auth" to json.encodeToString(AuthMessage.serializer(), message)
+                                is WakeUpRequest -> "wake_up" to json.encodeToString(WakeUpRequest.serializer(), message)
                                 is SendMessageRequest -> "user_message" to json.encodeToString(SendMessageRequest.serializer(), message)
                                 is SwitchProviderRequest -> "switch_provider" to json.encodeToString(SwitchProviderRequest.serializer(), message)
                                 is WorktreeMessageRequest -> "worktree_send_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
@@ -351,6 +352,10 @@ class WebSocketManager(
             displayText = displayText,
             attachments = attachments
         ))
+    }
+
+    suspend fun wakeUpWorktree(worktreeId: String) {
+        send(WakeUpRequest(worktreeId = worktreeId))
     }
 
     fun disconnect() {
