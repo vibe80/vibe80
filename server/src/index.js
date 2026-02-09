@@ -7,7 +7,7 @@ import { WebSocketServer } from "ws";
 import * as pty from "node-pty";
 import rateLimit from "express-rate-limit";
 import storage from "./storage/index.js";
-import { getSessionRuntime } from "./runtimeStore.js";
+import { getSessionRuntime, listSessionRuntimes } from "./runtimeStore.js";
 import {
   buildSandboxArgs,
   runAsCommand,
@@ -100,6 +100,14 @@ const allowRunSlashCommand = !/^(0|false|no|off)$/i.test(
 );
 const allowGitSlashCommand = !/^(0|false|no|off)$/i.test(
   process.env.ALLOW_GIT_SLASH_COMMAND || ""
+);
+const codexIdleTtlSeconds = Number.parseInt(
+  process.env.CODEX_IDLE_TTL_SECONDS || "300",
+  10
+);
+const codexIdleGcIntervalSeconds = Number.parseInt(
+  process.env.CODEX_IDLE_GC_INTERVAL_SECONDS || "60",
+  10
 );
 const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : null;
 
@@ -1281,6 +1289,45 @@ setInterval(() => {
 setInterval(() => {
   cleanupHandoffTokens();
 }, 30 * 1000);
+if (Number.isFinite(codexIdleGcIntervalSeconds) && codexIdleGcIntervalSeconds > 0) {
+  setInterval(() => {
+    if (!Number.isFinite(codexIdleTtlSeconds) || codexIdleTtlSeconds <= 0) {
+      return;
+    }
+    const ttlMs = codexIdleTtlSeconds * 1000;
+    const now = Date.now();
+    for (const runtime of listSessionRuntimes()) {
+      const candidates = [];
+      if (runtime?.clients?.codex) {
+        candidates.push(runtime.clients.codex);
+      }
+      if (runtime?.worktreeClients instanceof Map) {
+        runtime.worktreeClients.forEach((client) => {
+          candidates.push(client);
+        });
+      }
+      candidates.forEach((client) => {
+        if (!client || client?.constructor?.name !== "CodexAppServerClient") {
+          return;
+        }
+        if (typeof client.getStatus !== "function") {
+          return;
+        }
+        if (client.getStatus() !== "idle") {
+          return;
+        }
+        const lastIdleAt = client.lastIdleAt;
+        if (!Number.isFinite(lastIdleAt)) {
+          return;
+        }
+        if (now - lastIdleAt < ttlMs) {
+          return;
+        }
+        client.stop({ force: false }).catch(() => null);
+      });
+    }
+  }, codexIdleGcIntervalSeconds * 1000);
+}
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);

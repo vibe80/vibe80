@@ -23,6 +23,8 @@ export const getExistingSessionRuntime = (sessionId) => {
   return runtimeSessions.get(sessionId) || null;
 };
 
+export const listSessionRuntimes = () => Array.from(runtimeSessions.values());
+
 export const deleteSessionRuntime = (sessionId) => {
   runtimeSessions.delete(sessionId);
 };
