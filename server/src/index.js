@@ -636,6 +636,7 @@ wss.on("connection", (socket, req) => {
               turnId: result.turn.id,
               threadId: client.threadId,
               provider,
+              status: "processing",
             })
           );
         } catch (error) {

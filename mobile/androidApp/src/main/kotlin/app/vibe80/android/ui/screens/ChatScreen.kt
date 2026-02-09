@@ -154,6 +154,17 @@ fun ChatScreen(
     var showAttachmentMenu by remember { mutableStateOf(false) }
     var pendingCameraLaunch by remember { mutableStateOf(false) }
 
+    val activeWorktree = uiState.activeWorktree
+    val effectiveProvider = activeWorktree?.provider ?: uiState.activeProvider
+    val codexReady =
+        if (effectiveProvider != LLMProvider.CODEX) {
+            true
+        } else if (activeWorktree == null) {
+            uiState.appServerReady
+        } else {
+            activeWorktree.status == WorktreeStatus.READY
+        }
+
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -505,17 +516,6 @@ fun ChatScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-
-                        val activeWorktree = uiState.activeWorktree
-                        val effectiveProvider = activeWorktree?.provider ?: uiState.activeProvider
-                        val codexReady =
-                            if (effectiveProvider != LLMProvider.CODEX) {
-                                true
-                            } else if (activeWorktree == null) {
-                                uiState.appServerReady
-                            } else {
-                                activeWorktree.status == WorktreeStatus.READY
-                            }
 
                         Row(
                             modifier = Modifier

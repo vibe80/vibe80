@@ -70,6 +70,7 @@ struct ChatView: View {
             }
             .navigationTitle("Vibe80")
             .navigationBarTitleDisplayMode(.inline)
+            .background(Color.vibe80Background)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     connectionIndicator
@@ -87,7 +88,7 @@ struct ChatView: View {
                         .font(.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.1))
+                        .background(Color.vibe80SurfaceElevated)
                         .cornerRadius(12)
                     }
 

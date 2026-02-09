@@ -319,10 +319,6 @@ class SessionRepository(
                 }
             }
 
-            is WorktreeTurnStartedMessage -> {
-                _worktreeProcessing.update { it + (message.worktreeId to true) }
-            }
-
             is WorktreeTurnCompletedMessage -> {
                 _worktreeProcessing.update { it + (message.worktreeId to false) }
                 _worktreeStreamingMessages.update { it - message.worktreeId }

@@ -54,7 +54,7 @@ struct ComposerView: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.title2)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.vibe80Accent)
                 }
 
                 // Text input
@@ -64,20 +64,20 @@ struct ComposerView: View {
                     .focused($isFocused)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Color(.systemGray6))
+                    .background(Color.vibe80SurfaceElevated)
                     .cornerRadius(20)
 
                 // Send button
                 Button(action: sendMessage) {
                     Image(systemName: isLoading ? "stop.fill" : "arrow.up.circle.fill")
                         .font(.title)
-                        .foregroundColor(canSend ? .blue : .gray)
+                        .foregroundColor(canSend ? .vibe80Accent : .vibe80InkMuted)
                 }
                 .disabled(!canSend && !isLoading)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color(.systemBackground))
+            .background(Color.vibe80Surface)
         }
         .photosPicker(
             isPresented: $showPhotoPicker,
@@ -123,7 +123,7 @@ struct ComposerView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .background(Color(.systemGray6).opacity(0.5))
+        .background(Color.vibe80BackgroundStrong)
     }
 
     private func attachmentChip(_ attachment: PendingAttachment) -> some View {
@@ -153,7 +153,7 @@ struct ComposerView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color(.systemBackground))
+        .background(Color.vibe80Surface)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 2)
     }
