@@ -31,7 +31,6 @@
     <string name="error_websocket">Erreur de connexion WebSocket</string>
     <string name="error_turn">Erreur lors du traitement</string>
     <string name="error_switch_provider">Échec du changement de provider</string>
-    <string name="error_load_branches">Échec du chargement des branches</string>
     <string name="error_switch_branch">Échec du changement de branche</string>
     <string name="error_load_diff">Échec du chargement du diff</string>
     <string name="error_create_worktree">Échec de la création du worktree</string>

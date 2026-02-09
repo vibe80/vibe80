@@ -116,7 +116,6 @@ struct WorktreeTab: View {
 
 struct WorktreeMenuView: View {
     let worktree: Worktree
-    let onMerge: () -> Void
     let onClose: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -150,14 +149,6 @@ struct WorktreeMenuView: View {
 
                 // Actions
                 VStack(spacing: 12) {
-                    if worktree.status == .ready || worktree.status == .completed {
-                        Button(action: onMerge) {
-                            Label("Merge vers main", systemImage: "arrow.triangle.merge")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-
                     Button(role: .destructive) {
                         showCloseConfirm = true
                     } label: {
@@ -197,7 +188,6 @@ struct WorktreeMenuView: View {
 // MARK: - Create Worktree Sheet
 
 struct CreateWorktreeSheetView: View {
-    let branches: [String]
     let currentProvider: LLMProvider
     let onCreate: (String, LLMProvider, String?) -> Void
 
@@ -205,7 +195,6 @@ struct CreateWorktreeSheetView: View {
 
     @State private var name = ""
     @State private var selectedProvider: LLMProvider = .codex
-    @State private var selectedBranch: String?
     @State private var selectedColor = Worktree.companion.COLORS.first ?? "#4CAF50"
 
     var body: some View {
@@ -235,14 +224,6 @@ struct CreateWorktreeSheetView: View {
                     }
                 }
 
-                Section("Branche source") {
-                    Picker("Branche", selection: $selectedBranch) {
-                        Text("Branche courante").tag(nil as String?)
-                        ForEach(branches, id: \.self) { branch in
-                            Text(branch).tag(branch as String?)
-                        }
-                    }
-                }
             }
             .navigationTitle("Nouveau Worktree")
             .navigationBarTitleDisplayMode(.inline)
@@ -255,7 +236,7 @@ struct CreateWorktreeSheetView: View {
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Créer") {
-                        onCreate(name, selectedProvider, selectedBranch)
+                        onCreate(name, selectedProvider, nil)
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).count < 2)
                     .fontWeight(.semibold)
@@ -394,7 +375,6 @@ extension Color {
 
 #Preview("Create Worktree") {
     CreateWorktreeSheetView(
-        branches: ["main", "develop", "feature/ui"],
         currentProvider: .codex,
         onCreate: { _, _, _ in }
     )

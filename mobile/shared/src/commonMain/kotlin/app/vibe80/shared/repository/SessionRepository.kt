@@ -44,8 +44,6 @@ class SessionRepository(
     private val _worktreeProcessing = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val worktreeProcessing: StateFlow<Map<String, Boolean>> = _worktreeProcessing.asStateFlow()
 
-    private val _branches = MutableStateFlow<BranchInfo?>(null)
-    val branches: StateFlow<BranchInfo?> = _branches.asStateFlow()
 
     private val _repoDiff = MutableStateFlow<RepoDiff?>(null)
     val repoDiff: StateFlow<RepoDiff?> = _repoDiff.asStateFlow()
@@ -257,6 +255,16 @@ class SessionRepository(
                 _messages.value = message.messages
             }
 
+            is WorktreeReadyMessage -> {
+                _worktrees.update { current ->
+                    current[message.worktreeId]?.let { worktree ->
+                        current + (message.worktreeId to worktree.copy(status = WorktreeStatus.READY))
+                    } ?: current
+                }
+                _worktreeProcessing.update { it + (message.worktreeId to false) }
+                _worktreeStreamingMessages.update { it - message.worktreeId }
+            }
+
             is WorktreeMessagesSyncMessage -> {
                 if (message.worktreeId == Worktree.MAIN_WORKTREE_ID) {
                     if (message.messages.isNotEmpty()) {
@@ -335,6 +343,24 @@ class SessionRepository(
                 }
             }
 
+            is WorktreeRemovedMessage -> {
+                _worktrees.update { it - message.worktreeId }
+                _worktreeMessages.update { it - message.worktreeId }
+                _worktreeStreamingMessages.update { it - message.worktreeId }
+                _worktreeProcessing.update { it - message.worktreeId }
+                if (_activeWorktreeId.value == message.worktreeId) {
+                    _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
+                }
+            }
+
+            is WorktreeRenamedMessage -> {
+                _worktrees.update { current ->
+                    current[message.worktreeId]?.let { worktree ->
+                        current + (message.worktreeId to worktree.copy(name = message.name))
+                    } ?: current
+                }
+            }
+
             is WorktreeMergeResultMessage -> {
                 // Update worktree status based on merge result
                 if (message.hasConflicts) {
@@ -361,6 +387,15 @@ class SessionRepository(
                 }
             }
 
+            is WorktreeDiffMessage -> {
+                if (message.worktreeId == _activeWorktreeId.value) {
+                    _repoDiff.value = RepoDiff(
+                        status = message.status,
+                        diff = message.diff
+                    )
+                }
+            }
+
             is CommandExecutionDeltaMessage -> {
                 // Handle command execution streaming
             }
@@ -379,6 +414,50 @@ class SessionRepository(
 
             is PongMessage -> {
                 // Pong received, connection is alive
+            }
+
+            is RpcLogMessage -> {
+                // Optional: handle RPC logs in UI if needed
+            }
+
+            is AgentReasoningMessage -> {
+                // Optional: handle agent reasoning updates
+            }
+
+            is ItemStartedMessage -> {
+                // Optional: handle item started
+            }
+
+            is ActionRequestMessage -> {
+                // Optional: handle action requests
+            }
+
+            is ActionResultMessage -> {
+                // Optional: handle action results
+            }
+
+            is ModelListMessage -> {
+                // Optional: handle model list via WebSocket
+            }
+
+            is ModelSetMessage -> {
+                // Optional: handle model set via WebSocket
+            }
+
+            is TurnInterruptSentMessage -> {
+                // Optional: handle turn interrupt ack
+            }
+
+            is AccountLoginStartedMessage -> {
+                // Optional: handle account login start
+            }
+
+            is AccountLoginErrorMessage -> {
+                // Optional: handle account login error
+            }
+
+            is AccountLoginCompletedMessage -> {
+                // Optional: handle account login completion
             }
         }
     }
@@ -419,6 +498,8 @@ class SessionRepository(
 
             // Connect WebSocket
             webSocketManager.connect(response.sessionId)
+            // Load worktrees via REST
+            listWorktrees()
 
             state
         }
@@ -485,38 +566,6 @@ class SessionRepository(
         webSocketManager.switchProvider(provider.name.lowercase())
     }
 
-    suspend fun loadBranches() {
-        val sessionId = _sessionState.value?.sessionId ?: return
-        apiClient.getBranches(sessionId)
-            .onSuccess { branchInfo ->
-            _branches.value = branchInfo
-            }
-            .onFailure { handleApiFailure(it, "loadBranches") }
-    }
-
-    suspend fun fetchBranches(): Result<BranchInfo> {
-        val sessionId = _sessionState.value?.sessionId
-            ?: return Result.failure(IllegalStateException("No active session"))
-        val result = apiClient.fetchBranches(sessionId).onSuccess { branchInfo ->
-            _branches.value = branchInfo
-        }
-        result.onFailure { handleApiFailure(it, "fetchBranches") }
-        return result
-    }
-
-    suspend fun switchBranch(branch: String): Result<BranchSwitchResponse> {
-        val sessionId = _sessionState.value?.sessionId
-            ?: return Result.failure(IllegalStateException("No active session"))
-        val result = apiClient.switchBranch(sessionId, branch).onSuccess {
-            // Reload branches after switch to update current
-            loadBranches()
-            // Reload diff after branch switch
-            loadDiff()
-        }
-        result.onFailure { handleApiFailure(it, "switchBranch") }
-        return result
-    }
-
     suspend fun loadDiff() {
         val sessionId = _sessionState.value?.sessionId ?: return
         val worktreeId = _activeWorktreeId.value
@@ -567,6 +616,8 @@ class SessionRepository(
 
             // Connect WebSocket
             ensureWebSocketConnected(sessionId)
+            // Load worktrees via REST
+            listWorktrees()
 
             state
         }
@@ -690,13 +741,21 @@ class SessionRepository(
             .onFailure { handleApiFailure(it, "closeWorktree") }
     }
 
-    suspend fun mergeWorktree(worktreeId: String) {
-        if (worktreeId == Worktree.MAIN_WORKTREE_ID) return // Cannot merge main
-        // Deprecated: merge is now driven by the LLM via chat message.
-    }
-
     suspend fun listWorktrees() {
-        webSocketManager.listWorktrees()
+        val sessionId = _sessionState.value?.sessionId ?: return
+        apiClient.listWorktrees(sessionId)
+            .onSuccess { response ->
+                val worktreeMap = response.worktrees.associateBy { it.id }
+                _worktrees.value = worktreeMap
+                _worktreeMessages.update { current ->
+                    val missing = worktreeMap.keys
+                        .filterNot { it == Worktree.MAIN_WORKTREE_ID }
+                        .filterNot { current.containsKey(it) }
+                        .associateWith { emptyList<ChatMessage>() }
+                    if (missing.isEmpty()) current else current + missing
+                }
+            }
+            .onFailure { handleApiFailure(it, "listWorktrees") }
     }
 
     /** Get messages for a specific worktree */

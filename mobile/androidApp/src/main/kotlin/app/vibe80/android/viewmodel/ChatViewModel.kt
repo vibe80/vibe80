@@ -12,7 +12,6 @@ import app.vibe80.shared.models.ChatMessage
 import app.vibe80.shared.models.ErrorType
 import app.vibe80.shared.models.LLMProvider
 import app.vibe80.shared.models.RepoDiff
-import app.vibe80.shared.models.BranchInfo
 import app.vibe80.shared.models.ProviderModelState
 import app.vibe80.shared.models.Worktree
 import app.vibe80.shared.models.WorktreeStatus
@@ -44,7 +43,6 @@ data class ChatUiState(
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
     val processing: Boolean = false,
     val repoName: String = "",
-    val branches: BranchInfo? = null,
     val repoDiff: RepoDiff? = null,
     val inputText: String = "",
     val showDiffSheet: Boolean = false,
@@ -98,7 +96,6 @@ private data class SessionSnapshot(
     val streaming: String?,
     val connection: ConnectionState,
     val processing: Boolean,
-    val branches: BranchInfo?,
     val worktrees: Map<String, Worktree>,
     val activeWorktreeId: String,
     val worktreeMessages: Map<String, List<ChatMessage>>,
@@ -111,7 +108,6 @@ private data class PartialSessionSnapshot(
     val streaming: String?,
     val connection: ConnectionState,
     val processing: Boolean,
-    val branches: BranchInfo?,
     val worktrees: Map<String, Worktree> = emptyMap()
 )
 
@@ -167,14 +163,13 @@ class ChatViewModel(
                 sessionRepository.currentStreamingMessage,
                 sessionRepository.connectionState,
                 sessionRepository.processing,
-                sessionRepository.branches
-            ) { messages, streaming, connection, processing, branches ->
+                sessionRepository.processing
+            ) { messages, streaming, connection, processing ->
                 PartialSessionSnapshot(
                     messages = messages,
                     streaming = streaming,
                     connection = connection,
-                    processing = processing,
-                    branches = branches
+                    processing = processing
                 )
             }
                 .combine(sessionRepository.worktrees) { snapshot, worktrees ->
@@ -201,7 +196,6 @@ class ChatViewModel(
                         streaming = state.snapshot.streaming,
                         connection = state.snapshot.connection,
                         processing = state.snapshot.processing,
-                        branches = state.snapshot.branches,
                         worktrees = state.snapshot.worktrees,
                         activeWorktreeId = state.activeWorktreeId,
                         worktreeMessages = state.worktreeMessages,
@@ -236,8 +230,7 @@ class ChatViewModel(
                             currentStreamingMessage = activeStreaming,
                             connectionState = snapshot.connection,
                             processing = activeProcessing,
-                            branches = snapshot.branches,
-                            repoDiff = diff,
+                        repoDiff = diff,
                             worktrees = snapshot.worktrees,
                             activeWorktreeId = snapshot.activeWorktreeId
                         )
@@ -312,12 +305,6 @@ class ChatViewModel(
             } else {
                 sessionRepository.sendWorktreeMessage(_uiState.value.activeWorktreeId, text)
             }
-        }
-    }
-
-    fun loadBranches() {
-        viewModelScope.launch {
-            sessionRepository.loadBranches()
         }
     }
 
@@ -606,16 +593,6 @@ class ChatViewModel(
 
     fun cancelCloseWorktree() {
         _uiState.update { it.copy(showCloseWorktreeConfirm = null) }
-    }
-
-    fun mergeWorktree(worktreeId: String) {
-        val targetBranch = _uiState.value.worktrees[Worktree.MAIN_WORKTREE_ID]?.branchName
-            ?: Worktree.MAIN_WORKTREE_ID
-        val mergePrompt = "Merge vers $targetBranch"
-        viewModelScope.launch {
-            sessionRepository.sendWorktreeMessage(worktreeId, mergePrompt)
-            _uiState.update { it.copy(showWorktreeMenuFor = null) }
-        }
     }
 
     fun sendWorktreeMessage() {

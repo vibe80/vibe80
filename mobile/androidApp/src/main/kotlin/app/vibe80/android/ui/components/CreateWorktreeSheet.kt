@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import app.vibe80.shared.models.BranchInfo
 import app.vibe80.shared.models.LLMProvider
 import app.vibe80.shared.models.ProviderModelState
 import app.vibe80.shared.models.Worktree
@@ -25,16 +24,14 @@ import app.vibe80.shared.models.Worktree
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateWorktreeSheet(
-    branches: BranchInfo?,
     currentProvider: LLMProvider,
     providerModelState: Map<String, ProviderModelState>,
     onDismiss: () -> Unit,
     onRequestModels: (provider: String) -> Unit,
-    onCreate: (name: String?, provider: LLMProvider, branchName: String?, model: String?, reasoningEffort: String?) -> Unit
+    onCreate: (name: String?, provider: LLMProvider, model: String?, reasoningEffort: String?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var selectedProvider by remember { mutableStateOf(currentProvider) }
-    var selectedBranch by remember { mutableStateOf<String?>(null) }
     var selectedColor by remember { mutableStateOf(Worktree.COLORS.first()) }
     var selectedModel by remember { mutableStateOf<String?>(null) }
     var selectedReasoningEffort by remember { mutableStateOf<String?>(null) }
@@ -88,9 +85,6 @@ fun CreateWorktreeSheet(
         }
     }
 
-    // Validation: branch must be selected (either current or from list)
-    val isBranchValid = branches != null
-
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -134,51 +128,6 @@ fun CreateWorktreeSheet(
                         selected = selectedProvider == provider,
                         onClick = { selectedProvider = provider },
                         label = { Text(provider.name) }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Branch selection
-            Text(
-                text = "Branche source",
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            if (branches != null) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item {
-                        FilterChip(
-                            selected = selectedBranch == null,
-                            onClick = { selectedBranch = null },
-                            label = { Text("Branche courante (${branches.current})") }
-                        )
-                    }
-                    items(branches.branches.filter { it != branches.current }.take(10)) { branch ->
-                        FilterChip(
-                            selected = selectedBranch == branch,
-                            onClick = { selectedBranch = branch },
-                            label = { Text(branch) }
-                        )
-                    }
-                }
-            } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Text(
-                        text = "Chargement des branches...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -377,12 +326,10 @@ fun CreateWorktreeSheet(
                     onCreate(
                         name.trim().ifEmpty { null },
                         selectedProvider,
-                        selectedBranch,
                         if (selectedProvider == LLMProvider.CODEX) selectedModel else null,
                         if (selectedProvider == LLMProvider.CODEX) selectedReasoningEffort else null
                     )
                 },
-                enabled = isBranchValid,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Créer")

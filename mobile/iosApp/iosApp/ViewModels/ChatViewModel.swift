@@ -19,10 +19,6 @@ class ChatViewModel: ObservableObject {
     // Provider
     @Published var activeProvider: LLMProvider = .codex
 
-    // Branches
-    @Published var branches: [String] = []
-    @Published var currentBranch: String?
-
     // Diff
     @Published var repoDiff: RepoDiff?
 
@@ -83,7 +79,6 @@ class ChatViewModel: ObservableObject {
     private var processingWrapper: FlowWrapper<KotlinBoolean>?
     private var connectionStateWrapper: FlowWrapper<ConnectionState>?
     private var sessionStateWrapper: FlowWrapper<SessionState?>?
-    private var branchesWrapper: FlowWrapper<BranchInfo?>?
     private var repoDiffWrapper: FlowWrapper<RepoDiff?>?
     private var worktreesWrapper: FlowWrapper<NSDictionary>?
     private var worktreeMessagesWrapper: FlowWrapper<NSDictionary>?
@@ -132,15 +127,6 @@ class ChatViewModel: ObservableObject {
             }
         }
 
-        // Subscribe to branches
-        branchesWrapper = FlowWrapper(flow: repository.branches)
-        branchesWrapper?.subscribe { [weak self] branchInfo in
-            if let info = branchInfo {
-                self?.branches = info.branches
-                self?.currentBranch = info.current
-            }
-        }
-
         // Subscribe to repo diff
         repoDiffWrapper = FlowWrapper(flow: repository.repoDiff)
         repoDiffWrapper?.subscribe { [weak self] diff in
@@ -186,7 +172,6 @@ class ChatViewModel: ObservableObject {
         self.sessionId = sessionId
         // WebSocket connection is handled by SessionRepository.createSession/reconnectSession
         // Just load initial data
-        loadBranches()
         loadDiff()
     }
 
@@ -201,7 +186,6 @@ class ChatViewModel: ObservableObject {
         processingWrapper?.close()
         connectionStateWrapper?.close()
         sessionStateWrapper?.close()
-        branchesWrapper?.close()
         repoDiffWrapper?.close()
         worktreesWrapper?.close()
         worktreeMessagesWrapper?.close()
@@ -276,47 +260,6 @@ class ChatViewModel: ObservableObject {
         )
     }
 
-    // MARK: - Branches
-
-    func loadBranches() {
-        guard let repository = appState?.sessionRepository else { return }
-
-        Coroutines.shared.launch(
-            block: {
-                try await repository.loadBranches()
-            },
-            onError: { error in
-                print("Error loading branches: \(error)")
-            }
-        )
-    }
-
-    func fetchBranches() {
-        guard let repository = appState?.sessionRepository else { return }
-
-        Coroutines.shared.launch(
-            block: {
-                _ = try await repository.fetchBranches()
-            },
-            onError: { error in
-                print("Error fetching branches: \(error)")
-            }
-        )
-    }
-
-    func switchBranch(_ branch: String) {
-        guard let repository = appState?.sessionRepository else { return }
-
-        Coroutines.shared.launch(
-            block: {
-                _ = try await repository.switchBranch(branch: branch)
-            },
-            onError: { error in
-                print("Error switching branch: \(error)")
-            }
-        )
-    }
-
     // MARK: - Diff
 
     func loadDiff() {
@@ -352,21 +295,6 @@ class ChatViewModel: ObservableObject {
             },
             onError: { error in
                 print("Error creating worktree: \(error)")
-            }
-        )
-    }
-
-    func mergeWorktree(_ worktreeId: String) {
-        guard let repository = appState?.sessionRepository else { return }
-        let targetBranch = worktrees.first(where: { $0.id == "main" })?.branchName ?? "main"
-        let mergePrompt = "Merge vers \(targetBranch)"
-
-        Coroutines.shared.launch(
-            block: {
-                try await repository.sendWorktreeMessage(worktreeId: worktreeId, text: mergePrompt, attachments: [])
-            },
-            onError: { error in
-                print("Error merging worktree: \(error)")
             }
         )
     }

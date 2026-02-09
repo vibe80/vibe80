@@ -226,74 +226,6 @@ class ApiClient(
     }
 
     /**
-     * Get list of remote branches
-     */
-    suspend fun getBranches(sessionId: String): Result<BranchInfo> {
-        val url = "$baseUrl/api/branches"
-        return try {
-            val response = executeWithRefresh(url) {
-                httpClient.get(url) {
-                    parameter("session", sessionId)
-                    applyAuth(this)
-                }
-            }
-            if (response.status.isSuccess()) {
-                Result.success(response.body())
-            } else {
-                Result.failure(buildApiException(response, url))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Fetch latest branches from remote
-     */
-    suspend fun fetchBranches(sessionId: String): Result<BranchInfo> {
-        val url = "$baseUrl/api/branches/fetch"
-        return try {
-            val response = executeWithRefresh(url) {
-                httpClient.post(url) {
-                    contentType(ContentType.Application.Json)
-                    setBody(mapOf("session" to sessionId))
-                    applyAuth(this)
-                }
-            }
-            if (response.status.isSuccess()) {
-                Result.success(response.body())
-            } else {
-                Result.failure(buildApiException(response, url))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Switch to a different branch
-     */
-    suspend fun switchBranch(sessionId: String, branch: String): Result<BranchSwitchResponse> {
-        val url = "$baseUrl/api/branches/switch"
-        return try {
-            val response = executeWithRefresh(url) {
-                httpClient.post(url) {
-                    contentType(ContentType.Application.Json)
-                    setBody(BranchSwitchRequest(session = sessionId, branch = branch))
-                    applyAuth(this)
-                }
-            }
-            if (response.status.isSuccess()) {
-                Result.success(response.body())
-            } else {
-                Result.failure(buildApiException(response, url))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    /**
      * Get available models for a provider
      */
     suspend fun getModels(sessionId: String, provider: String): Result<ModelsResponse> {
@@ -359,6 +291,27 @@ class ApiClient(
     }
 
     /**
+     * List worktrees for a session
+     */
+    suspend fun listWorktrees(sessionId: String): Result<WorktreesListResponse> {
+        val url = "$baseUrl/api/sessions/$sessionId/worktrees"
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    applyAuth(this)
+                }
+            }
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Create a worktree via REST API
      */
     suspend fun createWorktree(request: WorktreeCreateApiRequest): Result<WorktreeCreateResponse> {
@@ -407,27 +360,6 @@ class ApiClient(
             }
             if (response.status.isSuccess()) {
                 Result.success(response.body())
-            } else {
-                Result.failure(buildApiException(response, url))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Merge a worktree
-     */
-    suspend fun mergeWorktree(sessionId: String, worktreeId: String): Result<Unit> {
-        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/merge"
-        return try {
-            val response = executeWithRefresh(url) {
-                httpClient.post(url) {
-                    applyAuth(this)
-                }
-            }
-            if (response.status.isSuccess()) {
-                Result.success(Unit)
             } else {
                 Result.failure(buildApiException(response, url))
             }

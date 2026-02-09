@@ -31,7 +31,6 @@
     <string name="error_websocket">WebSocket connection error</string>
     <string name="error_turn">Error processing request</string>
     <string name="error_switch_provider">Failed to switch provider</string>
-    <string name="error_load_branches">Failed to load branches</string>
     <string name="error_switch_branch">Failed to switch branch</string>
     <string name="error_load_diff">Failed to load diff</string>
     <string name="error_create_worktree">Failed to create worktree</string>
