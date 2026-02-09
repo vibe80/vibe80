@@ -260,9 +260,16 @@ export default function WorktreeTabs({
     }
   };
 
-  const worktreeList = Array.isArray(worktrees)
+  const worktreeList = (Array.isArray(worktrees)
     ? worktrees
-    : Array.from(worktrees?.values?.() || []);
+    : Array.from(worktrees?.values?.() || [])
+  ).slice().sort((a, b) => {
+    if (a?.id === "main" && b?.id !== "main") return -1;
+    if (b?.id === "main" && a?.id !== "main") return 1;
+    const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return aTime - bTime;
+  });
 
   return (
     <div className="worktree-tabs-container">
