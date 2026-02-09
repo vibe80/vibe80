@@ -72,6 +72,24 @@ export class ClaudeCliClient extends EventEmitter {
     return;
   }
 
+  getStatus() {
+    if (this.activeProcess) {
+      return "busy";
+    }
+    if (!this.ready) {
+      return "starting";
+    }
+    return "idle";
+  }
+
+  requestRestart() {
+    return;
+  }
+
+  async restart() {
+    return;
+  }
+
   async sendTurn(text) {
     const turnId = createTurnId();
     const workspaceHome = getWorkspaceHome(this.workspaceId);

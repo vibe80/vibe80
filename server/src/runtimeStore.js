@@ -16,6 +16,13 @@ export const getSessionRuntime = (sessionId) => {
   return runtime;
 };
 
+export const getExistingSessionRuntime = (sessionId) => {
+  if (!sessionId) {
+    return null;
+  }
+  return runtimeSessions.get(sessionId) || null;
+};
+
 export const deleteSessionRuntime = (sessionId) => {
   runtimeSessions.delete(sessionId);
 };

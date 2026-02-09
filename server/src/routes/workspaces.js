@@ -13,6 +13,58 @@ import {
   mergeProvidersForUpdate,
   appendAuditLog,
 } from "../services/workspace.js";
+import { getExistingSessionRuntime } from "../runtimeStore.js";
+
+const isObject = (value) =>
+  value != null && typeof value === "object" && !Array.isArray(value);
+
+const stableStringify = (value) => {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+  if (!isObject(value)) {
+    return JSON.stringify(value);
+  }
+  const keys = Object.keys(value).sort();
+  const entries = keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`);
+  return `{${entries.join(",")}}`;
+};
+
+const providersConfigChanged = (beforeConfig, afterConfig) =>
+  stableStringify(beforeConfig ?? null) !== stableStringify(afterConfig ?? null);
+
+const restartCodexClientsForWorkspace = async (workspaceId) => {
+  const sessions = await storage.listSessions(workspaceId);
+  for (const session of sessions) {
+    if (!session?.sessionId) {
+      continue;
+    }
+    const runtime = getExistingSessionRuntime(session.sessionId);
+    if (!runtime) {
+      continue;
+    }
+    const codexClient = runtime?.clients?.codex;
+    if (codexClient) {
+      if (codexClient.getStatus?.() === "idle") {
+        await codexClient.restart?.();
+      } else {
+        codexClient.requestRestart?.();
+      }
+    }
+    if (runtime?.worktreeClients instanceof Map) {
+      for (const client of runtime.worktreeClients.values()) {
+        if (!client || client?.constructor?.name !== "CodexAppServerClient") {
+          continue;
+        }
+        if (client.getStatus?.() === "idle") {
+          await client.restart?.();
+        } else {
+          client.requestRestart?.();
+        }
+      }
+    }
+  }
+};
 
 export default function workspaceRoutes() {
   const router = Router();
@@ -115,7 +167,14 @@ export default function workspaceRoutes() {
         existing?.providers || {},
         req.body?.providers || {}
       );
+      const codexChanged = providersConfigChanged(
+        existing?.providers?.codex,
+        mergedProviders?.codex
+      );
       const payload = await updateWorkspace(workspaceId, mergedProviders);
+      if (codexChanged) {
+        await restartCodexClientsForWorkspace(workspaceId);
+      }
       res.json({ workspaceId, providers: sanitizeProvidersForResponse(payload.providers) });
     } catch (error) {
       res.status(400).json({ error: error.message || "Failed to update workspace." });

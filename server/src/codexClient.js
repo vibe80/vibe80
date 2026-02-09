@@ -45,6 +45,11 @@ export class CodexAppServerClient extends EventEmitter {
     this.buffer = "";
     this.stdoutLogBuffer = "";
     this.stderrLogBuffer = "";
+    this.activeTurnIds = new Set();
+    this.restartPending = false;
+    this.restarting = false;
+    this.starting = false;
+    this.stopping = false;
     this.providerLogger = createProviderLogger({
       provider: "codex",
       sessionId: this.sessionId,
@@ -57,6 +62,10 @@ export class CodexAppServerClient extends EventEmitter {
   }
 
   async start() {
+    if (this.starting || this.restarting) {
+      return;
+    }
+    this.starting = true;
     const codexArgs = [
       "codex",
       "app-server"
@@ -133,24 +142,84 @@ export class CodexAppServerClient extends EventEmitter {
 
     this.proc.on("exit", (code, signal) => {
       this.ready = false;
+      this.activeTurnIds.clear();
+      this.starting = false;
+      this.stopping = false;
+      this.restarting = false;
       this.#flushLogBuffer("OUT", "stdoutLogBuffer");
       this.#flushLogBuffer("ERR", "stderrLogBuffer");
       this.providerLogger?.close?.();
       this.emit("exit", { code, signal });
     });
 
-    await spawnReady;
-    await this.#initialize();
-    await this.#startThread();
-    this.ready = true;
-    this.emit("ready", { threadId: this.threadId });
+    try {
+      await spawnReady;
+      await this.#initialize();
+      await this.#startThread();
+      this.ready = true;
+      this.emit("ready", { threadId: this.threadId });
+      this.#restartIfIdle();
+    } finally {
+      this.starting = false;
+    }
   }
 
-  async stop() {
-    if (this.proc) {
-      this.proc.kill();
-      this.proc = null;
+  async stop({ force = false, timeoutMs = 5000 } = {}) {
+    if (!this.proc) {
+      return;
     }
+    this.stopping = true;
+    const proc = this.proc;
+    this.proc = null;
+    const exitPromise = new Promise((resolve) => {
+      proc.once("exit", resolve);
+      proc.once("close", resolve);
+    });
+    if (force) {
+      proc.kill("SIGKILL");
+      await exitPromise;
+      this.stopping = false;
+      return;
+    }
+    proc.kill("SIGTERM");
+    const timeout = new Promise((resolve) => {
+      setTimeout(resolve, timeoutMs);
+    });
+    await Promise.race([exitPromise, timeout]);
+    if (!proc.killed) {
+      proc.kill("SIGKILL");
+      await exitPromise;
+    }
+    this.stopping = false;
+  }
+
+  getStatus() {
+    if (this.restarting) return "restarting";
+    if (this.starting) return "starting";
+    if (this.stopping) return "stopping";
+    if (!this.ready) return "starting";
+    if (this.activeTurnIds.size > 0) return "busy";
+    return "idle";
+  }
+
+  requestRestart() {
+    this.restartPending = true;
+  }
+
+  async restart() {
+    if (this.restarting) {
+      return;
+    }
+    this.restarting = true;
+    this.restartPending = false;
+    try {
+      await this.stop();
+    } catch {
+      // ignore stop errors
+    }
+    await this.start();
+    this.restarting = false;
+  }
   }
 
   async sendTurn(text) {
@@ -231,7 +300,37 @@ export class CodexAppServerClient extends EventEmitter {
 
     if (message.method) {
       this.emit("rpc_in", message);
+      if (message.method === "turn/started") {
+        const turnId = message?.params?.turn?.id;
+        if (turnId) {
+          this.activeTurnIds.add(turnId);
+        }
+      }
+      if (message.method === "turn/completed") {
+        const turnId = message?.params?.turn?.id;
+        if (turnId) {
+          this.activeTurnIds.delete(turnId);
+        }
+        this.#restartIfIdle();
+      }
+      if (message.method === "error") {
+        const turnId = message?.params?.turnId;
+        const willRetry = Boolean(message?.params?.willRetry);
+        if (turnId && !willRetry) {
+          this.activeTurnIds.delete(turnId);
+          this.#restartIfIdle();
+        }
+      }
       this.emit("notification", message);
+    }
+  }
+
+  #restartIfIdle() {
+    if (!this.restartPending || this.restarting) {
+      return;
+    }
+    if (this.activeTurnIds.size === 0) {
+      void this.restart();
     }
   }
 
