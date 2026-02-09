@@ -162,7 +162,6 @@ class ChatViewModel(
                 sessionRepository.messages,
                 sessionRepository.currentStreamingMessage,
                 sessionRepository.connectionState,
-                sessionRepository.processing,
                 sessionRepository.processing
             ) { messages, streaming, connection, processing ->
                 PartialSessionSnapshot(
@@ -230,7 +229,7 @@ class ChatViewModel(
                             currentStreamingMessage = activeStreaming,
                             connectionState = snapshot.connection,
                             processing = activeProcessing,
-                        repoDiff = diff,
+                            repoDiff = diff,
                             worktrees = snapshot.worktrees,
                             activeWorktreeId = snapshot.activeWorktreeId
                         )
