@@ -56,6 +56,8 @@
     - `true` to trust all proxies
     - `false` to disable trust proxy
     - can also be a CIDR/subnet or a comma-separated list
+  - `SESSION_DIRECTORY` overrides the default session storage directory
+    - default: `<homeDir>/vibe80_workspace/sessions`
 
 ## Providers
 - Providers are configured at workspace creation
