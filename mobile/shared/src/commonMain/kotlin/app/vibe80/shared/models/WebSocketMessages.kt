@@ -255,6 +255,15 @@ data class RpcLogMessage(
 ) : ServerMessage()
 
 @Serializable
+data class RpcLogEntry(
+    val direction: String,
+    val timestamp: Long,
+    val payload: JsonElement? = null,
+    val provider: String? = null,
+    val worktreeId: String? = null
+)
+
+@Serializable
 @SerialName("agent_reasoning")
 data class AgentReasoningMessage(
     override val type: String = "agent_reasoning",

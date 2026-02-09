@@ -361,7 +361,6 @@ class WebSocketManager(
     suspend fun wakeUpWorktree(worktreeId: String) {
         send(WakeUpRequest(worktreeId = worktreeId))
     }
-
     fun disconnect() {
         AppLogger.wsDisconnected("Client initiated disconnect")
         connectionJob?.cancel()

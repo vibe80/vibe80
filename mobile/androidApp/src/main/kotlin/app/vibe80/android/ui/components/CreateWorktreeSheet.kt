@@ -133,6 +133,7 @@ fun CreateWorktreeSheet(
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
             // Model selection (Codex only)
             if (selectedProvider == LLMProvider.CODEX) {
                 Spacer(modifier = Modifier.height(16.dp))
