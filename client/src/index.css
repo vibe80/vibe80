@@ -4557,6 +4557,14 @@ main.chat {
     padding: 16px;
   }
 
+  .session-workspace-options {
+    grid-template-columns: 1fr;
+  }
+
+  .session-workspace-toggle {
+    grid-template-columns: 1fr;
+  }
+
   .session-layout--fullscreen {
     padding: 20px 16px;
     grid-template-columns: 1fr;
