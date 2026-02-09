@@ -529,6 +529,12 @@ class SessionRepository(
         return result
     }
 
+    suspend fun listSessions(): Result<SessionListResponse> {
+        val result = apiClient.listSessions()
+        result.onFailure { handleApiFailure(it, "listSessions") }
+        return result
+    }
+
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
         AppLogger.info(LogSource.APP, "SessionRepository.sendMessage called", "text='$text', attachments=${attachments.size}, connectionState=${connectionState.value}")
 

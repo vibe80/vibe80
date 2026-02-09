@@ -171,10 +171,15 @@ fun SessionScreen(
                         error = uiState.error,
                         loadingState = uiState.loadingState,
                         isLoading = uiState.isLoading,
+                        workspaceSessions = uiState.workspaceSessions,
+                        sessionsLoading = uiState.sessionsLoading,
+                        sessionsError = uiState.sessionsError,
                         onStartSession = viewModel::openStartSession,
                         onReconfigureProviders = viewModel::openProviderConfigForUpdate,
                         onResumeSession = viewModel::resumeExistingSession,
-                        onDeleteSession = viewModel::clearSavedSession
+                        onDeleteSession = viewModel::clearSavedSession,
+                        onResumeWorkspaceSession = viewModel::resumeWorkspaceSession,
+                        onRefreshSessions = viewModel::loadWorkspaceSessions
                     )
 
                     EntryScreen.START_SESSION -> StartSessionScreen(
@@ -626,10 +631,15 @@ private fun JoinSessionScreen(
     error: String?,
     loadingState: LoadingState,
     isLoading: Boolean,
+    workspaceSessions: List<app.vibe80.shared.models.SessionSummary>,
+    sessionsLoading: Boolean,
+    sessionsError: String?,
     onStartSession: () -> Unit,
     onReconfigureProviders: () -> Unit,
     onResumeSession: () -> Unit,
-    onDeleteSession: () -> Unit
+    onDeleteSession: () -> Unit,
+    onResumeWorkspaceSession: (String, String?) -> Unit,
+    onRefreshSessions: () -> Unit
 ) {
     ScreenContainer {
         BrandHeader(title = "Rejoindre une session")
@@ -650,7 +660,16 @@ private fun JoinSessionScreen(
             Text("Reconfigurer les providers IA")
         }
 
-        Text("Sessions récentes", style = MaterialTheme.typography.titleSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Sessions récentes", style = MaterialTheme.typography.titleSmall)
+            TextButton(onClick = onRefreshSessions, enabled = !sessionsLoading) {
+                Text(if (sessionsLoading) "Chargement..." else "Rafraîchir")
+            }
+        }
 
         if (hasSavedSession) {
             Card(
@@ -683,6 +702,49 @@ private fun JoinSessionScreen(
                 text = "Aucune session sauvegardée pour le moment.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        if (workspaceSessions.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                workspaceSessions.forEach { session ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = session.name?.takeIf { it.isNotBlank() }
+                                    ?: session.repoUrl?.takeIf { it.isNotBlank() }
+                                    ?: "Session ${session.sessionId}"
+                            )
+                            Text(
+                                text = session.sessionId,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Button(
+                                onClick = { onResumeWorkspaceSession(session.sessionId, session.repoUrl) },
+                                enabled = !isLoading
+                            ) {
+                                Text("Reprendre")
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (!sessionsLoading) {
+            Text(
+                text = "Aucune session trouvée dans le workspace.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        sessionsError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
         }
 
         error?.let {

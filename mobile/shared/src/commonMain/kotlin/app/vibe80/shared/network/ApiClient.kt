@@ -210,6 +210,35 @@ class ApiClient(
     }
 
     /**
+     * List sessions for the current workspace
+     */
+    suspend fun listSessions(): Result<SessionListResponse> {
+        val url = "$baseUrl/api/sessions"
+        AppLogger.apiRequest("GET", url)
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    applyAuth(this)
+                }
+            }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url, responseBody))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("GET", url, e)
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Check if session is healthy and ready
      */
     suspend fun checkHealth(sessionId: String): Result<Boolean> {
