@@ -143,6 +143,23 @@ export const createSqliteStorage = () => {
       `CREATE INDEX IF NOT EXISTS workspace_refresh_tokens_hash_idx
        ON workspace_refresh_tokens (tokenHash);`
     );
+    await run(
+      db,
+      `CREATE TABLE IF NOT EXISTS workspace_uid_seq (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        lastUid INTEGER NOT NULL
+      );`
+    );
+    const row = await get(db, "SELECT lastUid FROM workspace_uid_seq WHERE id = 1");
+    if (!row) {
+      const workspaceUidMin =
+        Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
+      await run(
+        db,
+        "INSERT INTO workspace_uid_seq (id, lastUid) VALUES (1, ?)",
+        [workspaceUidMin - 1]
+      );
+    }
   };
 
   const saveSession = async (sessionId, data) => {
@@ -402,6 +419,31 @@ export const createSqliteStorage = () => {
     );
   };
 
+  const getNextWorkspaceUid = async () => {
+    await ensureConnected();
+    const workspaceUidMin =
+      Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
+    const workspaceUidMax =
+      Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
+    await run(db, "BEGIN IMMEDIATE");
+    try {
+      const row = await get(db, "SELECT lastUid FROM workspace_uid_seq WHERE id = 1");
+      const lastUid = Number(row?.lastUid ?? workspaceUidMin - 1);
+      const nextUid = lastUid + 1;
+      if (nextUid > workspaceUidMax) {
+        throw new Error("Workspace UID range exhausted.");
+      }
+      await run(db, "UPDATE workspace_uid_seq SET lastUid = ? WHERE id = 1", [
+        nextUid,
+      ]);
+      await run(db, "COMMIT");
+      return nextUid;
+    } catch (error) {
+      await run(db, "ROLLBACK");
+      throw error;
+    }
+  };
+
   return {
     init: ensureConnected,
     close: async () => {
@@ -434,5 +476,6 @@ export const createSqliteStorage = () => {
     saveWorkspaceRefreshToken,
     getWorkspaceRefreshToken,
     deleteWorkspaceRefreshToken,
+    getNextWorkspaceUid,
   };
 };

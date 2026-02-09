@@ -558,7 +558,10 @@ const allocateWorkspaceIds = async () => {
   const max = Math.max(min, workspaceUidMax);
   const attempts = 1000;
   for (let i = 0; i < attempts; i += 1) {
-    const candidate = crypto.randomInt(min, max + 1);
+    const candidate = await storage.getNextWorkspaceUid();
+    if (candidate < min || candidate > max) {
+      continue;
+    }
     if (workspaceIdsUsed.has(candidate)) {
       continue;
     }
