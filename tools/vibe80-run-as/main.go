@@ -202,8 +202,12 @@ func main() {
   cmd.Stdin = os.Stdin
   cmd.Stdout = os.Stdout
   cmd.Stderr = os.Stderr
+  isTty := false
+  if info, err := os.Stdin.Stat(); err == nil {
+    isTty = (info.Mode() & os.ModeCharDevice) != 0
+  }
   cmd.SysProcAttr = &syscall.SysProcAttr{
-    Setpgid: true,
+    Setpgid: !isTty,
     Credential: &syscall.Credential{Uid: uid, Gid: gid},
   }
 
