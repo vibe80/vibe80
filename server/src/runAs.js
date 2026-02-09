@@ -1,7 +1,6 @@
 import { spawn } from "child_process";
 import os from "os";
 import path from "path";
-import { DEFAULT_RW_HOME_DIRS } from "./config.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
@@ -53,9 +52,6 @@ export const buildSandboxArgs = (options = {}) => {
   const workspaceRootDir = options.workspaceRootDir || (options.workspaceId
     ? getWorkspaceRoot(options.workspaceId)
     : null);
-  const defaultHomeRw = homeDir
-    ? DEFAULT_RW_HOME_DIRS.map((entry) => path.join(homeDir, entry))
-    : [];
   const allowRo = normalizePaths([
     ...(options.allowRo || DEFAULT_ALLOW_RO),
     ...(options.extraAllowRo || []),
@@ -63,7 +59,6 @@ export const buildSandboxArgs = (options = {}) => {
   const allowRw = normalizePaths([
     ...(options.allowRw || DEFAULT_ALLOW_RW),
     ...(options.extraAllowRw || []),
-    ...defaultHomeRw,
     workspaceRootDir,
     options.repoDir,
     options.cwd,
