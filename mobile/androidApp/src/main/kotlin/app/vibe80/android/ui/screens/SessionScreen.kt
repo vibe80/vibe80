@@ -3,34 +3,65 @@ package app.vibe80.android.ui.screens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import app.vibe80.android.R
 import app.vibe80.android.viewmodel.AuthMethod
+import app.vibe80.android.viewmodel.EntryScreen
 import app.vibe80.android.viewmodel.LoadingState
 import app.vibe80.android.viewmodel.ProviderAuthType
+import app.vibe80.android.viewmodel.ProviderConfigMode
 import app.vibe80.android.viewmodel.SessionViewModel
 import app.vibe80.android.viewmodel.WorkspaceMode
 import org.koin.androidx.compose.koinViewModel
@@ -47,13 +78,6 @@ fun SessionScreen(
     var showWorkspaceSecret by remember { mutableStateOf(false) }
     var showProviderSecrets by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val loadingText = when (uiState.loadingState) {
-        LoadingState.RESUMING -> stringResource(R.string.resuming_session)
-        LoadingState.CLONING -> stringResource(R.string.cloning_repo)
-        LoadingState.NONE -> stringResource(R.string.cloning_repo)
-    }
-    val showWorkspaceStep1 = uiState.workspaceStep == 1
-    val showWorkspaceStep2 = uiState.workspaceStep == 2
 
     val codexAuthPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -79,26 +103,13 @@ fun SessionScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.session_title)) },
-                actions = {
-                    IconButton(onClick = onOpenQrScanner) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "Scanner un QR code"
-                        )
-                    }
-                }
-            )
-        }
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Show loading while checking for existing session
             if (uiState.isCheckingExistingSession) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -107,546 +118,702 @@ fun SessionScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    if (showWorkspaceStep1) {
-                        Text(
-                            text = "Workspace",
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                when (uiState.entryScreen) {
+                    EntryScreen.WORKSPACE_MODE -> WorkspaceModeSelection(
+                        onCreateWorkspace = { viewModel.selectWorkspaceMode(WorkspaceMode.NEW) },
+                        onJoinWorkspace = { viewModel.selectWorkspaceMode(WorkspaceMode.EXISTING) },
+                        onResumeDesktop = onOpenQrScanner
+                    )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FilterChip(
-                                selected = uiState.workspaceMode == WorkspaceMode.EXISTING,
-                                onClick = { viewModel.updateWorkspaceMode(WorkspaceMode.EXISTING) },
-                                label = { Text("Existant") },
-                                enabled = !uiState.workspaceBusy
-                            )
-                            FilterChip(
-                                selected = uiState.workspaceMode == WorkspaceMode.NEW,
-                                onClick = { viewModel.updateWorkspaceMode(WorkspaceMode.NEW) },
-                                label = { Text("Nouveau") },
-                                enabled = !uiState.workspaceBusy
-                            )
-                        }
+                    EntryScreen.WORKSPACE_CREDENTIALS -> WorkspaceCredentialsScreen(
+                        workspaceId = uiState.workspaceIdInput,
+                        workspaceSecret = uiState.workspaceSecretInput,
+                        workspaceError = uiState.workspaceError,
+                        workspaceBusy = uiState.workspaceBusy,
+                        showSecret = showWorkspaceSecret,
+                        onToggleSecret = { showWorkspaceSecret = !showWorkspaceSecret },
+                        onWorkspaceIdChange = viewModel::updateWorkspaceIdInput,
+                        onWorkspaceSecretChange = viewModel::updateWorkspaceSecretInput,
+                        onContinue = viewModel::submitWorkspaceCredentials,
+                        onBack = viewModel::openWorkspaceModeSelection
+                    )
 
-                        AnimatedVisibility(visible = uiState.workspaceMode == WorkspaceMode.EXISTING) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedTextField(
-                                    value = uiState.workspaceIdInput,
-                                    onValueChange = viewModel::updateWorkspaceIdInput,
-                                    label = { Text("workspaceId") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    enabled = !uiState.workspaceBusy
-                                )
-                                OutlinedTextField(
-                                    value = uiState.workspaceSecretInput,
-                                    onValueChange = viewModel::updateWorkspaceSecretInput,
-                                    label = { Text("workspaceSecret") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    visualTransformation = if (showWorkspaceSecret) {
-                                        VisualTransformation.None
-                                    } else {
-                                        PasswordVisualTransformation()
-                                    },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                    trailingIcon = {
-                                        IconButton(onClick = { showWorkspaceSecret = !showWorkspaceSecret }) {
-                                            Icon(
-                                                imageVector = if (showWorkspaceSecret) {
-                                                    Icons.Default.VisibilityOff
-                                                } else {
-                                                    Icons.Default.Visibility
-                                                },
-                                                contentDescription = null
-                                            )
-                                        }
-                                    },
-                                    enabled = !uiState.workspaceBusy
-                                )
-                            }
-                        }
-
-                        AnimatedVisibility(visible = uiState.workspaceMode == WorkspaceMode.NEW) {
-                            val codexConfig = uiState.workspaceProviders["codex"]
-                            val claudeConfig = uiState.workspaceProviders["claude"]
-
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Providers", style = MaterialTheme.typography.titleSmall)
-
-                                // Codex
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = codexConfig?.enabled == true,
-                                        onCheckedChange = { viewModel.toggleProvider("codex", it) },
-                                        enabled = !uiState.workspaceBusy
-                                    )
-                                    Text("Codex")
-                                }
-                                if (codexConfig?.enabled == true) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        FilterChip(
-                                            selected = codexConfig.authType == ProviderAuthType.API_KEY,
-                                            onClick = { viewModel.updateProviderAuthType("codex", ProviderAuthType.API_KEY) },
-                                            label = { Text("API key") },
-                                            enabled = !uiState.workspaceBusy
-                                        )
-                                        FilterChip(
-                                            selected = codexConfig.authType == ProviderAuthType.AUTH_JSON_B64,
-                                            onClick = { viewModel.updateProviderAuthType("codex", ProviderAuthType.AUTH_JSON_B64) },
-                                            label = { Text("auth_json_b64") },
-                                            enabled = !uiState.workspaceBusy
-                                        )
-                                    }
-                                    if (codexConfig.authType == ProviderAuthType.AUTH_JSON_B64) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            OutlinedButton(
-                                                onClick = { codexAuthPicker.launch(arrayOf("application/json", "*/*")) },
-                                                modifier = Modifier.weight(1f),
-                                                enabled = !uiState.workspaceBusy
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.FileOpen,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Importer auth.json")
-                                            }
-                                            if (codexConfig.authValue.isNotBlank()) {
-                                                Icon(
-                                                    imageVector = Icons.Default.CheckCircle,
-                                                    contentDescription = "Chargé",
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                                IconButton(
-                                                    onClick = { viewModel.updateProviderAuthValue("codex", "") },
-                                                    enabled = !uiState.workspaceBusy
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Clear,
-                                                        contentDescription = "Supprimer",
-                                                        tint = MaterialTheme.colorScheme.error
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        OutlinedTextField(
-                                            value = codexConfig.authValue,
-                                            onValueChange = { viewModel.updateProviderAuthValue("codex", it) },
-                                            label = { Text("auth.json") },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            minLines = 4,
-                                            maxLines = 6,
-                                            singleLine = false,
-                                            visualTransformation = VisualTransformation.None,
-                                            enabled = !uiState.workspaceBusy
-                                        )
-                                    } else {
-                                        OutlinedTextField(
-                                            value = codexConfig.authValue,
-                                            onValueChange = { viewModel.updateProviderAuthValue("codex", it) },
-                                            label = { Text("API key") },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            singleLine = true,
-                                            visualTransformation = if (showProviderSecrets) {
-                                                VisualTransformation.None
-                                            } else {
-                                                PasswordVisualTransformation()
-                                            },
-                                            enabled = !uiState.workspaceBusy
-                                        )
-                                    }
-                                }
-
-                                // Claude
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = claudeConfig?.enabled == true,
-                                        onCheckedChange = { viewModel.toggleProvider("claude", it) },
-                                        enabled = !uiState.workspaceBusy
-                                    )
-                                    Text("Claude")
-                                }
-                                if (claudeConfig?.enabled == true) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        FilterChip(
-                                            selected = claudeConfig.authType == ProviderAuthType.API_KEY,
-                                            onClick = { viewModel.updateProviderAuthType("claude", ProviderAuthType.API_KEY) },
-                                            label = { Text("API key") },
-                                            enabled = !uiState.workspaceBusy
-                                        )
-                                        FilterChip(
-                                            selected = claudeConfig.authType == ProviderAuthType.SETUP_TOKEN,
-                                            onClick = { viewModel.updateProviderAuthType("claude", ProviderAuthType.SETUP_TOKEN) },
-                                            label = { Text("setup_token") },
-                                            enabled = !uiState.workspaceBusy
-                                        )
-                                    }
-                                    OutlinedTextField(
-                                        value = claudeConfig.authValue,
-                                        onValueChange = { viewModel.updateProviderAuthValue("claude", it) },
-                                        label = { Text(if (claudeConfig.authType == ProviderAuthType.SETUP_TOKEN) "Setup token" else "API key") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true,
-                                        visualTransformation = if (showProviderSecrets) {
-                                            VisualTransformation.None
-                                        } else {
-                                            PasswordVisualTransformation()
-                                        },
-                                        enabled = !uiState.workspaceBusy
-                                    )
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    TextButton(
-                                        onClick = { showProviderSecrets = !showProviderSecrets },
-                                        enabled = !uiState.workspaceBusy
-                                    ) {
-                                        Text(if (showProviderSecrets) "Masquer" else "Afficher")
-                                    }
-                                }
-                            }
-                        }
-
-                        uiState.workspaceError?.let { error ->
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(
-                                        text = "Erreur workspace",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                    SelectionContainer {
-                                        Text(
-                                            text = error,
-                                            color = MaterialTheme.colorScheme.onErrorContainer,
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Button(
-                            onClick = viewModel::submitWorkspace,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !uiState.workspaceBusy
-                        ) {
-                            if (uiState.workspaceBusy) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Validation...")
+                    EntryScreen.PROVIDER_CONFIG -> ProviderConfigScreen(
+                        providerMode = uiState.providerConfigMode,
+                        providerConfigs = uiState.workspaceProviders,
+                        workspaceError = uiState.workspaceError,
+                        workspaceBusy = uiState.workspaceBusy,
+                        showProviderSecrets = showProviderSecrets,
+                        onToggleSecrets = { showProviderSecrets = !showProviderSecrets },
+                        onToggleProvider = viewModel::toggleProvider,
+                        onUpdateAuthType = viewModel::updateProviderAuthType,
+                        onUpdateAuthValue = viewModel::updateProviderAuthValue,
+                        onPickAuthJson = { codexAuthPicker.launch(arrayOf("application/json", "*/*")) },
+                        onContinue = viewModel::submitProviderConfig,
+                        onBack = {
+                            if (uiState.providerConfigMode == ProviderConfigMode.UPDATE) {
+                                viewModel.backToJoinSession()
                             } else {
-                                Text("Continuer")
+                                viewModel.openWorkspaceModeSelection()
+                            }
+                        }
+                    )
+
+                    EntryScreen.WORKSPACE_CREATED -> WorkspaceCreatedScreen(
+                        workspaceId = uiState.workspaceCreatedId,
+                        workspaceSecret = uiState.workspaceCreatedSecret,
+                        onContinue = viewModel::continueFromWorkspaceCreated
+                    )
+
+                    EntryScreen.JOIN_SESSION -> JoinSessionScreen(
+                        hasSavedSession = uiState.hasSavedSession,
+                        repoUrl = uiState.repoUrl,
+                        error = uiState.error,
+                        loadingState = uiState.loadingState,
+                        isLoading = uiState.isLoading,
+                        onStartSession = viewModel::openStartSession,
+                        onReconfigureProviders = viewModel::openProviderConfigForUpdate,
+                        onResumeSession = viewModel::resumeExistingSession,
+                        onDeleteSession = viewModel::clearSavedSession
+                    )
+
+                    EntryScreen.START_SESSION -> StartSessionScreen(
+                        repoUrl = uiState.repoUrl,
+                        authMethod = uiState.authMethod,
+                        sshKey = uiState.sshKey,
+                        httpUser = uiState.httpUser,
+                        httpPassword = uiState.httpPassword,
+                        showHttpPassword = showHttpPassword,
+                        onToggleHttpPassword = { showHttpPassword = !showHttpPassword },
+                        onRepoUrlChange = viewModel::updateRepoUrl,
+                        onAuthMethodChange = viewModel::updateAuthMethod,
+                        onSshKeyChange = viewModel::updateSshKey,
+                        onHttpUserChange = viewModel::updateHttpUser,
+                        onHttpPasswordChange = viewModel::updateHttpPassword,
+                        onContinue = viewModel::createSession,
+                        onBack = viewModel::backToJoinSession,
+                        isLoading = uiState.isLoading,
+                        loadingState = uiState.loadingState,
+                        error = uiState.error
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScreenContainer(
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun BrandHeader(title: String, subtitle: String? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Vibe80",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(text = title, style = MaterialTheme.typography.titleMedium)
+        subtitle?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceModeSelection(
+    onCreateWorkspace: () -> Unit,
+    onJoinWorkspace: () -> Unit,
+    onResumeDesktop: () -> Unit
+) {
+    ScreenContainer {
+        BrandHeader(
+            title = "Bienvenue dans Vibe80",
+            subtitle = "Choisissez comment démarrer votre session."
+        )
+
+        Button(
+            onClick = onCreateWorkspace,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Créer un nouveau workspace")
+        }
+
+        Button(
+            onClick = onJoinWorkspace,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Rejoindre un workspace existant")
+        }
+
+        OutlinedButton(
+            onClick = onResumeDesktop,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(imageVector = Icons.Default.CameraAlt, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Reprendre une session desktop")
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceCredentialsScreen(
+    workspaceId: String,
+    workspaceSecret: String,
+    workspaceError: String?,
+    workspaceBusy: Boolean,
+    showSecret: Boolean,
+    onToggleSecret: () -> Unit,
+    onWorkspaceIdChange: (String) -> Unit,
+    onWorkspaceSecretChange: (String) -> Unit,
+    onContinue: () -> Unit,
+    onBack: () -> Unit
+) {
+    ScreenContainer {
+        TextButton(onClick = onBack) {
+            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Retour")
+        }
+
+        BrandHeader(title = "Identifiants workspace")
+
+        OutlinedTextField(
+            value = workspaceId,
+            onValueChange = onWorkspaceIdChange,
+            label = { Text("Workspace ID") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !workspaceBusy
+        )
+
+        OutlinedTextField(
+            value = workspaceSecret,
+            onValueChange = onWorkspaceSecretChange,
+            label = { Text("Workspace secret") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = if (showSecret) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                IconButton(onClick = onToggleSecret) {
+                    Icon(
+                        imageVector = if (showSecret) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = null
+                    )
+                }
+            },
+            enabled = !workspaceBusy
+        )
+
+        workspaceError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !workspaceBusy
+        ) {
+            if (workspaceBusy) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.height(18.dp)
+                )
+            } else {
+                Text("Continuer")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProviderConfigScreen(
+    providerMode: ProviderConfigMode,
+    providerConfigs: Map<String, app.vibe80.android.viewmodel.ProviderAuthUi>,
+    workspaceError: String?,
+    workspaceBusy: Boolean,
+    showProviderSecrets: Boolean,
+    onToggleSecrets: () -> Unit,
+    onToggleProvider: (String, Boolean) -> Unit,
+    onUpdateAuthType: (String, ProviderAuthType) -> Unit,
+    onUpdateAuthValue: (String, String) -> Unit,
+    onPickAuthJson: () -> Unit,
+    onContinue: () -> Unit,
+    onBack: () -> Unit
+) {
+    val codexConfig = providerConfigs["codex"]
+    val claudeConfig = providerConfigs["claude"]
+
+    ScreenContainer {
+        TextButton(onClick = onBack) {
+            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Retour")
+        }
+
+        BrandHeader(title = "Configuration des providers IA")
+
+        Text(
+            text = if (providerMode == ProviderConfigMode.UPDATE) {
+                "Mettez à jour vos providers pour ce workspace."
+            } else {
+                "Sélectionnez au moins un provider."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        ProviderSection(
+            title = "Codex",
+            enabled = codexConfig?.enabled == true,
+            authType = codexConfig?.authType ?: ProviderAuthType.API_KEY,
+            authValue = codexConfig?.authValue.orEmpty(),
+            workspaceBusy = workspaceBusy,
+            showProviderSecrets = showProviderSecrets,
+            onToggleSecrets = onToggleSecrets,
+            onToggleProvider = { onToggleProvider("codex", it) },
+            onUpdateAuthType = { onUpdateAuthType("codex", it) },
+            onUpdateAuthValue = { onUpdateAuthValue("codex", it) },
+            onPickAuthJson = onPickAuthJson
+        )
+
+        ProviderSection(
+            title = "Claude",
+            enabled = claudeConfig?.enabled == true,
+            authType = claudeConfig?.authType ?: ProviderAuthType.SETUP_TOKEN,
+            authValue = claudeConfig?.authValue.orEmpty(),
+            workspaceBusy = workspaceBusy,
+            showProviderSecrets = showProviderSecrets,
+            onToggleSecrets = onToggleSecrets,
+            onToggleProvider = { onToggleProvider("claude", it) },
+            onUpdateAuthType = { onUpdateAuthType("claude", it) },
+            onUpdateAuthValue = { onUpdateAuthValue("claude", it) },
+            onPickAuthJson = null
+        )
+
+        workspaceError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !workspaceBusy
+        ) {
+            if (workspaceBusy) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.height(18.dp)
+                )
+            } else {
+                Text("Continuer")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProviderSection(
+    title: String,
+    enabled: Boolean,
+    authType: ProviderAuthType,
+    authValue: String,
+    workspaceBusy: Boolean,
+    showProviderSecrets: Boolean,
+    onToggleSecrets: () -> Unit,
+    onToggleProvider: (Boolean) -> Unit,
+    onUpdateAuthType: (ProviderAuthType) -> Unit,
+    onUpdateAuthValue: (String) -> Unit,
+    onPickAuthJson: (() -> Unit)?
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = enabled,
+                    onCheckedChange = onToggleProvider,
+                    enabled = !workspaceBusy
+                )
+                Text(title, style = MaterialTheme.typography.titleMedium)
+            }
+
+            if (enabled) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = authType == ProviderAuthType.API_KEY,
+                        onClick = { onUpdateAuthType(ProviderAuthType.API_KEY) },
+                        label = { Text("API key") },
+                        enabled = !workspaceBusy
+                    )
+                    FilterChip(
+                        selected = authType == ProviderAuthType.AUTH_JSON_B64,
+                        onClick = { onUpdateAuthType(ProviderAuthType.AUTH_JSON_B64) },
+                        label = { Text("auth_json_b64") },
+                        enabled = !workspaceBusy
+                    )
+                    if (title.lowercase() == "claude") {
+                        FilterChip(
+                            selected = authType == ProviderAuthType.SETUP_TOKEN,
+                            onClick = { onUpdateAuthType(ProviderAuthType.SETUP_TOKEN) },
+                            label = { Text("setup_token") },
+                            enabled = !workspaceBusy
+                        )
+                    }
+                }
+
+                if (authType == ProviderAuthType.AUTH_JSON_B64) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { onPickAuthJson?.invoke() },
+                            modifier = Modifier.weight(1f),
+                            enabled = !workspaceBusy && onPickAuthJson != null
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileOpen,
+                                contentDescription = null,
+                                modifier = Modifier.width(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Importer auth.json")
+                        }
+                        if (authValue.isNotBlank()) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Chargé",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            IconButton(
+                                onClick = { onUpdateAuthValue("") },
+                                enabled = !workspaceBusy
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Supprimer",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                     }
 
-                    if (showWorkspaceStep2) {
-                        uiState.workspaceCreatedId?.let { createdId ->
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(
-                                        text = "Workspace créé",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                    Text(
-                                        text = "ID: $createdId",
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                    uiState.workspaceCreatedSecret?.let { secret ->
-                                        Text(
-                                            text = "Secret: $secret",
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
+                    OutlinedTextField(
+                        value = authValue,
+                        onValueChange = onUpdateAuthValue,
+                        label = { Text("auth.json") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 4,
+                        maxLines = 6,
+                        singleLine = false,
+                        visualTransformation = VisualTransformation.None,
+                        enabled = !workspaceBusy
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = authValue,
+                        onValueChange = onUpdateAuthValue,
+                        label = {
+                            Text(
+                                when (authType) {
+                                    ProviderAuthType.API_KEY -> "Clé API"
+                                    ProviderAuthType.SETUP_TOKEN -> "Setup token"
+                                    ProviderAuthType.AUTH_JSON_B64 -> "auth.json"
                                 }
-                            }
-                        }
-
-                        // Resume existing session card
-                        AnimatedVisibility(visible = uiState.hasSavedSession) {
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.History,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                        Text(
-                                            text = "Session précédente",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    }
-                                    Text(
-                                        text = uiState.repoUrl,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Button(
-                                            onClick = viewModel::resumeExistingSession,
-                                            modifier = Modifier.weight(1f),
-                                            enabled = !uiState.isLoading
-                                        ) {
-                                            Text("Reprendre")
-                                        }
-                                        OutlinedButton(
-                                            onClick = viewModel::clearSavedSession,
-                                            enabled = !uiState.isLoading
-                                        ) {
-                                            Text("Oublier")
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (uiState.hasSavedSession) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                HorizontalDivider(modifier = Modifier.weight(1f))
-                                Text(
-                                    text = "ou créer une nouvelle session",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                HorizontalDivider(modifier = Modifier.weight(1f))
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = uiState.repoUrl,
-                            onValueChange = viewModel::updateRepoUrl,
-                            label = { Text(stringResource(R.string.repo_url_hint)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            enabled = !uiState.isLoading
-                        )
-
-                        Text(
-                            text = "Authentification",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            AuthMethod.entries.forEach { method ->
-                                FilterChip(
-                                    selected = uiState.authMethod == method,
-                                    onClick = { viewModel.updateAuthMethod(method) },
-                                    label = {
-                                        Text(
-                                            when (method) {
-                                                AuthMethod.NONE -> "Aucune"
-                                                AuthMethod.SSH -> "SSH"
-                                                AuthMethod.HTTP -> "HTTP"
-                                            }
-                                        )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        visualTransformation = if (showProviderSecrets) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = onToggleSecrets) {
+                                Icon(
+                                    imageVector = if (showProviderSecrets) {
+                                        Icons.Default.VisibilityOff
+                                    } else {
+                                        Icons.Default.Visibility
                                     },
-                                    enabled = !uiState.isLoading
+                                    contentDescription = null
                                 )
                             }
-                        }
+                        },
+                        enabled = !workspaceBusy
+                    )
+                }
+            }
+        }
+    }
+}
 
-                        AnimatedVisibility(visible = uiState.authMethod == AuthMethod.SSH) {
-                            OutlinedTextField(
-                                value = uiState.sshKey,
-                                onValueChange = viewModel::updateSshKey,
-                                label = { Text(stringResource(R.string.ssh_key_hint)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                minLines = 3,
-                                maxLines = 6,
-                                enabled = !uiState.isLoading
+@Composable
+private fun WorkspaceCreatedScreen(
+    workspaceId: String?,
+    workspaceSecret: String?,
+    onContinue: () -> Unit
+) {
+    ScreenContainer {
+        BrandHeader(
+            title = "Workspace créé",
+            subtitle = "Conservez ces identifiants pour vos prochaines connexions."
+        )
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Workspace ID", style = MaterialTheme.typography.labelMedium)
+                SelectionContainer {
+                    Text(workspaceId ?: "-", style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Workspace secret", style = MaterialTheme.typography.labelMedium)
+                SelectionContainer {
+                    Text(workspaceSecret ?: "-", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Continuer")
+        }
+    }
+}
+
+@Composable
+private fun JoinSessionScreen(
+    hasSavedSession: Boolean,
+    repoUrl: String,
+    error: String?,
+    loadingState: LoadingState,
+    isLoading: Boolean,
+    onStartSession: () -> Unit,
+    onReconfigureProviders: () -> Unit,
+    onResumeSession: () -> Unit,
+    onDeleteSession: () -> Unit
+) {
+    ScreenContainer {
+        BrandHeader(title = "Rejoindre une session")
+
+        Button(
+            onClick = onStartSession,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Démarrer une nouvelle session")
+        }
+
+        OutlinedButton(
+            onClick = onReconfigureProviders,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Reconfigurer les providers IA")
+        }
+
+        Text("Sessions récentes", style = MaterialTheme.typography.titleSmall)
+
+        if (hasSavedSession) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = MaterialTheme.shapes.large,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(repoUrl.ifBlank { "Session sauvegardée" })
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = onResumeSession,
+                            enabled = !isLoading
+                        ) {
+                            Text(
+                                if (loadingState == LoadingState.RESUMING) "Reprise..." else "Reprendre"
                             )
                         }
-
-                        AnimatedVisibility(visible = uiState.authMethod == AuthMethod.HTTP) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedTextField(
-                                    value = uiState.httpUser,
-                                    onValueChange = viewModel::updateHttpUser,
-                                    label = { Text(stringResource(R.string.http_user_hint)) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    enabled = !uiState.isLoading
-                                )
-
-                                OutlinedTextField(
-                                    value = uiState.httpPassword,
-                                    onValueChange = viewModel::updateHttpPassword,
-                                    label = { Text(stringResource(R.string.http_password_hint)) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    visualTransformation = if (showHttpPassword) {
-                                        VisualTransformation.None
-                                    } else {
-                                        PasswordVisualTransformation()
-                                    },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                    trailingIcon = {
-                                        IconButton(onClick = { showHttpPassword = !showHttpPassword }) {
-                                            Icon(
-                                                imageVector = if (showHttpPassword) {
-                                                    Icons.Default.VisibilityOff
-                                                } else {
-                                                    Icons.Default.Visibility
-                                                },
-                                                contentDescription = null
-                                            )
-                                        }
-                                    },
-                                    enabled = !uiState.isLoading
-                                )
-                            }
-                        }
-
-                        uiState.error?.let { error ->
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Erreur",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.onErrorContainer
-                                        )
-                                        IconButton(
-                                            onClick = viewModel::clearError,
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Clear,
-                                                contentDescription = "Fermer",
-                                                tint = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
-                                    }
-                                    SelectionContainer {
-                                        Text(
-                                            text = error,
-                                            color = MaterialTheme.colorScheme.onErrorContainer,
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Button(
-                            onClick = viewModel::createSession,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !uiState.isLoading && uiState.repoUrl.isNotBlank()
-                        ) {
-                            if (uiState.isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(loadingText)
-                            } else {
-                                Text(stringResource(R.string.create_session))
-                            }
+                        OutlinedButton(onClick = onDeleteSession) {
+                            Text("Supprimer")
                         }
                     }
                 }
             }
+        } else {
+            Text(
+                text = "Aucune session sauvegardée pour le moment.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
-            // Loading overlay
-            if (uiState.isLoading) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Card {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                CircularProgressIndicator()
-                                Text(loadingText)
-                            }
-                        }
+        error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+@Composable
+private fun StartSessionScreen(
+    repoUrl: String,
+    authMethod: AuthMethod,
+    sshKey: String,
+    httpUser: String,
+    httpPassword: String,
+    showHttpPassword: Boolean,
+    onToggleHttpPassword: () -> Unit,
+    onRepoUrlChange: (String) -> Unit,
+    onAuthMethodChange: (AuthMethod) -> Unit,
+    onSshKeyChange: (String) -> Unit,
+    onHttpUserChange: (String) -> Unit,
+    onHttpPasswordChange: (String) -> Unit,
+    onContinue: () -> Unit,
+    onBack: () -> Unit,
+    isLoading: Boolean,
+    loadingState: LoadingState,
+    error: String?
+) {
+    ScreenContainer {
+        TextButton(onClick = onBack) {
+            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Retour")
+        }
+
+        BrandHeader(title = "Démarrer une session")
+
+        OutlinedTextField(
+            value = repoUrl,
+            onValueChange = onRepoUrlChange,
+            label = { Text("Repository URL") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+        )
+
+        Text("Authentification", style = MaterialTheme.typography.titleSmall)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = authMethod == AuthMethod.NONE,
+                onClick = { onAuthMethodChange(AuthMethod.NONE) },
+                label = { Text("Aucune") }
+            )
+            FilterChip(
+                selected = authMethod == AuthMethod.HTTP,
+                onClick = { onAuthMethodChange(AuthMethod.HTTP) },
+                label = { Text("HTTP") }
+            )
+            FilterChip(
+                selected = authMethod == AuthMethod.SSH,
+                onClick = { onAuthMethodChange(AuthMethod.SSH) },
+                label = { Text("SSH") }
+            )
+        }
+
+        if (authMethod == AuthMethod.SSH) {
+            OutlinedTextField(
+                value = sshKey,
+                onValueChange = onSshKeyChange,
+                label = { Text("Clé SSH privée") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 4,
+                maxLines = 6
+            )
+        }
+
+        if (authMethod == AuthMethod.HTTP) {
+            OutlinedTextField(
+                value = httpUser,
+                onValueChange = onHttpUserChange,
+                label = { Text("Nom d'utilisateur") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = httpPassword,
+                onValueChange = onHttpPasswordChange,
+                label = { Text("Mot de passe / Token") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = if (showHttpPassword) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                trailingIcon = {
+                    IconButton(onClick = onToggleHttpPassword) {
+                        Icon(
+                            imageVector = if (showHttpPassword) {
+                                Icons.Default.VisibilityOff
+                            } else {
+                                Icons.Default.Visibility
+                            },
+                            contentDescription = null
+                        )
                     }
                 }
+            )
+        }
+
+        error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+        ) {
+            if (isLoading) {
+                Text(
+                    when (loadingState) {
+                        LoadingState.CLONING -> "Clonage..."
+                        LoadingState.RESUMING -> "Reprise..."
+                        LoadingState.NONE -> "Chargement..."
+                    }
+                )
+            } else {
+                Text("Continuer")
             }
         }
     }

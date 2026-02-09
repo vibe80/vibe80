@@ -71,9 +71,9 @@ struct MessageRow: View {
 
     private var bubbleBackground: Color {
         if isUser {
-            return .blue
+            return .vibe80Accent
         } else {
-            return Color(.systemGray6)
+            return .vibe80Surface
         }
     }
 
@@ -81,13 +81,13 @@ struct MessageRow: View {
         if isUser {
             return .white
         } else {
-            return .primary
+            return .vibe80Ink
         }
     }
 
     private var streamingIndicator: some View {
         Circle()
-            .fill(.blue)
+            .fill(.vibe80Accent)
             .frame(width: 8, height: 8)
             .opacity(0.8)
             .modifier(PulseAnimation())
@@ -124,7 +124,7 @@ struct MessageRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color(.systemGray5))
+        .background(Color.vibe80BackgroundStrong)
         .cornerRadius(12)
     }
 

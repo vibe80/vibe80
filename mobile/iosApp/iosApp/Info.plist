@@ -20,6 +20,10 @@
     <string>1</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>Vibe80 a besoin de la caméra pour scanner des QR codes et prendre des photos.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Vibe80 a besoin d'accéder à vos photos pour les joindre aux messages.</string>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>

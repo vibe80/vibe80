@@ -13,41 +13,41 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF7C4DFF),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFF5E35B1),
-    onPrimaryContainer = Color.White,
-    secondary = Color(0xFF03DAC6),
-    onSecondary = Color.Black,
-    secondaryContainer = Color(0xFF018786),
-    onSecondaryContainer = Color.White,
-    background = Color(0xFF121212),
-    onBackground = Color.White,
-    surface = Color(0xFF1E1E1E),
-    onSurface = Color.White,
-    surfaceVariant = Color(0xFF2D2D2D),
-    onSurfaceVariant = Color(0xFFCACACA),
+    primary = Color(0xFFEE5D3B),
+    onPrimary = Color(0xFF0E0F0E),
+    primaryContainer = Color(0xFF261A16),
+    onPrimaryContainer = Color(0xFFF2EDE3),
+    secondary = Color(0xFFD9573C),
+    onSecondary = Color(0xFF0E0F0E),
+    secondaryContainer = Color(0xFF1F2321),
+    onSecondaryContainer = Color(0xFFF2EDE3),
+    background = Color(0xFF0E0F0E),
+    onBackground = Color(0xFFF2EDE3),
+    surface = Color(0xFF171A19),
+    onSurface = Color(0xFFF2EDE3),
+    surfaceVariant = Color(0xFF1F2321),
+    onSurfaceVariant = Color(0xFFB7ADA1),
     error = Color(0xFFCF6679),
-    onError = Color.Black
+    onError = Color(0xFF0E0F0E)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6200EE),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFE8DEF8),
-    onPrimaryContainer = Color(0xFF21005E),
-    secondary = Color(0xFF03DAC6),
-    onSecondary = Color.Black,
-    secondaryContainer = Color(0xFFCEFAF8),
-    onSecondaryContainer = Color(0xFF002020),
-    background = Color(0xFFFFFBFE),
-    onBackground = Color(0xFF1C1B1F),
-    surface = Color.White,
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = Color(0xFFF3F3F3),
-    onSurfaceVariant = Color(0xFF49454F),
+    primary = Color(0xFFEE5D3B),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFF6DBC7),
+    onPrimaryContainer = Color(0xFF141311),
+    secondary = Color(0xFFB43C24),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFEFE9DC),
+    onSecondaryContainer = Color(0xFF4B463F),
+    background = Color(0xFFF5F2EA),
+    onBackground = Color(0xFF141311),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF141311),
+    surfaceVariant = Color(0xFFEFE9DC),
+    onSurfaceVariant = Color(0xFF4B463F),
     error = Color(0xFFB00020),
-    onError = Color.White
+    onError = Color(0xFFFFFFFF)
 )
 
 @Composable
@@ -69,6 +69,7 @@ fun Vibe80Theme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = AppTypography,
+        shapes = AppShapes,
         content = content
     )
 }

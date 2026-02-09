@@ -2,65 +2,388 @@ import SwiftUI
 import Combine
 import shared
 
-/// ViewModel for SessionView - handles session creation and resumption
 @MainActor
 class SessionViewModel: ObservableObject {
-    // Form state
+    @Published var entryScreen: EntryScreen = .workspaceMode
+    @Published var workspaceMode: WorkspaceMode = .existing
+    @Published var providerConfigMode: ProviderConfigMode = .create
+    @Published var workspaceIdInput: String = ""
+    @Published var workspaceSecretInput: String = ""
+    @Published var workspaceId: String?
+    @Published var workspaceToken: String?
+    @Published var workspaceRefreshToken: String?
+    @Published var workspaceCreatedId: String?
+    @Published var workspaceCreatedSecret: String?
+    @Published var workspaceError: String?
+    @Published var workspaceBusy: Bool = false
+    @Published var workspaceProviders: [String: ProviderAuthState] = [
+        "codex": ProviderAuthState(authType: .apiKey),
+        "claude": ProviderAuthState(authType: .setupToken)
+    ]
+
     @Published var repoUrl: String = ""
     @Published var authMethod: AuthMethod = .none
     @Published var sshKey: String = ""
     @Published var httpUser: String = ""
     @Published var httpPassword: String = ""
-    @Published var selectedProvider: LLMProvider = .codex
-
-    // UI state
     @Published var isLoading: Bool = false
-    @Published var showError: Bool = false
-    @Published var errorMessage: String = ""
-    @Published var previousSessionId: String?
+    @Published var loadingState: LoadingState = .none
+    @Published var sessionError: String?
+    @Published var handoffBusy: Bool = false
+    @Published var handoffError: String?
 
-    // Async operation handles
+    @Published var hasSavedSession: Bool = false
+    @Published var savedSessionId: String?
+    @Published var savedSessionRepoUrl: String = ""
+
     private var createSessionCall: SuspendWrapper<SessionState>?
     private var reconnectSessionCall: SuspendWrapper<SessionState>?
+    private var workspaceCall: SuspendWrapper<AnyObject>?
+    private var handoffCall: SuspendWrapper<HandoffConsumeResponse>?
 
     init() {
-        loadPreviousSession()
+        loadSavedWorkspace()
+        loadSavedSession()
     }
 
-    // MARK: - Previous Session
+    // MARK: - Navigation / State
 
-    private func loadPreviousSession() {
-        previousSessionId = UserDefaults.standard.string(forKey: "lastSessionId")
+    func selectWorkspaceMode(_ mode: WorkspaceMode) {
+        workspaceMode = mode
+        providerConfigMode = .create
+        workspaceError = nil
+        entryScreen = mode == .existing ? .workspaceCredentials : .providerConfig
     }
 
-    func forgetSession() {
-        UserDefaults.standard.removeObject(forKey: "lastSessionId")
-        previousSessionId = nil
+    func toggleProvider(_ provider: String, enabled: Bool) {
+        var updated = workspaceProviders
+        var current = updated[provider] ?? ProviderAuthState()
+        current.enabled = enabled
+        updated[provider] = current
+        workspaceProviders = updated
     }
 
-    // MARK: - Session Creation
+    func updateProviderAuthType(_ provider: String, authType: ProviderAuthType) {
+        var updated = workspaceProviders
+        var current = updated[provider] ?? ProviderAuthState()
+        current.authType = authType
+        updated[provider] = current
+        workspaceProviders = updated
+    }
+
+    func updateProviderAuthValue(_ provider: String, authValue: String) {
+        var updated = workspaceProviders
+        var current = updated[provider] ?? ProviderAuthState()
+        current.authValue = authValue
+        updated[provider] = current
+        workspaceProviders = updated
+    }
+
+    func openWorkspaceModeSelection() {
+        entryScreen = .workspaceMode
+        providerConfigMode = .create
+        workspaceError = nil
+    }
+
+    func openProviderConfigForUpdate() {
+        entryScreen = .providerConfig
+        providerConfigMode = .update
+        workspaceError = nil
+    }
+
+    func openStartSession() {
+        entryScreen = .startSession
+        sessionError = nil
+    }
+
+    func backToJoinSession() {
+        entryScreen = .joinSession
+        providerConfigMode = .create
+        sessionError = nil
+    }
+
+    func continueFromWorkspaceCreated() {
+        entryScreen = .joinSession
+    }
+
+    func openQrScan() {
+        entryScreen = .qrScan
+        handoffError = nil
+    }
+
+    func closeQrScan() {
+        entryScreen = .workspaceMode
+        handoffError = nil
+    }
+
+    // MARK: - Workspace persistence
+
+    private func loadSavedWorkspace() {
+        let defaults = UserDefaults.standard
+        guard let workspaceId = defaults.string(forKey: "workspaceId"),
+              let workspaceSecret = defaults.string(forKey: "workspaceSecret") else {
+            entryScreen = .workspaceMode
+            return
+        }
+
+        self.workspaceId = workspaceId
+        workspaceIdInput = workspaceId
+        workspaceSecretInput = workspaceSecret
+        workspaceToken = defaults.string(forKey: "workspaceToken")
+        workspaceRefreshToken = defaults.string(forKey: "workspaceRefreshToken")
+        entryScreen = .joinSession
+    }
+
+    private func saveWorkspace(
+        workspaceId: String,
+        workspaceSecret: String,
+        workspaceToken: String?,
+        refreshToken: String?
+    ) {
+        let defaults = UserDefaults.standard
+        defaults.set(workspaceId, forKey: "workspaceId")
+        defaults.set(workspaceSecret, forKey: "workspaceSecret")
+        defaults.set(workspaceToken, forKey: "workspaceToken")
+        defaults.set(refreshToken, forKey: "workspaceRefreshToken")
+    }
+
+    func clearWorkspace() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "workspaceId")
+        defaults.removeObject(forKey: "workspaceSecret")
+        defaults.removeObject(forKey: "workspaceToken")
+        defaults.removeObject(forKey: "workspaceRefreshToken")
+        workspaceId = nil
+        workspaceToken = nil
+        workspaceRefreshToken = nil
+        entryScreen = .workspaceMode
+    }
+
+    // MARK: - Workspace actions
+
+    func submitWorkspaceCredentials(appState: AppState) {
+        let workspaceId = workspaceIdInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let workspaceSecret = workspaceSecretInput.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !workspaceId.isEmpty, !workspaceSecret.isEmpty else {
+            workspaceError = "Workspace ID et secret requis."
+            return
+        }
+
+        loginWorkspace(
+            workspaceId: workspaceId,
+            workspaceSecret: workspaceSecret,
+            appState: appState,
+            navigateOnSuccess: true
+        )
+    }
+
+    func submitProviderConfig(appState: AppState) {
+        guard let repository = appState.sessionRepository else {
+            workspaceError = "Module partagé non initialisé"
+            return
+        }
+
+        let providers: [String: WorkspaceProviderConfig]
+        do {
+            providers = try buildWorkspaceProviders()
+        } catch {
+            workspaceError = error.localizedDescription
+            return
+        }
+
+        workspaceBusy = true
+        workspaceError = nil
+
+        workspaceCall?.cancel()
+        workspaceCall = SuspendWrapper<AnyObject>()
+
+        if providerConfigMode == .create {
+            workspaceCall?.execute(
+                suspendBlock: {
+                    try await repository.createWorkspace(
+                        request: WorkspaceCreateRequest(providers: providers)
+                    ) as AnyObject
+                },
+                onSuccess: { [weak self] response in
+                    guard let self = self,
+                          let created = response as? WorkspaceCreateResponse else { return }
+                    self.workspaceCreatedId = created.workspaceId
+                    self.workspaceCreatedSecret = created.workspaceSecret
+                    self.workspaceIdInput = created.workspaceId
+                    self.workspaceSecretInput = created.workspaceSecret
+
+                    self.loginWorkspace(
+                        workspaceId: created.workspaceId,
+                        workspaceSecret: created.workspaceSecret,
+                        appState: appState,
+                        navigateOnSuccess: false
+                    )
+                    self.workspaceBusy = false
+                    self.entryScreen = .workspaceCreated
+                },
+                onError: { [weak self] error in
+                    self?.workspaceBusy = false
+                    self?.workspaceError = error.localizedDescription
+                }
+            )
+        } else {
+            guard let workspaceId = workspaceId else {
+                workspaceError = "Workspace introuvable."
+                workspaceBusy = false
+                return
+            }
+            workspaceCall?.execute(
+                suspendBlock: {
+                    try await repository.updateWorkspace(
+                        workspaceId: workspaceId,
+                        request: WorkspaceUpdateRequest(providers: providers)
+                    ) as AnyObject
+                },
+                onSuccess: { [weak self] _ in
+                    self?.workspaceBusy = false
+                    self?.entryScreen = .joinSession
+                },
+                onError: { [weak self] error in
+                    self?.workspaceBusy = false
+                    self?.workspaceError = error.localizedDescription
+                }
+            )
+        }
+    }
+
+    private func loginWorkspace(
+        workspaceId: String,
+        workspaceSecret: String,
+        appState: AppState,
+        navigateOnSuccess: Bool
+    ) {
+        guard let repository = appState.sessionRepository else {
+            workspaceError = "Module partagé non initialisé"
+            return
+        }
+
+        workspaceBusy = true
+        workspaceError = nil
+
+        workspaceCall?.cancel()
+        workspaceCall = SuspendWrapper<AnyObject>()
+
+        workspaceCall?.execute(
+            suspendBlock: {
+                try await repository.loginWorkspace(
+                    request: WorkspaceLoginRequest(
+                        workspaceId: workspaceId,
+                        workspaceSecret: workspaceSecret
+                    )
+                ) as AnyObject
+            },
+            onSuccess: { [weak self] response in
+                guard let self = self,
+                      let loginResponse = response as? WorkspaceLoginResponse else { return }
+                repository.setWorkspaceToken(token: loginResponse.workspaceToken)
+                repository.setRefreshToken(token: loginResponse.refreshToken)
+                self.saveWorkspace(
+                    workspaceId: workspaceId,
+                    workspaceSecret: workspaceSecret,
+                    workspaceToken: loginResponse.workspaceToken,
+                    refreshToken: loginResponse.refreshToken
+                )
+                self.workspaceId = workspaceId
+                self.workspaceToken = loginResponse.workspaceToken
+                self.workspaceRefreshToken = loginResponse.refreshToken
+                self.workspaceBusy = false
+                if navigateOnSuccess {
+                    self.entryScreen = .joinSession
+                }
+            },
+            onError: { [weak self] error in
+                self?.workspaceBusy = false
+                self?.workspaceError = error.localizedDescription
+            }
+        )
+    }
+
+    private func buildWorkspaceProviders() throws -> [String: WorkspaceProviderConfig] {
+        var result: [String: WorkspaceProviderConfig] = [:]
+        for (provider, state) in workspaceProviders {
+            guard state.enabled else { continue }
+            let trimmed = state.authValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                throw NSError(domain: "Vibe80", code: 1, userInfo: [
+                    NSLocalizedDescriptionKey: "Clé requise pour \(provider)."
+                ])
+            }
+
+            let authType: String
+            let authValue: String
+            switch state.authType {
+            case .apiKey:
+                authType = "api_key"
+                authValue = trimmed
+            case .authJsonB64:
+                authType = "auth_json_b64"
+                authValue = Data(trimmed.utf8).base64EncodedString()
+            case .setupToken:
+                authType = "setup_token"
+                authValue = trimmed
+            }
+
+            result[provider] = WorkspaceProviderConfig(
+                enabled: true,
+                auth: WorkspaceAuth(type: authType, value: authValue)
+            )
+        }
+        return result
+    }
+
+    // MARK: - Saved Sessions
+
+    private func loadSavedSession() {
+        let defaults = UserDefaults.standard
+        savedSessionId = defaults.string(forKey: "lastSessionId")
+        savedSessionRepoUrl = defaults.string(forKey: "lastRepoUrl") ?? ""
+        hasSavedSession = savedSessionId != nil
+        repoUrl = savedSessionRepoUrl
+    }
+
+    func clearSavedSession() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "lastSessionId")
+        defaults.removeObject(forKey: "lastRepoUrl")
+        defaults.removeObject(forKey: "lastProvider")
+        defaults.removeObject(forKey: "lastBaseUrl")
+        savedSessionId = nil
+        savedSessionRepoUrl = ""
+        hasSavedSession = false
+    }
+
+    // MARK: - Session actions
 
     func createSession(appState: AppState) {
         guard !repoUrl.isEmpty else {
-            errorMessage = "L'URL du repository est requise"
-            showError = true
+            sessionError = "L'URL du repository est requise"
             return
         }
 
         guard let repository = appState.sessionRepository else {
-            errorMessage = "Module partagé non initialisé"
-            showError = true
+            sessionError = "Module partagé non initialisé"
             return
         }
 
-        isLoading = true
+        if let token = workspaceToken {
+            repository.setWorkspaceToken(token: token)
+            repository.setRefreshToken(token: workspaceRefreshToken)
+        }
 
-        // Build auth parameters
+        isLoading = true
+        loadingState = .cloning
+        sessionError = nil
+
         let sshKeyParam: String? = authMethod == .ssh ? sshKey : nil
         let httpUserParam: String? = authMethod == .http ? httpUser : nil
         let httpPasswordParam: String? = authMethod == .http ? httpPassword : nil
 
-        // Cancel any previous call
         createSessionCall?.cancel()
         createSessionCall = SuspendWrapper<SessionState>()
 
@@ -76,44 +399,46 @@ class SessionViewModel: ObservableObject {
             onSuccess: { [weak self] state in
                 guard let self = self else { return }
 
-                // Save session ID
-                UserDefaults.standard.set(state.sessionId, forKey: "lastSessionId")
+                let defaults = UserDefaults.standard
+                defaults.set(state.sessionId, forKey: "lastSessionId")
+                defaults.set(self.repoUrl, forKey: "lastRepoUrl")
+                defaults.set(state.activeProvider.name, forKey: "lastProvider")
+                defaults.set("", forKey: "lastBaseUrl")
 
-                // Update app state
-                appState.setSession(sessionId: state.sessionId)
-
+                self.savedSessionId = state.sessionId
+                self.savedSessionRepoUrl = self.repoUrl
+                self.hasSavedSession = true
                 self.isLoading = false
+                self.loadingState = .none
+                appState.setSession(sessionId: state.sessionId)
             },
             onError: { [weak self] error in
-                guard let self = self else { return }
-
-                var friendlyMessage: String? = nil
-                if let sessionError = error as? SessionCreationException {
-                    if let statusCode = sessionError.statusCode?.intValue,
-                       statusCode == 403,
-                       let message = sessionError.errorMessage,
-                       !message.isEmpty {
-                        friendlyMessage = message
-                    }
-                }
-
-                self.errorMessage = friendlyMessage ?? error.localizedDescription
-                self.showError = true
-                self.isLoading = false
+                self?.sessionError = error.localizedDescription
+                self?.isLoading = false
+                self?.loadingState = .none
             }
         )
     }
 
-    func resumeSession(sessionId: String, appState: AppState) {
+    func resumeSession(appState: AppState) {
         guard let repository = appState.sessionRepository else {
-            errorMessage = "Module partagé non initialisé"
-            showError = true
+            sessionError = "Module partagé non initialisé"
+            return
+        }
+        guard let sessionId = savedSessionId else {
+            sessionError = "Aucune session sauvegardée."
             return
         }
 
-        isLoading = true
+        if let token = workspaceToken {
+            repository.setWorkspaceToken(token: token)
+            repository.setRefreshToken(token: workspaceRefreshToken)
+        }
 
-        // Cancel any previous call
+        isLoading = true
+        loadingState = .resuming
+        sessionError = nil
+
         reconnectSessionCall?.cancel()
         reconnectSessionCall = SuspendWrapper<SessionState>()
 
@@ -122,38 +447,117 @@ class SessionViewModel: ObservableObject {
                 try await repository.reconnectSession(sessionId: sessionId)
             },
             onSuccess: { [weak self] _ in
-                guard let self = self else { return }
-
-                // Update app state
+                self?.isLoading = false
+                self?.loadingState = .none
                 appState.setSession(sessionId: sessionId)
-
-                self.isLoading = false
             },
             onError: { [weak self] error in
-                guard let self = self else { return }
-
-                self.errorMessage = "Session expirée ou invalide: \(error.localizedDescription)"
-                self.showError = true
-                self.forgetSession()
-                self.isLoading = false
+                self?.sessionError = error.localizedDescription
+                self?.isLoading = false
+                self?.loadingState = .none
+                self?.clearSavedSession()
             }
         )
     }
 
-    // MARK: - Cleanup
+    func consumeHandoffPayload(_ payload: String, appState: AppState) {
+        guard let repository = appState.sessionRepository else {
+            handoffError = "Module partagé non initialisé"
+            return
+        }
 
-    func cancelOperations() {
-        createSessionCall?.cancel()
-        reconnectSessionCall?.cancel()
-    }
+        guard let data = payload.data(using: .utf8),
+              let parsed = try? JSONDecoder().decode(HandoffQrPayload.self, from: data),
+              !parsed.handoffToken.isEmpty else {
+            handoffError = "QR code invalide."
+            return
+        }
 
-    deinit {
-        // Note: deinit won't be called on MainActor, so we need to handle cleanup differently
-        // The SuspendWrapper will be deallocated and its scope cancelled automatically
+        handoffBusy = true
+        handoffError = nil
+
+        handoffCall?.cancel()
+        handoffCall = SuspendWrapper<HandoffConsumeResponse>()
+
+        handoffCall?.execute(
+            suspendBlock: {
+                try await repository.consumeHandoffToken(token: parsed.handoffToken)
+            },
+            onSuccess: { [weak self] response in
+                guard let self = self else { return }
+                repository.setWorkspaceToken(token: response.workspaceToken)
+                repository.setRefreshToken(token: response.refreshToken)
+                self.saveWorkspace(
+                    workspaceId: response.workspaceId,
+                    workspaceSecret: "",
+                    workspaceToken: response.workspaceToken,
+                    refreshToken: response.refreshToken
+                )
+                self.workspaceId = response.workspaceId
+                self.workspaceToken = response.workspaceToken
+                self.workspaceRefreshToken = response.refreshToken
+                self.handoffBusy = false
+                self.entryScreen = .joinSession
+                appState.setSession(sessionId: response.sessionId)
+            },
+            onError: { [weak self] error in
+                self?.handoffBusy = false
+                self?.handoffError = error.localizedDescription
+            }
+        )
     }
 }
 
-// MARK: - LLMProvider Extension for iOS
+enum EntryScreen {
+    case workspaceMode
+    case workspaceCredentials
+    case providerConfig
+    case workspaceCreated
+    case joinSession
+    case startSession
+    case qrScan
+}
+
+enum WorkspaceMode {
+    case existing
+    case new
+}
+
+enum ProviderConfigMode {
+    case create
+    case update
+}
+
+enum ProviderAuthType {
+    case apiKey
+    case authJsonB64
+    case setupToken
+}
+
+struct ProviderAuthState {
+    var enabled: Bool = false
+    var authType: ProviderAuthType = .apiKey
+    var authValue: String = ""
+}
+
+enum LoadingState {
+    case none
+    case cloning
+    case resuming
+}
+
+private struct HandoffQrPayload: Codable {
+    let handoffToken: String
+    let baseUrl: String?
+    let expiresAt: Double?
+    let type: String?
+}
+
+enum AuthMethod: String, CaseIterable {
+    case none
+    case ssh
+    case http
+}
 
 extension LLMProvider: CaseIterable {
     public static var allCases: [LLMProvider] = [.codex, .claude]

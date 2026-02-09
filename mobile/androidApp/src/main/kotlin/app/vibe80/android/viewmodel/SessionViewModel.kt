@@ -8,6 +8,7 @@ import app.vibe80.shared.models.WorkspaceAuth
 import app.vibe80.shared.models.WorkspaceCreateRequest
 import app.vibe80.shared.models.WorkspaceLoginRequest
 import app.vibe80.shared.models.WorkspaceProviderConfig
+import app.vibe80.shared.models.WorkspaceUpdateRequest
 import app.vibe80.shared.repository.SessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,8 +22,9 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 data class SessionUiState(
-    val workspaceStep: Int = 1,
+    val entryScreen: EntryScreen = EntryScreen.WORKSPACE_MODE,
     val workspaceMode: WorkspaceMode = WorkspaceMode.EXISTING,
+    val providerConfigMode: ProviderConfigMode = ProviderConfigMode.CREATE,
     val workspaceIdInput: String = "",
     val workspaceSecretInput: String = "",
     val workspaceId: String? = null,
@@ -51,12 +53,25 @@ data class SessionUiState(
     val handoffError: String? = null
 )
 
+enum class EntryScreen {
+    WORKSPACE_MODE,
+    WORKSPACE_CREDENTIALS,
+    PROVIDER_CONFIG,
+    WORKSPACE_CREATED,
+    JOIN_SESSION,
+    START_SESSION
+}
+
 enum class AuthMethod {
     NONE, SSH, HTTP
 }
 
 enum class WorkspaceMode {
     EXISTING, NEW
+}
+
+enum class ProviderConfigMode {
+    CREATE, UPDATE
 }
 
 enum class ProviderAuthType {
@@ -116,8 +131,9 @@ class SessionViewModel(
                 sessionPreferences.clearWorkspace()
                 _uiState.update { state ->
                     state.copy(
-                        workspaceStep = 1,
+                        entryScreen = EntryScreen.WORKSPACE_MODE,
                         workspaceMode = WorkspaceMode.EXISTING,
+                        providerConfigMode = ProviderConfigMode.CREATE,
                         workspaceIdInput = "",
                         workspaceSecretInput = "",
                         workspaceId = null,
@@ -137,8 +153,9 @@ class SessionViewModel(
             if (saved == null) {
                 _uiState.update {
                     it.copy(
-                        workspaceStep = 1,
+                        entryScreen = EntryScreen.WORKSPACE_MODE,
                         workspaceMode = WorkspaceMode.EXISTING,
+                        providerConfigMode = ProviderConfigMode.CREATE,
                         workspaceIdInput = "",
                         workspaceSecretInput = ""
                     )
@@ -152,7 +169,7 @@ class SessionViewModel(
                     workspaceSecretInput = saved.workspaceSecret,
                     workspaceToken = saved.workspaceToken,
                     workspaceRefreshToken = saved.workspaceRefreshToken,
-                    workspaceStep = 2
+                    entryScreen = EntryScreen.JOIN_SESSION
                 )
             }
             if (!saved.workspaceToken.isNullOrBlank()) {
@@ -266,8 +283,57 @@ class SessionViewModel(
         _uiState.update { it.copy(repoUrl = url, error = null) }
     }
 
-    fun updateWorkspaceMode(mode: WorkspaceMode) {
-        _uiState.update { it.copy(workspaceMode = mode, workspaceError = null) }
+    fun selectWorkspaceMode(mode: WorkspaceMode) {
+        _uiState.update {
+            it.copy(
+                workspaceMode = mode,
+                providerConfigMode = ProviderConfigMode.CREATE,
+                workspaceError = null,
+                entryScreen = if (mode == WorkspaceMode.EXISTING) {
+                    EntryScreen.WORKSPACE_CREDENTIALS
+                } else {
+                    EntryScreen.PROVIDER_CONFIG
+                }
+            )
+        }
+    }
+
+    fun openWorkspaceModeSelection() {
+        _uiState.update {
+            it.copy(
+                entryScreen = EntryScreen.WORKSPACE_MODE,
+                providerConfigMode = ProviderConfigMode.CREATE,
+                workspaceError = null
+            )
+        }
+    }
+
+    fun openProviderConfigForUpdate() {
+        _uiState.update {
+            it.copy(
+                entryScreen = EntryScreen.PROVIDER_CONFIG,
+                providerConfigMode = ProviderConfigMode.UPDATE,
+                workspaceError = null
+            )
+        }
+    }
+
+    fun openStartSession() {
+        _uiState.update { it.copy(entryScreen = EntryScreen.START_SESSION, error = null) }
+    }
+
+    fun backToJoinSession() {
+        _uiState.update {
+            it.copy(
+                entryScreen = EntryScreen.JOIN_SESSION,
+                providerConfigMode = ProviderConfigMode.CREATE,
+                error = null
+            )
+        }
+    }
+
+    fun continueFromWorkspaceCreated() {
+        _uiState.update { it.copy(entryScreen = EntryScreen.JOIN_SESSION) }
     }
 
     fun updateWorkspaceIdInput(value: String) {
@@ -321,25 +387,39 @@ class SessionViewModel(
         _uiState.update { it.copy(authMethod = method) }
     }
 
-    fun submitWorkspace() {
+    fun submitWorkspaceCredentials() {
         viewModelScope.launch {
             val state = _uiState.value
             _uiState.update { it.copy(workspaceBusy = true, workspaceError = null) }
             try {
-                when (state.workspaceMode) {
-                    WorkspaceMode.EXISTING -> {
-                        val workspaceId = state.workspaceIdInput.trim()
-                        val workspaceSecret = state.workspaceSecretInput.trim()
-                        if (workspaceId.isBlank() || workspaceSecret.isBlank()) {
-                            throw IllegalStateException("Workspace ID et secret requis.")
-                        }
-                        loginWorkspace(workspaceId, workspaceSecret, auto = false)
-                    }
-                    WorkspaceMode.NEW -> {
-                        val providers = buildWorkspaceProviders(state.workspaceProviders)
-                        if (providers.isEmpty()) {
-                            throw IllegalStateException("Sélectionnez au moins un provider.")
-                        }
+                val workspaceId = state.workspaceIdInput.trim()
+                val workspaceSecret = state.workspaceSecretInput.trim()
+                if (workspaceId.isBlank() || workspaceSecret.isBlank()) {
+                    throw IllegalStateException("Workspace ID et secret requis.")
+                }
+                loginWorkspace(workspaceId, workspaceSecret, auto = false)
+            } catch (error: Exception) {
+                _uiState.update {
+                    it.copy(
+                        workspaceError = error.message ?: "Erreur workspace.",
+                        workspaceBusy = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun submitProviderConfig() {
+        viewModelScope.launch {
+            val state = _uiState.value
+            _uiState.update { it.copy(workspaceBusy = true, workspaceError = null) }
+            try {
+                val providers = buildWorkspaceProviders(state.workspaceProviders)
+                if (providers.isEmpty()) {
+                    throw IllegalStateException("Sélectionnez au moins un provider.")
+                }
+                when (state.providerConfigMode) {
+                    ProviderConfigMode.CREATE -> {
                         val createResult = sessionRepository.createWorkspace(
                             WorkspaceCreateRequest(providers = providers)
                         )
@@ -354,6 +434,33 @@ class SessionViewModel(
                                     )
                                 }
                                 loginWorkspace(created.workspaceId, created.workspaceSecret, auto = false)
+                                _uiState.update {
+                                    it.copy(
+                                        workspaceBusy = false,
+                                        entryScreen = EntryScreen.WORKSPACE_CREATED
+                                    )
+                                }
+                            },
+                            onFailure = { error ->
+                                throw error
+                            }
+                        )
+                    }
+                    ProviderConfigMode.UPDATE -> {
+                        val workspaceId = state.workspaceId
+                            ?: throw IllegalStateException("Workspace introuvable.")
+                        val result = sessionRepository.updateWorkspace(
+                            workspaceId,
+                            WorkspaceUpdateRequest(providers = providers)
+                        )
+                        result.fold(
+                            onSuccess = {
+                                _uiState.update {
+                                    it.copy(
+                                        workspaceBusy = false,
+                                        entryScreen = EntryScreen.JOIN_SESSION
+                                    )
+                                }
                             },
                             onFailure = { error ->
                                 throw error
@@ -392,7 +499,7 @@ class SessionViewModel(
                         workspaceId = workspaceId,
                         workspaceToken = response.workspaceToken,
                         workspaceRefreshToken = response.refreshToken,
-                        workspaceStep = 2,
+                        entryScreen = EntryScreen.JOIN_SESSION,
                         workspaceBusy = false,
                         workspaceError = null
                     )
@@ -403,7 +510,7 @@ class SessionViewModel(
                     it.copy(
                         workspaceError = error.message ?: "Erreur d'authentification workspace.",
                         workspaceBusy = false,
-                        workspaceStep = if (auto) 1 else it.workspaceStep
+                        entryScreen = if (auto) EntryScreen.WORKSPACE_MODE else it.entryScreen
                     )
                 }
             }
@@ -586,7 +693,7 @@ class SessionViewModel(
                             workspaceSecretInput = "",
                             workspaceToken = response.workspaceToken,
                             workspaceRefreshToken = response.refreshToken,
-                            workspaceStep = 2,
+                            entryScreen = EntryScreen.JOIN_SESSION,
                             handoffBusy = false,
                             handoffError = null,
                             sessionId = response.sessionId
