@@ -47,7 +47,9 @@ export const getWorkspacePaths = (workspaceId) => {
   const home = isMonoUser ? os.homedir() : path.join(workspaceHomeBase, workspaceId);
   const root = path.join(home, workspaceRootName);
   const metadataDir = path.join(root, workspaceMetadataDirName);
-  const sessionsDir = path.join(root, workspaceSessionsDirName);
+  const sessionsDir = process.env.SESSION_DIRECTORY?.trim()
+    ? process.env.SESSION_DIRECTORY.trim()
+    : path.join(root, workspaceSessionsDirName);
   return {
     homeDir: home,
     rootDir: root,
