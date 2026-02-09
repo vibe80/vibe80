@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import "@uiw/react-markdown-preview/markdown.css";
 import { parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
@@ -50,13 +58,13 @@ import useProviderSelection from "./hooks/useProviderSelection.js";
 import useChatExport from "./hooks/useChatExport.js";
 import useChatSend from "./hooks/useChatSend.js";
 import useChatClear from "./hooks/useChatClear.js";
-import ExplorerPanel from "./components/Explorer/ExplorerPanel.jsx";
-import DiffPanel from "./components/Diff/DiffPanel.jsx";
+const ExplorerPanel = lazy(() => import("./components/Explorer/ExplorerPanel.jsx"));
+const DiffPanel = lazy(() => import("./components/Diff/DiffPanel.jsx"));
 import Topbar from "./components/Topbar/Topbar.jsx";
-import TerminalPanel from "./components/Terminal/TerminalPanel.jsx";
+const TerminalPanel = lazy(() => import("./components/Terminal/TerminalPanel.jsx"));
 import SessionGate from "./components/SessionGate/SessionGate.jsx";
-import SettingsPanel from "./components/Settings/SettingsPanel.jsx";
-import LogsPanel from "./components/Logs/LogsPanel.jsx";
+const SettingsPanel = lazy(() => import("./components/Settings/SettingsPanel.jsx"));
+const LogsPanel = lazy(() => import("./components/Logs/LogsPanel.jsx"));
 import vibe80LogoDark from "./assets/vibe80_dark.svg";
 import vibe80LogoLight from "./assets/vibe80_light.svg";
 import { useI18n } from "./i18n.jsx";
@@ -2245,89 +2253,99 @@ function App() {
               MAX_USER_DISPLAY_LENGTH={MAX_USER_DISPLAY_LENGTH}
               getTruncatedText={getTruncatedText}
             />
-            <DiffPanel
-              t={t}
-              activePane={activePane}
-              isInWorktree={isInWorktree}
-              diffStatusLines={diffStatusLines}
-              connected={connected}
-              currentProcessing={currentProcessing}
-              hasCurrentChanges={hasCurrentChanges}
-              sendCommitMessage={sendCommitMessage}
-              diffFiles={diffFiles}
-              currentDiff={currentDiff}
-            />
-            <ExplorerPanel
-              t={t}
-              activePane={activePane}
-              repoName={repoName}
-              activeWorktree={activeWorktree}
-              isInWorktree={isInWorktree}
-              activeWorktreeId={activeWorktreeId}
-              attachmentSession={attachmentSession}
-              requestExplorerTree={requestExplorerTree}
-              requestExplorerStatus={requestExplorerStatus}
-              activeExplorer={activeExplorer}
-              renderExplorerNodes={renderExplorerNodes}
-              explorerStatusByPath={explorerStatusByPath}
-              explorerDirStatus={explorerDirStatus}
-              saveExplorerFile={saveExplorerFile}
-              updateExplorerDraft={updateExplorerDraft}
-              getLanguageForPath={getLanguageForPath}
-              themeMode={themeMode}
-            />
-            <TerminalPanel
-              t={t}
-              terminalEnabled={terminalEnabled}
-              activePane={activePane}
-              repoName={repoName}
-              activeWorktree={activeWorktree}
-              isInWorktree={isInWorktree}
-              terminalContainerRef={terminalContainerRef}
-              attachmentSession={attachmentSession}
-            />
-            <LogsPanel
-              t={t}
-              activePane={activePane}
-              filteredRpcLogs={filteredRpcLogs}
-              logFilter={logFilter}
-              setLogFilter={setLogFilter}
-              scopedRpcLogs={scopedRpcLogs}
-              handleClearRpcLogs={handleClearRpcLogs}
-            />
-            <SettingsPanel
-              t={t}
-              activePane={activePane}
-              handleSettingsBack={handleSettingsBack}
-              language={language}
-              setLanguage={setLanguage}
-              showChatCommands={showChatCommands}
-              setShowChatCommands={setShowChatCommands}
-              showToolResults={showToolResults}
-              setShowToolResults={setShowToolResults}
-              chatFullWidth={chatFullWidth}
-              setChatFullWidth={setChatFullWidth}
-              notificationsEnabled={notificationsEnabled}
-              setNotificationsEnabled={setNotificationsEnabled}
-              themeMode={themeMode}
-              setThemeMode={setThemeMode}
-              composerInputMode={composerInputMode}
-              setComposerInputMode={setComposerInputMode}
-              debugMode={debugMode}
-              setDebugMode={setDebugMode}
-              gitIdentityName={gitIdentityName}
-              setGitIdentityName={setGitIdentityName}
-              gitIdentityEmail={gitIdentityEmail}
-              setGitIdentityEmail={setGitIdentityEmail}
-              gitIdentityGlobal={gitIdentityGlobal}
-              gitIdentityRepo={gitIdentityRepo}
-              gitIdentityLoading={gitIdentityLoading}
-              gitIdentitySaving={gitIdentitySaving}
-              gitIdentityError={gitIdentityError}
-              gitIdentityMessage={gitIdentityMessage}
-              handleSaveGitIdentity={handleSaveGitIdentity}
-              attachmentSession={attachmentSession}
-            />
+            <Suspense fallback={null}>
+              <DiffPanel
+                t={t}
+                activePane={activePane}
+                isInWorktree={isInWorktree}
+                diffStatusLines={diffStatusLines}
+                connected={connected}
+                currentProcessing={currentProcessing}
+                hasCurrentChanges={hasCurrentChanges}
+                sendCommitMessage={sendCommitMessage}
+                diffFiles={diffFiles}
+                currentDiff={currentDiff}
+              />
+            </Suspense>
+            <Suspense fallback={null}>
+              <ExplorerPanel
+                t={t}
+                activePane={activePane}
+                repoName={repoName}
+                activeWorktree={activeWorktree}
+                isInWorktree={isInWorktree}
+                activeWorktreeId={activeWorktreeId}
+                attachmentSession={attachmentSession}
+                requestExplorerTree={requestExplorerTree}
+                requestExplorerStatus={requestExplorerStatus}
+                activeExplorer={activeExplorer}
+                renderExplorerNodes={renderExplorerNodes}
+                explorerStatusByPath={explorerStatusByPath}
+                explorerDirStatus={explorerDirStatus}
+                saveExplorerFile={saveExplorerFile}
+                updateExplorerDraft={updateExplorerDraft}
+                getLanguageForPath={getLanguageForPath}
+                themeMode={themeMode}
+              />
+            </Suspense>
+            <Suspense fallback={null}>
+              <TerminalPanel
+                t={t}
+                terminalEnabled={terminalEnabled}
+                activePane={activePane}
+                repoName={repoName}
+                activeWorktree={activeWorktree}
+                isInWorktree={isInWorktree}
+                terminalContainerRef={terminalContainerRef}
+                attachmentSession={attachmentSession}
+              />
+            </Suspense>
+            <Suspense fallback={null}>
+              <LogsPanel
+                t={t}
+                activePane={activePane}
+                filteredRpcLogs={filteredRpcLogs}
+                logFilter={logFilter}
+                setLogFilter={setLogFilter}
+                scopedRpcLogs={scopedRpcLogs}
+                handleClearRpcLogs={handleClearRpcLogs}
+              />
+            </Suspense>
+            <Suspense fallback={null}>
+              <SettingsPanel
+                t={t}
+                activePane={activePane}
+                handleSettingsBack={handleSettingsBack}
+                language={language}
+                setLanguage={setLanguage}
+                showChatCommands={showChatCommands}
+                setShowChatCommands={setShowChatCommands}
+                showToolResults={showToolResults}
+                setShowToolResults={setShowToolResults}
+                chatFullWidth={chatFullWidth}
+                setChatFullWidth={setChatFullWidth}
+                notificationsEnabled={notificationsEnabled}
+                setNotificationsEnabled={setNotificationsEnabled}
+                themeMode={themeMode}
+                setThemeMode={setThemeMode}
+                composerInputMode={composerInputMode}
+                setComposerInputMode={setComposerInputMode}
+                debugMode={debugMode}
+                setDebugMode={setDebugMode}
+                gitIdentityName={gitIdentityName}
+                setGitIdentityName={setGitIdentityName}
+                gitIdentityEmail={gitIdentityEmail}
+                setGitIdentityEmail={setGitIdentityEmail}
+                gitIdentityGlobal={gitIdentityGlobal}
+                gitIdentityRepo={gitIdentityRepo}
+                gitIdentityLoading={gitIdentityLoading}
+                gitIdentitySaving={gitIdentitySaving}
+                gitIdentityError={gitIdentityError}
+                gitIdentityMessage={gitIdentityMessage}
+                handleSaveGitIdentity={handleSaveGitIdentity}
+                attachmentSession={attachmentSession}
+              />
+            </Suspense>
           </div>
           <ChatComposer
             t={t}

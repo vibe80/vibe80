@@ -74,7 +74,7 @@
 
 **Probleme :** Le `setup_token` pour Claude est injecte avec `refreshToken: "dummy"` et `expiresAt: 1969350365482` hardcode (ligne 1167-1186). Fragile et potentiellement cassant.
 
-**Statut :** ❌ Non fait
+**Statut :** ✅ Fait
 
 **Action :**
 - Documenter clairement dans le code que ce format est impose par la CLI Claude Code

@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import QRCode from "qrcode";
-
 export default function useSessionHandoff({ t, apiFetch, attachmentSessionId }) {
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [handoffQrDataUrl, setHandoffQrDataUrl] = useState("");
@@ -40,6 +38,7 @@ export default function useSessionHandoff({ t, apiFetch, attachmentSessionId }) 
       }
       const expiresAt = data?.expiresAt ?? null;
       const payload = buildHandoffPayload(token, expiresAt);
+      const { default: QRCode } = await import("qrcode");
       const qrDataUrl = await QRCode.toDataURL(payload, {
         width: 260,
         margin: 1,
