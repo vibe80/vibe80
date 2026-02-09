@@ -132,7 +132,7 @@ server/src/
 
 **Probleme :** `attachClientEvents` et `attachClientEventsForWorktree` sont quasi-identiques (~250 lignes chacune). Meme chose pour `attachClaudeEvents` / `attachClaudeEventsForWorktree`.
 
-**Statut :** ❌ Non fait
+**Statut :** ✅ Fait
 
 **Action :**
 - Creer un fichier `server/src/clientEvents.js`
