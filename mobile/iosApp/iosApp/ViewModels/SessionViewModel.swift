@@ -496,9 +496,23 @@ class SessionViewModel: ObservableObject {
                 self.workspaceId = response.workspaceId
                 self.workspaceToken = response.workspaceToken
                 self.workspaceRefreshToken = response.refreshToken
-                self.handoffBusy = false
                 self.entryScreen = .joinSession
-                appState.setSession(sessionId: response.sessionId)
+
+                self.reconnectSessionCall?.cancel()
+                self.reconnectSessionCall = SuspendWrapper<SessionState>()
+                self.reconnectSessionCall?.execute(
+                    suspendBlock: {
+                        try await repository.reconnectSession(sessionId: response.sessionId)
+                    },
+                    onSuccess: { [weak self] _ in
+                        self?.handoffBusy = false
+                        appState.setSession(sessionId: response.sessionId)
+                    },
+                    onError: { [weak self] error in
+                        self?.handoffBusy = false
+                        self?.handoffError = error.localizedDescription
+                    }
+                )
             },
             onError: { [weak self] error in
                 self?.handoffBusy = false
