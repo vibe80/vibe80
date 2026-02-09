@@ -13,6 +13,7 @@
     <string name="action_expand">Développer</string>
     <string name="action_remove">Retirer</string>
     <string name="action_restart">Recommencer</string>
+    <string name="action_refresh">Rafraîchir</string>
     <string name="action_resume">Reprendre</string>
     <string name="action_resume_progress">Reprise...</string>
     <string name="action_send">Envoyer</string>

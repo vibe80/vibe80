@@ -13,6 +13,7 @@
     <string name="action_expand">Expand</string>
     <string name="action_remove">Remove</string>
     <string name="action_restart">Restart</string>
+    <string name="action_refresh">Refresh</string>
     <string name="action_resume">Resume</string>
     <string name="action_resume_progress">Resuming...</string>
     <string name="action_send">Send</string>
