@@ -222,7 +222,6 @@ export class CodexAppServerClient extends EventEmitter {
     await this.start();
     this.restarting = false;
   }
-  }
 
   async sendTurn(text) {
     if (!this.threadId) {
