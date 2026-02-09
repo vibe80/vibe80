@@ -205,6 +205,7 @@
   "Settings": "Paramètres",
   "setup_token": "setup_token",
   "Deny git credentials access": "Refuser l'accès aux identifiants Git",
+  "Provider cannot be disabled: active sessions use it.": "Impossible de désactiver ce provider : des sessions l'utilisent.",
   "Show a notification and sound when a new message arrives.": "Affiche une notification et un son quand un nouveau message arrive.",
   "Show commands in chat": "Afficher les commandes dans le chat",
   "Show executed command blocks in the conversation.": "Affiche les blocs de commandes exécutées dans la conversation.",

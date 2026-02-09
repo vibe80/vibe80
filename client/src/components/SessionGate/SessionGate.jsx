@@ -212,6 +212,18 @@ export default function SessionGate({
                         provider === "codex" ? t("Codex") : t("Claude");
                       const expanded = Boolean(workspaceAuthExpanded[provider]);
                       const isEnabled = Boolean(config.enabled);
+                      const providerInUse = workspaceProvidersEditing
+                        && Array.isArray(workspaceSessions)
+                        && workspaceSessions.some((session) => {
+                          const providers = Array.isArray(session.providers) && session.providers.length
+                            ? session.providers
+                            : session.activeProvider
+                              ? [session.activeProvider]
+                              : [];
+                          return providers.includes(provider);
+                        });
+                      const disableToggle = formDisabled
+                        || (providerInUse && isEnabled);
                       return (
                         <div key={provider} className="session-auth-card">
                           <div className="session-auth-header">
@@ -220,6 +232,9 @@ export default function SessionGate({
                                 type="checkbox"
                                 checked={isEnabled}
                                 onChange={() => {
+                                  if (providerInUse && isEnabled) {
+                                    return;
+                                  }
                                   const nextEnabled = !isEnabled;
                                   setWorkspaceAuthExpanded((current) => ({
                                     ...current,
@@ -233,7 +248,12 @@ export default function SessionGate({
                                     },
                                   }));
                                 }}
-                                disabled={formDisabled}
+                                disabled={disableToggle}
+                                title={
+                                  providerInUse && isEnabled
+                                    ? t("Provider cannot be disabled: active sessions use it.")
+                                    : undefined
+                                }
                               />
                               {label}
                             </label>
@@ -761,6 +781,7 @@ export default function SessionGate({
                     setWorkspaceError("");
                     setProvidersBackStep(4);
                     loadWorkspaceProviders();
+                    loadWorkspaceSessions();
                     setWorkspaceStep(2);
                   }}
                 >
@@ -777,6 +798,7 @@ export default function SessionGate({
                       setWorkspaceError("");
                       setProvidersBackStep(4);
                       loadWorkspaceProviders();
+                      loadWorkspaceSessions();
                       setWorkspaceStep(2);
                     }}
                   >
