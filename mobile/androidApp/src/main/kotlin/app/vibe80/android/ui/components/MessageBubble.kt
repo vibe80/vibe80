@@ -112,6 +112,8 @@ fun MessageBubble(
     val showToolBadge = message != null &&
         (message.role == MessageRole.TOOL_RESULT || message.role == MessageRole.COMMAND_EXECUTION) &&
         onToolResultSelected != null
+    val showToolInlineText = !(message != null &&
+        (message.role == MessageRole.TOOL_RESULT || message.role == MessageRole.COMMAND_EXECUTION))
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -178,7 +180,7 @@ fun MessageBubble(
                 }
 
                 // Message content with Markdown rendering
-                if (text.isNotBlank()) {
+                if (showToolInlineText && text.isNotBlank()) {
                     if (isUser) {
                         // Simple text for user messages
                         Text(
