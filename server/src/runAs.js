@@ -45,7 +45,6 @@ const normalizePaths = (paths = []) => {
 };
 
 export const buildSandboxArgs = (options = {}) => {
-  const tmpDir = options.tmpDir || null;
   const homeDir = options.homeDir || (options.workspaceId
     ? getWorkspaceHome(options.workspaceId)
     : null);
@@ -59,16 +58,15 @@ export const buildSandboxArgs = (options = {}) => {
   const allowRw = normalizePaths([
     ...(options.allowRw || DEFAULT_ALLOW_RW),
     ...(options.extraAllowRw || []),
-    workspaceRootDir,
+    homeDir,
     options.repoDir,
     options.cwd,
     options.attachmentsDir,
-    tmpDir,
+    options.tmpDir,
   ]);
   const allowRoFiles = normalizePaths([
     ...(options.allowRoFiles || []),
     ...(options.extraAllowRoFiles || []),
-    ...(homeDir ? [path.join(homeDir, ".profile"), path.join(homeDir, ".bashrc")] : []),
   ]);
   const allowRwFiles = normalizePaths([
     ...(options.allowRwFiles || []),
