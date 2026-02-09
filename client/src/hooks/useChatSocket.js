@@ -175,6 +175,11 @@ export default function useChatSocket({
             void resyncSession();
             requestMessageSync();
             requestWorktreesList();
+            const socket = socketRef.current;
+            if (socket && socket.readyState === WebSocket.OPEN) {
+              const worktreeId = activeWorktreeIdRef?.current || "main";
+              socket.send(JSON.stringify({ type: "wake_up", worktreeId }));
+            }
           }
           return;
         }
@@ -1037,6 +1042,8 @@ export default function useChatSocket({
         socket.send(JSON.stringify({ type: "ping" }));
         void resyncSession();
         requestMessageSync();
+        const worktreeId = activeWorktreeIdRef?.current || "main";
+        socket.send(JSON.stringify({ type: "wake_up", worktreeId }));
       } else {
         clearReconnectTimer();
         reconnectAttemptRef.current = 0;
