@@ -39,8 +39,8 @@ export default function worktreeRoutes(deps) {
 
   const router = Router();
 
-  router.get("/worktrees", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/worktrees", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -59,8 +59,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.post("/worktree", async (req, res) => {
-    const sessionId = req.body?.session;
+  router.post("/sessions/:sessionId/worktrees", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -120,7 +120,9 @@ export default function worktreeRoutes(deps) {
         });
       }
 
-      res.json({
+      res.status(201).location(
+        `/api/sessions/${sessionId}/worktrees/${worktree.id}`
+      ).json({
         worktreeId: worktree.id,
         name: worktree.name,
         branchName: worktree.branchName,
@@ -142,8 +144,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.get("/worktree/:worktreeId", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/worktrees/:worktreeId", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -186,8 +188,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.get("/worktree/:worktreeId/messages", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/worktrees/:worktreeId/messages", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -232,8 +234,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.get("/worktree/:worktreeId/browse", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/worktrees/:worktreeId/browse", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -262,8 +264,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.get("/worktree/:worktreeId/file", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/worktrees/:worktreeId/file", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -307,8 +309,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.post("/worktree/:worktreeId/file", async (req, res) => {
-    const sessionId = req.query.session;
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/file", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -355,8 +357,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.get("/worktree/:worktreeId/status", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/worktrees/:worktreeId/status", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -404,8 +406,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.delete("/worktree/:worktreeId", async (req, res) => {
-    const sessionId = req.query.session;
+  router.delete("/sessions/:sessionId/worktrees/:worktreeId", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -430,8 +432,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.patch("/worktree/:worktreeId", async (req, res) => {
-    const sessionId = req.query.session;
+  router.patch("/sessions/:sessionId/worktrees/:worktreeId", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -462,8 +464,8 @@ export default function worktreeRoutes(deps) {
     });
   });
 
-  router.get("/worktree/:worktreeId/diff", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/worktrees/:worktreeId/diff", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -484,8 +486,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.get("/worktree/:worktreeId/commits", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/worktrees/:worktreeId/commits", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -507,8 +509,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.post("/worktree/:worktreeId/merge", async (req, res) => {
-    const sessionId = req.body?.session;
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/merge", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -544,8 +546,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.post("/worktree/:worktreeId/abort-merge", async (req, res) => {
-    const sessionId = req.body?.session;
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/abort-merge", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -566,8 +568,8 @@ export default function worktreeRoutes(deps) {
     }
   });
 
-  router.post("/worktree/:worktreeId/cherry-pick", async (req, res) => {
-    const sessionId = req.body?.session;
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/cherry-pick", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });

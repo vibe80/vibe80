@@ -151,7 +151,6 @@ app.use("/api", apiLimiter);
 app.post("/api/workspaces/login", authLimiter);
 app.post("/api/workspaces/refresh", authLimiter);
 app.post("/api/workspaces", createLimiter);
-app.post("/api/session", createLimiter);
 app.post("/api/sessions", createLimiter);
 app.use("/api", authMiddleware);
 

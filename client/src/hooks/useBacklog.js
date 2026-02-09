@@ -152,11 +152,13 @@ export default function useBacklog({
       }
       try {
         const response = await apiFetch(
-          `/api/session/${encodeURIComponent(attachmentSessionId)}/backlog`,
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/backlog-items/${encodeURIComponent(itemId)}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: itemId, done: true }),
+            body: JSON.stringify({ done: true }),
           }
         );
         if (!response.ok) {

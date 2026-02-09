@@ -1380,7 +1380,7 @@ function App() {
   }, [attachmentSession?.defaultDenyGitCredentialsAccess]);
 
   useEffect(() => {
-    if (!attachmentSession?.default_provider && !attachmentSession?.providers) {
+    if (!attachmentSession?.defaultProvider && !attachmentSession?.providers) {
       return;
     }
     const sessionProviders = Array.isArray(attachmentSession.providers)
@@ -1392,19 +1392,19 @@ function App() {
       setSelectedProviders(sessionProviders);
       setOpenAiReady(sessionProviders.includes("codex"));
       setClaudeReady(sessionProviders.includes("claude"));
-    } else if (attachmentSession.default_provider) {
-      setSelectedProviders([attachmentSession.default_provider]);
-      setOpenAiReady(attachmentSession.default_provider === "codex");
-      setClaudeReady(attachmentSession.default_provider === "claude");
+    } else if (attachmentSession.defaultProvider) {
+      setSelectedProviders([attachmentSession.defaultProvider]);
+      setOpenAiReady(attachmentSession.defaultProvider === "codex");
+      setClaudeReady(attachmentSession.defaultProvider === "claude");
     }
     // Sync local state with session provider on initial load
     if (
-      attachmentSession.default_provider &&
-      attachmentSession.default_provider !== llmProvider
+      attachmentSession.defaultProvider &&
+      attachmentSession.defaultProvider !== llmProvider
     ) {
-      setLlmProvider(attachmentSession.default_provider);
+      setLlmProvider(attachmentSession.defaultProvider);
     }
-  }, [attachmentSession?.default_provider, attachmentSession?.providers]);
+  }, [attachmentSession?.defaultProvider, attachmentSession?.providers]);
 
   useEffect(() => {
     if (!attachmentSession?.repoUrl) {

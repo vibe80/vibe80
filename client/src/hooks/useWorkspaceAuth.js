@@ -583,7 +583,7 @@ export default function useWorkspaceAuth({
       setWorkspaceSessionDeletingId(sessionId);
       setWorkspaceSessionsError("");
       const response = await apiFetch(
-        `/api/session/${encodeURIComponent(sessionId)}`,
+        `/api/sessions/${encodeURIComponent(sessionId)}`,
         { method: "DELETE" }
       );
       if (!response.ok) {

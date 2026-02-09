@@ -45,9 +45,9 @@ export default function useWorktrees({
     }
     try {
       const response = await apiFetch(
-        `/api/worktree/main/messages?session=${encodeURIComponent(
+        `/api/sessions/${encodeURIComponent(
           attachmentSessionId
-        )}`
+        )}/worktrees/main/messages`
       );
       if (!response.ok) {
         return;
@@ -78,18 +78,18 @@ export default function useWorktrees({
       }
       try {
         const response = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            worktreeId
-          )}?session=${encodeURIComponent(attachmentSessionId)}`
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(worktreeId)}`
         );
         if (!response.ok) {
           return;
         }
         const payload = await response.json().catch(() => ({}));
         const messagesResponse = await apiFetch(
-          `/api/worktree/${encodeURIComponent(
-            worktreeId
-          )}/messages?session=${encodeURIComponent(attachmentSessionId)}`
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(worktreeId)}/messages`
         );
         if (!messagesResponse.ok) {
           return;
@@ -204,7 +204,7 @@ export default function useWorktrees({
     }
     try {
       const response = await apiFetch(
-        `/api/worktrees?session=${encodeURIComponent(attachmentSessionId)}`
+        `/api/sessions/${encodeURIComponent(attachmentSessionId)}/worktrees`
       );
       if (!response.ok) {
         return;
@@ -242,22 +242,24 @@ export default function useWorktrees({
         return;
       }
       try {
-        const response = await apiFetch("/api/worktree", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            session: attachmentSessionId,
-            provider: availableProviders.includes(wtProvider)
-              ? wtProvider
-              : llmProvider,
-            name: name || null,
-            startingBranch: startingBranch || null,
-            model: model || null,
-            reasoningEffort: reasoningEffort ?? null,
-            internetAccess: Boolean(internetAccess),
-            denyGitCredentialsAccess: Boolean(denyGitCredentialsAccess),
-          }),
-        });
+        const response = await apiFetch(
+          `/api/sessions/${encodeURIComponent(attachmentSessionId)}/worktrees`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              provider: availableProviders.includes(wtProvider)
+                ? wtProvider
+                : llmProvider,
+              name: name || null,
+              startingBranch: startingBranch || null,
+              model: model || null,
+              reasoningEffort: reasoningEffort ?? null,
+              internetAccess: Boolean(internetAccess),
+              denyGitCredentialsAccess: Boolean(denyGitCredentialsAccess),
+            }),
+          }
+        );
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
           throw new Error(
@@ -319,9 +321,9 @@ export default function useWorktrees({
       if (!attachmentSessionId) return;
       try {
         const response = await apiFetch(
-          `/api/worktree/${worktreeId}?session=${encodeURIComponent(
+          `/api/sessions/${encodeURIComponent(
             attachmentSessionId
-          )}`,
+          )}/worktrees/${encodeURIComponent(worktreeId)}`,
           { method: "DELETE" }
         );
         if (!response.ok) {
@@ -339,9 +341,9 @@ export default function useWorktrees({
       if (!attachmentSessionId) return;
       try {
         const response = await apiFetch(
-          `/api/worktree/${worktreeId}?session=${encodeURIComponent(
+          `/api/sessions/${encodeURIComponent(
             attachmentSessionId
-          )}`,
+          )}/worktrees/${encodeURIComponent(worktreeId)}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },

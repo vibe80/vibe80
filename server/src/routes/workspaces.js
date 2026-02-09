@@ -21,7 +21,7 @@ export default function workspaceRoutes() {
     try {
       const providers = req.body?.providers;
       const result = await createWorkspace(providers);
-      res.json(result);
+      res.status(201).location(`/api/workspaces/${result.workspaceId}`).json(result);
     } catch (error) {
       res.status(400).json({ error: error.message || "Failed to create workspace." });
     }

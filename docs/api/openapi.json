@@ -33,7 +33,7 @@
         }
       }
     },
-    "/api/session/{sessionId}": {
+    "/api/sessions/{sessionId}": {
       "get": {
         "summary": "Get session",
         "parameters": [
@@ -58,7 +58,7 @@
         }
       }
     },
-    "/api/session/{sessionId}/diff": {
+    "/api/sessions/{sessionId}/diff": {
       "get": {
         "summary": "Get repo diff for session",
         "parameters": [
@@ -83,7 +83,7 @@
         }
       }
     },
-    "/api/session/{sessionId}/clear": {
+    "/api/sessions/{sessionId}/clear": {
       "post": {
         "summary": "Clear messages for provider or worktree",
         "parameters": [
@@ -118,7 +118,7 @@
         }
       }
     },
-    "/api/session": {
+    "/api/sessions": {
       "post": {
         "summary": "Create session",
         "requestBody": {
@@ -132,7 +132,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Session created",
             "content": {
               "application/json": {
@@ -144,6 +144,24 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      },
+      "get": {
+        "summary": "List sessions",
+        "responses": {
+          "200": {
+            "description": "Session list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionListResponse"
+                }
+              }
+            }
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
@@ -249,12 +267,12 @@
         }
       }
     },
-    "/api/worktrees": {
+    "/api/sessions/{sessionId}/worktrees": {
       "get": {
         "summary": "List worktrees",
         "parameters": [
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -272,9 +290,7 @@
             "$ref": "#/components/responses/BadRequest"
           }
         }
-      }
-    },
-    "/api/worktree": {
+      },
       "post": {
         "summary": "Create worktree",
         "requestBody": {
@@ -288,7 +304,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Worktree created",
             "content": {
               "application/json": {
@@ -304,10 +320,15 @@
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ]
       }
     },
-    "/api/worktree/{worktreeId}": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}": {
       "get": {
         "summary": "Get worktree",
         "parameters": [
@@ -315,7 +336,7 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -344,7 +365,7 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -373,7 +394,7 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "requestBody": {
@@ -406,7 +427,7 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/file": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/file": {
       "get": {
         "summary": "Read file",
         "parameters": [
@@ -414,10 +435,10 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/FilePath"
           },
           {
-            "$ref": "#/components/parameters/FilePath"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -446,7 +467,7 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "requestBody": {
@@ -479,7 +500,7 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/status": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/status": {
       "get": {
         "summary": "Worktree git status",
         "parameters": [
@@ -487,7 +508,7 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -510,7 +531,7 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/diff": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/diff": {
       "get": {
         "summary": "Worktree diff",
         "parameters": [
@@ -518,7 +539,7 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -538,7 +559,7 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/commits": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/commits": {
       "get": {
         "summary": "Worktree commits",
         "parameters": [
@@ -546,10 +567,10 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/CommitsLimit"
           },
           {
-            "$ref": "#/components/parameters/CommitsLimit"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -569,12 +590,15 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/merge": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/merge": {
       "post": {
         "summary": "Merge worktree into target worktree",
         "parameters": [
           {
             "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "requestBody": {
@@ -607,12 +631,15 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/abort-merge": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/abort-merge": {
       "post": {
         "summary": "Abort merge",
         "parameters": [
           {
             "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "requestBody": {
@@ -645,12 +672,15 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/cherry-pick": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/cherry-pick": {
       "post": {
         "summary": "Cherry-pick commit",
         "parameters": [
           {
             "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "requestBody": {
@@ -796,7 +826,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Workspace created",
             "content": {
               "application/json": {
@@ -957,27 +987,7 @@
         }
       }
     },
-    "/api/sessions": {
-      "get": {
-        "summary": "List sessions",
-        "responses": {
-          "200": {
-            "description": "Session list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionListResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/api/session/{sessionId}/last-commit": {
+    "/api/sessions/{sessionId}/last-commit": {
       "get": {
         "summary": "Get last commit for session",
         "parameters": [
@@ -1005,7 +1015,7 @@
         }
       }
     },
-    "/api/session/{sessionId}/rpc-logs": {
+    "/api/sessions/{sessionId}/rpc-logs": {
       "get": {
         "summary": "Get RPC logs for session (debug only)",
         "parameters": [
@@ -1033,7 +1043,7 @@
         }
       }
     },
-    "/api/session/{sessionId}/git-identity": {
+    "/api/sessions/{sessionId}/git-identity": {
       "get": {
         "summary": "Get git identity for session",
         "parameters": [
@@ -1100,7 +1110,7 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/browse": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/browse": {
       "get": {
         "summary": "Browse worktree directory",
         "parameters": [
@@ -1108,10 +1118,10 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
+            "$ref": "#/components/parameters/BrowsePath"
           },
           {
-            "$ref": "#/components/parameters/BrowsePath"
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -1134,7 +1144,7 @@
         }
       }
     },
-    "/api/worktree/{worktreeId}/messages": {
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/messages": {
       "get": {
         "summary": "Get worktree messages",
         "parameters": [
@@ -1142,13 +1152,13 @@
             "$ref": "#/components/parameters/WorktreeId"
           },
           {
-            "$ref": "#/components/parameters/SessionQuery"
-          },
-          {
             "$ref": "#/components/parameters/MessagesLimit"
           },
           {
             "$ref": "#/components/parameters/BeforeMessageId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
           }
         ],
         "responses": {
@@ -1171,7 +1181,7 @@
         }
       }
     },
-    "/api/session/{sessionId}/backlog": {
+    "/api/sessions/{sessionId}/backlog-items": {
       "get": {
         "summary": "Get session backlog",
         "parameters": [
@@ -1230,12 +1240,17 @@
             "$ref": "#/components/responses/NotFound"
           }
         }
-      },
+      }
+    },
+    "/api/sessions/{sessionId}/backlog-items/{itemId}": {
       "patch": {
         "summary": "Update backlog item",
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionId"
+          },
+          {
+            "$ref": "#/components/parameters/BacklogItemId"
           }
         ],
         "requestBody": {
@@ -1356,6 +1371,14 @@
       },
       "WorktreeId": {
         "name": "worktreeId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "BacklogItemId": {
+        "name": "itemId",
         "in": "path",
         "required": true,
         "schema": {
@@ -1692,9 +1715,6 @@
           "terminalEnabled": {
             "type": "boolean"
           },
-          "default_provider": {
-            "$ref": "#/components/schemas/Provider"
-          },
           "workspaceId": {
             "type": "string",
             "pattern": "^w[0-9a-f]{24}$"
@@ -1707,13 +1727,16 @@
           },
           "defaultDenyGitCredentialsAccess": {
             "type": "boolean"
+          },
+          "defaultProvider": {
+            "$ref": "#/components/schemas/Provider"
           }
         },
         "required": [
           "sessionId",
           "path",
           "repoUrl",
-          "default_provider",
+          "defaultProvider",
           "repoDiff",
           "workspaceId"
         ],
@@ -1767,9 +1790,6 @@
           "terminalEnabled": {
             "type": "boolean"
           },
-          "default_provider": {
-            "$ref": "#/components/schemas/Provider"
-          },
           "workspaceId": {
             "type": "string",
             "pattern": "^w[0-9a-f]{24}$"
@@ -1782,13 +1802,16 @@
           },
           "defaultDenyGitCredentialsAccess": {
             "type": "boolean"
+          },
+          "defaultProvider": {
+            "$ref": "#/components/schemas/Provider"
           }
         },
         "required": [
           "sessionId",
           "path",
           "repoUrl",
-          "default_provider",
+          "defaultProvider",
           "workspaceId"
         ],
         "additionalProperties": true
@@ -1950,9 +1973,6 @@
       "CreateWorktreeRequest": {
         "type": "object",
         "properties": {
-          "session": {
-            "type": "string"
-          },
           "provider": {
             "$ref": "#/components/schemas/Provider"
           },
@@ -1974,6 +1994,18 @@
               "null"
             ]
           },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reasoningEffort": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "internetAccess": {
             "type": "boolean"
           },
@@ -1982,7 +2014,6 @@
           }
         },
         "required": [
-          "session",
           "provider"
         ],
         "additionalProperties": false
@@ -2852,15 +2883,11 @@
       "BacklogUpdateRequest": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "done": {
             "type": "boolean"
           }
         },
         "required": [
-          "id",
           "done"
         ],
         "additionalProperties": false
