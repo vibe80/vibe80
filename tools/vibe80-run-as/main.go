@@ -236,7 +236,7 @@ func main() {
   if len(allowRO) > 0 || len(allowRW) > 0 || len(allowROFiles) > 0 || len(allowRWFiles) > 0 {
     allowRO = ensureBaseReadPaths(allowRO, resolved)
   }
-  if err := applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles, netMode); err != nil {
+  if err := applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles, netMode, uid, gid); err != nil {
     fail("landlock failed: " + err.Error())
   }
   if err := applySeccomp(seccompMode, netMode); err != nil {
@@ -375,7 +375,7 @@ func uniqueStrings(values []string) []string {
   return result
 }
 
-func ensureDirsExist(paths []string, label string) error {
+func ensureDirsExist(paths []string, label string, uid, gid uint32) error {
   for _, target := range paths {
     if target == "" {
       continue
@@ -392,6 +392,9 @@ func ensureDirsExist(paths []string, label string) error {
     }
     if mkErr := os.MkdirAll(target, 0o700); mkErr != nil {
       return fmt.Errorf("failed to create %s path: %s (%v)", label, target, mkErr)
+    }
+    if chownErr := os.Chown(target, int(uid), int(gid)); chownErr != nil {
+      return fmt.Errorf("failed to set ownership for %s path: %s (%v)", label, target, chownErr)
     }
   }
   return nil
@@ -422,14 +425,14 @@ func ensureBaseReadPaths(paths []string, resolvedCommand string) []string {
   return uniqueStrings(append(paths, base...))
 }
 
-func applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles []string, netMode string) error {
+func applyLandlock(allowRO, allowRW, allowROFiles, allowRWFiles []string, netMode string, uid, gid uint32) error {
   if len(allowRO) == 0 && len(allowRW) == 0 && len(allowROFiles) == 0 && len(allowRWFiles) == 0 && netMode == "" {
     return nil
   }
-  if err := ensureDirsExist(allowRO, "allow-ro"); err != nil {
+  if err := ensureDirsExist(allowRO, "allow-ro", uid, gid); err != nil {
     return err
   }
-  if err := ensureDirsExist(allowRW, "allow-rw"); err != nil {
+  if err := ensureDirsExist(allowRW, "allow-rw", uid, gid); err != nil {
     return err
   }
   if err := validatePathsExist(allowROFiles, "allow-ro-file"); err != nil {
