@@ -138,6 +138,7 @@
     <string name="workspace_credentials_title">Identifiants workspace</string>
     <string name="workspace_id">Workspace ID</string>
     <string name="workspace_join">Rejoindre un workspace existant</string>
+    <string name="workspace_leave">Quitter le workspace</string>
     <string name="workspace_resume_desktop">Reprendre une session desktop</string>
     <string name="workspace_secret">Workspace secret</string>
     <string name="worktree_add">Ajouter un worktree</string>
