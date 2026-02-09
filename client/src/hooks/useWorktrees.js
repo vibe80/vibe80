@@ -222,9 +222,13 @@ export default function useWorktrees({
         return;
       }
       setActiveWorktreeId(worktreeId);
+      const socket = socketRef?.current;
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "wake_up", worktreeId }));
+      }
       void loadWorktreeSnapshot(worktreeId);
     },
-    [loadWorktreeSnapshot]
+    [loadWorktreeSnapshot, socketRef]
   );
 
   const createWorktree = useCallback(

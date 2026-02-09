@@ -519,6 +519,83 @@ wss.on("connection", (socket, req) => {
         return;
       }
 
+      if (payload.type === "wake_up") {
+        const worktreeId = payload.worktreeId || "main";
+        if (worktreeId === "main") {
+          if (session.activeProvider !== "codex") {
+            return;
+          }
+          try {
+            let client = await getOrCreateClient(session, "codex");
+            if (!client.listenerCount("ready")) {
+              attachClientEvents(sessionId, client, "codex");
+            }
+            const procExited = client?.proc && client.proc.exitCode != null;
+            if (procExited && runtime?.clients?.codex) {
+              delete runtime.clients.codex;
+              client = await getOrCreateClient(session, "codex");
+              if (!client.listenerCount("ready")) {
+                attachClientEvents(sessionId, client, "codex");
+              }
+            }
+            if (!client.ready && !client.proc) {
+              await client.start();
+            }
+          } catch (error) {
+            socket.send(
+              JSON.stringify({
+                type: "error",
+                message: error.message || "Failed to wake Codex client.",
+              })
+            );
+          }
+          return;
+        }
+
+        const worktree = await getWorktree(session, worktreeId);
+        if (!worktree) {
+          socket.send(JSON.stringify({ type: "error", message: "Worktree not found." }));
+          return;
+        }
+        if (worktree.provider !== "codex") {
+          return;
+        }
+        try {
+          let client = runtime?.worktreeClients?.get(worktreeId) || null;
+          const procExited = client?.proc && client.proc.exitCode != null;
+          if (procExited && runtime?.worktreeClients) {
+            runtime.worktreeClients.delete(worktreeId);
+            client = null;
+          }
+          if (!client) {
+            client = createWorktreeClient(
+              worktree,
+              session.attachmentsDir,
+              session.repoDir,
+              worktree.internetAccess,
+              worktree.threadId,
+              session.gitDir || path.join(session.dir, "git")
+            );
+            runtime?.worktreeClients?.set(worktreeId, client);
+          }
+          worktree.client = client;
+          if (!client.listenerCount("ready")) {
+            attachClientEventsForWorktree(sessionId, worktree);
+          }
+          if (!client.ready && !client.proc) {
+            await client.start();
+          }
+        } catch (error) {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: error.message || "Failed to wake Codex worktree.",
+            })
+          );
+        }
+        return;
+      }
+
       // ============== Worktree WebSocket Handlers ==============
 
       if (payload.type === "worktree_send_message") {
