@@ -688,7 +688,7 @@ function App() {
   const [httpPassword, setHttpPassword] = useState("");
   const [sessionMode, setSessionMode] = useState("new");
   const [defaultInternetAccess, setDefaultInternetAccess] = useState(true);
-  const [defaultDenyGitCredentialsAccess, setDefaultDenyGitCredentialsAccess] = useState(true);
+  const [defaultDenyGitCredentialsAccess, setDefaultDenyGitCredentialsAccess] = useState(false);
   const [toast, setToast] = useState(null);
   const [llmProvider, setLlmProvider] = useState(readLlmProvider);
   const [selectedProviders, setSelectedProviders] = useState(readLlmProviders);
