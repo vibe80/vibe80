@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
@@ -53,7 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -65,6 +66,9 @@ import app.vibe80.android.viewmodel.ProviderAuthType
 import app.vibe80.android.viewmodel.ProviderConfigMode
 import app.vibe80.android.viewmodel.SessionViewModel
 import app.vibe80.android.viewmodel.WorkspaceMode
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -225,12 +229,25 @@ private fun ScreenContainer(
 
 @Composable
 private fun BrandHeader(title: String, subtitle: String? = null) {
+    val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
+    val logoHeight = with(LocalDensity.current) {
+        MaterialTheme.typography.headlineMedium.fontSize.toDp()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "Vibe80",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data("file:///android_asset/" + if (isDark) "vibe80_dark.svg" else "vibe80_light.svg")
+                    .decoderFactory(SvgDecoder.Factory())
+                    .build(),
+                contentDescription = "Vibe80",
+                modifier = Modifier.height(logoHeight)
+            )
+        }
         Text(text = title, style = MaterialTheme.typography.titleMedium)
         subtitle?.let {
             Text(

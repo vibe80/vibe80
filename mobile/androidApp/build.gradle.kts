@@ -94,6 +94,7 @@ dependencies {
 
     // Images
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
 
     // DataStore
     implementation(libs.datastore.preferences)
