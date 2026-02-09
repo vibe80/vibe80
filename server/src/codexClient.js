@@ -341,6 +341,10 @@ export class CodexAppServerClient extends EventEmitter {
     }
   }
 
+  markActive() {
+    this.lastIdleAt = Date.now();
+  }
+
   #sendRequest(method, params) {
     const id = this.nextId++;
     const payload = { jsonrpc: "2.0", id, method, params };

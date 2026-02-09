@@ -549,6 +549,9 @@ wss.on("connection", (socket, req) => {
             if (!client.ready && !client.proc) {
               await client.start();
             }
+            if (typeof client.markActive === "function") {
+              client.markActive();
+            }
           } catch (error) {
             socket.send(
               JSON.stringify({
@@ -592,6 +595,9 @@ wss.on("connection", (socket, req) => {
           }
           if (!client.ready && !client.proc) {
             await client.start();
+          }
+          if (typeof client.markActive === "function") {
+            client.markActive();
           }
         } catch (error) {
           socket.send(
