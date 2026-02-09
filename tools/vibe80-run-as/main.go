@@ -18,7 +18,6 @@ import (
 )
 
 var workspaceIDPattern = regexp.MustCompile(`^w[0-9a-f]{24}$`)
-const workspaceRootName = "vibe80_workspace"
 const workspaceMetadataDirName = "metadata"
 const workspaceConfigName = "workspace.json"
 
@@ -159,14 +158,22 @@ func main() {
   if homeBase == "" {
     homeBase = "/home"
   }
+  workspaceRootBase := os.Getenv("WORKSPACE_ROOT_DIRECTORY")
+  if workspaceRootBase == "" {
+    workspaceRootBase = "/workspaces"
+  }
   homeDir := filepath.Join(homeBase, workspaceID)
+  workspaceRootDir := filepath.Join(workspaceRootBase, workspaceID)
 
   if cwd != "" {
     resolvedCwd, err := filepath.Abs(cwd)
     if err != nil {
       fail("invalid cwd")
     }
-    if !strings.HasPrefix(resolvedCwd, homeDir+string(os.PathSeparator)) && resolvedCwd != homeDir {
+    if !strings.HasPrefix(resolvedCwd, homeDir+string(os.PathSeparator)) &&
+      resolvedCwd != homeDir &&
+      !strings.HasPrefix(resolvedCwd, workspaceRootDir+string(os.PathSeparator)) &&
+      resolvedCwd != workspaceRootDir {
       fail("cwd outside workspace")
     }
     cwd = resolvedCwd
@@ -300,14 +307,13 @@ type workspaceConfig struct {
 }
 
 func readIDsFromConfig(workspaceID string) (uint32, uint32, error) {
-  homeBase := os.Getenv("WORKSPACE_HOME_BASE")
-  if homeBase == "" {
-    homeBase = "/home"
+  workspaceRootBase := os.Getenv("WORKSPACE_ROOT_DIRECTORY")
+  if workspaceRootBase == "" {
+    workspaceRootBase = "/workspaces"
   }
   configPath := filepath.Join(
-    homeBase,
+    workspaceRootBase,
     workspaceID,
-    workspaceRootName,
     workspaceMetadataDirName,
     workspaceConfigName,
   )

@@ -15,6 +15,7 @@ import { logDebug } from "../middleware/debug.js";
 const deploymentMode = process.env.DEPLOYMENT_MODE;
 const isMonoUser = deploymentMode === "mono_user";
 const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
+const workspaceRootBase = process.env.WORKSPACE_ROOT_DIRECTORY || "/workspaces";
 const workspaceRootName = "vibe80_workspace";
 const workspaceMetadataDirName = "metadata";
 const workspaceSessionsDirName = "sessions";
@@ -45,7 +46,9 @@ const runRootCommandOutput = (args, options = {}) => {
 
 export const getWorkspacePaths = (workspaceId) => {
   const home = isMonoUser ? os.homedir() : path.join(workspaceHomeBase, workspaceId);
-  const root = path.join(home, workspaceRootName);
+  const root = isMonoUser
+    ? path.join(home, workspaceRootName)
+    : path.join(workspaceRootBase, workspaceId);
   const metadataDir = path.join(root, workspaceMetadataDirName);
   const sessionsDir = path.join(root, workspaceSessionsDirName);
   return {

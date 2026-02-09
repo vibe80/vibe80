@@ -26,8 +26,10 @@
 
 ## Storage Layout
 - Home: /home/w{hash}
-- Workspace root: ~/vibe80_workspace/
-- Sessions: ~/vibe80_workspace/sessions/{sessionId}/
+- Workspace root (multi_user): /workspaces/{workspaceId}/
+- Workspace root (mono_user): ~/vibe80_workspace/
+- Sessions (multi_user): /workspaces/{workspaceId}/sessions/{sessionId}/
+- Sessions (mono_user): ~/vibe80_workspace/sessions/{sessionId}/
   - repository/ (git clone)
   - attachments/
   - worktrees/

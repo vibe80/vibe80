@@ -13,7 +13,6 @@ import (
 )
 
 const (
-  workspaceRootName        = "vibe80_workspace"
   workspaceMetadataDirName = "metadata"
   workspaceSessionsDirName = "sessions"
 )
@@ -53,9 +52,13 @@ func ensureWorkspace(workspaceID string) {
   if homeBase == "" {
     homeBase = "/home"
   }
+  workspaceRootBase := os.Getenv("WORKSPACE_ROOT_DIRECTORY")
+  if workspaceRootBase == "" {
+    workspaceRootBase = "/workspaces"
+  }
 
   homeDir := filepath.Join(homeBase, workspaceID)
-  rootDir := filepath.Join(homeDir, workspaceRootName)
+  rootDir := filepath.Join(workspaceRootBase, workspaceID)
   metadataDir := filepath.Join(rootDir, workspaceMetadataDirName)
   sessionsDir := filepath.Join(rootDir, workspaceSessionsDirName)
 

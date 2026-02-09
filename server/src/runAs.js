@@ -7,6 +7,7 @@ const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
 const DEPLOYMENT_MODE = process.env.DEPLOYMENT_MODE;
 const IS_MONO_USER = DEPLOYMENT_MODE === "mono_user";
+const WORKSPACE_ROOT_DIRECTORY = process.env.WORKSPACE_ROOT_DIRECTORY || "/workspaces";
 const ALLOWED_ENV_KEYS = new Set([
   "GIT_SSH_COMMAND",
   "GIT_CONFIG_GLOBAL",
@@ -49,6 +50,9 @@ export const buildSandboxArgs = (options = {}) => {
   const homeDir = options.homeDir || (options.workspaceId
     ? getWorkspaceHome(options.workspaceId)
     : null);
+  const workspaceRootDir = options.workspaceRootDir || (options.workspaceId
+    ? getWorkspaceRoot(options.workspaceId)
+    : null);
   const defaultHomeRw = homeDir
     ? DEFAULT_RW_HOME_DIRS.map((entry) => path.join(homeDir, entry))
     : [];
@@ -60,6 +64,7 @@ export const buildSandboxArgs = (options = {}) => {
     ...(options.allowRw || DEFAULT_ALLOW_RW),
     ...(options.extraAllowRw || []),
     ...defaultHomeRw,
+    workspaceRootDir,
     options.repoDir,
     options.cwd,
     options.attachmentsDir,
@@ -134,6 +139,11 @@ export const getWorkspaceHome = (workspaceId) => {
   const homeBase = process.env.WORKSPACE_HOME_BASE || "/home";
   return IS_MONO_USER ? os.homedir() : path.join(homeBase, workspaceId);
 };
+
+export const getWorkspaceRoot = (workspaceId) =>
+  (IS_MONO_USER
+    ? path.join(os.homedir(), "vibe80_workspace")
+    : path.join(WORKSPACE_ROOT_DIRECTORY, workspaceId));
 
 const validateCwd = (workspaceId, cwd) => {
   const resolved = path.resolve(cwd);
