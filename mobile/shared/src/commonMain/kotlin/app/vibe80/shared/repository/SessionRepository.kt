@@ -612,7 +612,12 @@ class SessionRepository(
             val worktreeSnapshot = apiClient
                 .getWorktree(sessionId, Worktree.MAIN_WORKTREE_ID)
                 .getOrNull()
-            _messages.value = worktreeSnapshot?.messages ?: emptyList()
+            val snapshotMessages = worktreeSnapshot?.messages ?: emptyList()
+            _messages.value = if (snapshotMessages.size > 10) {
+                snapshotMessages.takeLast(10)
+            } else {
+                snapshotMessages
+            }
 
             // Connect WebSocket
             ensureWebSocketConnected(sessionId)
