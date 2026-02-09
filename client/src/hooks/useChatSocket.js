@@ -57,6 +57,7 @@ export default function useChatSocket({
       return;
     }
     let isMounted = true;
+    let wakeUpInterval = null;
 
     const clearReconnectTimer = () => {
       if (reconnectTimerRef.current) {
@@ -69,6 +70,12 @@ export default function useChatSocket({
       if (pingIntervalRef.current) {
         clearInterval(pingIntervalRef.current);
         pingIntervalRef.current = null;
+      }
+    };
+    const clearWakeUpInterval = () => {
+      if (wakeUpInterval) {
+        clearInterval(wakeUpInterval);
+        wakeUpInterval = null;
       }
     };
 
@@ -91,6 +98,20 @@ export default function useChatSocket({
         }
         socket.send(JSON.stringify({ type: "ping" }));
       }, 10000);
+    };
+
+    const startWakeUpInterval = () => {
+      clearWakeUpInterval();
+      const sendWakeUp = () => {
+        const socket = socketRef.current;
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          return;
+        }
+        const worktreeId = activeWorktreeIdRef?.current || "main";
+        socket.send(JSON.stringify({ type: "wake_up", worktreeId }));
+      };
+      sendWakeUp();
+      wakeUpInterval = setInterval(sendWakeUp, 60 * 1000);
     };
 
     const scheduleReconnect = () => {
@@ -139,6 +160,7 @@ export default function useChatSocket({
         setStatus(t("Disconnected"));
         setAppServerReady(false);
         clearPingInterval();
+        clearWakeUpInterval();
         if (!closingRef.current) {
           scheduleReconnect();
         }
@@ -172,6 +194,7 @@ export default function useChatSocket({
             setConnected(true);
             setStatus(t("Connected"));
             startPingInterval();
+            startWakeUpInterval();
             void resyncSession();
             requestMessageSync();
             requestWorktreesList();
@@ -1061,6 +1084,7 @@ export default function useChatSocket({
       if (socketRef.current) {
         socketRef.current.close();
       }
+      clearWakeUpInterval();
       closingRef.current = false;
     };
   }, [
