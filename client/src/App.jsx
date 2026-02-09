@@ -1164,7 +1164,12 @@ function App() {
   const activeWorktree = isInWorktree ? worktrees.get(activeWorktreeId) : null;
   const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
   const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
-  const currentMessages = activeWorktree ? activeWorktree.messages : messages;
+  const currentMessages =
+    isInWorktree && !activeWorktree
+      ? []
+      : activeWorktree
+        ? activeWorktree.messages
+        : messages;
   const hasMessages =
     Array.isArray(currentMessages) && currentMessages.length > 0;
   const activePane = paneByTab[activeWorktreeId] || "chat";
