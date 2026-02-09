@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -179,7 +180,8 @@ fun SessionScreen(
                         onResumeSession = viewModel::resumeExistingSession,
                         onDeleteSession = viewModel::clearSavedSession,
                         onResumeWorkspaceSession = viewModel::resumeWorkspaceSession,
-                        onRefreshSessions = viewModel::loadWorkspaceSessions
+                        onRefreshSessions = viewModel::loadWorkspaceSessions,
+                        onLeaveWorkspace = viewModel::leaveWorkspace
                     )
 
                     EntryScreen.START_SESSION -> StartSessionScreen(
@@ -639,10 +641,23 @@ private fun JoinSessionScreen(
     onResumeSession: () -> Unit,
     onDeleteSession: () -> Unit,
     onResumeWorkspaceSession: (String, String?) -> Unit,
-    onRefreshSessions: () -> Unit
+    onRefreshSessions: () -> Unit,
+    onLeaveWorkspace: () -> Unit
 ) {
     ScreenContainer {
-        BrandHeader(title = "Rejoindre une session")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            BrandHeader(title = "Rejoindre une session")
+            IconButton(onClick = onLeaveWorkspace) {
+                Icon(
+                    imageVector = Icons.Default.Logout,
+                    contentDescription = "Quitter le workspace"
+                )
+            }
+        }
 
         Button(
             onClick = onStartSession,

@@ -727,6 +727,35 @@ class SessionViewModel(
         _uiState.update { it.copy(handoffError = null) }
     }
 
+    fun leaveWorkspace() {
+        viewModelScope.launch {
+            sessionRepository.setWorkspaceToken(null)
+            sessionRepository.setRefreshToken(null)
+            sessionPreferences.clearWorkspace()
+            sessionPreferences.clearSession()
+            _uiState.update { state ->
+                state.copy(
+                    entryScreen = EntryScreen.WORKSPACE_MODE,
+                    workspaceMode = WorkspaceMode.EXISTING,
+                    providerConfigMode = ProviderConfigMode.CREATE,
+                    workspaceIdInput = "",
+                    workspaceSecretInput = "",
+                    workspaceId = null,
+                    workspaceToken = null,
+                    workspaceRefreshToken = null,
+                    workspaceError = null,
+                    workspaceBusy = false,
+                    repoUrl = "",
+                    sessionId = null,
+                    hasSavedSession = false,
+                    workspaceSessions = emptyList(),
+                    sessionsLoading = false,
+                    sessionsError = null
+                )
+            }
+        }
+    }
+
     fun consumeHandoffPayload(payload: String, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(handoffBusy = true, handoffError = null) }
