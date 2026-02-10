@@ -311,12 +311,6 @@ private fun WorkspaceCredentialsScreen(
     onBack: () -> Unit
 ) {
     ScreenContainer {
-        TextButton(onClick = onBack) {
-            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.action_back))
-        }
-
         BrandHeader(title = stringResource(R.string.workspace_credentials_title))
 
         OutlinedTextField(
@@ -391,12 +385,6 @@ private fun ProviderConfigScreen(
     val claudeConfig = providerConfigs["claude"]
 
     ScreenContainer {
-        TextButton(onClick = onBack) {
-            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.action_back))
-        }
-
         BrandHeader(title = stringResource(R.string.providers_config_title))
 
         Text(
@@ -808,12 +796,6 @@ private fun StartSessionScreen(
     error: String?
 ) {
     ScreenContainer {
-        TextButton(onClick = onBack) {
-            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.action_back))
-        }
-
         BrandHeader(title = stringResource(R.string.session_start_title))
 
         OutlinedTextField(
