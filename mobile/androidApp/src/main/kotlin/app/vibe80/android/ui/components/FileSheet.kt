@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import app.vibe80.android.R
 
 @Composable
 fun FileSheetContent(
@@ -30,14 +32,14 @@ fun FileSheetContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = path ?: "Fichier",
+            text = path ?: stringResource(R.string.file_title),
             style = MaterialTheme.typography.titleMedium
         )
 
         when {
             loading -> {
                 Text(
-                    text = "Chargement...",
+                    text = stringResource(R.string.loading),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -51,7 +53,7 @@ fun FileSheetContent(
             }
             binary -> {
                 Text(
-                    text = "Fichier binaire non affichable.",
+                    text = stringResource(R.string.file_binary_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -59,7 +61,7 @@ fun FileSheetContent(
             else -> {
                 if (truncated) {
                     Text(
-                        text = "Affichage tronqué.",
+                        text = stringResource(R.string.file_truncated),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

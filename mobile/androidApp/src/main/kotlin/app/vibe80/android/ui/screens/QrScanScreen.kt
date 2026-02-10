@@ -41,6 +41,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.res.stringResource
+import app.vibe80.android.R
 import app.vibe80.android.viewmodel.SessionViewModel
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -86,10 +88,10 @@ fun QrScanScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scanner un QR code") },
+                title = { Text(stringResource(R.string.qr_scan_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -111,11 +113,11 @@ fun QrScanScreen(
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null)
                         Text(
-                            text = "L'accès a la caméra est requis pour scanner le QR code.",
+                            text = stringResource(R.string.qr_camera_permission),
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
-                            Text("Autoriser la caméra")
+                            Text(stringResource(R.string.action_continue))
                         }
                     }
                 }
@@ -159,7 +161,7 @@ fun QrScanScreen(
                                     updateScanEnabled(true)
                                 }
                             ) {
-                                Text("Recommencer")
+                                Text(stringResource(R.string.action_restart))
                             }
                         }
                     }

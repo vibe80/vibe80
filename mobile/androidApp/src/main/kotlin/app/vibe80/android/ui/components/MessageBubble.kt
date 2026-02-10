@@ -32,6 +32,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import app.vibe80.android.R
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.res.ResourcesCompat
 import app.vibe80.android.R
@@ -129,8 +131,8 @@ fun MessageBubble(
                 if (!isUser && message != null && message.role != MessageRole.ASSISTANT) {
                     Text(
                         text = when (message.role) {
-                            MessageRole.COMMAND_EXECUTION -> "Commande"
-                            MessageRole.TOOL_RESULT -> "Résultat"
+                            MessageRole.COMMAND_EXECUTION -> stringResource(R.string.message_role_command)
+                            MessageRole.TOOL_RESULT -> stringResource(R.string.message_role_tool_result)
                             else -> ""
                         },
                         style = MaterialTheme.typography.labelSmall,
@@ -528,12 +530,16 @@ private fun CollapsibleCodeBlock(
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (language.isNullOrBlank()) "Code" else "Code ($language)",
+                    text = if (language.isNullOrBlank()) {
+                        stringResource(R.string.message_code)
+                    } else {
+                        stringResource(R.string.message_code_with_language, language)
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "$lineCount lignes",
+                    text = stringResource(R.string.message_code_lines, lineCount),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

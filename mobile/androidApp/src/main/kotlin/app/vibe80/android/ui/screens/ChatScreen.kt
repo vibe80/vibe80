@@ -117,7 +117,7 @@ fun ChatScreen(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
         uris.forEach { uri ->
-            val name = getFileName(context, uri) ?: "attachment"
+            val name = getFileName(context, uri) ?: context.getString(R.string.attachment_default_name)
             val size = getFileSize(context, uri)
             val mimeType = context.contentResolver.getType(uri)
             viewModel.addPendingAttachment(
@@ -266,7 +266,7 @@ fun ChatScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = "Vibe80",
+                                    text = stringResource(R.string.app_name),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                                 if (!showWorktreeTabs) {
@@ -285,7 +285,7 @@ fun ChatScreen(
                                 }
                             }
                             Text(
-                                text = uiState.repoName.ifBlank { "Repository" },
+                                text = uiState.repoName.ifBlank { stringResource(R.string.repo_name_placeholder) },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -323,7 +323,7 @@ fun ChatScreen(
                         }) {
                             Icon(
                                 imageVector = Icons.Default.CompareArrows,
-                                contentDescription = stringResource(R.string.diff),
+                                contentDescription = stringResource(R.string.diff_title),
                                 tint = if (uiState.hasUncommittedChanges)
                                     MaterialTheme.colorScheme.primary
                                 else
@@ -336,7 +336,7 @@ fun ChatScreen(
                     IconButton(onClick = viewModel::showLogsSheet) {
                         Icon(
                             imageVector = Icons.Default.BugReport,
-                            contentDescription = "Logs"
+                            contentDescription = stringResource(R.string.logs_title_simple)
                         )
                     }
 
@@ -347,7 +347,7 @@ fun ChatScreen(
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Logout,
-                            contentDescription = "Déconnexion"
+                            contentDescription = stringResource(R.string.action_disconnect)
                         )
                     }
                 }
@@ -462,7 +462,7 @@ fun ChatScreen(
                                         strokeWidth = 2.dp
                                     )
                                     Text(
-                                        text = "En train de réfléchir...",
+                                        text = stringResource(R.string.chat_thinking),
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -530,7 +530,7 @@ fun ChatScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
-                                    contentDescription = "Ajouter"
+                                    contentDescription = stringResource(R.string.action_add)
                                 )
                             }
 
@@ -538,7 +538,7 @@ fun ChatScreen(
                                 value = uiState.inputText,
                                 onValueChange = viewModel::updateInputText,
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text(stringResource(R.string.message_hint)) },
+                                placeholder = { Text(stringResource(R.string.composer_message_placeholder)) },
                                 maxLines = 4,
                                 enabled = uiState.connectionState == ConnectionState.CONNECTED &&
                                         !uiState.processing &&
@@ -556,7 +556,7 @@ fun ChatScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
-                                    contentDescription = stringResource(R.string.send_message)
+                                    contentDescription = stringResource(R.string.action_send)
                                 )
                             }
                         }
@@ -578,12 +578,12 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Ajouter",
+                    text = stringResource(R.string.action_add),
                     style = MaterialTheme.typography.titleMedium
                 )
 
                     ListItem(
-                        headlineContent = { Text("Caméra") },
+                        headlineContent = { Text(stringResource(R.string.composer_camera)) },
                         leadingContent = {
                             Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null)
                         },
@@ -596,7 +596,7 @@ fun ChatScreen(
                     )
 
                     ListItem(
-                        headlineContent = { Text("Photos") },
+                        headlineContent = { Text(stringResource(R.string.composer_photos)) },
                         leadingContent = {
                             Icon(imageVector = Icons.Default.Image, contentDescription = null)
                         },
@@ -609,7 +609,7 @@ fun ChatScreen(
                     )
 
                     ListItem(
-                        headlineContent = { Text("Fichiers") },
+                        headlineContent = { Text(stringResource(R.string.composer_files)) },
                         leadingContent = {
                             Icon(imageVector = Icons.Default.AttachFile, contentDescription = null)
                         },
@@ -622,8 +622,8 @@ fun ChatScreen(
                 )
 
                 ListItem(
-                    headlineContent = { Text("Modèle") },
-                    supportingContent = { Text("Bientôt disponible") },
+                    headlineContent = { Text(stringResource(R.string.composer_model)) },
+                    supportingContent = { Text(stringResource(R.string.composer_model_unavailable)) },
                     leadingContent = {
                         Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null)
                     },
@@ -705,9 +705,9 @@ fun ChatScreen(
         uiState.worktrees[worktreeId]?.let { worktree ->
             AlertDialog(
                 onDismissRequest = viewModel::cancelCloseWorktree,
-                title = { Text("Fermer le worktree") },
+                title = { Text(stringResource(R.string.worktree_close)) },
                 text = {
-                    Text("Voulez-vous fermer le worktree \"${worktree.name}\" ? Les modifications non mergées seront perdues.")
+                    Text(stringResource(R.string.worktree_close_confirmation, worktree.name))
                 },
                 confirmButton = {
                     Button(
@@ -716,12 +716,12 @@ fun ChatScreen(
                             containerColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("Fermer")
+                        Text(stringResource(R.string.action_close))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = viewModel::cancelCloseWorktree) {
-                        Text("Annuler")
+                        Text(stringResource(R.string.action_cancel))
                     }
                 }
             )
@@ -763,7 +763,7 @@ private fun AttachmentChip(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Retirer",
+                    contentDescription = stringResource(R.string.action_remove),
                     modifier = Modifier.size(14.dp)
                 )
             }

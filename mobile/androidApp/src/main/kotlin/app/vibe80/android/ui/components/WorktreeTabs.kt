@@ -20,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import app.vibe80.android.R
 import app.vibe80.shared.models.Worktree
 import app.vibe80.shared.models.WorktreeStatus
 
@@ -131,7 +133,7 @@ private fun WorktreeTab(
             if (worktree.id != Worktree.MAIN_WORKTREE_ID) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Menu",
+                    contentDescription = stringResource(R.string.worktree_menu),
                     modifier = Modifier
                         .size(16.dp)
                         .clickable { onLongClick() },
@@ -187,7 +189,7 @@ private fun WorktreeStatusIndicator(
                 Badge(
                     containerColor = MaterialTheme.colorScheme.tertiary
                 ) {
-                    Text("done", style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.worktree_done), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -212,7 +214,7 @@ fun WorktreeMenuSheet(
                 .padding(16.dp)
         ) {
             Text(
-                text = "Worktree: ${worktree.name}",
+                text = stringResource(R.string.worktree_title, worktree.name),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -252,7 +254,7 @@ fun WorktreeMenuSheet(
                     onClick = onMerge,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Merge vers main")
+                    Text(stringResource(R.string.worktree_merge_to_main))
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -272,7 +274,7 @@ fun WorktreeMenuSheet(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Fermer le worktree")
+                Text(stringResource(R.string.worktree_close))
             }
 
             Spacer(modifier = Modifier.height(32.dp))

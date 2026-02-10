@@ -8,6 +8,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import app.vibe80.android.R
 
 /**
  * Represents a parsed vibe80:form block
@@ -324,7 +326,7 @@ fun Vibe80FormView(
             onClick = { onFormSubmit(formState.toMap()) },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Envoyer")
+            Text(stringResource(R.string.action_send))
         }
     }
 }
