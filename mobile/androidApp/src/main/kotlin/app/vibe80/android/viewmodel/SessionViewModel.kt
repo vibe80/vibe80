@@ -252,6 +252,7 @@ class SessionViewModel(
 
             result.fold(
                 onSuccess = {
+                    sessionRepository.listWorktrees()
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -309,6 +310,7 @@ class SessionViewModel(
             val result = sessionRepository.reconnectSession(sessionId)
             result.fold(
                 onSuccess = { state ->
+                    sessionRepository.listWorktrees()
                     sessionPreferences.saveSession(
                         sessionId = sessionId,
                         repoUrl = repoUrl ?: "",
@@ -802,6 +804,7 @@ class SessionViewModel(
                     val sessionState = sessionRepository
                         .reconnectSession(response.sessionId)
                         .getOrNull()
+                    sessionRepository.listWorktrees()
                     sessionPreferences.saveSession(
                         sessionId = response.sessionId,
                         repoUrl = sessionState?.repoUrl ?: "",
