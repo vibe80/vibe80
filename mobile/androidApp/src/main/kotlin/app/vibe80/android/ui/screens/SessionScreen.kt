@@ -267,10 +267,7 @@ private fun WorkspaceModeSelection(
     onResumeDesktop: () -> Unit
 ) {
     ScreenContainer {
-        BrandHeader(
-            title = stringResource(R.string.welcome_title),
-            subtitle = stringResource(R.string.welcome_subtitle)
-        )
+        BrandHeader(title = "")
 
         Button(
             onClick = onCreateWorkspace,
