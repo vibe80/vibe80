@@ -648,7 +648,7 @@ private fun JoinSessionScreen(
     onLeaveWorkspace: () -> Unit
 ) {
     ScreenContainer {
-        BrandHeader(title = stringResource(R.string.session_join_title))
+        BrandHeader(title = "")
 
         Button(
             onClick = onStartSession,
