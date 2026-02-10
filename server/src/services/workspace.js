@@ -645,6 +645,36 @@ const decodeBase64 = (value) => {
   }
 };
 
+const isObject = (value) => value != null && typeof value === "object" && !Array.isArray(value);
+
+const validateCodexAuthJson = (raw) => {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error("Invalid Codex auth.json payload.");
+  }
+  if (!isObject(parsed)) {
+    throw new Error("Invalid Codex auth.json payload.");
+  }
+  if (!Object.prototype.hasOwnProperty.call(parsed, "OPENAI_API_KEY")) {
+    throw new Error("Invalid Codex auth.json payload.");
+  }
+  if (!isObject(parsed.tokens)) {
+    throw new Error("Invalid Codex auth.json payload.");
+  }
+  const requiredTokenFields = ["id_token", "access_token", "refresh_token", "account_id"];
+  for (const field of requiredTokenFields) {
+    if (typeof parsed.tokens[field] !== "string" || !parsed.tokens[field]) {
+      throw new Error("Invalid Codex auth.json payload.");
+    }
+  }
+  if (typeof parsed.last_refresh !== "string" || !parsed.last_refresh) {
+    throw new Error("Invalid Codex auth.json payload.");
+  }
+  return parsed;
+};
+
 const writeWorkspaceProviderAuth = async (workspaceId, providers) => {
   const workspaceHome = getWorkspacePaths(workspaceId).homeDir;
   const authPaths = getWorkspaceAuthPaths(workspaceHome);
@@ -657,6 +687,7 @@ const writeWorkspaceProviderAuth = async (workspaceId, providers) => {
       await writeWorkspaceFile(workspaceId, authPaths.codexAuthPath, payload, 0o600);
     } else if (codexConfig.auth.type === "auth_json_b64") {
       const decoded = decodeBase64(codexConfig.auth.value);
+      validateCodexAuthJson(decoded);
       await writeWorkspaceFile(workspaceId, authPaths.codexAuthPath, decoded, 0o600);
     }
   }
