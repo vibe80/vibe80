@@ -1,2 +1,35 @@
 #!/bin/sh
-exit 0
+set -eu
+
+MSG_FILE="$1"
+COMMIT_SOURCE="${2-}"
+SHA1="${3-}"
+
+# Ne pas modifier les messages par défaut lors d'un merge ou d'un squash
+case "$COMMIT_SOURCE" in
+  merge|squash) exit 0 ;;
+esac
+
+# Récupération des valeurs depuis la config du worktree
+sessionId="$(git config --worktree --get vibe80.sessionId || true)"
+worktreeId="$(git config --worktree --get vibe80.worktreeId || true)"
+
+# Flag d’activation (stdout uniquement)
+includeMetadata="$(git config --get vibe80.includeCommitMetadata || true)"
+
+# Fonction: ajouter "Key: value" si absent
+add_if_missing() {
+  key="$1"
+  value="$2"
+  # Si déjà présent (même vide), on ne touche pas
+  if grep -q "^$key:" "$MSG_FILE"; then
+    return 0
+  fi
+
+  printf "\n%s: %s\n" "$key" "$value" >> "$MSG_FILE"
+}
+
+# Ajout conditionnel
+if [ "$includeMetadata" = "1" ]; then
+  add_if_missing "VIBE80-Tag" "${sessionId}/${worktreeId}"
+fi
