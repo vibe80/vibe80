@@ -11,6 +11,7 @@
   },
   "files": [
     "bin",
+    "git_hooks",
     "server",
     "client",
     "package.json",

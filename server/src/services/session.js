@@ -2,6 +2,7 @@ import path from "path";
 import os from "os";
 import fs from "fs";
 import multer from "multer";
+import { fileURLToPath } from "url";
 import {
   runAsCommand,
   runAsCommandOutput,
@@ -51,6 +52,10 @@ import {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const gitHooksDir = path.resolve(__dirname, "../../../git_hooks");
 
 const sessionGcIntervalMs =
   Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
@@ -503,6 +508,12 @@ export const createSession = async (
           { env }
         );
       }
+      await runAsCommand(
+        workspaceId,
+        "git",
+        ["-C", repoDir, "config", "core.hooksPath", gitHooksDir],
+        { env }
+      );
       await runAsCommand(
         workspaceId,
         "git",
