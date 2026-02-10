@@ -615,7 +615,7 @@ export default function useChatSocket({
               next.set(payload.worktreeId, {
                 ...wt,
                 messages: merged,
-                status: payload.status || wt.status,
+                status: payload.status ?? wt.status,
               });
             }
             return next;
@@ -1023,9 +1023,15 @@ export default function useChatSocket({
 
         if (payload.type === "worktree_status") {
           if (payload.worktreeId === "main") {
-            const nextStatus = payload.status || "ready";
+            if (!payload.status) {
+              return;
+            }
+            const nextStatus = payload.status;
             setProcessing(nextStatus === "processing");
             setActivity(nextStatus === "processing" ? t("Processing...") : "");
+            return;
+          }
+          if (!payload.status) {
             return;
           }
           setWorktrees((current) => {
