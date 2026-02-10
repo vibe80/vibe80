@@ -29,7 +29,7 @@ struct QrScanView: View {
                                 .foregroundColor(.vibe80Ink)
                         }
                         Spacer()
-                        Text("Scanner un QR code")
+                        Text("qr.scan.title")
                             .font(.headline)
                             .foregroundColor(.vibe80Ink)
                         Spacer()
@@ -41,7 +41,7 @@ struct QrScanView: View {
                     Spacer()
 
                     if viewModel.handoffBusy {
-                        ProgressView("Connexion en cours...")
+                        ProgressView("session.resuming")
                             .padding()
                             .background(Color.vibe80Surface)
                             .cornerRadius(16)
@@ -52,7 +52,7 @@ struct QrScanView: View {
                             Text(error)
                                 .foregroundColor(.red)
                                 .multilineTextAlignment(.center)
-                            Button("Recommencer") {
+                            Button("action.resume") {
                                 viewModel.handoffError = nil
                                 scanEnabled = true
                             }
@@ -70,10 +70,10 @@ struct QrScanView: View {
                     Image(systemName: "camera.fill")
                         .font(.system(size: 48))
                         .foregroundColor(.vibe80Accent)
-                    Text("L'accès à la caméra est requis pour scanner un QR code.")
+                    Text("qr.camera.permission")
                         .multilineTextAlignment(.center)
                         .foregroundColor(.vibe80Ink)
-                    Button("Autoriser la caméra") {
+                    Button("action.continue") {
                         requestCameraPermission()
                     }
                     .buttonStyle(.borderedProminent)

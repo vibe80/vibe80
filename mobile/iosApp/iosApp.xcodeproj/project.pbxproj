@@ -18,6 +18,7 @@
 		M5_009 /* BranchesSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_109 /* BranchesSheetView.swift */; };
 		M5_010 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_110 /* DiffSheetView.swift */; };
 		M5_011 /* WorktreeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_111 /* WorktreeViews.swift */; };
+		M5_012 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = M5_113 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,8 @@
 		M5_110 /* DiffSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffSheetView.swift; sourceTree = "<group>"; };
 		M5_111 /* WorktreeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeViews.swift; sourceTree = "<group>"; };
 		M5_112 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		M5_114 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		M5_115 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +64,7 @@
 				M5_101 /* Vibe80App.swift */,
 				M5_102 /* ContentView.swift */,
 				M5_112 /* Info.plist */,
+				M5_306 /* Resources */,
 				M5_303 /* Views */,
 				M5_304 /* ViewModels */,
 				M5_305 /* Components */,
@@ -104,6 +108,14 @@
 				M5_111 /* WorktreeViews.swift */,
 			);
 			path = Components;
+			sourceTree = "<group>";
+		};
+		M5_306 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				M5_113 /* Localizable.strings */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -165,6 +177,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				M5_012 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -190,6 +203,18 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		M5_113 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				M5_114 /* Localizable.strings */,
+				M5_115 /* Localizable.strings */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		M5_700 /* Debug */ = {

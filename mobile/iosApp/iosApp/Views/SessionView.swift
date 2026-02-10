@@ -49,23 +49,23 @@ struct SessionView: View {
         ScrollView {
             VStack(spacing: 20) {
                 vibe80Header(
-                    title: "Bienvenue dans Vibe80",
-                    subtitle: "Choisissez comment démarrer votre session."
+                    title: "welcome.title",
+                    subtitle: "welcome.subtitle"
                 )
 
-                Button("Créer un nouveau workspace") {
+                Button("workspace.create") {
                     viewModel.selectWorkspaceMode(.new)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.vibe80Accent)
 
-                Button("Rejoindre un workspace existant") {
+                Button("workspace.join") {
                     viewModel.selectWorkspaceMode(.existing)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.vibe80Accent)
 
-                Button("Reprendre une session desktop") {
+                Button("workspace.resume.desktop") {
                     viewModel.openQrScan()
                 }
                 .buttonStyle(.bordered)
@@ -79,15 +79,15 @@ struct SessionView: View {
         ScrollView {
             VStack(spacing: 20) {
                 backButton { viewModel.openWorkspaceModeSelection() }
-                vibe80Header(title: "Identifiants workspace")
+                vibe80Header(title: "workspace.credentials.title")
 
                 VStack(spacing: 12) {
                     Vibe80TextField(
-                        title: "Workspace ID",
+                        title: "workspace.id",
                         text: $viewModel.workspaceIdInput
                     )
                     Vibe80SecureField(
-                        title: "Workspace secret",
+                        title: "workspace.secret",
                         text: $viewModel.workspaceSecretInput,
                         isRevealed: $showWorkspaceSecret
                     )
@@ -99,7 +99,7 @@ struct SessionView: View {
                         .foregroundColor(.red)
                 }
 
-                Button(viewModel.workspaceBusy ? "Connexion..." : "Continuer") {
+                Button(viewModel.workspaceBusy ? "workspace.connecting" : "action.continue") {
                     viewModel.submitWorkspaceCredentials(appState: appState)
                 }
                 .buttonStyle(.borderedProminent)
@@ -120,17 +120,17 @@ struct SessionView: View {
                         viewModel.openWorkspaceModeSelection()
                     }
                 }
-                vibe80Header(title: "Configuration des providers IA")
+                vibe80Header(title: "providers.config.title")
 
-                providerCard(provider: "codex", title: "Codex", supportsAuthJson: true)
-                providerCard(provider: "claude", title: "Claude", supportsAuthJson: false)
+                providerCard(provider: "codex", title: "provider.codex", supportsAuthJson: true)
+                providerCard(provider: "claude", title: "provider.claude", supportsAuthJson: false)
 
                 if let error = viewModel.workspaceError {
                     Text(error)
                         .foregroundColor(.red)
                 }
 
-                Button(viewModel.workspaceBusy ? "Chargement..." : "Continuer") {
+                Button(viewModel.workspaceBusy ? "providers.config.loading" : "action.continue") {
                     viewModel.submitProviderConfig(appState: appState)
                 }
                 .buttonStyle(.borderedProminent)
@@ -145,18 +145,18 @@ struct SessionView: View {
         ScrollView {
             VStack(spacing: 20) {
                 vibe80Header(
-                    title: "Workspace créé",
-                    subtitle: "Conservez ces identifiants pour vos prochaines connexions."
+                    title: "workspace.created.title",
+                    subtitle: "workspace.created.subtitle"
                 )
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Workspace ID")
+                    Text("workspace.id")
                         .font(.caption)
                         .foregroundColor(.vibe80InkMuted)
                     Text(viewModel.workspaceCreatedId ?? "-")
                         .font(.body)
 
-                    Text("Workspace secret")
+                    Text("workspace.secret")
                         .font(.caption)
                         .foregroundColor(.vibe80InkMuted)
                     Text(viewModel.workspaceCreatedSecret ?? "-")
@@ -164,7 +164,7 @@ struct SessionView: View {
                 }
                 .vibe80CardStyle()
 
-                Button("Continuer") {
+                Button("action.continue") {
                     viewModel.continueFromWorkspaceCreated()
                 }
                 .buttonStyle(.borderedProminent)
@@ -177,37 +177,37 @@ struct SessionView: View {
     private var joinSession: some View {
         ScrollView {
             VStack(spacing: 20) {
-                vibe80Header(title: "Rejoindre une session")
+                vibe80Header(title: "session.join.title")
 
-                Button("Démarrer une nouvelle session") {
+                Button("session.start.new") {
                     viewModel.openStartSession()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.vibe80Accent)
 
-                Button("Reconfigurer les providers IA") {
+                Button("providers.reconfigure") {
                     viewModel.openProviderConfigForUpdate()
                 }
                 .buttonStyle(.bordered)
                 .tint(.vibe80AccentDark)
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Sessions récentes")
+                    Text("sessions.recent")
                         .font(.headline)
                     if viewModel.hasSavedSession {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text(viewModel.savedSessionRepoUrl.isEmpty ? "Session sauvegardée" : viewModel.savedSessionRepoUrl)
+                            Text(viewModel.savedSessionRepoUrl.isEmpty ? "session.saved.placeholder" : viewModel.savedSessionRepoUrl)
                                 .font(.subheadline)
                                 .foregroundColor(.vibe80Ink)
                             HStack(spacing: 12) {
-                                Button(viewModel.loadingState == .resuming ? "Reprise..." : "Reprendre") {
+                                Button(viewModel.loadingState == .resuming ? "action.resume.progress" : "action.resume") {
                                     viewModel.resumeSession(appState: appState)
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .tint(.vibe80Accent)
                                 .disabled(viewModel.isLoading)
 
-                                Button("Supprimer") {
+                                Button("action.delete") {
                                     viewModel.clearSavedSession()
                                 }
                                 .buttonStyle(.bordered)
@@ -216,7 +216,7 @@ struct SessionView: View {
                         }
                         .vibe80CardStyle()
                     } else {
-                        Text("Aucune session sauvegardée pour le moment.")
+                        Text("session.saved.empty")
                             .foregroundColor(.vibe80InkMuted)
                     }
                 }
@@ -234,31 +234,31 @@ struct SessionView: View {
         ScrollView {
             VStack(spacing: 20) {
                 backButton { viewModel.backToJoinSession() }
-                vibe80Header(title: "Démarrer une session")
+                vibe80Header(title: "session.start.title")
 
                 VStack(spacing: 12) {
-                    Vibe80TextField(title: "Repository URL", text: $viewModel.repoUrl)
+                    Vibe80TextField(title: "repo.url.label", text: $viewModel.repoUrl)
                 }
                 .vibe80CardStyle()
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Authentification")
+                    Text("auth.title")
                         .font(.headline)
-                    Picker("Auth", selection: $viewModel.authMethod) {
-                        Text("Aucune").tag(AuthMethod.none)
-                        Text("HTTP").tag(AuthMethod.http)
-                        Text("SSH").tag(AuthMethod.ssh)
+                    Picker("auth.method.label", selection: $viewModel.authMethod) {
+                        Text("auth.none").tag(AuthMethod.none)
+                        Text("auth.http").tag(AuthMethod.http)
+                        Text("auth.ssh").tag(AuthMethod.ssh)
                     }
                     .pickerStyle(.segmented)
 
                     if viewModel.authMethod == .ssh {
-                        Vibe80TextEditor(title: "Clé SSH privée", text: $viewModel.sshKey)
+                        Vibe80TextEditor(title: "auth.ssh.key", text: $viewModel.sshKey)
                     }
 
                     if viewModel.authMethod == .http {
-                        Vibe80TextField(title: "Nom d'utilisateur", text: $viewModel.httpUser)
+                        Vibe80TextField(title: "auth.http.username", text: $viewModel.httpUser)
                         Vibe80SecureField(
-                            title: "Mot de passe / Token",
+                            title: "auth.http.password",
                             text: $viewModel.httpPassword,
                             isRevealed: $showHttpPassword
                         )
@@ -271,7 +271,7 @@ struct SessionView: View {
                         .foregroundColor(.red)
                 }
 
-                Button(viewModel.isLoading ? "Chargement..." : "Continuer") {
+                Button(viewModel.isLoading ? "session.start.loading" : "action.continue") {
                     viewModel.createSession(appState: appState)
                 }
                 .buttonStyle(.borderedProminent)
@@ -297,22 +297,22 @@ struct SessionView: View {
                     get: { state.authType },
                     set: { viewModel.updateProviderAuthType(provider, authType: $0) }
                 )) {
-                    Text("API key").tag(ProviderAuthType.apiKey)
+                    Text("provider.auth.api_key").tag(ProviderAuthType.apiKey)
                     if supportsAuthJson {
-                        Text("auth_json_b64").tag(ProviderAuthType.authJsonB64)
+                        Text("provider.auth.auth_json_b64").tag(ProviderAuthType.authJsonB64)
                     }
-                    Text("setup_token").tag(ProviderAuthType.setupToken)
+                    Text("provider.auth.setup_token").tag(ProviderAuthType.setupToken)
                 }
                 .pickerStyle(.segmented)
 
                 if state.authType == .authJsonB64 && supportsAuthJson {
-                    Button("Importer auth.json") {
+                    Button("provider.auth.import_auth_json") {
                         showAuthJsonPicker = true
                     }
                     .buttonStyle(.bordered)
                     .tint(.vibe80AccentDark)
                     Vibe80TextEditor(
-                        title: "auth.json",
+                        title: "provider.auth.auth_json_label",
                         text: Binding(
                             get: { state.authValue },
                             set: { viewModel.updateProviderAuthValue(provider, authValue: $0) }
@@ -320,7 +320,9 @@ struct SessionView: View {
                     )
                 } else {
                     Vibe80SecureField(
-                        title: state.authType == .setupToken ? "Setup token" : "Clé API",
+                        title: state.authType == .setupToken
+                            ? "provider.auth.setup_token_label"
+                            : "provider.auth.api_key_label",
                         text: Binding(
                             get: { state.authValue },
                             set: { viewModel.updateProviderAuthValue(provider, authValue: $0) }
@@ -335,7 +337,7 @@ struct SessionView: View {
 
     private func vibe80Header(title: String, subtitle: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Vibe80")
+            Text("app.name")
                 .font(.title)
                 .fontWeight(.bold)
                 .foregroundColor(.vibe80Ink)
@@ -353,7 +355,7 @@ struct SessionView: View {
 
     private func backButton(action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label("Retour", systemImage: "chevron.left")
+            Label("action.back", systemImage: "chevron.left")
                 .foregroundColor(.vibe80Ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

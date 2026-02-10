@@ -81,7 +81,7 @@ struct WorktreeTab: View {
                 Button {
                     onLongPress()
                 } label: {
-                    Label("Options", systemImage: "ellipsis.circle")
+                    Label("worktree.options", systemImage: "ellipsis.circle")
                 }
             }
         }
@@ -152,7 +152,7 @@ struct WorktreeMenuView: View {
                 VStack(spacing: 12) {
                     if worktree.status == .ready || worktree.status == .completed {
                         Button(action: onMerge) {
-                            Label("Merge vers main", systemImage: "arrow.triangle.merge")
+                            Label("worktree.merge_to_main", systemImage: "arrow.triangle.merge")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -161,7 +161,7 @@ struct WorktreeMenuView: View {
                     Button(role: .destructive) {
                         showCloseConfirm = true
                     } label: {
-                        Label("Fermer le worktree", systemImage: "xmark.circle")
+                        Label("worktree.close", systemImage: "xmark.circle")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -182,13 +182,13 @@ struct WorktreeMenuView: View {
                     }
                 }
             }
-            .alert("Fermer le worktree ?", isPresented: $showCloseConfirm) {
-                Button("Annuler", role: .cancel) {}
-                Button("Fermer", role: .destructive) {
+            .alert("worktree.close.title", isPresented: $showCloseConfirm) {
+                Button("action.cancel", role: .cancel) {}
+                Button("action.close", role: .destructive) {
                     onClose()
                 }
             } message: {
-                Text("Les modifications non mergées seront perdues.")
+                Text("worktree.close.warning")
             }
         }
     }
@@ -211,21 +211,21 @@ struct CreateWorktreeSheetView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Nom") {
-                    TextField("feature-name", text: $name)
+                Section("worktree.name.label") {
+                    TextField("worktree.name.placeholder", text: $name)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                 }
 
-                Section("Provider") {
-                    Picker("Provider", selection: $selectedProvider) {
-                        Text("Codex").tag(LLMProvider.codex)
-                        Text("Claude").tag(LLMProvider.claude)
+                Section("provider.label") {
+                    Picker("provider.label", selection: $selectedProvider) {
+                        Text("provider.codex").tag(LLMProvider.codex)
+                        Text("provider.claude").tag(LLMProvider.claude)
                     }
                     .pickerStyle(.segmented)
                 }
 
-                Section("Couleur") {
+                Section("worktree.color.label") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(Worktree.companion.COLORS, id: \.self) { color in
@@ -235,26 +235,26 @@ struct CreateWorktreeSheetView: View {
                     }
                 }
 
-                Section("Branche source") {
-                    Picker("Branche", selection: $selectedBranch) {
-                        Text("Branche courante").tag(nil as String?)
+                Section("worktree.source_branch.label") {
+                    Picker("worktree.branch.label", selection: $selectedBranch) {
+                        Text("branch.current").tag(nil as String?)
                         ForEach(branches, id: \.self) { branch in
                             Text(branch).tag(branch as String?)
                         }
                     }
                 }
             }
-            .navigationTitle("Nouveau Worktree")
+            .navigationTitle("worktree.new.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Annuler") {
+                    Button("action.cancel") {
                         dismiss()
                     }
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Créer") {
+                    Button("action.create") {
                         onCreate(name, selectedProvider, selectedBranch)
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).count < 2)
@@ -320,7 +320,7 @@ struct ProviderSheetView: View {
                     }
                 }
             }
-            .navigationTitle("Provider")
+            .navigationTitle("provider.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

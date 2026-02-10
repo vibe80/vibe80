@@ -20,7 +20,7 @@ struct BranchesSheetView: View {
                                 .foregroundColor(.green)
 
                             VStack(alignment: .leading) {
-                                Text("Branche actuelle")
+                                Text("branch.current")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Text(current)
@@ -32,7 +32,7 @@ struct BranchesSheetView: View {
                 }
 
                 // Available branches
-                Section("Branches disponibles") {
+                Section("branches.available") {
                     ForEach(branches, id: \.self) { branch in
                         Button {
                             if branch != currentBranch {
@@ -58,7 +58,7 @@ struct BranchesSheetView: View {
                     }
                 }
             }
-            .navigationTitle("Branches")
+            .navigationTitle("branches.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -77,7 +77,7 @@ struct BranchesSheetView: View {
                         if isFetching {
                             ProgressView()
                         } else {
-                            Label("Fetch", systemImage: "arrow.clockwise")
+                            Label("branches.fetch", systemImage: "arrow.clockwise")
                         }
                     }
                     .disabled(isFetching)

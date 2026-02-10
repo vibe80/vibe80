@@ -64,7 +64,7 @@ struct MessageRow: View {
             Button {
                 UIPasteboard.general.string = displayText
             } label: {
-                Label("Copier", systemImage: "doc.on.doc")
+                Label("action.copy", systemImage: "doc.on.doc")
             }
         }
     }
