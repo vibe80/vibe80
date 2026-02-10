@@ -17,7 +17,11 @@ import {
   getSessionTmpDir,
 } from "../helpers.js";
 import { debugApiWsLog } from "../middleware/debug.js";
-import { DEFAULT_GIT_AUTHOR_NAME, DEFAULT_GIT_AUTHOR_EMAIL } from "../config.js";
+import {
+  DEFAULT_GIT_AUTHOR_NAME,
+  DEFAULT_GIT_AUTHOR_EMAIL,
+  GIT_HOOKS_DIR,
+} from "../config.js";
 import {
   getWorkspacePaths,
   getWorkspaceSshPaths,
@@ -55,7 +59,6 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const gitHooksDir = path.resolve(__dirname, "../../../git_hooks");
 
 const sessionGcIntervalMs =
   Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
@@ -511,7 +514,7 @@ export const createSession = async (
       await runAsCommand(
         workspaceId,
         "git",
-        ["-C", repoDir, "config", "core.hooksPath", gitHooksDir],
+        ["-C", repoDir, "config", "core.hooksPath", GIT_HOOKS_DIR],
         { env }
       );
       await runAsCommand(

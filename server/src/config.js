@@ -1,3 +1,9 @@
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export const SYSTEM_PROMPT =
   process.env.SYSTEM_PROMPT ||
   "output markdown format for inline generated text;" +
@@ -16,3 +22,6 @@ export const DEFAULT_GIT_AUTHOR_NAME =
   process.env.DEFAULT_GIT_AUTHOR_NAME || "Vibe80 agent";
 export const DEFAULT_GIT_AUTHOR_EMAIL =
   process.env.DEFAULT_GIT_AUTHOR_EMAIL || "vibe80@example.org";
+
+export const GIT_HOOKS_DIR = process.env.VIBE80_GIT_HOOKS_DIR
+  || path.resolve(__dirname, "../../git_hooks");

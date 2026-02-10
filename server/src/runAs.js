@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import os from "os";
 import path from "path";
+import { GIT_HOOKS_DIR } from "./config.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
@@ -22,6 +23,7 @@ export const DEFAULT_ALLOW_RO = [
   "/lib64",
   "/usr",
   "/proc",
+  GIT_HOOKS_DIR,
 ];
 export const DEFAULT_ALLOW_RW = [
   "/dev",
