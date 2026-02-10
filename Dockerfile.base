@@ -61,3 +61,5 @@ RUN useradd -m -d /var/lib/vibe80 -s /bin/bash vibe80 \
     && chown -R vibe80:vibe80 /var/lib/vibe80 \
     && chmod 0755 /usr/local/bin/vibe80-root /usr/local/bin/vibe80-run-as \
     && chmod 0440 /etc/sudoers.d/vibe80
+
+RUN printf '\nexport PS1="\\[\\e[32m\\]\\u@\\h\\[\\e[0m\\]:\\[\\e[34m\\]\\w\\[\\e[0m\\]\\$ "\n' >> /etc/bash.bashrc
