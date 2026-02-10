@@ -648,12 +648,6 @@ private fun JoinSessionScreen(
     onLeaveWorkspace: () -> Unit
 ) {
     ScreenContainer {
-        TextButton(onClick = onLeaveWorkspace) {
-            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.workspace_leave))
-        }
-
         BrandHeader(title = stringResource(R.string.session_join_title))
 
         Button(
@@ -670,6 +664,15 @@ private fun JoinSessionScreen(
             Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.providers_reconfigure))
+        }
+
+        OutlinedButton(
+            onClick = onLeaveWorkspace,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(R.string.workspace_leave))
         }
 
         Row(
