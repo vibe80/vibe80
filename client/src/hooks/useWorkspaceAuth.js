@@ -310,10 +310,6 @@ export default function useWorkspaceAuth({
     setWorkspaceSessionsError("");
     try {
       const response = await apiFetch("/api/sessions");
-      if (response.status === 401) {
-        handleLeaveWorkspace();
-        return;
-      }
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error || t("Unable to load sessions."));
@@ -348,10 +344,6 @@ export default function useWorkspaceAuth({
       const response = await apiFetch(
         `/api/workspaces/${encodeURIComponent(activeWorkspaceId)}`
       );
-      if (response.status === 401) {
-        handleLeaveWorkspace();
-        return;
-      }
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error || t("Unable to load providers."));

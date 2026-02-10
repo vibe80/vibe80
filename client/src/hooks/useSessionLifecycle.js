@@ -45,10 +45,6 @@ export default function useSessionLifecycle({
         const response = await apiFetch(
           `/api/sessions/${encodeURIComponent(sessionId)}`
         );
-        if (response.status === 401) {
-          handleLeaveWorkspace();
-          return;
-        }
         if (!response.ok) {
           throw new Error(t("Session not found."));
         }
