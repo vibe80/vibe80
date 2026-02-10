@@ -1365,10 +1365,33 @@ setInterval(() => {
         if (!worktreeId) {
           return;
         }
+        let status = worktree?.status;
+        if (worktree?.provider === "codex") {
+          const runtimeClient = worktreeId === "main"
+            ? runtime?.clients?.codex
+            : runtime?.worktreeClients?.get?.(worktreeId);
+          if (runtimeClient?.getStatus) {
+            const runtimeStatus = runtimeClient.getStatus();
+            if (runtimeStatus === "busy") {
+              status = "processing";
+            } else if (
+              runtimeStatus === "starting" ||
+              runtimeStatus === "restarting" ||
+              runtimeStatus === "stopping"
+            ) {
+              status = "processing";
+            } else if (runtimeStatus === "idle") {
+              status = "ready";
+            }
+          }
+        }
+        if (!status) {
+          return;
+        }
         broadcastToSession(sessionId, {
           type: "worktree_status",
           worktreeId,
-          status: worktree?.status || "ready",
+          status,
           error: worktree?.error || null,
         });
       });
