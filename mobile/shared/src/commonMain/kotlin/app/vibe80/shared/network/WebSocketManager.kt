@@ -136,7 +136,6 @@ class WebSocketManager(
                                 is PingMessage -> "ping" to json.encodeToString(PingMessage.serializer(), message)
                                 is AuthMessage -> "auth" to json.encodeToString(AuthMessage.serializer(), message)
                                 is WakeUpRequest -> "wake_up" to json.encodeToString(WakeUpRequest.serializer(), message)
-                                is SendMessageRequest -> "user_message" to json.encodeToString(SendMessageRequest.serializer(), message)
                                 is SwitchProviderRequest -> "switch_provider" to json.encodeToString(SwitchProviderRequest.serializer(), message)
                                 is WorktreeMessageRequest -> "worktree_send_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
                                 is SyncWorktreeMessagesRequest -> "worktree_messages_sync" to json.encodeToString(SyncWorktreeMessagesRequest.serializer(), message)
@@ -333,7 +332,11 @@ class WebSocketManager(
     }
 
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
-        send(SendMessageRequest(text = text, attachments = attachments))
+        send(WorktreeMessageRequest(
+            worktreeId = "main",
+            text = text,
+            attachments = attachments
+        ))
     }
 
     suspend fun switchProvider(provider: String) {

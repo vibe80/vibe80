@@ -710,49 +710,6 @@ wss.on("connection", (socket, req) => {
 
       // ============== End Worktree WebSocket Handlers ==============
 
-      if (payload.type === "user_message") {
-        const client = getActiveClient(session);
-        if (!client?.ready) {
-          socket.send(
-            JSON.stringify({
-              type: "error",
-              message: `${getProviderLabel(session)} not ready yet.`,
-            })
-          );
-          return;
-        }
-
-        try {
-          const provider = session.activeProvider;
-          const result = await client.sendTurn(payload.text);
-          await appendMainMessage(session, {
-            id: createMessageId(),
-            role: "user",
-            text: payload.displayText || payload.text,
-            attachments: Array.isArray(payload.attachments)
-              ? payload.attachments
-              : [],
-            provider,
-          });
-          socket.send(
-            JSON.stringify({
-              type: "turn_started",
-              turnId: result.turn.id,
-              threadId: client.threadId,
-              provider,
-              status: "processing",
-            })
-          );
-        } catch (error) {
-          socket.send(
-            JSON.stringify({
-              type: "error",
-              message: error.message || "Failed to send message.",
-            })
-          );
-        }
-      }
-
       if (payload.type === "turn_interrupt") {
         const worktreeId = payload.worktreeId;
         const client = worktreeId

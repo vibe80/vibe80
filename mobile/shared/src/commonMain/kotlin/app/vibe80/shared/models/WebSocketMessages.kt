@@ -408,13 +408,6 @@ data class WakeUpRequest(
 ) : ClientMessage()
 
 @Serializable
-data class SendMessageRequest(
-    override val type: String = "user_message",
-    val text: String,
-    val attachments: List<Attachment> = emptyList()
-) : ClientMessage()
-
-@Serializable
 data class SwitchProviderRequest(
     override val type: String = "switch_provider",
     val provider: String
