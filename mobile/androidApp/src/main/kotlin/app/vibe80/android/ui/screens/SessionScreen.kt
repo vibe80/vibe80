@@ -659,19 +659,13 @@ private fun JoinSessionScreen(
     onLeaveWorkspace: () -> Unit
 ) {
     ScreenContainer {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            BrandHeader(title = "Rejoindre une session")
-            IconButton(onClick = onLeaveWorkspace) {
-                Icon(
-                    imageVector = Icons.Default.Logout,
-                    contentDescription = "Quitter le workspace"
-                )
-            }
+        TextButton(onClick = onLeaveWorkspace) {
+            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Quitter le workspace")
         }
+
+        BrandHeader(title = "Rejoindre une session")
 
         Button(
             onClick = onStartSession,
