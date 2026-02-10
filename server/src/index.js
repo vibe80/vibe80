@@ -7,7 +7,11 @@ import { WebSocketServer } from "ws";
 import * as pty from "node-pty";
 import rateLimit from "express-rate-limit";
 import storage from "./storage/index.js";
-import { getSessionRuntime, listSessionRuntimes } from "./runtimeStore.js";
+import {
+  getSessionRuntime,
+  listSessionRuntimes,
+  listSessionRuntimeEntries,
+} from "./runtimeStore.js";
 import {
   buildSandboxArgs,
   runAsCommand,
@@ -21,6 +25,7 @@ import {
 import {
   listStoredWorktrees,
   getWorktree,
+  getMainWorktreeStorageId,
   updateWorktreeStatus,
   appendWorktreeMessage,
 } from "./worktreeManager.js";
@@ -109,6 +114,7 @@ const codexIdleGcIntervalSeconds = Number.parseInt(
   process.env.CODEX_IDLE_GC_INTERVAL_SECONDS || "60",
   10
 );
+const worktreeStatusIntervalMs = 10 * 1000;
 const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : null;
 
 const deploymentMode = process.env.DEPLOYMENT_MODE;
@@ -1334,6 +1340,43 @@ if (Number.isFinite(codexIdleGcIntervalSeconds) && codexIdleGcIntervalSeconds > 
     }
   }, codexIdleGcIntervalSeconds * 1000);
 }
+
+setInterval(() => {
+  void (async () => {
+    for (const [sessionId, runtime] of listSessionRuntimeEntries()) {
+      if (!runtime?.sockets || runtime.sockets.size === 0) {
+        continue;
+      }
+      const session = await getSession(sessionId);
+      if (!session) {
+        continue;
+      }
+      const mainStorageId = getMainWorktreeStorageId(session.sessionId);
+      let worktrees = await listStoredWorktrees(session);
+      if (!worktrees.some((wt) => wt?.id === mainStorageId)) {
+        const mainWorktree = await getWorktree(session, "main");
+        if (mainWorktree) {
+          worktrees = [...worktrees, mainWorktree];
+        }
+      }
+      worktrees.forEach((worktree) => {
+        const worktreeId =
+          worktree?.id === mainStorageId ? "main" : worktree?.id;
+        if (!worktreeId) {
+          return;
+        }
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId,
+          status: worktree?.status || "ready",
+          error: worktree?.error || null,
+        });
+      });
+    }
+  })().catch((error) => {
+    console.error("Worktree status heartbeat failed:", error?.message || error);
+  });
+}, worktreeStatusIntervalMs);
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
