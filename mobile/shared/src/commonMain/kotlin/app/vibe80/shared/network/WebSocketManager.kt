@@ -354,6 +354,10 @@ class WebSocketManager(
         ))
     }
 
+    suspend fun syncWorktreeMessages(worktreeId: String, lastSeenMessageId: String? = null) {
+        send(SyncWorktreeMessagesRequest(worktreeId = worktreeId, lastSeenMessageId = lastSeenMessageId))
+    }
+
     suspend fun wakeUpWorktree(worktreeId: String) {
         send(WakeUpRequest(worktreeId = worktreeId))
     }

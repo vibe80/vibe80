@@ -642,6 +642,8 @@ class SessionRepository(
         scope.launch {
             if (worktreeId != Worktree.MAIN_WORKTREE_ID) {
                 webSocketManager.wakeUpWorktree(worktreeId)
+                val lastSeen = _worktreeMessages.value[worktreeId]?.lastOrNull()?.id
+                webSocketManager.syncWorktreeMessages(worktreeId, lastSeenMessageId = lastSeen)
             }
             apiClient.getWorktree(sessionId, worktreeId).onSuccess { snapshot ->
                 if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
