@@ -86,7 +86,7 @@ const applyVibe80WorktreeMetadata = async (session, worktreePath, worktreeId) =>
   await runSessionCommand(
     session,
     "git",
-    ["-C", worktreePath, "config", "--worktree", "vibe80.worktreeid", worktreeId]
+    ["-C", worktreePath, "config", "--worktree", "vibe80.worktreeId", worktreeId]
   );
 };
 
