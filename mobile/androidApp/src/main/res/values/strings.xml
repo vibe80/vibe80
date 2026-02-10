@@ -96,6 +96,7 @@
     <string name="provider_auth_api_key_label">Clé API</string>
     <string name="provider_auth_auth_json_b64">auth_json_b64</string>
     <string name="provider_auth_auth_json_label">auth.json</string>
+    <string name="provider_auth_auth_json_file">auth.json file</string>
     <string name="provider_auth_import_auth_json">Importer auth.json</string>
     <string name="provider_auth_setup_token">setup_token</string>
     <string name="provider_auth_setup_token_label">Setup token</string>
