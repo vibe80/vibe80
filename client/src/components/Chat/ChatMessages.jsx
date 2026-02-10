@@ -599,6 +599,7 @@ export default function ChatMessages({
                                               choiceIndex
                                             )
                                           }
+                                          disabled={currentProcessing}
                                           className={`choice-button ${
                                             isSelected
                                               ? "is-selected"
