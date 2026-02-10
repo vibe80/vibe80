@@ -471,6 +471,13 @@ private fun ProviderSection(
     onUpdateAuthValue: (String) -> Unit,
     onPickAuthJson: (() -> Unit)?
 ) {
+    val isClaude = title.lowercase() == "claude"
+    val isCodex = title.lowercase() == "codex"
+    val effectiveAuthType = if (isClaude && authType == ProviderAuthType.AUTH_JSON_B64) {
+        ProviderAuthType.API_KEY
+    } else {
+        authType
+    }
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.large,
@@ -492,20 +499,22 @@ private fun ProviderSection(
             if (enabled) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
-                        selected = authType == ProviderAuthType.API_KEY,
+                        selected = effectiveAuthType == ProviderAuthType.API_KEY,
                         onClick = { onUpdateAuthType(ProviderAuthType.API_KEY) },
                         label = { Text("API key") },
                         enabled = !workspaceBusy
                     )
-                    FilterChip(
-                        selected = authType == ProviderAuthType.AUTH_JSON_B64,
-                        onClick = { onUpdateAuthType(ProviderAuthType.AUTH_JSON_B64) },
-                        label = { Text("auth_json_b64") },
-                        enabled = !workspaceBusy
-                    )
-                    if (title.lowercase() == "claude") {
+                    if (isCodex) {
                         FilterChip(
-                            selected = authType == ProviderAuthType.SETUP_TOKEN,
+                            selected = effectiveAuthType == ProviderAuthType.AUTH_JSON_B64,
+                            onClick = { onUpdateAuthType(ProviderAuthType.AUTH_JSON_B64) },
+                            label = { Text("auth.json file") },
+                            enabled = !workspaceBusy
+                        )
+                    }
+                    if (isClaude) {
+                        FilterChip(
+                            selected = effectiveAuthType == ProviderAuthType.SETUP_TOKEN,
                             onClick = { onUpdateAuthType(ProviderAuthType.SETUP_TOKEN) },
                             label = { Text("setup_token") },
                             enabled = !workspaceBusy
@@ -513,7 +522,7 @@ private fun ProviderSection(
                     }
                 }
 
-                if (authType == ProviderAuthType.AUTH_JSON_B64) {
+                if (effectiveAuthType == ProviderAuthType.AUTH_JSON_B64) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -550,25 +559,13 @@ private fun ProviderSection(
                             }
                         }
                     }
-
-                    OutlinedTextField(
-                        value = authValue,
-                        onValueChange = onUpdateAuthValue,
-                        label = { Text("auth.json") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 4,
-                        maxLines = 6,
-                        singleLine = false,
-                        visualTransformation = VisualTransformation.None,
-                        enabled = !workspaceBusy
-                    )
                 } else {
                     OutlinedTextField(
                         value = authValue,
                         onValueChange = onUpdateAuthValue,
                         label = {
                             Text(
-                                when (authType) {
+                                when (effectiveAuthType) {
                                     ProviderAuthType.API_KEY -> "Clé API"
                                     ProviderAuthType.SETUP_TOKEN -> "Setup token"
                                     ProviderAuthType.AUTH_JSON_B64 -> "auth.json"
