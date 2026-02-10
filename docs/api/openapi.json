@@ -1179,6 +1179,51 @@
             "$ref": "#/components/responses/NotFound"
           }
         }
+      },
+      "post": {
+        "summary": "Create worktree message",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorktreeMessageCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Worktree message created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorktreeMessageCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
       }
     },
     "/api/sessions/{sessionId}/backlog-items": {
@@ -2980,6 +3025,57 @@
           "sessionId"
         ],
         "additionalProperties": true
+      },
+      "WorktreeMessageCreateRequest": {
+        "type": "object",
+        "required": [
+          "role",
+          "text"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          }
+        }
+      },
+      "WorktreeMessageCreateResponse": {
+        "type": "object",
+        "required": [
+          "messageId",
+          "turnId",
+          "threadId",
+          "provider",
+          "worktreeId"
+        ],
+        "properties": {
+          "messageId": {
+            "type": "string"
+          },
+          "turnId": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "worktreeId": {
+            "type": "string"
+          }
+        }
       }
     },
     "securitySchemes": {
