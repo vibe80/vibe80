@@ -3240,6 +3240,18 @@ main.chat {
   box-shadow: 0 8px 16px rgba(20, 19, 17, 0.08);
 }
 
+.choice-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+  transform: none;
+}
+
+.choice-button:disabled:hover {
+  box-shadow: none;
+  transform: none;
+}
+
 .choice-button.is-selected {
   border-color: rgba(20, 19, 17, 0.45);
   background: rgba(20, 19, 17, 0.08);
@@ -3445,6 +3457,12 @@ main.chat {
 .vibe80-form-submit {
   background: var(--accent);
   color: white;
+}
+
+.vibe80-form-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  filter: grayscale(0.2);
 }
 
 .worktree-close-confirm-overlay {

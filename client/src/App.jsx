@@ -2536,7 +2536,11 @@ function App() {
                 >
                   {t("Cancel")}
                 </button>
-                <button type="submit" className="vibe80-form-submit">
+                <button
+                  type="submit"
+                  className="vibe80-form-submit"
+                  disabled={currentProcessing}
+                >
                   {t("Send")}
                 </button>
               </div>
