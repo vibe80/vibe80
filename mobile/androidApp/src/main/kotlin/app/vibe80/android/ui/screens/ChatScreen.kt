@@ -72,6 +72,7 @@ import java.util.Locale
 @Composable
 fun ChatScreen(
     sessionId: String,
+    initialWorktreeId: String? = null,
     onDisconnect: () -> Unit,
     viewModel: ChatViewModel = koinViewModel()
 ) {
@@ -85,6 +86,10 @@ fun ChatScreen(
         viewModel.workspaceAuthInvalidEvent.collect {
             onDisconnect()
         }
+    }
+
+    LaunchedEffect(sessionId, initialWorktreeId) {
+        viewModel.ensureSession(sessionId, initialWorktreeId)
     }
 
     // Show error snackbar when error occurs

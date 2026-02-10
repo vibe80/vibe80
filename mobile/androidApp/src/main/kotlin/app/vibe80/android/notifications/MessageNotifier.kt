@@ -43,11 +43,13 @@ class MessageNotifier(private val context: Context) {
         }
     }
 
-    fun notifyMessage(title: String, body: String) {
+    fun notifyMessage(title: String, body: String, sessionId: String?, worktreeId: String?) {
         if (body.isBlank() || !canNotify()) return
 
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_SESSION_ID, sessionId)
+            putExtra(EXTRA_WORKTREE_ID, worktreeId)
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -72,5 +74,7 @@ class MessageNotifier(private val context: Context) {
         const val CHANNEL_ID = "llm_messages"
         private const val CHANNEL_NAME = "Messages"
         private const val CHANNEL_DESCRIPTION = "Notifications quand un message arrive"
+        const val EXTRA_SESSION_ID = "app.vibe80.extra.SESSION_ID"
+        const val EXTRA_WORKTREE_ID = "app.vibe80.extra.WORKTREE_ID"
     }
 }

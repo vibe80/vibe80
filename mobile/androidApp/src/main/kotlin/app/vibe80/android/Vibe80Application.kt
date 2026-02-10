@@ -85,7 +85,12 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
                 val assistant = messages.lastOrNull { it.role == MessageRole.ASSISTANT }
                 if (assistant != null && assistant.id != lastNotifiedId) {
                     lastNotifiedId = assistant.id
-                    maybeNotify("Nouveau message", assistant.text)
+                    maybeNotify(
+                        title = "Nouveau message",
+                        body = assistant.text,
+                        sessionId = sessionRepository.sessionState.value?.sessionId,
+                        worktreeId = null
+                    )
                 }
             }
         }
@@ -104,16 +109,21 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
                         } else {
                             "Nouveau message ($worktreeName)"
                         }
-                        maybeNotify(title, assistant.text)
+                        maybeNotify(
+                            title = title,
+                            body = assistant.text,
+                            sessionId = sessionRepository.sessionState.value?.sessionId,
+                            worktreeId = worktreeId
+                        )
                     }
                 }
             }
         }
     }
 
-    private fun maybeNotify(title: String, body: String) {
+    private fun maybeNotify(title: String, body: String, sessionId: String?, worktreeId: String?) {
         if (isInForeground) return
-        notifier.notifyMessage(title, body)
+        notifier.notifyMessage(title, body, sessionId, worktreeId)
     }
 
     companion object {

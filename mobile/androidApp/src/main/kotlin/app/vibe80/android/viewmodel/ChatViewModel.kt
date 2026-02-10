@@ -528,6 +528,26 @@ class ChatViewModel(
         sessionRepository.disconnect()
     }
 
+    fun ensureSession(sessionId: String, worktreeId: String?) {
+        if (sessionId.isBlank()) return
+        viewModelScope.launch {
+            val currentSessionId = sessionRepository.sessionState.value?.sessionId
+            if (currentSessionId != sessionId) {
+                val savedWorkspace = sessionPreferences.savedWorkspace.first()
+                if (!savedWorkspace?.workspaceToken.isNullOrBlank()) {
+                    sessionRepository.setWorkspaceToken(savedWorkspace.workspaceToken)
+                }
+                if (!savedWorkspace?.workspaceRefreshToken.isNullOrBlank()) {
+                    sessionRepository.setRefreshToken(savedWorkspace.workspaceRefreshToken)
+                }
+                sessionRepository.reconnectSession(sessionId)
+            }
+            if (!worktreeId.isNullOrBlank()) {
+                sessionRepository.setActiveWorktree(worktreeId)
+            }
+        }
+    }
+
     // ========== Worktree Management ==========
 
     fun selectWorktree(worktreeId: String) {
