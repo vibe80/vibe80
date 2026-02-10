@@ -559,7 +559,10 @@ export async function getWorktree(session, worktreeId) {
 
 export async function updateWorktreeStatus(session, worktreeId, status) {
   const resolvedId = resolveWorktreeStorageId(session, worktreeId);
-  const worktree = await loadWorktree(resolvedId);
+  let worktree = await loadWorktree(resolvedId);
+  if (!worktree && isMainWorktreeStorageId(session, resolvedId)) {
+    worktree = await ensureMainWorktree(session);
+  }
   if (!worktree) return;
   const updated = {
     ...worktree,

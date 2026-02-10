@@ -47,6 +47,12 @@ export function attachCodexEvents(context, deps) {
           status: "processing",
         });
       } else if (session.activeProvider === provider) {
+        await updateWorktreeStatus(session, "main", "processing");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId: "main",
+          status: "processing",
+        });
         broadcastToSession(sessionId, {
           type: "provider_status",
           status: "starting",
@@ -82,6 +88,12 @@ export function attachCodexEvents(context, deps) {
           await storage.saveSession(sessionId, updated);
         }
         if (session.activeProvider === provider) {
+          await updateWorktreeStatus(session, "main", "ready");
+          broadcastToSession(sessionId, {
+            type: "worktree_status",
+            worktreeId: "main",
+            status: "ready",
+          });
           broadcastToSession(sessionId, { type: "ready", threadId, provider });
           broadcastToSession(sessionId, {
             type: "provider_status",
@@ -141,6 +153,13 @@ export function attachCodexEvents(context, deps) {
         });
       } else {
         if (session?.activeProvider === provider) {
+          await updateWorktreeStatus(session, "main", "error");
+          broadcastToSession(sessionId, {
+            type: "worktree_status",
+            worktreeId: "main",
+            status: "error",
+            error: lastAuthError || "Codex app-server stopped.",
+          });
           const errorMessage = lastAuthError || "Codex app-server stopped.";
           broadcastToSession(sessionId, { type: "error", message: errorMessage });
         }
@@ -258,6 +277,18 @@ export function attachCodexEvents(context, deps) {
           const { turn, threadId } = message.params;
           if (isWorktree) {
             await updateWorktreeStatus(session, worktreeId, "ready");
+            broadcastToSession(sessionId, {
+              type: "worktree_status",
+              worktreeId,
+              status: "ready",
+            });
+          } else if (session.activeProvider === provider) {
+            await updateWorktreeStatus(session, "main", "ready");
+            broadcastToSession(sessionId, {
+              type: "worktree_status",
+              worktreeId: "main",
+              status: "ready",
+            });
           }
           const payload = {
             type: "turn_completed",
@@ -275,6 +306,18 @@ export function attachCodexEvents(context, deps) {
           const { turn, threadId } = message.params;
           if (isWorktree) {
             await updateWorktreeStatus(session, worktreeId, "processing");
+            broadcastToSession(sessionId, {
+              type: "worktree_status",
+              worktreeId,
+              status: "processing",
+            });
+          } else if (session.activeProvider === provider) {
+            await updateWorktreeStatus(session, "main", "processing");
+            broadcastToSession(sessionId, {
+              type: "worktree_status",
+              worktreeId: "main",
+              status: "processing",
+            });
           }
           const payload = {
             type: "turn_started",
@@ -395,8 +438,47 @@ export function attachClaudeEvents(context, deps) {
           provider,
         });
       } else if (session.activeProvider === provider) {
+        await updateWorktreeStatus(session, "main", "ready");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId: "main",
+          status: "ready",
+        });
         broadcastToSession(sessionId, { type: "ready", threadId, provider });
       }
+    })();
+  });
+
+  client.on("turn_started", ({ turnId, status }) => {
+    void (async () => {
+      const session = await getSession(sessionId);
+      if (!session) return;
+      if (!isWorktree && session.activeProvider !== provider) return;
+
+      if (isWorktree) {
+        await updateWorktreeStatus(session, worktreeId, "processing");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId,
+          status: "processing",
+        });
+      } else {
+        await updateWorktreeStatus(session, "main", "processing");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId: "main",
+          status: "processing",
+        });
+      }
+
+      const payload = {
+        type: "turn_started",
+        turnId,
+        status: status || "processing",
+        provider,
+      };
+      if (isWorktree) payload.worktreeId = worktreeId;
+      broadcastToSession(sessionId, payload);
     })();
   });
 
@@ -487,6 +569,18 @@ export function attachClaudeEvents(context, deps) {
 
       if (isWorktree) {
         await updateWorktreeStatus(session, worktreeId, "ready");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId,
+          status: "ready",
+        });
+      } else {
+        await updateWorktreeStatus(session, "main", "ready");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId: "main",
+          status: "ready",
+        });
       }
       const payload = {
         type: "turn_completed",

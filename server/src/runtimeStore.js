@@ -25,6 +25,8 @@ export const getExistingSessionRuntime = (sessionId) => {
 
 export const listSessionRuntimes = () => Array.from(runtimeSessions.values());
 
+export const listSessionRuntimeEntries = () => Array.from(runtimeSessions.entries());
+
 export const deleteSessionRuntime = (sessionId) => {
   runtimeSessions.delete(sessionId);
 };

@@ -186,6 +186,17 @@ export default function useChatSocket({
 
         const isWorktreeScoped = Boolean(payload.worktreeId);
 
+        if (
+          !isWorktreeScoped &&
+          (payload.type === "assistant_delta" ||
+            payload.type === "command_execution_delta" ||
+            payload.type === "command_execution_completed" ||
+            payload.type === "item_started")
+        ) {
+          setProcessing((current) => (current ? current : true));
+          setActivity(t("Processing..."));
+        }
+
         if (payload.type === "auth_ok") {
           if (!authenticated) {
             authenticated = true;
@@ -442,8 +453,6 @@ export default function useChatSocket({
 
         if (!isWorktreeScoped && payload.type === "turn_error") {
           setStatus(t("Error: {{message}}", { message: payload.message }));
-          setProcessing(false);
-          setActivity("");
           setCurrentTurnId(null);
           setMainTaskLabel("");
         }
@@ -457,15 +466,11 @@ export default function useChatSocket({
 
         if (!isWorktreeScoped && payload.type === "error") {
           setStatus(payload.message || t("Unexpected error"));
-          setProcessing(false);
-          setActivity("");
           setModelLoading(false);
           setModelError(payload.message || t("Unexpected error"));
         }
 
         if (!isWorktreeScoped && payload.type === "turn_started") {
-          setProcessing(true);
-          setActivity(t("Processing..."));
           setCurrentTurnId(payload.turnId || null);
         }
 
@@ -495,8 +500,6 @@ export default function useChatSocket({
               ];
             });
           }
-          setProcessing(false);
-          setActivity("");
           setCurrentTurnId(null);
           setMainTaskLabel("");
           void loadRepoLastCommit();
@@ -648,6 +651,22 @@ export default function useChatSocket({
         ) {
           const wtId = payload.worktreeId;
 
+          if (
+            payload.type === "assistant_delta" ||
+            payload.type === "command_execution_delta" ||
+            payload.type === "command_execution_completed" ||
+            payload.type === "item_started"
+          ) {
+            setWorktrees((current) => {
+              const next = new Map(current);
+              const wt = next.get(wtId);
+              if (wt && wt.status === "ready") {
+                next.set(wtId, { ...wt, status: "processing" });
+              }
+              return next;
+            });
+          }
+
           if (payload.type === "turn_started") {
             setWorktrees((current) => {
               const next = new Map(current);
@@ -655,7 +674,6 @@ export default function useChatSocket({
               if (wt) {
                 next.set(wtId, {
                   ...wt,
-                  status: "processing",
                   currentTurnId: payload.turnId,
                   activity: t("Processing..."),
                 });
@@ -768,7 +786,6 @@ export default function useChatSocket({
               if (wt) {
                 next.set(wtId, {
                   ...wt,
-                  status: "ready",
                   currentTurnId: null,
                   activity: "",
                   taskLabel: "",
@@ -1005,6 +1022,12 @@ export default function useChatSocket({
         }
 
         if (payload.type === "worktree_status") {
+          if (payload.worktreeId === "main") {
+            const nextStatus = payload.status || "ready";
+            setProcessing(nextStatus === "processing");
+            setActivity(nextStatus === "processing" ? t("Processing...") : "");
+            return;
+          }
           setWorktrees((current) => {
             const next = new Map(current);
             const wt = next.get(payload.worktreeId);
