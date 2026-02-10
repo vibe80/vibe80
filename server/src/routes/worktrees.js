@@ -28,7 +28,11 @@ import {
   cherryPickCommit,
   getWorktreeCommits,
   updateWorktreeStatus,
+  appendWorktreeMessage,
 } from "../worktreeManager.js";
+import { getSessionRuntime } from "../runtimeStore.js";
+import { getActiveClient } from "../clientFactory.js";
+import { createMessageId } from "../helpers.js";
 
 export default function worktreeRoutes(deps) {
   const {
@@ -231,6 +235,86 @@ export default function worktreeRoutes(deps) {
         error: error?.message || error,
       });
       res.status(500).json({ error: "Failed to get worktree messages." });
+    }
+  });
+
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/messages", async (req, res) => {
+    const sessionId = req.params.sessionId;
+    const session = await getSession(sessionId, req.workspaceId);
+    if (!session) {
+      res.status(400).json({ error: "Invalid session." });
+      return;
+    }
+    await touchSession(session);
+
+    const worktreeId = req.params.worktreeId;
+    const worktree = await getWorktree(session, worktreeId);
+    if (!worktree) {
+      res.status(404).json({ error: "Worktree not found." });
+      return;
+    }
+
+    const role = req.body?.role;
+    if (role !== "user") {
+      res.status(400).json({ error: "Only role=user is supported." });
+      return;
+    }
+
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    if (!text) {
+      res.status(400).json({ error: "Message text is required." });
+      return;
+    }
+
+    const attachments = Array.isArray(req.body?.attachments)
+      ? req.body.attachments
+      : [];
+
+    const isMainWorktree = worktreeId === "main";
+    const runtime = getSessionRuntime(sessionId);
+    const client = isMainWorktree
+      ? getActiveClient(session)
+      : runtime?.worktreeClients?.get(worktreeId);
+    if (!client?.ready) {
+      const label = isMainWorktree
+        ? worktree.provider === "claude"
+          ? "Claude CLI"
+          : "Codex app-server"
+        : (worktree.provider === "claude" ? "Claude CLI" : "Codex app-server");
+      res.status(409).json({ error: `${label} not ready for worktree.` });
+      return;
+    }
+
+    try {
+      const result = await client.sendTurn(text);
+      const messageId = createMessageId();
+      await appendWorktreeMessage(session, worktreeId, {
+        id: messageId,
+        role: "user",
+        text,
+        attachments,
+        provider: worktree.provider,
+      });
+      const turnPayload = {
+        type: "turn_started",
+        turnId: result.turn.id,
+        threadId: client.threadId,
+        provider: worktree.provider,
+        status: "processing",
+      };
+      if (!isMainWorktree) {
+        turnPayload.worktreeId = worktreeId;
+      }
+      broadcastToSession(sessionId, turnPayload);
+      res.json({
+        messageId,
+        turnId: result.turn.id,
+        threadId: client.threadId,
+        provider: worktree.provider,
+        worktreeId,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message || "Failed to send message." });
     }
   });
 
