@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
@@ -52,7 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -66,6 +67,9 @@ import app.vibe80.android.viewmodel.ProviderAuthType
 import app.vibe80.android.viewmodel.ProviderConfigMode
 import app.vibe80.android.viewmodel.SessionViewModel
 import app.vibe80.android.viewmodel.WorkspaceMode
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -173,10 +177,16 @@ fun SessionScreen(
                         error = uiState.error,
                         loadingState = uiState.loadingState,
                         isLoading = uiState.isLoading,
+                        workspaceSessions = uiState.workspaceSessions,
+                        sessionsLoading = uiState.sessionsLoading,
+                        sessionsError = uiState.sessionsError,
                         onStartSession = viewModel::openStartSession,
                         onReconfigureProviders = viewModel::openProviderConfigForUpdate,
                         onResumeSession = viewModel::resumeExistingSession,
-                        onDeleteSession = viewModel::clearSavedSession
+                        onDeleteSession = viewModel::clearSavedSession,
+                        onResumeWorkspaceSession = viewModel::resumeWorkspaceSession,
+                        onRefreshSessions = viewModel::loadWorkspaceSessions,
+                        onLeaveWorkspace = viewModel::leaveWorkspace
                     )
 
                     EntryScreen.START_SESSION -> StartSessionScreen(
@@ -220,12 +230,25 @@ private fun ScreenContainer(
 
 @Composable
 private fun BrandHeader(title: String, subtitle: String? = null) {
+    val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
+    val logoHeight = with(LocalDensity.current) {
+        (MaterialTheme.typography.headlineMedium.fontSize * 2).toDp()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data("file:///android_asset/" + if (isDark) "vibe80_dark.svg" else "vibe80_light.svg")
+                    .decoderFactory(SvgDecoder.Factory())
+                    .build(),
+                contentDescription = "Vibe80",
+                modifier = Modifier.height(logoHeight)
+            )
+        }
         Text(text = title, style = MaterialTheme.typography.titleMedium)
         subtitle?.let {
             Text(
@@ -449,6 +472,13 @@ private fun ProviderSection(
     onUpdateAuthValue: (String) -> Unit,
     onPickAuthJson: (() -> Unit)?
 ) {
+    val isClaude = title.lowercase() == "claude"
+    val isCodex = title.lowercase() == "codex"
+    val effectiveAuthType = if (isClaude && authType == ProviderAuthType.AUTH_JSON_B64) {
+        ProviderAuthType.API_KEY
+    } else {
+        authType
+    }
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.large,
@@ -470,20 +500,22 @@ private fun ProviderSection(
             if (enabled) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
-                        selected = authType == ProviderAuthType.API_KEY,
+                        selected = effectiveAuthType == ProviderAuthType.API_KEY,
                         onClick = { onUpdateAuthType(ProviderAuthType.API_KEY) },
                         label = { Text(stringResource(R.string.provider_auth_api_key)) },
                         enabled = !workspaceBusy
                     )
-                    FilterChip(
-                        selected = authType == ProviderAuthType.AUTH_JSON_B64,
-                        onClick = { onUpdateAuthType(ProviderAuthType.AUTH_JSON_B64) },
-                        label = { Text(stringResource(R.string.provider_auth_auth_json_b64)) },
-                        enabled = !workspaceBusy
-                    )
-                    if (title.lowercase() == "claude") {
+                    if (isCodex) {
                         FilterChip(
-                            selected = authType == ProviderAuthType.SETUP_TOKEN,
+                            selected = effectiveAuthType == ProviderAuthType.AUTH_JSON_B64,
+                            onClick = { onUpdateAuthType(ProviderAuthType.AUTH_JSON_B64) },
+                            label = { Text(stringResource(R.string.provider_auth_auth_json_file)) },
+                            enabled = !workspaceBusy
+                        )
+                    }
+                    if (isClaude) {
+                        FilterChip(
+                            selected = effectiveAuthType == ProviderAuthType.SETUP_TOKEN,
                             onClick = { onUpdateAuthType(ProviderAuthType.SETUP_TOKEN) },
                             label = { Text(stringResource(R.string.provider_auth_setup_token)) },
                             enabled = !workspaceBusy
@@ -491,7 +523,7 @@ private fun ProviderSection(
                     }
                 }
 
-                if (authType == ProviderAuthType.AUTH_JSON_B64) {
+                if (effectiveAuthType == ProviderAuthType.AUTH_JSON_B64) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -528,25 +560,13 @@ private fun ProviderSection(
                             }
                         }
                     }
-
-                    OutlinedTextField(
-                        value = authValue,
-                        onValueChange = onUpdateAuthValue,
-                        label = { Text(stringResource(R.string.provider_auth_auth_json_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 4,
-                        maxLines = 6,
-                        singleLine = false,
-                        visualTransformation = VisualTransformation.None,
-                        enabled = !workspaceBusy
-                    )
                 } else {
                     OutlinedTextField(
                         value = authValue,
                         onValueChange = onUpdateAuthValue,
                         label = {
                             Text(
-                                when (authType) {
+                                when (effectiveAuthType) {
                                     ProviderAuthType.API_KEY -> stringResource(R.string.provider_auth_api_key_label)
                                     ProviderAuthType.SETUP_TOKEN -> stringResource(R.string.provider_auth_setup_token_label)
                                     ProviderAuthType.AUTH_JSON_B64 -> stringResource(R.string.provider_auth_auth_json_label)
@@ -628,12 +648,24 @@ private fun JoinSessionScreen(
     error: String?,
     loadingState: LoadingState,
     isLoading: Boolean,
+    workspaceSessions: List<app.vibe80.shared.models.SessionSummary>,
+    sessionsLoading: Boolean,
+    sessionsError: String?,
     onStartSession: () -> Unit,
     onReconfigureProviders: () -> Unit,
     onResumeSession: () -> Unit,
-    onDeleteSession: () -> Unit
+    onDeleteSession: () -> Unit,
+    onResumeWorkspaceSession: (String, String?) -> Unit,
+    onRefreshSessions: () -> Unit,
+    onLeaveWorkspace: () -> Unit
 ) {
     ScreenContainer {
+        TextButton(onClick = onLeaveWorkspace) {
+            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(R.string.workspace_leave))
+        }
+
         BrandHeader(title = stringResource(R.string.session_join_title))
 
         Button(
@@ -652,7 +684,22 @@ private fun JoinSessionScreen(
             Text(stringResource(R.string.providers_reconfigure))
         }
 
-        Text(stringResource(R.string.sessions_recent), style = MaterialTheme.typography.titleSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(stringResource(R.string.sessions_recent), style = MaterialTheme.typography.titleSmall)
+            TextButton(onClick = onRefreshSessions, enabled = !sessionsLoading) {
+                Text(
+                    if (sessionsLoading) {
+                        stringResource(R.string.loading)
+                    } else {
+                        stringResource(R.string.action_refresh)
+                    }
+                )
+            }
+        }
 
         if (hasSavedSession) {
             Card(
@@ -689,6 +736,49 @@ private fun JoinSessionScreen(
                 text = stringResource(R.string.session_saved_empty),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        if (workspaceSessions.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                workspaceSessions.forEach { session ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = session.name?.takeIf { it.isNotBlank() }
+                                    ?: session.repoUrl?.takeIf { it.isNotBlank() }
+                                    ?: "Session ${session.sessionId}"
+                            )
+                            Text(
+                                text = session.sessionId,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Button(
+                                onClick = { onResumeWorkspaceSession(session.sessionId, session.repoUrl) },
+                                enabled = !isLoading
+                            ) {
+                                Text("Reprendre")
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (!sessionsLoading) {
+            Text(
+                text = "Aucune session trouvée dans le workspace.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        sessionsError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
         }
 
         error?.let {

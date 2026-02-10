@@ -33,7 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
-import app.vibe80.android.R
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.res.ResourcesCompat
 import app.vibe80.android.R
@@ -61,7 +60,8 @@ fun MessageBubble(
     onFormSubmit: ((Map<String, String>, List<Vibe80FormField>) -> Unit)? = null,
     formsSubmitted: Boolean = false,
     yesNoSubmitted: Boolean = false,
-    onYesNoSubmit: (() -> Unit)? = null
+    onYesNoSubmit: (() -> Unit)? = null,
+    onToolResultSelected: ((String, String) -> Unit)? = null
 ) {
     val isUser = message?.role == MessageRole.USER
     val rawText = streamingText ?: message?.text ?: ""
@@ -108,6 +108,14 @@ fun MessageBubble(
         result
     }
 
+    val toolName = message?.toolResult?.name ?: message?.command ?: "command"
+    val toolOutput = message?.toolResult?.output ?: message?.output ?: ""
+    val showToolBadge = message != null &&
+        (message.role == MessageRole.TOOL_RESULT || message.role == MessageRole.COMMAND_EXECUTION) &&
+        onToolResultSelected != null
+    val showToolInlineText = !(message != null &&
+        (message.role == MessageRole.TOOL_RESULT || message.role == MessageRole.COMMAND_EXECUTION))
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
@@ -129,16 +137,28 @@ fun MessageBubble(
             Column(modifier = Modifier.padding(12.dp)) {
                 // Role indicator for non-user messages
                 if (!isUser && message != null && message.role != MessageRole.ASSISTANT) {
-                    Text(
-                        text = when (message.role) {
-                            MessageRole.COMMAND_EXECUTION -> stringResource(R.string.message_role_command)
-                            MessageRole.TOOL_RESULT -> stringResource(R.string.message_role_tool_result)
-                            else -> ""
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
+                    if (showToolBadge) {
+                        AssistChip(
+                            onClick = { onToolResultSelected?.invoke(toolName, toolOutput) },
+                            label = { Text("Tool : $toolName") },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            ),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    } else {
+                        Text(
+                            text = when (message.role) {
+                                MessageRole.COMMAND_EXECUTION -> stringResource(R.string.message_role_command)
+                                MessageRole.TOOL_RESULT -> stringResource(R.string.message_role_tool_result)
+                                else -> ""
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
                 }
 
                 // Command execution special display
@@ -161,7 +181,7 @@ fun MessageBubble(
                 }
 
                 // Message content with Markdown rendering
-                if (text.isNotBlank()) {
+                if (showToolInlineText && text.isNotBlank()) {
                     if (isUser) {
                         // Simple text for user messages
                         Text(

@@ -7,7 +7,11 @@ struct MessageRow: View {
     var isStreaming: Bool = false
 
     private var displayText: String {
-        streamingText ?? message?.text ?? ""
+        if let message = message,
+           (message.role == .tool_result || message.role == .commandExecution) {
+            return ""
+        }
+        return streamingText ?? message?.text ?? ""
     }
 
     private var isUser: Bool {
@@ -52,8 +56,10 @@ struct MessageRow: View {
             }
 
             // Use AttributedString for Markdown support in iOS 15+
-            Text(LocalizedStringKey(displayText))
-                .textSelection(.enabled)
+            if !displayText.isEmpty {
+                Text(LocalizedStringKey(displayText))
+                    .textSelection(.enabled)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

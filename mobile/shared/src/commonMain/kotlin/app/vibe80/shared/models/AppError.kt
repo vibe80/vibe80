@@ -19,8 +19,6 @@ enum class ErrorType {
     SEND_MESSAGE,
     /** Provider switch failed */
     PROVIDER_SWITCH,
-    /** Branch operation failed */
-    BRANCH,
     /** Worktree operation failed */
     WORKTREE,
     /** Unknown or unexpected error */

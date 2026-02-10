@@ -204,7 +204,6 @@ private fun WorktreeStatusIndicator(
 fun WorktreeMenuSheet(
     worktree: Worktree,
     onDismiss: () -> Unit,
-    onMerge: () -> Unit,
     onClose: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -246,18 +245,6 @@ fun WorktreeMenuSheet(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
-            }
-
-            // Merge button
-            if (worktree.status == WorktreeStatus.READY || worktree.status == WorktreeStatus.COMPLETED) {
-                FilledTonalButton(
-                    onClick = onMerge,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.worktree_merge_to_main))
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Close button

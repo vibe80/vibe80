@@ -72,6 +72,7 @@ import java.util.Locale
 @Composable
 fun ChatScreen(
     sessionId: String,
+    initialWorktreeId: String? = null,
     onDisconnect: () -> Unit,
     viewModel: ChatViewModel = koinViewModel()
 ) {
@@ -87,6 +88,10 @@ fun ChatScreen(
         }
     }
 
+    LaunchedEffect(sessionId, initialWorktreeId) {
+        viewModel.ensureSession(sessionId, initialWorktreeId)
+    }
+
     // Show error snackbar when error occurs
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
@@ -97,7 +102,6 @@ fun ChatScreen(
                 ErrorType.UPLOAD -> context.getString(R.string.error_upload_attachment)
                 ErrorType.SEND_MESSAGE -> context.getString(R.string.error_send_message)
                 ErrorType.PROVIDER_SWITCH -> context.getString(R.string.error_switch_provider)
-                ErrorType.BRANCH -> context.getString(R.string.error_load_branches)
                 ErrorType.WORKTREE -> context.getString(R.string.error_create_worktree)
                 ErrorType.UNKNOWN -> context.getString(R.string.error_unknown)
             }
@@ -246,7 +250,7 @@ fun ChatScreen(
                     } else {
                         baseWorktrees
                     }
-                    val activeBranchName = worktreesForTabs.firstOrNull { it.id == uiState.activeWorktreeId }?.branchName
+                    val activeWorktreeName = worktreesForTabs.firstOrNull { it.id == uiState.activeWorktreeId }?.name
                         ?: Worktree.MAIN_WORKTREE_ID
                     val showWorktreeTabs = worktreesForTabs.size > 1
                     Row(
@@ -275,7 +279,7 @@ fun ChatScreen(
                                         shape = MaterialTheme.shapes.small
                                     ) {
                                         Text(
-                                            text = activeBranchName,
+                                            text = activeWorktreeName,
                                             style = MaterialTheme.typography.labelSmall,
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                             maxLines = 1,
@@ -293,10 +297,7 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.loadBranches()
-                        viewModel.showCreateWorktreeSheet()
-                    }) {
+                    IconButton(onClick = { viewModel.showCreateWorktreeSheet() }) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = stringResource(R.string.worktree_add)
@@ -406,6 +407,9 @@ fun ChatScreen(
                         workspaceToken = uiState.workspaceToken,
                         formsSubmitted = uiState.submittedFormMessageIds.contains(message.id),
                         yesNoSubmitted = uiState.submittedYesNoMessageIds.contains(message.id),
+                        onToolResultSelected = { name, output ->
+                            viewModel.openToolResult(name, output)
+                        },
                         onFileRefSelected = { path ->
                             viewModel.openFileRef(path)
                         },
@@ -677,13 +681,12 @@ fun ChatScreen(
     // Create Worktree Sheet
     if (uiState.showCreateWorktreeSheet) {
         CreateWorktreeSheet(
-            branches = uiState.branches,
             currentProvider = uiState.activeProvider,
             providerModelState = uiState.providerModelState,
             onDismiss = viewModel::hideCreateWorktreeSheet,
             onRequestModels = viewModel::loadProviderModels,
-            onCreate = { name, provider, branchName, model, reasoningEffort ->
-                viewModel.createWorktree(name, provider, branchName, model, reasoningEffort)
+            onCreate = { name, provider, model, reasoningEffort ->
+                viewModel.createWorktree(name, provider, null, model, reasoningEffort)
             }
         )
     }
@@ -694,7 +697,6 @@ fun ChatScreen(
             WorktreeMenuSheet(
                 worktree = worktree,
                 onDismiss = viewModel::hideWorktreeMenu,
-                onMerge = { viewModel.mergeWorktree(worktreeId) },
                 onClose = { viewModel.requestCloseWorktree(worktreeId) }
             )
         }

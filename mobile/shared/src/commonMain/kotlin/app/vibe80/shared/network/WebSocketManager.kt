@@ -105,7 +105,7 @@ class WebSocketManager(
 
                 // Send auth message expected by server
                 try {
-                    val authPayload = json.encodeToString(AuthMessage.serializer(), AuthMessage(token))
+                    val authPayload = json.encodeToString(AuthMessage.serializer(), AuthMessage(token = token))
                     AppLogger.wsSend("auth", authPayload)
                     send(Frame.Text(authPayload))
                 } catch (e: Exception) {
@@ -134,10 +134,11 @@ class WebSocketManager(
                             // Encode each message type with its specific serializer to avoid sealed class issues
                             val (messageType, jsonString) = when (message) {
                                 is PingMessage -> "ping" to json.encodeToString(PingMessage.serializer(), message)
+                                is AuthMessage -> "auth" to json.encodeToString(AuthMessage.serializer(), message)
+                                is WakeUpRequest -> "wake_up" to json.encodeToString(WakeUpRequest.serializer(), message)
                                 is SendMessageRequest -> "user_message" to json.encodeToString(SendMessageRequest.serializer(), message)
                                 is SwitchProviderRequest -> "switch_provider" to json.encodeToString(SwitchProviderRequest.serializer(), message)
                                 is WorktreeMessageRequest -> "worktree_send_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
-                                is ListWorktreesRequest -> "list_worktrees" to json.encodeToString(ListWorktreesRequest.serializer(), message)
                                 is SyncWorktreeMessagesRequest -> "worktree_messages_sync" to json.encodeToString(SyncWorktreeMessagesRequest.serializer(), message)
                             }
                             AppLogger.wsSend(messageType, jsonString)
@@ -221,6 +222,9 @@ class WebSocketManager(
                 "turn_error" -> json.decodeFromString<TurnErrorMessage>(text)
                 "error" -> json.decodeFromString<ErrorMessage>(text)
                 "provider_switched" -> json.decodeFromString<ProviderSwitchedMessage>(text)
+                "worktree_ready" -> json.decodeFromString<WorktreeReadyMessage>(text)
+                "worktree_removed" -> json.decodeFromString<WorktreeRemovedMessage>(text)
+                "worktree_renamed" -> json.decodeFromString<WorktreeRenamedMessage>(text)
                 "worktree_messages_sync" -> json.decodeFromString<WorktreeMessagesSyncMessage>(text)
                 "worktree_created" -> parseWorktreeCreated(jsonObject, text)
                 "worktree_updated" -> json.decodeFromString<WorktreeUpdatedMessage>(text)
@@ -232,9 +236,21 @@ class WebSocketManager(
                 "worktree_merge_result" -> json.decodeFromString<WorktreeMergeResultMessage>(text)
                 "worktrees_list" -> json.decodeFromString<WorktreesListMessage>(text)
                 "repo_diff" -> json.decodeFromString<RepoDiffMessage>(text)
+                "worktree_diff" -> json.decodeFromString<WorktreeDiffMessage>(text)
                 "pong" -> json.decodeFromString<PongMessage>(text)
                 "command_execution_delta" -> json.decodeFromString<CommandExecutionDeltaMessage>(text)
                 "command_execution_completed" -> json.decodeFromString<CommandExecutionCompletedMessage>(text)
+                "rpc_log" -> json.decodeFromString<RpcLogMessage>(text)
+                "agent_reasoning" -> json.decodeFromString<AgentReasoningMessage>(text)
+                "item_started" -> json.decodeFromString<ItemStartedMessage>(text)
+                "action_request" -> json.decodeFromString<ActionRequestMessage>(text)
+                "action_result" -> json.decodeFromString<ActionResultMessage>(text)
+                "model_list" -> json.decodeFromString<ModelListMessage>(text)
+                "model_set" -> json.decodeFromString<ModelSetMessage>(text)
+                "turn_interrupt_sent" -> json.decodeFromString<TurnInterruptSentMessage>(text)
+                "account_login_started" -> json.decodeFromString<AccountLoginStartedMessage>(text)
+                "account_login_error" -> json.decodeFromString<AccountLoginErrorMessage>(text)
+                "account_login_completed" -> json.decodeFromString<AccountLoginCompletedMessage>(text)
                 else -> {
                     AppLogger.warning(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Unknown message type: $type", text)
                     null
@@ -338,10 +354,13 @@ class WebSocketManager(
         ))
     }
 
-    suspend fun listWorktrees() {
-        send(ListWorktreesRequest())
+    suspend fun syncWorktreeMessages(worktreeId: String, lastSeenMessageId: String? = null) {
+        send(SyncWorktreeMessagesRequest(worktreeId = worktreeId, lastSeenMessageId = lastSeenMessageId))
     }
 
+    suspend fun wakeUpWorktree(worktreeId: String) {
+        send(WakeUpRequest(worktreeId = worktreeId))
+    }
     fun disconnect() {
         AppLogger.wsDisconnected("Client initiated disconnect")
         connectionJob?.cancel()

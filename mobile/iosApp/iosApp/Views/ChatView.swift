@@ -7,7 +7,6 @@ struct ChatView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = ChatViewModel()
 
-    @State private var showBranchesSheet = false
     @State private var showDiffSheet = false
     @State private var showProviderSheet = false
     @State private var showCreateWorktreeSheet = false
@@ -92,13 +91,6 @@ struct ChatView: View {
                         .cornerRadius(12)
                     }
 
-                    // Branches button
-                    Button {
-                        showBranchesSheet = true
-                    } label: {
-                        Image(systemName: "arrow.triangle.branch")
-                    }
-
                     // Diff button with badge
                     Button {
                         showDiffSheet = true
@@ -124,18 +116,6 @@ struct ChatView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showBranchesSheet) {
-                BranchesSheetView(
-                    branches: viewModel.branches,
-                    currentBranch: viewModel.currentBranch,
-                    onSelect: { branch in
-                        viewModel.switchBranch(branch)
-                        showBranchesSheet = false
-                    },
-                    onFetch: viewModel.fetchBranches
-                )
-                .presentationDetents([.medium, .large])
-            }
             .sheet(isPresented: $showDiffSheet) {
                 DiffSheetView(diff: viewModel.repoDiff)
                     .presentationDetents([.large])
@@ -152,7 +132,6 @@ struct ChatView: View {
             }
             .sheet(isPresented: $showCreateWorktreeSheet) {
                 CreateWorktreeSheetView(
-                    branches: viewModel.branches,
                     currentProvider: viewModel.activeProvider,
                     onCreate: { name, provider, branch in
                         viewModel.createWorktree(name: name, provider: provider, branchName: branch)
@@ -165,10 +144,6 @@ struct ChatView: View {
                 if let worktree = viewModel.worktrees.first(where: { $0.id == worktreeId }) {
                     WorktreeMenuView(
                         worktree: worktree,
-                        onMerge: {
-                            viewModel.mergeWorktree(worktreeId)
-                            showWorktreeMenu = nil
-                        },
                         onClose: {
                             viewModel.closeWorktree(worktreeId)
                             showWorktreeMenu = nil
@@ -190,13 +165,6 @@ struct ChatView: View {
             Circle()
                 .fill(connectionColor)
                 .frame(width: 8, height: 8)
-
-            if let branch = viewModel.currentBranch {
-                Text(branch)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
         }
     }
 

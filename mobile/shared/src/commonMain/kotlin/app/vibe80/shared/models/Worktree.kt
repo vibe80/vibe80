@@ -132,3 +132,8 @@ data class WorktreeGetResponse(
     val status: WorktreeStatus? = null,
     val messages: List<ChatMessage> = emptyList()
 )
+
+@Serializable
+data class WorktreesListResponse(
+    val worktrees: List<Worktree> = emptyList()
+)

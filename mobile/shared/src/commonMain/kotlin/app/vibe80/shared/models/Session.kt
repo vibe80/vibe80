@@ -58,6 +58,21 @@ data class SessionGetResponse(
 )
 
 @Serializable
+data class SessionSummary(
+    val sessionId: String,
+    val repoUrl: String? = null,
+    val name: String? = null,
+    val createdAt: Long? = null,
+    val lastActivityAt: Long? = null,
+    val activeProvider: String? = null
+)
+
+@Serializable
+data class SessionListResponse(
+    val sessions: List<SessionSummary> = emptyList()
+)
+
+@Serializable
 data class RpcLogEntry(
     val direction: String,
     val timestamp: Long,

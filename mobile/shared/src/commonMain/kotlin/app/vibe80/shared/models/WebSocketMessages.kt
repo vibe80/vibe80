@@ -120,6 +120,30 @@ data class ProviderSwitchedMessage(
 ) : ServerMessage()
 
 @Serializable
+@SerialName("worktree_ready")
+data class WorktreeReadyMessage(
+    override val type: String = "worktree_ready",
+    val worktreeId: String,
+    val threadId: String? = null,
+    val provider: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_removed")
+data class WorktreeRemovedMessage(
+    override val type: String = "worktree_removed",
+    val worktreeId: String
+) : ServerMessage()
+
+@Serializable
+@SerialName("worktree_renamed")
+data class WorktreeRenamedMessage(
+    override val type: String = "worktree_renamed",
+    val worktreeId: String,
+    val name: String
+) : ServerMessage()
+
+@Serializable
 @SerialName("worktree_messages_sync")
 data class WorktreeMessagesSyncMessage(
     override val type: String = "worktree_messages_sync",
@@ -215,6 +239,124 @@ data class RepoDiffMessage(
 ) : ServerMessage()
 
 @Serializable
+@SerialName("worktree_diff")
+data class WorktreeDiffMessage(
+    override val type: String = "worktree_diff",
+    val worktreeId: String,
+    val status: String,
+    val diff: String
+) : ServerMessage()
+
+@Serializable
+@SerialName("rpc_log")
+data class RpcLogMessage(
+    override val type: String = "rpc_log",
+    val entry: RpcLogEntry
+) : ServerMessage()
+
+@Serializable
+data class RpcLogEntry(
+    val direction: String,
+    val timestamp: Long,
+    val payload: JsonElement? = null,
+    val provider: String? = null,
+    val worktreeId: String? = null
+)
+
+@Serializable
+@SerialName("agent_reasoning")
+data class AgentReasoningMessage(
+    override val type: String = "agent_reasoning",
+    val text: String,
+    val provider: String? = null,
+    val worktreeId: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("item_started")
+data class ItemStartedMessage(
+    override val type: String = "item_started",
+    val threadId: String? = null,
+    val turnId: String? = null,
+    val item: JsonElement? = null,
+    val provider: String? = null,
+    val worktreeId: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("action_request")
+data class ActionRequestMessage(
+    override val type: String = "action_request",
+    val id: String? = null,
+    val request: String? = null,
+    val arg: String? = null,
+    val text: String? = null,
+    val worktreeId: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("action_result")
+data class ActionResultMessage(
+    override val type: String = "action_result",
+    val id: String? = null,
+    val request: String? = null,
+    val arg: String? = null,
+    val status: String? = null,
+    val output: String? = null,
+    val text: String? = null,
+    val worktreeId: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("model_list")
+data class ModelListMessage(
+    override val type: String = "model_list",
+    val models: JsonElement? = null,
+    val provider: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("model_set")
+data class ModelSetMessage(
+    override val type: String = "model_set",
+    val model: String? = null,
+    val reasoningEffort: String? = null,
+    val provider: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("turn_interrupt_sent")
+data class TurnInterruptSentMessage(
+    override val type: String = "turn_interrupt_sent"
+) : ServerMessage()
+
+@Serializable
+@SerialName("account_login_started")
+data class AccountLoginStartedMessage(
+    override val type: String = "account_login_started",
+    val result: JsonElement? = null,
+    val provider: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("account_login_error")
+data class AccountLoginErrorMessage(
+    override val type: String = "account_login_error",
+    val message: String? = null,
+    val provider: String? = null
+) : ServerMessage()
+
+@Serializable
+@SerialName("account_login_completed")
+data class AccountLoginCompletedMessage(
+    override val type: String = "account_login_completed",
+    val success: Boolean = false,
+    val error: String? = null,
+    val loginId: String? = null,
+    val provider: String? = null
+) : ServerMessage()
+
+@Serializable
 @SerialName("pong")
 data class PongMessage(
     override val type: String = "pong"
@@ -260,6 +402,12 @@ data class AuthMessage(
 ) : ClientMessage()
 
 @Serializable
+data class WakeUpRequest(
+    override val type: String = "wake_up",
+    val worktreeId: String
+) : ClientMessage()
+
+@Serializable
 data class SendMessageRequest(
     override val type: String = "user_message",
     val text: String,
@@ -279,11 +427,6 @@ data class WorktreeMessageRequest(
     val text: String,
     val displayText: String? = null,
     val attachments: List<Attachment> = emptyList()
-) : ClientMessage()
-
-@Serializable
-data class ListWorktreesRequest(
-    override val type: String = "list_worktrees"
 ) : ClientMessage()
 
 @Serializable
