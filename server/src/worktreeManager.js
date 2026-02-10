@@ -72,6 +72,24 @@ const ensureSessionGitDir = async (session) => {
   return gitDir;
 };
 
+const applyVibe80WorktreeMetadata = async (session, worktreePath, worktreeId) => {
+  await runSessionCommand(
+    session,
+    "git",
+    ["-C", worktreePath, "config", "--worktree", "vibe80.workspaceId", session.workspaceId]
+  );
+  await runSessionCommand(
+    session,
+    "git",
+    ["-C", worktreePath, "config", "--worktree", "vibe80.sessionId", session.sessionId]
+  );
+  await runSessionCommand(
+    session,
+    "git",
+    ["-C", worktreePath, "config", "--worktree", "vibe80.worktreeid", worktreeId]
+  );
+};
+
 const resolveStartingRef = (startingBranch, remote = "origin") => {
   if (!startingBranch || typeof startingBranch !== "string") {
     return null;
@@ -307,6 +325,7 @@ export async function createWorktree(session, options) {
     { cwd: session.repoDir }
   );
   await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", worktreePath]);
+  await applyVibe80WorktreeMetadata(session, worktreePath, worktreeId);
 
   if (shareGitCredentials) {
     await ensureSessionGitDir(session);

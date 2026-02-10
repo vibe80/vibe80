@@ -503,6 +503,30 @@ export const createSession = async (
           { env }
         );
       }
+      await runAsCommand(
+        workspaceId,
+        "git",
+        ["-C", repoDir, "config", "extensions.worktreeConfig", "true"],
+        { env }
+      );
+      await runAsCommand(
+        workspaceId,
+        "git",
+        ["-C", repoDir, "config", "--worktree", "vibe80.workspaceId", workspaceId],
+        { env }
+      );
+      await runAsCommand(
+        workspaceId,
+        "git",
+        ["-C", repoDir, "config", "--worktree", "vibe80.sessionId", sessionId],
+        { env }
+      );
+      await runAsCommand(
+        workspaceId,
+        "git",
+        ["-C", repoDir, "config", "--worktree", "vibe80.worktreeid", "main"],
+        { env }
+      );
       const session = {
         sessionId,
         workspaceId,
