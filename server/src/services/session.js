@@ -538,7 +538,7 @@ export const createSession = async (
       await runAsCommand(
         workspaceId,
         "git",
-        ["-C", repoDir, "config", "--worktree", "vibe80.worktreeid", "main"],
+        ["-C", repoDir, "config", "--worktree", "vibe80.worktreeId", "main"],
         { env }
       );
       const session = {
