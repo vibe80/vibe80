@@ -308,7 +308,7 @@ private fun WorkspaceCredentialsScreen(
     onBack: () -> Unit
 ) {
     ScreenContainer {
-        BrandHeader(title = stringResource(R.string.workspace_credentials_title))
+        BrandHeader(title = "")
 
         OutlinedTextField(
             value = workspaceId,
