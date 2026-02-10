@@ -130,6 +130,7 @@ class ChatViewModel(
 
     private val _workspaceAuthInvalidEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val workspaceAuthInvalidEvent: SharedFlow<Unit> = _workspaceAuthInvalidEvent.asSharedFlow()
+    private var lastWorktreeSessionId: String? = null
 
     init {
         observeSessionState()
@@ -239,6 +240,12 @@ class ChatViewModel(
 
         viewModelScope.launch {
             sessionRepository.sessionState.filterNotNull().collect { session ->
+                if (lastWorktreeSessionId != session.sessionId) {
+                    lastWorktreeSessionId = session.sessionId
+                    viewModelScope.launch {
+                        sessionRepository.listWorktrees()
+                    }
+                }
                 _uiState.update {
                     val shouldResetForms = it.sessionId.isNotBlank() && it.sessionId != session.sessionId
                     it.copy(
