@@ -16,7 +16,7 @@ struct DiffSheetView: View {
                     emptyState
                 }
             }
-            .navigationTitle("Modifications")
+            .navigationTitle("diff.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -39,10 +39,10 @@ struct DiffSheetView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.green)
 
-            Text("Aucune modification")
+            Text("diff.empty.title")
                 .font(.headline)
 
-            Text("Le répertoire de travail est propre")
+            Text("diff.empty.subtitle")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -61,14 +61,14 @@ struct DiffSheetView: View {
                     statBadge(count: files.reduce(0) { $0 + $1.additions }, color: .green, icon: "plus")
                     statBadge(count: files.reduce(0) { $0 + $1.deletions }, color: .red, icon: "minus")
                     Spacer()
-                    Text("\(files.count) fichier(s)")
+                    Text(String(format: NSLocalizedString("diff.files.count", comment: ""), files.count))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
 
             // Files
-            Section("Fichiers modifiés") {
+            Section("diff.files.title") {
                 ForEach(files) { file in
                     fileRow(file)
                 }

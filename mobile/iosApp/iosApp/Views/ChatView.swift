@@ -67,7 +67,7 @@ struct ChatView: View {
                     onSend: viewModel.sendMessage
                 )
             }
-            .navigationTitle("Vibe80")
+            .navigationTitle("app.name")
             .navigationBarTitleDisplayMode(.inline)
             .background(Color.vibe80Background)
             .toolbar {
@@ -193,7 +193,7 @@ struct ProcessingIndicator: View {
                 ProgressView()
                     .scaleEffect(0.8)
 
-                Text("En train de réfléchir...")
+                Text("chat.thinking")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }

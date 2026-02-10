@@ -30,25 +30,25 @@ struct ComposerView: View {
                     Button {
                         showCameraPicker = true
                     } label: {
-                        Label("Caméra", systemImage: "camera")
+                        Label("composer.camera", systemImage: "camera")
                     }
 
                     Button {
                         showPhotoPicker = true
                     } label: {
-                        Label("Photos", systemImage: "photo")
+                        Label("composer.photos", systemImage: "photo")
                     }
 
                     Button {
                         showFileImporter = true
                     } label: {
-                        Label("Fichiers", systemImage: "doc")
+                        Label("composer.files", systemImage: "doc")
                     }
 
                     Button {
                         // no-op
                     } label: {
-                        Label("Modèle", systemImage: "sparkles")
+                        Label("composer.model", systemImage: "sparkles")
                     }
                     .disabled(true)
                 } label: {
@@ -58,7 +58,7 @@ struct ComposerView: View {
                 }
 
                 // Text input
-                TextField("Message...", text: $text, axis: .vertical)
+                TextField("composer.message.placeholder", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
                     .focused($isFocused)
