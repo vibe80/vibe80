@@ -59,6 +59,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import app.vibe80.android.R
 import app.vibe80.android.viewmodel.AuthMethod
 import app.vibe80.android.viewmodel.EntryScreen
 import app.vibe80.android.viewmodel.LoadingState
@@ -267,22 +269,22 @@ private fun WorkspaceModeSelection(
 ) {
     ScreenContainer {
         BrandHeader(
-            title = "Bienvenue dans Vibe80",
-            subtitle = "Choisissez comment démarrer votre session."
+            title = stringResource(R.string.welcome_title),
+            subtitle = stringResource(R.string.welcome_subtitle)
         )
 
         Button(
             onClick = onCreateWorkspace,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Créer un nouveau workspace")
+            Text(stringResource(R.string.workspace_create))
         }
 
         Button(
             onClick = onJoinWorkspace,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Rejoindre un workspace existant")
+            Text(stringResource(R.string.workspace_join))
         }
 
         OutlinedButton(
@@ -291,7 +293,7 @@ private fun WorkspaceModeSelection(
         ) {
             Icon(imageVector = Icons.Default.CameraAlt, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Reprendre une session desktop")
+            Text(stringResource(R.string.workspace_resume_desktop))
         }
     }
 }
@@ -313,15 +315,15 @@ private fun WorkspaceCredentialsScreen(
         TextButton(onClick = onBack) {
             Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Retour")
+            Text(stringResource(R.string.action_back))
         }
 
-        BrandHeader(title = "Identifiants workspace")
+        BrandHeader(title = stringResource(R.string.workspace_credentials_title))
 
         OutlinedTextField(
             value = workspaceId,
             onValueChange = onWorkspaceIdChange,
-            label = { Text("Workspace ID") },
+            label = { Text(stringResource(R.string.workspace_id)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !workspaceBusy
@@ -330,7 +332,7 @@ private fun WorkspaceCredentialsScreen(
         OutlinedTextField(
             value = workspaceSecret,
             onValueChange = onWorkspaceSecretChange,
-            label = { Text("Workspace secret") },
+            label = { Text(stringResource(R.string.workspace_secret)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             visualTransformation = if (showSecret) {
@@ -365,7 +367,7 @@ private fun WorkspaceCredentialsScreen(
                     modifier = Modifier.height(18.dp)
                 )
             } else {
-                Text("Continuer")
+                Text(stringResource(R.string.action_continue))
             }
         }
     }
@@ -393,23 +395,23 @@ private fun ProviderConfigScreen(
         TextButton(onClick = onBack) {
             Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Retour")
+            Text(stringResource(R.string.action_back))
         }
 
-        BrandHeader(title = "Configuration des providers IA")
+        BrandHeader(title = stringResource(R.string.providers_config_title))
 
         Text(
             text = if (providerMode == ProviderConfigMode.UPDATE) {
-                "Mettez à jour vos providers pour ce workspace."
+                stringResource(R.string.providers_config_subtitle)
             } else {
-                "Sélectionnez au moins un provider."
+                stringResource(R.string.providers_config_validation)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         ProviderSection(
-            title = "Codex",
+            title = stringResource(R.string.provider_codex),
             enabled = codexConfig?.enabled == true,
             authType = codexConfig?.authType ?: ProviderAuthType.API_KEY,
             authValue = codexConfig?.authValue.orEmpty(),
@@ -423,7 +425,7 @@ private fun ProviderConfigScreen(
         )
 
         ProviderSection(
-            title = "Claude",
+            title = stringResource(R.string.provider_claude),
             enabled = claudeConfig?.enabled == true,
             authType = claudeConfig?.authType ?: ProviderAuthType.SETUP_TOKEN,
             authValue = claudeConfig?.authValue.orEmpty(),
@@ -451,7 +453,7 @@ private fun ProviderConfigScreen(
                     modifier = Modifier.height(18.dp)
                 )
             } else {
-                Text("Continuer")
+                Text(stringResource(R.string.action_continue))
             }
         }
     }
@@ -501,14 +503,14 @@ private fun ProviderSection(
                     FilterChip(
                         selected = effectiveAuthType == ProviderAuthType.API_KEY,
                         onClick = { onUpdateAuthType(ProviderAuthType.API_KEY) },
-                        label = { Text("API key") },
+                        label = { Text(stringResource(R.string.provider_auth_api_key)) },
                         enabled = !workspaceBusy
                     )
                     if (isCodex) {
                         FilterChip(
                             selected = effectiveAuthType == ProviderAuthType.AUTH_JSON_B64,
                             onClick = { onUpdateAuthType(ProviderAuthType.AUTH_JSON_B64) },
-                            label = { Text("auth.json file") },
+                            label = { Text(stringResource(R.string.provider_auth_auth_json_file)) },
                             enabled = !workspaceBusy
                         )
                     }
@@ -516,7 +518,7 @@ private fun ProviderSection(
                         FilterChip(
                             selected = effectiveAuthType == ProviderAuthType.SETUP_TOKEN,
                             onClick = { onUpdateAuthType(ProviderAuthType.SETUP_TOKEN) },
-                            label = { Text("setup_token") },
+                            label = { Text(stringResource(R.string.provider_auth_setup_token)) },
                             enabled = !workspaceBusy
                         )
                     }
@@ -539,12 +541,12 @@ private fun ProviderSection(
                                 modifier = Modifier.width(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Importer auth.json")
+                            Text(stringResource(R.string.provider_auth_import_auth_json))
                         }
                         if (authValue.isNotBlank()) {
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Chargé",
+                                contentDescription = stringResource(R.string.status_loaded),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             IconButton(
@@ -553,7 +555,7 @@ private fun ProviderSection(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Clear,
-                                    contentDescription = "Supprimer",
+                                    contentDescription = stringResource(R.string.action_delete),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }
@@ -566,9 +568,9 @@ private fun ProviderSection(
                         label = {
                             Text(
                                 when (effectiveAuthType) {
-                                    ProviderAuthType.API_KEY -> "Clé API"
-                                    ProviderAuthType.SETUP_TOKEN -> "Setup token"
-                                    ProviderAuthType.AUTH_JSON_B64 -> "auth.json"
+                                    ProviderAuthType.API_KEY -> stringResource(R.string.provider_auth_api_key_label)
+                                    ProviderAuthType.SETUP_TOKEN -> stringResource(R.string.provider_auth_setup_token_label)
+                                    ProviderAuthType.AUTH_JSON_B64 -> stringResource(R.string.provider_auth_auth_json_label)
                                 }
                             )
                         },
@@ -606,8 +608,8 @@ private fun WorkspaceCreatedScreen(
 ) {
     ScreenContainer {
         BrandHeader(
-            title = "Workspace créé",
-            subtitle = "Conservez ces identifiants pour vos prochaines connexions."
+            title = stringResource(R.string.workspace_created_title),
+            subtitle = stringResource(R.string.workspace_created_subtitle)
         )
 
         Card(
@@ -619,12 +621,12 @@ private fun WorkspaceCreatedScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Workspace ID", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.workspace_id), style = MaterialTheme.typography.labelMedium)
                 SelectionContainer {
                     Text(workspaceId ?: "-", style = MaterialTheme.typography.bodyMedium)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("Workspace secret", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.workspace_secret), style = MaterialTheme.typography.labelMedium)
                 SelectionContainer {
                     Text(workspaceSecret ?: "-", style = MaterialTheme.typography.bodyMedium)
                 }
@@ -635,7 +637,7 @@ private fun WorkspaceCreatedScreen(
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Continuer")
+            Text(stringResource(R.string.action_continue))
         }
     }
 }
@@ -662,16 +664,16 @@ private fun JoinSessionScreen(
         TextButton(onClick = onLeaveWorkspace) {
             Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Quitter le workspace")
+            Text(stringResource(R.string.workspace_leave))
         }
 
-        BrandHeader(title = "Rejoindre une session")
+        BrandHeader(title = stringResource(R.string.session_join_title))
 
         Button(
             onClick = onStartSession,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Démarrer une nouvelle session")
+            Text(stringResource(R.string.session_start_new))
         }
 
         OutlinedButton(
@@ -680,7 +682,7 @@ private fun JoinSessionScreen(
         ) {
             Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Reconfigurer les providers IA")
+            Text(stringResource(R.string.providers_reconfigure))
         }
 
         Row(
@@ -688,9 +690,15 @@ private fun JoinSessionScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Sessions récentes", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.sessions_recent), style = MaterialTheme.typography.titleSmall)
             TextButton(onClick = onRefreshSessions, enabled = !sessionsLoading) {
-                Text(if (sessionsLoading) "Chargement..." else "Rafraîchir")
+                Text(
+                    if (sessionsLoading) {
+                        stringResource(R.string.loading)
+                    } else {
+                        stringResource(R.string.action_refresh)
+                    }
+                )
             }
         }
 
@@ -704,25 +712,29 @@ private fun JoinSessionScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(repoUrl.ifBlank { "Session sauvegardée" })
+                    Text(repoUrl.ifBlank { stringResource(R.string.session_saved_placeholder) })
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(
                             onClick = onResumeSession,
                             enabled = !isLoading
                         ) {
                             Text(
-                                if (loadingState == LoadingState.RESUMING) "Reprise..." else "Reprendre"
+                                if (loadingState == LoadingState.RESUMING) {
+                                    stringResource(R.string.action_resume_progress)
+                                } else {
+                                    stringResource(R.string.action_resume)
+                                }
                             )
                         }
                         OutlinedButton(onClick = onDeleteSession) {
-                            Text("Supprimer")
+                            Text(stringResource(R.string.action_delete))
                         }
                     }
                 }
             }
         } else {
             Text(
-                text = "Aucune session sauvegardée pour le moment.",
+                text = stringResource(R.string.session_saved_empty),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -800,37 +812,37 @@ private fun StartSessionScreen(
         TextButton(onClick = onBack) {
             Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Retour")
+            Text(stringResource(R.string.action_back))
         }
 
-        BrandHeader(title = "Démarrer une session")
+        BrandHeader(title = stringResource(R.string.session_start_title))
 
         OutlinedTextField(
             value = repoUrl,
             onValueChange = onRepoUrlChange,
-            label = { Text("Repository URL") },
+            label = { Text(stringResource(R.string.repo_url_label)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
         )
 
-        Text("Authentification", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.auth_title), style = MaterialTheme.typography.titleSmall)
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = authMethod == AuthMethod.NONE,
                 onClick = { onAuthMethodChange(AuthMethod.NONE) },
-                label = { Text("Aucune") }
+                label = { Text(stringResource(R.string.auth_none)) }
             )
             FilterChip(
                 selected = authMethod == AuthMethod.HTTP,
                 onClick = { onAuthMethodChange(AuthMethod.HTTP) },
-                label = { Text("HTTP") }
+                label = { Text(stringResource(R.string.auth_http)) }
             )
             FilterChip(
                 selected = authMethod == AuthMethod.SSH,
                 onClick = { onAuthMethodChange(AuthMethod.SSH) },
-                label = { Text("SSH") }
+                label = { Text(stringResource(R.string.auth_ssh)) }
             )
         }
 
@@ -838,7 +850,7 @@ private fun StartSessionScreen(
             OutlinedTextField(
                 value = sshKey,
                 onValueChange = onSshKeyChange,
-                label = { Text("Clé SSH privée") },
+                label = { Text(stringResource(R.string.auth_ssh_key)) },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 4,
                 maxLines = 6
@@ -849,7 +861,7 @@ private fun StartSessionScreen(
             OutlinedTextField(
                 value = httpUser,
                 onValueChange = onHttpUserChange,
-                label = { Text("Nom d'utilisateur") },
+                label = { Text(stringResource(R.string.auth_http_username)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -857,7 +869,7 @@ private fun StartSessionScreen(
             OutlinedTextField(
                 value = httpPassword,
                 onValueChange = onHttpPasswordChange,
-                label = { Text("Mot de passe / Token") },
+                label = { Text(stringResource(R.string.auth_http_password)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 visualTransformation = if (showHttpPassword) {
@@ -892,13 +904,13 @@ private fun StartSessionScreen(
             if (isLoading) {
                 Text(
                     when (loadingState) {
-                        LoadingState.CLONING -> "Clonage..."
-                        LoadingState.RESUMING -> "Reprise..."
-                        LoadingState.NONE -> "Chargement..."
+                        LoadingState.CLONING -> stringResource(R.string.repo_cloning)
+                        LoadingState.RESUMING -> stringResource(R.string.session_resuming)
+                        LoadingState.NONE -> stringResource(R.string.loading)
                     }
                 )
             } else {
-                Text("Continuer")
+                Text(stringResource(R.string.action_continue))
             }
         }
     }

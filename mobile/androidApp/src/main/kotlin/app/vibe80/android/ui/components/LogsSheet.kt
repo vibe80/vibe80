@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import app.vibe80.android.R
 import app.vibe80.shared.logging.AppLogger
 import app.vibe80.shared.logging.LogEntry
 import app.vibe80.shared.logging.LogLevel
@@ -53,13 +55,13 @@ fun LogsSheetContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Logs (${filteredLogs.size})",
+                text = stringResource(R.string.logs_title, filteredLogs.size),
                 style = MaterialTheme.typography.titleLarge
             )
             IconButton(onClick = { AppLogger.clear() }) {
                 Icon(
                     imageVector = Icons.Default.Clear,
-                    contentDescription = "Effacer les logs"
+                    contentDescription = stringResource(R.string.logs_clear)
                 )
             }
         }
@@ -74,12 +76,12 @@ fun LogsSheetContent(
             FilterChip(
                 selected = selectedSource == null,
                 onClick = { selectedSource = null },
-                label = { Text("Tous") }
+                label = { Text(stringResource(R.string.logs_filter_all)) }
             )
             FilterChip(
                 selected = selectedSource == LogSource.API,
                 onClick = { selectedSource = if (selectedSource == LogSource.API) null else LogSource.API },
-                label = { Text("API") },
+                label = { Text(stringResource(R.string.logs_filter_api)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Api,
@@ -91,7 +93,7 @@ fun LogsSheetContent(
             FilterChip(
                 selected = selectedSource == LogSource.WEBSOCKET,
                 onClick = { selectedSource = if (selectedSource == LogSource.WEBSOCKET) null else LogSource.WEBSOCKET },
-                label = { Text("WebSocket") },
+                label = { Text(stringResource(R.string.logs_filter_websocket)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Cable,
@@ -103,7 +105,7 @@ fun LogsSheetContent(
             FilterChip(
                 selected = selectedSource == LogSource.APP,
                 onClick = { selectedSource = if (selectedSource == LogSource.APP) null else LogSource.APP },
-                label = { Text("App") },
+                label = { Text(stringResource(R.string.logs_filter_app)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Phone,
@@ -125,7 +127,7 @@ fun LogsSheetContent(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Aucun log",
+                    text = stringResource(R.string.logs_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

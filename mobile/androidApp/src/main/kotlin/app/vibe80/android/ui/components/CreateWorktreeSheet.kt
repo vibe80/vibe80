@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import app.vibe80.android.R
 import app.vibe80.shared.models.LLMProvider
 import app.vibe80.shared.models.ProviderModelState
 import app.vibe80.shared.models.Worktree
@@ -93,7 +95,7 @@ fun CreateWorktreeSheet(
                 .padding(16.dp)
         ) {
             Text(
-                text = "Nouvelle branche parallèle",
+                text = stringResource(R.string.worktree_new_title),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
@@ -102,12 +104,12 @@ fun CreateWorktreeSheet(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it.take(32) },
-                label = { Text("Nom (optionnel)") },
-                placeholder = { Text("ex: refactor-auth") },
+                label = { Text(stringResource(R.string.worktree_name_optional_label)) },
+                placeholder = { Text(stringResource(R.string.worktree_name_placeholder_example)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 supportingText = {
-                    Text("${name.length}/32 caractères")
+                    Text(stringResource(R.string.worktree_name_count, name.length))
                 }
             )
 
@@ -115,7 +117,7 @@ fun CreateWorktreeSheet(
 
             // Provider selection
             Text(
-                text = "Provider",
+                text = stringResource(R.string.provider_label),
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -131,7 +133,6 @@ fun CreateWorktreeSheet(
                     )
                 }
             }
-
             // Model selection (Codex only)
             if (selectedProvider == LLMProvider.CODEX) {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -142,7 +143,7 @@ fun CreateWorktreeSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Modèle",
+                        text = stringResource(R.string.model_label),
                         style = MaterialTheme.typography.labelLarge
                     )
                     if (!currentModelState.loading) {
@@ -152,7 +153,7 @@ fun CreateWorktreeSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Rafraîchir les modèles",
+                                contentDescription = stringResource(R.string.model_refresh),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -171,7 +172,7 @@ fun CreateWorktreeSheet(
                             strokeWidth = 2.dp
                         )
                         Text(
-                            text = "Chargement des modèles...",
+                            text = stringResource(R.string.model_loading),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -192,7 +193,7 @@ fun CreateWorktreeSheet(
                         OutlinedTextField(
                             value = selectedModelDetails?.displayName
                                 ?: selectedModelDetails?.model
-                                ?: "Modèle par défaut",
+                                ?: stringResource(R.string.model_default),
                             onValueChange = {},
                             readOnly = true,
                             trailingIcon = {
@@ -207,7 +208,7 @@ fun CreateWorktreeSheet(
                             onDismissRequest = { modelExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Modèle par défaut") },
+                                text = { Text(stringResource(R.string.model_default)) },
                                 onClick = {
                                     selectedModel = null
                                     modelExpanded = false
@@ -232,7 +233,7 @@ fun CreateWorktreeSheet(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "Reasoning",
+                        text = stringResource(R.string.reasoning_label),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -244,7 +245,7 @@ fun CreateWorktreeSheet(
                         onExpandedChange = { effortExpanded = it }
                     ) {
                         OutlinedTextField(
-                            value = selectedReasoningEffort ?: "Reasoning par défaut",
+                            value = selectedReasoningEffort ?: stringResource(R.string.reasoning_default),
                             onValueChange = {},
                             readOnly = true,
                             trailingIcon = {
@@ -259,7 +260,7 @@ fun CreateWorktreeSheet(
                             onDismissRequest = { effortExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Reasoning par défaut") },
+                                text = { Text(stringResource(R.string.reasoning_default)) },
                                 onClick = {
                                     selectedReasoningEffort = null
                                     effortExpanded = false
@@ -283,7 +284,7 @@ fun CreateWorktreeSheet(
 
             // Color selection
             Text(
-                text = "Couleur",
+                text = stringResource(R.string.worktree_color_label),
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -332,7 +333,7 @@ fun CreateWorktreeSheet(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Créer")
+                Text(stringResource(R.string.action_create))
             }
 
             Spacer(modifier = Modifier.height(32.dp))

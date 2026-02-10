@@ -116,8 +116,8 @@ fun Vibe80YesNoView(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val yesLabel = stringResource(R.string.vibe80_yes)
-        val noLabel = stringResource(R.string.vibe80_no)
+        val yesLabel = stringResource(R.string.choice_yes)
+        val noLabel = stringResource(R.string.choice_no)
 
         block.question?.let { question ->
             Text(

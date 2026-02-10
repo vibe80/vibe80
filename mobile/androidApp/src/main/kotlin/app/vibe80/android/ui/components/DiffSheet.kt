@@ -213,7 +213,7 @@ fun DiffSheetContent(
             .padding(16.dp)
     ) {
         Text(
-            text = stringResource(R.string.diff),
+            text = stringResource(R.string.diff_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(bottom = 16.dp)
         )
@@ -253,7 +253,7 @@ private fun EmptyDiffState() {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Aucune modification",
+                text = stringResource(R.string.diff_empty_title),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -278,17 +278,17 @@ private fun DiffSummary(files: List<DiffFile>) {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             SummaryItem(
-                label = "Fichiers",
+                label = stringResource(R.string.diff_files_label),
                 value = files.size.toString(),
                 color = MaterialTheme.colorScheme.primary
             )
             SummaryItem(
-                label = "Ajouts",
+                label = stringResource(R.string.diff_additions),
                 value = "+$totalAdditions",
                 color = Color(0xFF4CAF50)
             )
             SummaryItem(
-                label = "Suppressions",
+                label = stringResource(R.string.diff_deletions),
                 value = "-$totalDeletions",
                 color = Color(0xFFF44336)
             )
@@ -400,7 +400,9 @@ private fun DiffFileCard(file: DiffFile) {
                 // Icône expand/collapse
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Réduire" else "Développer",
+                    contentDescription = stringResource(
+                        if (expanded) R.string.action_collapse else R.string.action_expand
+                    ),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
