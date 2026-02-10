@@ -44,7 +44,8 @@ export default function useChatSend({
       ]);
       socketRef.current.send(
         JSON.stringify({
-          type: "user_message",
+          type: "worktree_send_message",
+          worktreeId: "main",
           text,
           displayText,
           attachments: resolvedAttachments,

@@ -629,12 +629,18 @@ wss.on("connection", (socket, req) => {
           socket.send(JSON.stringify({ type: "error", message: "Worktree not found." }));
           return;
         }
-        const client = runtime.worktreeClients.get(worktreeId);
+        const isMainWorktree = worktreeId === "main";
+        const client = isMainWorktree
+          ? getActiveClient(session)
+          : runtime.worktreeClients.get(worktreeId);
         if (!client?.ready) {
+          const label = isMainWorktree
+            ? getProviderLabel(session)
+            : (worktree.provider === "claude" ? "Claude CLI" : "Codex app-server");
           socket.send(
             JSON.stringify({
               type: "error",
-              message: `${worktree.provider === "claude" ? "Claude CLI" : "Codex app-server"} not ready for worktree.`,
+              message: `${label} not ready for worktree.`,
             })
           );
           return;
@@ -648,16 +654,17 @@ wss.on("connection", (socket, req) => {
             attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
             provider: worktree.provider,
           });
-          socket.send(
-            JSON.stringify({
-              type: "turn_started",
-              worktreeId,
-              turnId: result.turn.id,
-              threadId: client.threadId,
-              provider: worktree.provider,
-              status: "processing",
-            })
-          );
+          const turnPayload = {
+            type: "turn_started",
+            turnId: result.turn.id,
+            threadId: client.threadId,
+            provider: worktree.provider,
+            status: "processing",
+          };
+          if (!isMainWorktree) {
+            turnPayload.worktreeId = worktreeId;
+          }
+          socket.send(JSON.stringify(turnPayload));
         } catch (error) {
           socket.send(
             JSON.stringify({
