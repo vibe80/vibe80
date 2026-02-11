@@ -1,3 +1,11 @@
 {
-  "Provider cannot be disabled: active sessions use it.": "Provider cannot be disabled: active sessions use it."
+  "Provider cannot be disabled: active sessions use it.": "Provider cannot be disabled: active sessions use it.",
+  "New file": "New file",
+  "Rename": "Rename",
+  "File path": "File path",
+  "e.g. src/new-file.ts": "e.g. src/new-file.ts",
+  "Unable to rename.": "Unable to rename.",
+  "Unable to create file.": "Unable to create file.",
+  "Renamed.": "Renamed.",
+  "File created.": "File created."
 }

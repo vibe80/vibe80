@@ -1840,6 +1840,45 @@ main.chat {
   gap: 12px;
 }
 
+.explorer-tree-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.explorer-tree-header {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(20, 19, 17, 0.1);
+  border-radius: 14px;
+  background: rgba(250, 248, 244, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.explorer-tree-icon-btn {
+  border: 1px solid rgba(20, 19, 17, 0.16);
+  background: rgba(20, 19, 17, 0.04);
+  color: var(--ink);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.explorer-tree-icon-btn:hover {
+  background: rgba(20, 19, 17, 0.08);
+}
+
+.explorer-tree-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .explorer-tree,
 .explorer-editor {
   border: 1px solid rgba(20, 19, 17, 0.1);
@@ -1851,6 +1890,31 @@ main.chat {
 .explorer-tree {
   padding: 10px 8px;
   overflow: auto;
+  flex: 1;
+}
+
+.explorer-tree-entry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.explorer-tree-caret-button {
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  width: 22px;
+  min-width: 22px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.explorer-tree-caret-button:hover {
+  background: rgba(20, 19, 17, 0.06);
 }
 
 .explorer-editor {
@@ -2013,12 +2077,22 @@ main.chat {
   font-size: 13px;
 }
 
+.explorer-tree-entry .explorer-tree-toggle {
+  flex: 1;
+  min-width: 0;
+}
+
 .explorer-tree-toggle:hover,
 .explorer-tree-file:hover {
   background: rgba(20, 19, 17, 0.06);
 }
 
 .explorer-tree-item.is-file.is-selected > .explorer-tree-file {
+  background: rgba(238, 93, 59, 0.12);
+  color: var(--accent-dark);
+}
+
+.explorer-tree-item.is-dir.is-selected > .explorer-tree-toggle {
   background: rgba(238, 93, 59, 0.12);
   color: var(--accent-dark);
 }
@@ -2055,6 +2129,79 @@ main.chat {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.explorer-tree-rename-input {
+  border: 1px solid rgba(20, 19, 17, 0.2);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1.2;
+  width: 100%;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+}
+
+.explorer-tree-rename-input:focus {
+  outline: none;
+  border-color: rgba(238, 93, 59, 0.5);
+  box-shadow: 0 0 0 2px rgba(238, 93, 59, 0.15);
+}
+
+.explorer-file-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 12, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  padding: 20px;
+}
+
+.explorer-file-dialog {
+  width: min(420px, 100%);
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid rgba(20, 19, 17, 0.14);
+  box-shadow: 0 20px 60px rgba(20, 19, 17, 0.28);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.explorer-file-dialog h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.explorer-file-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.explorer-file-dialog-field label {
+  font-size: 12px;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.explorer-file-dialog-field input {
+  border: 1px solid rgba(20, 19, 17, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  padding: 8px 10px;
+}
+
+.explorer-file-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .explorer-empty,
@@ -2138,6 +2285,21 @@ main.chat {
   background: rgba(22, 24, 23, 0.85);
 }
 
+:root[data-theme="dark"] .explorer-tree-header {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(22, 24, 23, 0.85);
+}
+
+:root[data-theme="dark"] .explorer-tree-icon-btn {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .explorer-tree-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 :root[data-theme="dark"] .explorer-editor-header {
   border-bottom-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
@@ -2174,6 +2336,11 @@ main.chat {
   color: #ffd2c7;
 }
 
+:root[data-theme="dark"] .explorer-tree-item.is-dir.is-selected > .explorer-tree-toggle {
+  background: rgba(238, 93, 59, 0.22);
+  color: #ffd2c7;
+}
+
 :root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-toggle,
 :root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-file,
 :root[data-theme="dark"] .explorer-tree-item.is-modified:not(.is-selected) > .explorer-tree-toggle .explorer-tree-name,
@@ -2190,6 +2357,27 @@ main.chat {
 :root[data-theme="dark"] .explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-file .explorer-tree-name,
 :root[data-theme="dark"] .explorer-tree-item.is-untracked:not(.is-selected) > .explorer-tree-file .explorer-tree-icon {
   color: #7ee6a8;
+}
+
+:root[data-theme="dark"] .explorer-tree-caret-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .explorer-tree-rename-input {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e6edf3;
+}
+
+:root[data-theme="dark"] .explorer-file-dialog {
+  background: rgba(19, 21, 20, 0.96);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-theme="dark"] .explorer-file-dialog-field input {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e6edf3;
 }
 
 :root[data-theme="dark"] .diff-file {

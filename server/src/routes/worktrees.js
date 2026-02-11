@@ -6,6 +6,7 @@ import {
 import {
   getSession,
   touchSession,
+  runSessionCommand,
   runSessionCommandOutput,
   resolveWorktreeRoot,
   listDirectoryEntries,
@@ -47,6 +48,17 @@ export default function worktreeRoutes(deps) {
 
   const router = Router();
   const DEFAULT_WAKEUP_TIMEOUT_MS = 15000;
+  const resolveRelativePath = (rootPath, requestedPath) => {
+    if (!requestedPath || typeof requestedPath !== "string") {
+      return null;
+    }
+    const absPath = path.resolve(rootPath, requestedPath);
+    const relative = path.relative(rootPath, absPath);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+      return null;
+    }
+    return { absPath, relative };
+  };
 
   const waitUntilClientReady = (client, timeoutMs) =>
     new Promise((resolve, reject) => {
@@ -517,12 +529,12 @@ export default function worktreeRoutes(deps) {
       res.status(400).json({ error: "Path is required." });
       return;
     }
-    const absPath = path.resolve(rootPath, requestedPath);
-    const relative = path.relative(rootPath, absPath);
-    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    const resolved = resolveRelativePath(rootPath, requestedPath);
+    if (!resolved) {
       res.status(400).json({ error: "Invalid path." });
       return;
     }
+    const { absPath } = resolved;
     try {
       const { buffer, truncated } = await readWorkspaceFileBuffer(
         session.workspaceId,
@@ -572,14 +584,26 @@ export default function worktreeRoutes(deps) {
       res.status(400).json({ error: "File too large to write." });
       return;
     }
-    const absPath = path.resolve(rootPath, requestedPath);
-    const relative = path.relative(rootPath, absPath);
-    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    const resolved = resolveRelativePath(rootPath, requestedPath);
+    if (!resolved) {
       res.status(400).json({ error: "Invalid path." });
       return;
     }
+    const { absPath } = resolved;
     try {
-      await writeWorkspaceFilePreserveMode(session.workspaceId, absPath, content);
+      let updated = false;
+      try {
+        await writeWorkspaceFilePreserveMode(session.workspaceId, absPath, content);
+        updated = true;
+      } catch {
+        updated = false;
+      }
+      if (!updated) {
+        await runSessionCommand(session, "/bin/mkdir", ["-p", path.dirname(absPath)], {
+          cwd: rootPath,
+        });
+        await runSessionCommand(session, "/usr/bin/tee", [absPath], { input: content });
+      }
       res.json({ ok: true, path: requestedPath });
     } catch (error) {
       console.error("Failed to write file:", {
@@ -589,6 +613,65 @@ export default function worktreeRoutes(deps) {
         error: error?.message || error,
       });
       res.status(500).json({ error: "Failed to write file." });
+    }
+  });
+
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/file/rename", async (req, res) => {
+    const sessionId = req.params.sessionId;
+    const session = await getSession(sessionId, req.workspaceId);
+    if (!session) {
+      res.status(400).json({ error: "Invalid session." });
+      return;
+    }
+    await touchSession(session);
+    const { rootPath } = await resolveWorktreeRoot(session, req.params.worktreeId);
+    if (!rootPath) {
+      res.status(404).json({ error: "Worktree not found." });
+      return;
+    }
+    const fromPath = req.body?.fromPath;
+    const toPath = req.body?.toPath;
+    if (!fromPath || typeof fromPath !== "string") {
+      res.status(400).json({ error: "fromPath is required." });
+      return;
+    }
+    if (!toPath || typeof toPath !== "string") {
+      res.status(400).json({ error: "toPath is required." });
+      return;
+    }
+    const fromResolved = resolveRelativePath(rootPath, fromPath);
+    const toResolved = resolveRelativePath(rootPath, toPath);
+    if (!fromResolved || !toResolved) {
+      res.status(400).json({ error: "Invalid path." });
+      return;
+    }
+    if (fromResolved.relative === toResolved.relative) {
+      res.json({ ok: true, fromPath, toPath });
+      return;
+    }
+    try {
+      await runSessionCommand(
+        session,
+        "/bin/mkdir",
+        ["-p", path.dirname(toResolved.absPath)],
+        { cwd: rootPath }
+      );
+      await runSessionCommand(
+        session,
+        "/bin/mv",
+        ["-f", fromResolved.absPath, toResolved.absPath],
+        { cwd: rootPath }
+      );
+      res.json({ ok: true, fromPath, toPath });
+    } catch (error) {
+      console.error("Failed to rename path:", {
+        sessionId,
+        worktreeId: req.params.worktreeId,
+        fromPath,
+        toPath,
+        error: error?.message || error,
+      });
+      res.status(500).json({ error: "Failed to rename path." });
     }
   });
 

@@ -1,5 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Editor from "@monaco-editor/react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faArrowsRotate,
+  faFileCirclePlus,
+  faPenToSquare,
+} from "@fortawesome/free-solid-svg-icons";
 
 export default function ExplorerPanel({
   t,
@@ -19,6 +25,8 @@ export default function ExplorerPanel({
   updateExplorerDraft,
   setActiveExplorerFile,
   closeExplorerFile,
+  startExplorerRename,
+  createExplorerFile,
   getLanguageForPath,
   themeMode,
 }) {
@@ -27,7 +35,14 @@ export default function ExplorerPanel({
     ? activeExplorer.openTabPaths
     : [];
   const activeFilePath = activeExplorer.activeFilePath || activeExplorer.selectedPath || "";
-  const activeFile = activeFilePath ? activeExplorer.filesByPath?.[activeFilePath] : null;
+  const activeFile = activeFilePath
+    ? activeExplorer.filesByPath?.[activeFilePath]
+    : null;
+  const [newFileDialogOpen, setNewFileDialogOpen] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+  const [newFileSubmitting, setNewFileSubmitting] = useState(false);
+
+  const selectedPath = activeExplorer.selectedPath || "";
 
   useEffect(() => {
     if (activePane !== "explorer") {
@@ -50,7 +65,14 @@ export default function ExplorerPanel({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [activePane, activeFilePath, activeFile?.binary, activeFile?.saving, saveExplorerFile, tabId]);
+  }, [
+    activePane,
+    activeFilePath,
+    activeFile?.binary,
+    activeFile?.saving,
+    saveExplorerFile,
+    tabId,
+  ]);
 
   const getFileLabel = (path) => {
     if (!path) {
@@ -60,6 +82,15 @@ export default function ExplorerPanel({
     return parts[parts.length - 1] || path;
   };
 
+  const canRename = Boolean(selectedPath);
+
+  const subtitle = useMemo(() => {
+    if (isInWorktree) {
+      return activeWorktree?.branchName || activeWorktree?.name || "";
+    }
+    return repoName || "";
+  }, [isInWorktree, activeWorktree?.branchName, activeWorktree?.name, repoName]);
+
   return (
     <div
       className={`explorer-panel ${activePane === "explorer" ? "" : "is-hidden"}`}
@@ -67,55 +98,83 @@ export default function ExplorerPanel({
       <div className="explorer-header">
         <div>
           <div className="explorer-title">{t("Explorer")}</div>
-          {(repoName || activeWorktree?.branchName || activeWorktree?.name) && (
-            <div className="explorer-subtitle">
-              {isInWorktree
-                ? activeWorktree?.branchName || activeWorktree?.name
-                : repoName}
-            </div>
-          )}
+          {subtitle ? <div className="explorer-subtitle">{subtitle}</div> : null}
         </div>
-        <button
-          type="button"
-          className="explorer-refresh"
-          onClick={() => {
-            requestExplorerTree(tabId, true);
-            requestExplorerStatus(tabId, true);
-          }}
-          disabled={!attachmentSession?.sessionId}
-        >
-          {t("Refresh")}
-        </button>
       </div>
       <div className="explorer-body">
-        <div className="explorer-tree">
-          {activeExplorer.loading ? (
-            <div className="explorer-empty">{t("Loading...")}</div>
-          ) : activeExplorer.error ? (
-            <div className="explorer-empty">{activeExplorer.error}</div>
-          ) : Array.isArray(activeExplorer.tree) &&
-            activeExplorer.tree.length > 0 ? (
-            <>
-              {renderExplorerNodes(
-                activeExplorer.tree,
-                tabId,
-                new Set(activeExplorer.expandedPaths || []),
-                activeFilePath,
-                explorerStatusByPath,
-                explorerDirStatus
-              )}
-              {activeExplorer.treeTruncated && (
-                <div className="explorer-truncated">
-                  {t("List truncated after {{count}} entries.", {
-                    count: activeExplorer.treeTotal,
-                  })}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="explorer-empty">{t("No file found.")}</div>
-          )}
+        <div className="explorer-tree-wrap">
+          <div className="explorer-tree-header">
+            <button
+              type="button"
+              className="explorer-tree-icon-btn"
+              title={t("New file")}
+              aria-label={t("New file")}
+              onClick={() => {
+                setNewFileName("");
+                setNewFileDialogOpen(true);
+              }}
+              disabled={!attachmentSession?.sessionId}
+            >
+              <FontAwesomeIcon icon={faFileCirclePlus} />
+            </button>
+            <button
+              type="button"
+              className="explorer-tree-icon-btn"
+              title={t("Rename")}
+              aria-label={t("Rename")}
+              onClick={() => startExplorerRename(tabId)}
+              disabled={!attachmentSession?.sessionId || !canRename}
+            >
+              <FontAwesomeIcon icon={faPenToSquare} />
+            </button>
+            <button
+              type="button"
+              className="explorer-tree-icon-btn"
+              title={t("Refresh")}
+              aria-label={t("Refresh")}
+              onClick={() => {
+                requestExplorerTree(tabId, true);
+                requestExplorerStatus(tabId, true);
+              }}
+              disabled={!attachmentSession?.sessionId}
+            >
+              <FontAwesomeIcon icon={faArrowsRotate} />
+            </button>
+          </div>
+
+          <div className="explorer-tree">
+            {activeExplorer.loading ? (
+              <div className="explorer-empty">{t("Loading...")}</div>
+            ) : activeExplorer.error ? (
+              <div className="explorer-empty">{activeExplorer.error}</div>
+            ) : Array.isArray(activeExplorer.tree) &&
+              activeExplorer.tree.length > 0 ? (
+              <>
+                {renderExplorerNodes(
+                  activeExplorer.tree,
+                  tabId,
+                  new Set(activeExplorer.expandedPaths || []),
+                  activeExplorer.selectedPath || activeFilePath,
+                  activeExplorer.selectedType || null,
+                  activeExplorer.renamingPath || null,
+                  activeExplorer.renameDraft || "",
+                  explorerStatusByPath,
+                  explorerDirStatus
+                )}
+                {activeExplorer.treeTruncated && (
+                  <div className="explorer-truncated">
+                    {t("List truncated after {{count}} entries.", {
+                      count: activeExplorer.treeTotal,
+                    })}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="explorer-empty">{t("No file found.")}</div>
+            )}
+          </div>
         </div>
+
         <div className="explorer-editor">
           <div className="explorer-editor-tabs">
             {openTabPaths.map((path) => {
@@ -169,9 +228,7 @@ export default function ExplorerPanel({
           {activeFile?.loading ? (
             <div className="explorer-editor-empty">{t("Loading...")}</div>
           ) : activeFile?.error ? (
-            <div className="explorer-editor-empty">
-              {activeFile.error}
-            </div>
+            <div className="explorer-editor-empty">{activeFile.error}</div>
           ) : activeFile?.binary ? (
             <div className="explorer-editor-empty">
               {t("Binary file not displayed.")}
@@ -201,9 +258,7 @@ export default function ExplorerPanel({
                 />
               </div>
               {activeFile?.saveError && (
-                <div className="explorer-truncated">
-                  {activeFile.saveError}
-                </div>
+                <div className="explorer-truncated">{activeFile.saveError}</div>
               )}
               {activeFile?.truncated && (
                 <div className="explorer-truncated">
@@ -218,6 +273,77 @@ export default function ExplorerPanel({
           )}
         </div>
       </div>
+
+      {newFileDialogOpen && (
+        <div
+          className="explorer-file-dialog-overlay"
+          onClick={() => {
+            if (!newFileSubmitting) {
+              setNewFileDialogOpen(false);
+            }
+          }}
+        >
+          <div
+            className="explorer-file-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3>{t("New file")}</h3>
+            <div className="explorer-file-dialog-field">
+              <label htmlFor="explorer-new-file-input">{t("File path")}</label>
+              <input
+                id="explorer-new-file-input"
+                type="text"
+                value={newFileName}
+                onChange={(event) => setNewFileName(event.target.value)}
+                placeholder={t("e.g. src/new-file.ts")}
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !newFileSubmitting) {
+                    event.preventDefault();
+                    setNewFileSubmitting(true);
+                    createExplorerFile(tabId, newFileName)
+                      .then((ok) => {
+                        if (ok) {
+                          setNewFileDialogOpen(false);
+                          setNewFileName("");
+                        }
+                      })
+                      .finally(() => setNewFileSubmitting(false));
+                  }
+                }}
+              />
+            </div>
+            <div className="explorer-file-dialog-actions">
+              <button
+                type="button"
+                className="session-button secondary"
+                onClick={() => setNewFileDialogOpen(false)}
+                disabled={newFileSubmitting}
+              >
+                {t("Cancel")}
+              </button>
+              <button
+                type="button"
+                className="session-button primary"
+                disabled={newFileSubmitting || !newFileName.trim()}
+                onClick={() => {
+                  setNewFileSubmitting(true);
+                  createExplorerFile(tabId, newFileName)
+                    .then((ok) => {
+                      if (ok) {
+                        setNewFileDialogOpen(false);
+                        setNewFileName("");
+                      }
+                    })
+                    .finally(() => setNewFileSubmitting(false));
+                }}
+              >
+                {newFileSubmitting ? t("Creating") : t("Create")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -757,6 +757,9 @@ function App() {
       activeFilePath: null,
       filesByPath: {},
       selectedPath: null,
+      selectedType: null,
+      renamingPath: null,
+      renameDraft: "",
       fileContent: "",
       draftContent: "",
       fileLoading: false,
@@ -1720,10 +1723,16 @@ function App() {
     openFileInExplorer,
     setActiveExplorerFile,
     closeExplorerFile,
+    selectExplorerNode,
     toggleExplorerDir,
     toggleExplorerEditMode,
     updateExplorerDraft,
     saveExplorerFile,
+    startExplorerRename,
+    cancelExplorerRename,
+    updateExplorerRenameDraft,
+    submitExplorerRename,
+    createExplorerFile,
   } = useExplorerActions({
     attachmentSessionId: attachmentSession?.sessionId,
     apiFetch,
@@ -2003,6 +2012,9 @@ function App() {
     tabId,
     expandedSet,
     selectedPath,
+    selectedType,
+    renamingPath,
+    renameDraft,
     statusByPath,
     dirStatus
   ) => {
@@ -2014,32 +2026,74 @@ function App() {
         {nodes.map((node) => {
           if (node.type === "dir") {
             const isExpanded = expandedSet.has(node.path);
+            const isSelected = selectedPath === node.path && selectedType === "dir";
+            const isRenaming = renamingPath === node.path;
             const statusType = dirStatus?.[node.path] || "";
             return (
               <li
                 key={node.path}
                 className={`explorer-tree-item is-dir ${
+                  isSelected ? "is-selected" : ""
+                } ${
                   statusType ? `is-${statusType}` : ""
                 }`}
               >
-                <button
-                  type="button"
-                  className="explorer-tree-toggle"
-                  onClick={() => toggleExplorerDir(tabId, node.path)}
-                >
-                  <span className="explorer-tree-caret" aria-hidden="true">
-                    <FontAwesomeIcon
-                      icon={isExpanded ? faChevronDown : faChevronRight}
-                    />
-                  </span>
-                  <span className="explorer-tree-name">{node.name}</span>
-                </button>
+                <div className="explorer-tree-entry">
+                  <button
+                    type="button"
+                    className="explorer-tree-caret-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleExplorerDir(tabId, node.path);
+                    }}
+                  >
+                    <span className="explorer-tree-caret" aria-hidden="true">
+                      <FontAwesomeIcon
+                        icon={isExpanded ? faChevronDown : faChevronRight}
+                      />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="explorer-tree-toggle"
+                    onClick={() => selectExplorerNode(tabId, node.path, "dir")}
+                  >
+                    {isRenaming ? (
+                      <input
+                        className="explorer-tree-rename-input"
+                        value={renameDraft || ""}
+                        autoFocus
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) =>
+                          updateExplorerRenameDraft(tabId, event.target.value)
+                        }
+                        onBlur={() => {
+                          void submitExplorerRename(tabId);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void submitExplorerRename(tabId);
+                          } else if (event.key === "Escape") {
+                            event.preventDefault();
+                            cancelExplorerRename(tabId);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span className="explorer-tree-name">{node.name}</span>
+                    )}
+                  </button>
+                </div>
                 {isExpanded
                   ? renderExplorerNodes(
                       node.children || [],
                       tabId,
                       expandedSet,
                       selectedPath,
+                      selectedType,
+                      renamingPath,
+                      renameDraft,
                       statusByPath,
                       dirStatus
                     )
@@ -2047,7 +2101,8 @@ function App() {
               </li>
             );
           }
-          const isSelected = selectedPath === node.path;
+          const isSelected = selectedPath === node.path && selectedType === "file";
+          const isRenaming = renamingPath === node.path;
           const statusType = statusByPath?.[node.path] || "";
           return (
             <li
@@ -2059,12 +2114,39 @@ function App() {
               <button
                 type="button"
                 className="explorer-tree-file"
-                onClick={() => loadExplorerFileRef.current?.(tabId, node.path)}
+                onClick={() => {
+                  selectExplorerNode(tabId, node.path, "file");
+                  loadExplorerFileRef.current?.(tabId, node.path);
+                }}
               >
                 <span className="explorer-tree-icon" aria-hidden="true">
                   <FontAwesomeIcon icon={faFileLines} />
                 </span>
-                <span className="explorer-tree-name">{node.name}</span>
+                {isRenaming ? (
+                  <input
+                    className="explorer-tree-rename-input"
+                    value={renameDraft || ""}
+                    autoFocus
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) =>
+                      updateExplorerRenameDraft(tabId, event.target.value)
+                    }
+                    onBlur={() => {
+                      void submitExplorerRename(tabId);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void submitExplorerRename(tabId);
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelExplorerRename(tabId);
+                      }
+                    }}
+                  />
+                ) : (
+                  <span className="explorer-tree-name">{node.name}</span>
+                )}
               </button>
             </li>
           );
@@ -2292,6 +2374,8 @@ function App() {
                 updateExplorerDraft={updateExplorerDraft}
                 setActiveExplorerFile={setActiveExplorerFile}
                 closeExplorerFile={closeExplorerFile}
+                startExplorerRename={startExplorerRename}
+                createExplorerFile={createExplorerFile}
                 getLanguageForPath={getLanguageForPath}
                 themeMode={themeMode}
               />

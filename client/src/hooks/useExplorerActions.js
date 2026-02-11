@@ -1,5 +1,40 @@
 import { useCallback, useEffect } from "react";
 
+const pathBasename = (value) => {
+  const normalized = String(value || "").replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+};
+
+const pathDirname = (value) => {
+  const normalized = String(value || "").replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length <= 1) {
+    return "";
+  }
+  return parts.slice(0, -1).join("/");
+};
+
+const joinPath = (baseDir, name) => {
+  if (!baseDir) {
+    return name;
+  }
+  return `${baseDir}/${name}`;
+};
+
+const remapPath = (value, fromPath, toPath) => {
+  if (!value || typeof value !== "string") {
+    return value;
+  }
+  if (value === fromPath) {
+    return toPath;
+  }
+  if (value.startsWith(`${fromPath}/`)) {
+    return `${toPath}${value.slice(fromPath.length)}`;
+  }
+  return value;
+};
+
 export default function useExplorerActions({
   attachmentSessionId,
   apiFetch,
@@ -154,6 +189,7 @@ export default function useExplorerActions({
       .trim()
       .replace(/\\/g, "/")
       .replace(/^\.\/+/, "")
+      .replace(/\/+$/, "")
       .replace(/\/+/g, "/");
   }, []);
 
@@ -176,82 +212,17 @@ export default function useExplorerActions({
     [updateExplorerState]
   );
 
-  const openPathInExplorer = useCallback(
-    async (rawPath) => {
-      const tabId = activeWorktreeId || "main";
-      if (!attachmentSessionId) {
-        showToast(t("Session not found."), "error");
+  const selectExplorerNode = useCallback(
+    (tabId, nodePath, nodeType) => {
+      if (!tabId || !nodePath) {
         return;
       }
-      const normalized = normalizeOpenPath(rawPath);
-      if (!normalized) {
-        showToast(t("Path required."), "error");
-        return;
-      }
-      let tree = explorerRef.current[tabId]?.tree;
-      if (!Array.isArray(tree) || tree.length === 0) {
-        try {
-          await fetchExplorerChildren(tabId, "");
-          tree = explorerRef.current[tabId]?.tree;
-        } catch (error) {
-          showToast(t("Unable to load directory."), "error");
-          return;
-        }
-      }
-      const parts = normalized.split("/").filter(Boolean);
-      let currentPath = "";
-      let node = null;
-      for (const part of parts) {
-        const nextPath = currentPath ? `${currentPath}/${part}` : part;
-        node = findExplorerNode(tree, nextPath);
-        if (!node) {
-          showToast(t("Path not found."), "error");
-          return;
-        }
-        if (node.type === "dir" && node.children === null) {
-          try {
-            await fetchExplorerChildren(tabId, node.path);
-            tree = explorerRef.current[tabId]?.tree;
-            node = findExplorerNode(tree, nextPath);
-            if (!node) {
-              showToast(t("Path not found."), "error");
-              return;
-            }
-          } catch (error) {
-            showToast(t("Unable to load directory."), "error");
-            return;
-          }
-        }
-        currentPath = nextPath;
-      }
-      if (!node) {
-        showToast(t("Path not found."), "error");
-        return;
-      }
-      handleViewSelect("explorer");
-      requestExplorerTreeRef.current?.(tabId);
-      requestExplorerStatusRef.current?.(tabId);
-      if (node.type === "dir") {
-        expandExplorerDir(tabId, node.path);
-      } else {
-        loadExplorerFileRef.current?.(tabId, node.path);
-      }
+      updateExplorerState(tabId, {
+        selectedPath: nodePath,
+        selectedType: nodeType || null,
+      });
     },
-    [
-      activeWorktreeId,
-      attachmentSessionId,
-      expandExplorerDir,
-      fetchExplorerChildren,
-      findExplorerNode,
-      handleViewSelect,
-      loadExplorerFileRef,
-      normalizeOpenPath,
-      requestExplorerStatusRef,
-      requestExplorerTreeRef,
-      showToast,
-      t,
-      explorerRef,
-    ]
+    [updateExplorerState]
   );
 
   const requestExplorerTree = useCallback(
@@ -274,25 +245,25 @@ export default function useExplorerActions({
             ? explorerRef.current[tabId].expandedPaths
             : [];
           const uniqueExpanded = Array.from(
-            new Set(expandedPaths.filter((path) => typeof path === "string" && path.length > 0))
+            new Set(
+              expandedPaths.filter(
+                (path) => typeof path === "string" && path.length > 0
+              )
+            )
           );
           for (const dirPath of uniqueExpanded) {
             await fetchExplorerChildren(tabId, dirPath);
           }
         }
-      } catch (error) {
+      } catch {
         updateExplorerState(tabId, {
           loading: false,
           error: t("Unable to load the explorer."),
         });
       }
     },
-    [attachmentSessionId, fetchExplorerChildren, updateExplorerState, t, explorerRef]
+    [attachmentSessionId, explorerRef, updateExplorerState, fetchExplorerChildren, t]
   );
-
-  useEffect(() => {
-    requestExplorerTreeRef.current = requestExplorerTree;
-  }, [requestExplorerTree, requestExplorerTreeRef]);
 
   const requestExplorerStatus = useCallback(
     async (tabId, force = false) => {
@@ -331,7 +302,7 @@ export default function useExplorerActions({
           statusError: "",
           statusLoaded: true,
         });
-      } catch (error) {
+      } catch {
         updateExplorerState(tabId, {
           statusLoading: false,
           statusError: t("Unable to load Git status."),
@@ -339,12 +310,8 @@ export default function useExplorerActions({
         });
       }
     },
-    [attachmentSessionId, updateExplorerState, t, apiFetch, explorerRef]
+    [attachmentSessionId, explorerRef, updateExplorerState, apiFetch, t]
   );
-
-  useEffect(() => {
-    requestExplorerStatusRef.current = requestExplorerStatus;
-  }, [requestExplorerStatus, requestExplorerStatusRef]);
 
   const loadExplorerFile = useCallback(
     async (tabId, filePath, force = false) => {
@@ -359,7 +326,9 @@ export default function useExplorerActions({
 
       setExplorerByTab((current) => {
         const prev = current[tabId] || explorerDefaultState;
-        const prevOpenTabs = Array.isArray(prev.openTabPaths) ? prev.openTabPaths : [];
+        const prevOpenTabs = Array.isArray(prev.openTabPaths)
+          ? prev.openTabPaths
+          : [];
         const nextOpenTabs = prevOpenTabs.includes(filePath)
           ? prevOpenTabs
           : [...prevOpenTabs, filePath];
@@ -373,6 +342,7 @@ export default function useExplorerActions({
             openTabPaths: nextOpenTabs,
             activeFilePath: filePath,
             selectedPath: filePath,
+            selectedType: "file",
             editMode: true,
             filesByPath: {
               ...(prev.filesByPath || {}),
@@ -432,7 +402,7 @@ export default function useExplorerActions({
             },
           };
         });
-      } catch (error) {
+      } catch {
         setExplorerByTab((current) => {
           const prev = current[tabId] || explorerDefaultState;
           const prevFile = prev.filesByPath?.[filePath] || {};
@@ -465,10 +435,6 @@ export default function useExplorerActions({
     ]
   );
 
-  useEffect(() => {
-    loadExplorerFileRef.current = loadExplorerFile;
-  }, [loadExplorerFile, loadExplorerFileRef]);
-
   const openFileInExplorer = useCallback(
     (filePath) => {
       if (!filePath) {
@@ -483,9 +449,89 @@ export default function useExplorerActions({
     [
       activeWorktreeId,
       handleViewSelect,
-      requestExplorerStatus,
       requestExplorerTree,
+      requestExplorerStatus,
       loadExplorerFileRef,
+    ]
+  );
+
+  const openPathInExplorer = useCallback(
+    async (rawPath) => {
+      const tabId = activeWorktreeId || "main";
+      if (!attachmentSessionId) {
+        showToast(t("Session not found."), "error");
+        return;
+      }
+      const normalized = normalizeOpenPath(rawPath);
+      if (!normalized) {
+        showToast(t("Path required."), "error");
+        return;
+      }
+      let tree = explorerRef.current[tabId]?.tree;
+      if (!Array.isArray(tree) || tree.length === 0) {
+        try {
+          await fetchExplorerChildren(tabId, "");
+          tree = explorerRef.current[tabId]?.tree;
+        } catch {
+          showToast(t("Unable to load directory."), "error");
+          return;
+        }
+      }
+      const parts = normalized.split("/").filter(Boolean);
+      let currentPath = "";
+      let node = null;
+      for (const part of parts) {
+        const nextPath = currentPath ? `${currentPath}/${part}` : part;
+        node = findExplorerNode(tree, nextPath);
+        if (!node) {
+          showToast(t("Path not found."), "error");
+          return;
+        }
+        if (node.type === "dir" && node.children === null) {
+          try {
+            await fetchExplorerChildren(tabId, node.path);
+            tree = explorerRef.current[tabId]?.tree;
+            node = findExplorerNode(tree, nextPath);
+            if (!node) {
+              showToast(t("Path not found."), "error");
+              return;
+            }
+          } catch {
+            showToast(t("Unable to load directory."), "error");
+            return;
+          }
+        }
+        currentPath = nextPath;
+      }
+      if (!node) {
+        showToast(t("Path not found."), "error");
+        return;
+      }
+      handleViewSelect("explorer");
+      requestExplorerTreeRef.current?.(tabId);
+      requestExplorerStatusRef.current?.(tabId);
+      selectExplorerNode(tabId, node.path, node.type);
+      if (node.type === "dir") {
+        expandExplorerDir(tabId, node.path);
+      } else {
+        loadExplorerFileRef.current?.(tabId, node.path);
+      }
+    },
+    [
+      activeWorktreeId,
+      attachmentSessionId,
+      handleViewSelect,
+      requestExplorerTreeRef,
+      requestExplorerStatusRef,
+      normalizeOpenPath,
+      fetchExplorerChildren,
+      findExplorerNode,
+      loadExplorerFileRef,
+      selectExplorerNode,
+      expandExplorerDir,
+      explorerRef,
+      showToast,
+      t,
     ]
   );
 
@@ -516,33 +562,18 @@ export default function useExplorerActions({
       });
       if (willExpand) {
         fetchExplorerChildren(tabId, dirPath).catch(() => {
-          updateExplorerState(tabId, {
-            error: t("Unable to load the explorer."),
-          });
+          updateExplorerState(tabId, { error: t("Unable to load the explorer.") });
         });
       }
     },
     [
-      explorerDefaultState,
-      fetchExplorerChildren,
-      t,
-      updateExplorerState,
-      setExplorerByTab,
       explorerRef,
+      explorerDefaultState,
+      setExplorerByTab,
+      fetchExplorerChildren,
+      updateExplorerState,
+      t,
     ]
-  );
-
-  const toggleExplorerEditMode = useCallback(
-    (tabId, nextMode) => {
-      if (!tabId) {
-        return;
-      }
-      updateExplorerState(tabId, {
-        editMode: nextMode,
-        fileSaveError: "",
-      });
-    },
-    [updateExplorerState]
   );
 
   const updateExplorerDraft = useCallback(
@@ -582,7 +613,7 @@ export default function useExplorerActions({
         };
       });
     },
-    [explorerDefaultState, explorerRef, setExplorerByTab]
+    [explorerRef, explorerDefaultState, setExplorerByTab]
   );
 
   const saveExplorerFile = useCallback(
@@ -660,7 +691,7 @@ export default function useExplorerActions({
           };
         });
         requestExplorerStatus(tabId, true);
-      } catch (error) {
+      } catch {
         setExplorerByTab((current) => {
           const prev = current[tabId] || explorerDefaultState;
           const prevFile = prev.filesByPath?.[targetPath];
@@ -687,12 +718,12 @@ export default function useExplorerActions({
     },
     [
       attachmentSessionId,
-      explorerDefaultState,
       explorerRef,
+      explorerDefaultState,
       setExplorerByTab,
       requestExplorerStatus,
-      t,
       apiFetch,
+      t,
     ]
   );
 
@@ -704,6 +735,7 @@ export default function useExplorerActions({
       updateExplorerState(tabId, {
         activeFilePath: filePath,
         selectedPath: filePath,
+        selectedType: "file",
       });
     },
     [updateExplorerState]
@@ -721,7 +753,9 @@ export default function useExplorerActions({
       }
       const fileState = state.filesByPath?.[filePath];
       if (fileState?.isDirty) {
-        const shouldClose = window.confirm(t("You have unsaved changes. Continue without saving?"));
+        const shouldClose = window.confirm(
+          t("You have unsaved changes. Continue without saving?")
+        );
         if (!shouldClose) {
           return;
         }
@@ -736,6 +770,7 @@ export default function useExplorerActions({
         const nextOpenTabs = prevOpenTabs.filter((path) => path !== filePath);
         const nextFiles = { ...(prev.filesByPath || {}) };
         delete nextFiles[filePath];
+
         let nextActive = prev.activeFilePath || null;
         if (nextActive === filePath) {
           nextActive =
@@ -744,6 +779,7 @@ export default function useExplorerActions({
             nextOpenTabs[nextOpenTabs.length - 1] ||
             null;
         }
+
         return {
           ...current,
           [tabId]: {
@@ -753,16 +789,229 @@ export default function useExplorerActions({
             filesByPath: nextFiles,
             activeFilePath: nextActive,
             selectedPath: nextActive,
+            selectedType: nextActive ? "file" : null,
             editMode: Boolean(nextActive),
           },
         };
       });
     },
-    [explorerDefaultState, explorerRef, setExplorerByTab, t]
+    [explorerRef, explorerDefaultState, setExplorerByTab, t]
   );
+
+  const startExplorerRename = useCallback(
+    (tabId) => {
+      if (!tabId) {
+        return false;
+      }
+      const state = explorerRef.current?.[tabId] || explorerDefaultState;
+      const targetPath = state.selectedPath;
+      if (!targetPath) {
+        return false;
+      }
+      updateExplorerState(tabId, {
+        renamingPath: targetPath,
+        renameDraft: pathBasename(targetPath),
+      });
+      return true;
+    },
+    [explorerRef, explorerDefaultState, updateExplorerState]
+  );
+
+  const cancelExplorerRename = useCallback(
+    (tabId) => {
+      if (!tabId) {
+        return;
+      }
+      updateExplorerState(tabId, {
+        renamingPath: null,
+        renameDraft: "",
+      });
+    },
+    [updateExplorerState]
+  );
+
+  const updateExplorerRenameDraft = useCallback(
+    (tabId, value) => {
+      if (!tabId) {
+        return;
+      }
+      updateExplorerState(tabId, { renameDraft: value ?? "" });
+    },
+    [updateExplorerState]
+  );
+
+  const submitExplorerRename = useCallback(
+    async (tabId) => {
+      if (!attachmentSessionId || !tabId) {
+        return false;
+      }
+      const state = explorerRef.current?.[tabId] || explorerDefaultState;
+      const fromPath = state.renamingPath;
+      const renameDraft = (state.renameDraft || "").trim();
+      if (!fromPath || !renameDraft) {
+        cancelExplorerRename(tabId);
+        return false;
+      }
+      if (renameDraft.includes("/")) {
+        showToast(t("Path required."), "error");
+        return false;
+      }
+      const toPath = joinPath(pathDirname(fromPath), renameDraft);
+      if (!toPath || toPath === fromPath) {
+        cancelExplorerRename(tabId);
+        return false;
+      }
+
+      try {
+        const response = await apiFetch(
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(tabId)}/file/rename`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fromPath, toPath }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to rename path");
+        }
+
+        setExplorerByTab((current) => {
+          const prev = current[tabId] || explorerDefaultState;
+          const nextOpenTabs = Array.from(
+            new Set(
+              (prev.openTabPaths || []).map((path) => remapPath(path, fromPath, toPath))
+            )
+          );
+          const nextFiles = {};
+          Object.entries(prev.filesByPath || {}).forEach(([path, fileState]) => {
+            nextFiles[remapPath(path, fromPath, toPath)] = fileState;
+          });
+          return {
+            ...current,
+            [tabId]: {
+              ...explorerDefaultState,
+              ...prev,
+              openTabPaths: nextOpenTabs,
+              filesByPath: nextFiles,
+              activeFilePath: remapPath(prev.activeFilePath, fromPath, toPath),
+              selectedPath: remapPath(prev.selectedPath, fromPath, toPath),
+              renamingPath: null,
+              renameDraft: "",
+            },
+          };
+        });
+
+        await requestExplorerTree(tabId, true);
+        await requestExplorerStatus(tabId, true);
+        showToast(t("Renamed."), "success");
+        return true;
+      } catch {
+        showToast(t("Unable to rename."), "error");
+        return false;
+      }
+    },
+    [
+      attachmentSessionId,
+      explorerRef,
+      explorerDefaultState,
+      setExplorerByTab,
+      apiFetch,
+      requestExplorerTree,
+      requestExplorerStatus,
+      cancelExplorerRename,
+      showToast,
+      t,
+    ]
+  );
+
+  const createExplorerFile = useCallback(
+    async (tabId, rawName) => {
+      if (!attachmentSessionId || !tabId) {
+        return false;
+      }
+      const fileName = normalizeOpenPath(rawName || "");
+      if (!fileName) {
+        showToast(t("Path required."), "error");
+        return false;
+      }
+      const state = explorerRef.current?.[tabId] || explorerDefaultState;
+      const selectedPath = state.selectedPath || "";
+      const selectedType = state.selectedType || null;
+      const baseDir =
+        selectedType === "dir"
+          ? selectedPath
+          : selectedType === "file"
+            ? pathDirname(selectedPath)
+            : "";
+      const targetPath = joinPath(baseDir, fileName);
+
+      try {
+        const response = await apiFetch(
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(tabId)}/file`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: targetPath, content: "" }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to create file");
+        }
+        await requestExplorerTree(tabId, true);
+        await requestExplorerStatus(tabId, true);
+        await loadExplorerFile(tabId, targetPath, true);
+        showToast(t("File created."), "success");
+        return true;
+      } catch {
+        showToast(t("Unable to create file."), "error");
+        return false;
+      }
+    },
+    [
+      attachmentSessionId,
+      explorerRef,
+      explorerDefaultState,
+      normalizeOpenPath,
+      requestExplorerTree,
+      requestExplorerStatus,
+      loadExplorerFile,
+      apiFetch,
+      showToast,
+      t,
+    ]
+  );
+
+  const toggleExplorerEditMode = useCallback(
+    (tabId, nextMode) => {
+      if (!tabId) {
+        return;
+      }
+      updateExplorerState(tabId, {
+        editMode: nextMode,
+      });
+    },
+    [updateExplorerState]
+  );
+
+  useEffect(() => {
+    requestExplorerTreeRef.current = requestExplorerTree;
+  }, [requestExplorerTree, requestExplorerTreeRef]);
+
+  useEffect(() => {
+    requestExplorerStatusRef.current = requestExplorerStatus;
+  }, [requestExplorerStatus, requestExplorerStatusRef]);
+
+  useEffect(() => {
+    loadExplorerFileRef.current = loadExplorerFile;
+  }, [loadExplorerFile, loadExplorerFileRef]);
 
   return {
     updateExplorerState,
+    selectExplorerNode,
     openPathInExplorer,
     requestExplorerTree,
     requestExplorerStatus,
@@ -774,5 +1023,10 @@ export default function useExplorerActions({
     toggleExplorerEditMode,
     updateExplorerDraft,
     saveExplorerFile,
+    startExplorerRename,
+    cancelExplorerRename,
+    updateExplorerRenameDraft,
+    submitExplorerRename,
+    createExplorerFile,
   };
 }
