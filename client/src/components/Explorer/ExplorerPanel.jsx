@@ -36,7 +36,7 @@ export default function ExplorerPanel({
   const openTabPaths = Array.isArray(activeExplorer.openTabPaths)
     ? activeExplorer.openTabPaths
     : [];
-  const activeFilePath = activeExplorer.activeFilePath || activeExplorer.selectedPath || "";
+  const activeFilePath = activeExplorer.activeFilePath || "";
   const activeFile = activeFilePath
     ? activeExplorer.filesByPath?.[activeFilePath]
     : null;

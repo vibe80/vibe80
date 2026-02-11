@@ -2092,7 +2092,7 @@ main.chat {
   color: var(--accent-dark);
 }
 
-.explorer-tree-item.is-dir.is-selected > .explorer-tree-toggle {
+.explorer-tree-item.is-dir.is-selected .explorer-tree-toggle {
   background: rgba(238, 93, 59, 0.12);
   color: var(--accent-dark);
 }
@@ -2141,6 +2141,7 @@ main.chat {
   min-width: 0;
   background: rgba(255, 255, 255, 0.9);
   color: var(--ink);
+  margin-left: 4px;
 }
 
 .explorer-tree-rename-input:focus {
@@ -2336,7 +2337,7 @@ main.chat {
   color: #ffd2c7;
 }
 
-:root[data-theme="dark"] .explorer-tree-item.is-dir.is-selected > .explorer-tree-toggle {
+:root[data-theme="dark"] .explorer-tree-item.is-dir.is-selected .explorer-tree-toggle {
   background: rgba(238, 93, 59, 0.22);
   color: #ffd2c7;
 }
