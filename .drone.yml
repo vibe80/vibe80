@@ -167,17 +167,25 @@ steps:
 
   - name: vibe80_integration_loop
     image: alpine:3.20
+    when:
+      status:
+        - failure
     environment:
       BASE_URL: https://vibe80.lab.adho.app
+      DRONE_SERVER: https://drone.lab.adho.app
       WORKSPACE_ID:
         from_secret: workspace_id
       WORKSPACE_SECRET:
         from_secret: workspace_secret
+      DRONE_TOKEN:
+        from_secret: drone_token
     commands:
       - apk add --no-cache bash git jq curl
+      - curl -L https://github.com/harness/drone-cli/releases/latest/download/drone_linux_amd64.tar.gz | tar zx
+      - ./drone log view mont5piques/m5chat $DRONE_BUILD_NUMBER 1 2 &> build_$DRONE_COMMIT_SHORT_SHA.log
       - bash -c '
           . scripts/parse_commit_metadata.sh;
-          scripts/worktree_message.sh --text "Hello world"
+          scripts/worktree_message.sh --text "Build for commit $DRONE_COMMIT_SHORT_SHA failed. Please find the log attached." --file build_$DRONE_COMMIT_SHORT_SHA.log
         '
 
 trigger:
