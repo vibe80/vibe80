@@ -135,15 +135,25 @@ export default function workspaceRoutes() {
       const tokenHash = hashRefreshToken(refreshToken);
       const record = await storage.getWorkspaceRefreshToken(tokenHash);
       if (!record?.workspaceId) {
-        res.status(401).json({ error: "Invalid refresh token." });
+        res.status(401).json({ error: "Invalid refresh token.", code: "invalid_refresh_token" });
         return;
       }
-      if (record.expiresAt && record.expiresAt <= Date.now()) {
+      const now = Date.now();
+      if (record.kind === "current" && record.expiresAt && record.expiresAt <= now) {
         await storage.deleteWorkspaceRefreshToken(tokenHash);
-        res.status(401).json({ error: "Refresh token expired." });
+        res.status(401).json({ error: "Refresh token expired.", code: "refresh_token_expired" });
         return;
       }
-      await storage.deleteWorkspaceRefreshToken(tokenHash);
+      if (record.kind === "previous") {
+        if (!record.previousValidUntil || record.previousValidUntil < now) {
+          await storage.deleteWorkspaceRefreshToken(tokenHash);
+          res.status(401).json({
+            error: "Refresh token reused.",
+            code: "refresh_token_reused",
+          });
+          return;
+        }
+      }
       const tokens = await issueWorkspaceTokens(record.workspaceId);
       res.json(tokens);
     } catch (error) {

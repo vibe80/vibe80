@@ -134,10 +134,40 @@ export const createSqliteStorage = () => {
       db,
       `CREATE TABLE IF NOT EXISTS workspace_refresh_tokens (
         workspaceId TEXT PRIMARY KEY,
-        tokenHash TEXT UNIQUE,
-        expiresAt INTEGER
+        currentTokenHash TEXT,
+        currentExpiresAt INTEGER,
+        previousTokenHash TEXT,
+        previousValidUntil INTEGER
       );`
     );
+    const refreshColumns = await all(db, "PRAGMA table_info(workspace_refresh_tokens)");
+    const refreshColumnNames = new Set(
+      (refreshColumns || []).map((column) => String(column?.name || ""))
+    );
+    if (!refreshColumnNames.has("currentTokenHash")) {
+      await run(
+        db,
+        "ALTER TABLE workspace_refresh_tokens ADD COLUMN currentTokenHash TEXT"
+      );
+    }
+    if (!refreshColumnNames.has("currentExpiresAt")) {
+      await run(
+        db,
+        "ALTER TABLE workspace_refresh_tokens ADD COLUMN currentExpiresAt INTEGER"
+      );
+    }
+    if (!refreshColumnNames.has("previousTokenHash")) {
+      await run(
+        db,
+        "ALTER TABLE workspace_refresh_tokens ADD COLUMN previousTokenHash TEXT"
+      );
+    }
+    if (!refreshColumnNames.has("previousValidUntil")) {
+      await run(
+        db,
+        "ALTER TABLE workspace_refresh_tokens ADD COLUMN previousValidUntil INTEGER"
+      );
+    }
     await run(
       db,
       `CREATE TABLE IF NOT EXISTS workspaces (
@@ -162,7 +192,12 @@ export const createSqliteStorage = () => {
     await run(
       db,
       `CREATE INDEX IF NOT EXISTS workspace_refresh_tokens_hash_idx
-       ON workspace_refresh_tokens (tokenHash);`
+       ON workspace_refresh_tokens (currentTokenHash);`
+    );
+    await run(
+      db,
+      `CREATE INDEX IF NOT EXISTS workspace_refresh_tokens_previous_hash_idx
+       ON workspace_refresh_tokens (previousTokenHash);`
     );
     await run(
       db,
@@ -402,17 +437,32 @@ export const createSqliteStorage = () => {
     workspaceId,
     tokenHash,
     expiresAt,
-    _ttlMs = null
+    _ttlMs = null,
+    options = {}
   ) => {
     await ensureConnected();
+    const previousTokenHash =
+      typeof options?.previousTokenHash === "string" && options.previousTokenHash
+        ? options.previousTokenHash
+        : null;
+    const previousValidUntil =
+      Number.isFinite(options?.previousValidUntil) ? options.previousValidUntil : null;
     await run(
       db,
-      `INSERT INTO workspace_refresh_tokens (workspaceId, tokenHash, expiresAt)
-       VALUES (?, ?, ?)
+      `INSERT INTO workspace_refresh_tokens (
+         workspaceId,
+         currentTokenHash,
+         currentExpiresAt,
+         previousTokenHash,
+         previousValidUntil
+       )
+       VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(workspaceId) DO UPDATE SET
-         tokenHash=excluded.tokenHash,
-         expiresAt=excluded.expiresAt;`,
-      [workspaceId, tokenHash, expiresAt]
+         currentTokenHash=excluded.currentTokenHash,
+         currentExpiresAt=excluded.currentExpiresAt,
+         previousTokenHash=excluded.previousTokenHash,
+         previousValidUntil=excluded.previousValidUntil;`,
+      [workspaceId, tokenHash, expiresAt, previousTokenHash, previousValidUntil]
     );
   };
 
@@ -420,14 +470,50 @@ export const createSqliteStorage = () => {
     await ensureConnected();
     const row = await get(
       db,
-      "SELECT workspaceId, tokenHash, expiresAt FROM workspace_refresh_tokens WHERE tokenHash = ?",
-      [tokenHash]
+      `SELECT
+         workspaceId,
+         currentTokenHash,
+         currentExpiresAt,
+         previousTokenHash,
+         previousValidUntil
+       FROM workspace_refresh_tokens
+       WHERE currentTokenHash = ? OR previousTokenHash = ?`,
+      [tokenHash, tokenHash]
     );
     if (!row) return null;
+    const kind = row.currentTokenHash === tokenHash ? "current" : "previous";
     return {
       workspaceId: row.workspaceId,
-      tokenHash: row.tokenHash,
-      expiresAt: row.expiresAt,
+      tokenHash,
+      kind,
+      expiresAt: kind === "current" ? row.currentExpiresAt : row.currentExpiresAt,
+      previousValidUntil: row.previousValidUntil,
+    };
+  };
+
+  const getWorkspaceRefreshState = async (workspaceId) => {
+    await ensureConnected();
+    const row = await get(
+      db,
+      `SELECT
+         workspaceId,
+         currentTokenHash,
+         currentExpiresAt,
+         previousTokenHash,
+         previousValidUntil
+       FROM workspace_refresh_tokens
+       WHERE workspaceId = ?`,
+      [workspaceId]
+    );
+    if (!row) {
+      return null;
+    }
+    return {
+      workspaceId: row.workspaceId,
+      currentTokenHash: row.currentTokenHash || null,
+      currentExpiresAt: row.currentExpiresAt || null,
+      previousTokenHash: row.previousTokenHash || null,
+      previousValidUntil: row.previousValidUntil || null,
     };
   };
 
@@ -435,8 +521,14 @@ export const createSqliteStorage = () => {
     await ensureConnected();
     await run(
       db,
-      "DELETE FROM workspace_refresh_tokens WHERE tokenHash = ?",
-      [tokenHash]
+      `UPDATE workspace_refresh_tokens
+       SET
+         currentTokenHash = CASE WHEN currentTokenHash = ? THEN NULL ELSE currentTokenHash END,
+         currentExpiresAt = CASE WHEN currentTokenHash = ? THEN NULL ELSE currentExpiresAt END,
+         previousTokenHash = CASE WHEN previousTokenHash = ? THEN NULL ELSE previousTokenHash END,
+         previousValidUntil = CASE WHEN previousTokenHash = ? THEN NULL ELSE previousValidUntil END
+       WHERE currentTokenHash = ? OR previousTokenHash = ?`,
+      [tokenHash, tokenHash, tokenHash, tokenHash, tokenHash, tokenHash]
     );
   };
 
@@ -529,6 +621,7 @@ export const createSqliteStorage = () => {
     getWorkspaceUserIds,
     saveWorkspaceRefreshToken,
     getWorkspaceRefreshToken,
+    getWorkspaceRefreshState,
     deleteWorkspaceRefreshToken,
     getNextWorkspaceUid,
     saveWorkspace,

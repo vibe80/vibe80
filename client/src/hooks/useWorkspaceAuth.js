@@ -3,6 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const WORKSPACE_TOKEN_KEY = "workspaceToken";
 const WORKSPACE_REFRESH_TOKEN_KEY = "workspaceRefreshToken";
 const WORKSPACE_ID_KEY = "workspaceId";
+const WORKSPACE_AUTH_CHANNEL = "workspace-auth";
+const WORKSPACE_REFRESH_LOCK_KEY = "workspaceRefreshLock";
+const REFRESH_LOCK_TTL_MS = 15000;
+const REFRESH_WAIT_TIMEOUT_MS = 5000;
+const REFRESH_RETRY_WAIT_MS = 1500;
 
 const readWorkspaceToken = () => {
   try {
@@ -95,15 +100,130 @@ export default function useWorkspaceAuth({
   );
   const [deploymentMode, setDeploymentMode] = useState(null);
 
+  const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2)}-${Date.now()}`);
+  const workspaceTokenRef = useRef(workspaceToken);
   const workspaceRefreshTokenRef = useRef(workspaceRefreshToken);
   const refreshInFlightRef = useRef(null);
+  const refreshBroadcastChannelRef = useRef(null);
+  const refreshBroadcastWaitersRef = useRef([]);
   const monoWorkspaceLoginAttemptedRef = useRef(false);
   const workspaceCopyTimersRef = useRef({ id: null, secret: null });
 
+  const applyWorkspaceTokens = useCallback(
+    ({ token = "", refreshToken = "" } = {}) => {
+      if (typeof token === "string") {
+        workspaceTokenRef.current = token;
+        setWorkspaceToken(token);
+      }
+      if (typeof refreshToken === "string") {
+        workspaceRefreshTokenRef.current = refreshToken;
+        setWorkspaceRefreshToken(refreshToken);
+      }
+    },
+    []
+  );
+
+  const notifyRefreshWaiters = useCallback((token) => {
+    const waiters = refreshBroadcastWaitersRef.current.splice(0);
+    waiters.forEach((resolve) => {
+      try {
+        resolve(token || null);
+      } catch {
+        // Ignore waiter errors.
+      }
+    });
+  }, []);
+
+  const waitForTokenBroadcast = useCallback((timeoutMs = REFRESH_WAIT_TIMEOUT_MS) => {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        const index = refreshBroadcastWaitersRef.current.indexOf(onResolve);
+        if (index >= 0) {
+          refreshBroadcastWaitersRef.current.splice(index, 1);
+        }
+        resolve(null);
+      }, timeoutMs);
+      const onResolve = (token) => {
+        clearTimeout(timeout);
+        resolve(token || null);
+      };
+      refreshBroadcastWaitersRef.current.push(onResolve);
+    });
+  }, []);
+
+  const broadcastAuthEvent = useCallback((type, payload = {}) => {
+    const channel = refreshBroadcastChannelRef.current;
+    if (!channel) {
+      return;
+    }
+    try {
+      channel.postMessage({
+        type,
+        sourceTabId: tabIdRef.current,
+        ...payload,
+      });
+    } catch {
+      // Ignore broadcast failures.
+    }
+  }, []);
+
+  const getLatestWorkspaceTokens = useCallback(() => {
+    const token = readWorkspaceToken();
+    const refreshToken = readWorkspaceRefreshToken();
+    return {
+      token: token || workspaceTokenRef.current || "",
+      refreshToken: refreshToken || workspaceRefreshTokenRef.current || "",
+    };
+  }, []);
+
+  const acquireRefreshLock = useCallback(() => {
+    const now = Date.now();
+    const nextPayload = {
+      owner: tabIdRef.current,
+      expiresAt: now + REFRESH_LOCK_TTL_MS,
+    };
+    try {
+      const raw = localStorage.getItem(WORKSPACE_REFRESH_LOCK_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          typeof parsed.expiresAt === "number" &&
+          parsed.expiresAt > now &&
+          parsed.owner !== tabIdRef.current
+        ) {
+          return false;
+        }
+      }
+      localStorage.setItem(WORKSPACE_REFRESH_LOCK_KEY, JSON.stringify(nextPayload));
+      const confirmedRaw = localStorage.getItem(WORKSPACE_REFRESH_LOCK_KEY);
+      if (!confirmedRaw) {
+        return false;
+      }
+      const confirmed = JSON.parse(confirmedRaw);
+      return confirmed?.owner === tabIdRef.current;
+    } catch {
+      return true;
+    }
+  }, []);
+
+  const releaseRefreshLock = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(WORKSPACE_REFRESH_LOCK_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (parsed?.owner === tabIdRef.current) {
+        localStorage.removeItem(WORKSPACE_REFRESH_LOCK_KEY);
+      }
+    } catch {
+      // Ignore release errors.
+    }
+  }, []);
+
   const handleLeaveWorkspace = useCallback(() => {
-    setWorkspaceToken("");
-    setWorkspaceRefreshToken("");
-    workspaceRefreshTokenRef.current = "";
+    applyWorkspaceTokens({ token: "", refreshToken: "" });
     setWorkspaceId("");
     setWorkspaceIdInput("");
     setWorkspaceSecretInput("");
@@ -118,58 +238,183 @@ export default function useWorkspaceAuth({
     if (setSessionMode) {
       setSessionMode("new");
     }
-  }, []);
+    broadcastAuthEvent("workspace_left", {});
+    notifyRefreshWaiters(null);
+  }, [applyWorkspaceTokens, broadcastAuthEvent, notifyRefreshWaiters, setSessionMode]);
 
   const refreshWorkspaceToken = useCallback(async () => {
-    const activeRefreshToken = workspaceRefreshTokenRef.current;
+    const activeRefreshToken =
+      workspaceRefreshTokenRef.current || getLatestWorkspaceTokens().refreshToken;
     if (!activeRefreshToken) {
       return null;
     }
     if (refreshInFlightRef.current) {
       return refreshInFlightRef.current;
     }
+
     const promise = (async () => {
+      let lockAcquired = false;
       try {
+        lockAcquired = acquireRefreshLock();
+        if (!lockAcquired) {
+          const syncedToken = await waitForTokenBroadcast();
+          if (syncedToken) {
+            return syncedToken;
+          }
+          const latest = getLatestWorkspaceTokens();
+          if (latest.token && latest.token !== workspaceTokenRef.current) {
+            applyWorkspaceTokens({
+              token: latest.token,
+              refreshToken: latest.refreshToken || workspaceRefreshTokenRef.current,
+            });
+            return latest.token;
+          }
+          lockAcquired = acquireRefreshLock();
+          if (!lockAcquired) {
+            return null;
+          }
+        }
+
+        broadcastAuthEvent("refresh_started", { at: Date.now() });
+        const latestBeforeRefresh = getLatestWorkspaceTokens();
+        const refreshTokenForCall = latestBeforeRefresh.refreshToken || activeRefreshToken;
+        if (!refreshTokenForCall) {
+          return null;
+        }
+
         const response = await fetch("/api/workspaces/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: activeRefreshToken }),
+          body: JSON.stringify({ refreshToken: refreshTokenForCall }),
         });
         if (!response.ok) {
-          handleLeaveWorkspace();
+          const syncedToken = await waitForTokenBroadcast(REFRESH_RETRY_WAIT_MS);
+          if (syncedToken) {
+            return syncedToken;
+          }
+          const latest = getLatestWorkspaceTokens();
+          if (latest.token && latest.token !== workspaceTokenRef.current) {
+            applyWorkspaceTokens({
+              token: latest.token,
+              refreshToken: latest.refreshToken || workspaceRefreshTokenRef.current,
+            });
+            return latest.token;
+          }
           return null;
         }
         const data = await response.json();
         const nextToken = data?.workspaceToken || "";
         const nextRefresh = data?.refreshToken || "";
-        if (nextToken) {
-          setWorkspaceToken(nextToken);
+        if (nextToken && nextRefresh) {
+          applyWorkspaceTokens({ token: nextToken, refreshToken: nextRefresh });
+          broadcastAuthEvent("refresh_succeeded", {
+            at: Date.now(),
+            workspaceToken: nextToken,
+            refreshToken: nextRefresh,
+          });
+          notifyRefreshWaiters(nextToken);
+          return nextToken;
         }
-        if (nextRefresh) {
-          workspaceRefreshTokenRef.current = nextRefresh;
-          setWorkspaceRefreshToken(nextRefresh);
-        }
-        return nextToken || null;
+        return null;
       } catch {
-        handleLeaveWorkspace();
+        const syncedToken = await waitForTokenBroadcast(REFRESH_RETRY_WAIT_MS);
+        if (syncedToken) {
+          return syncedToken;
+        }
         return null;
       } finally {
+        if (lockAcquired) {
+          releaseRefreshLock();
+        }
         refreshInFlightRef.current = null;
       }
     })();
     refreshInFlightRef.current = promise;
     return promise;
-  }, [handleLeaveWorkspace]);
+  }, [
+    acquireRefreshLock,
+    applyWorkspaceTokens,
+    broadcastAuthEvent,
+    getLatestWorkspaceTokens,
+    notifyRefreshWaiters,
+    releaseRefreshLock,
+    waitForTokenBroadcast,
+  ]);
+
+  useEffect(() => {
+    workspaceTokenRef.current = workspaceToken;
+  }, [workspaceToken]);
 
   useEffect(() => {
     workspaceRefreshTokenRef.current = workspaceRefreshToken;
   }, [workspaceRefreshToken]);
 
+  useEffect(() => {
+    if (typeof BroadcastChannel !== "function") {
+      return undefined;
+    }
+    const channel = new BroadcastChannel(WORKSPACE_AUTH_CHANNEL);
+    refreshBroadcastChannelRef.current = channel;
+    const onMessage = (event) => {
+      const payload = event?.data;
+      if (!payload || payload.sourceTabId === tabIdRef.current) {
+        return;
+      }
+      if (payload.type === "refresh_succeeded") {
+        applyWorkspaceTokens({
+          token: payload.workspaceToken || "",
+          refreshToken: payload.refreshToken || "",
+        });
+        notifyRefreshWaiters(payload.workspaceToken || null);
+      } else if (payload.type === "workspace_left") {
+        applyWorkspaceTokens({ token: "", refreshToken: "" });
+        setWorkspaceId("");
+      }
+    };
+    channel.addEventListener("message", onMessage);
+    return () => {
+      channel.removeEventListener("message", onMessage);
+      channel.close();
+      refreshBroadcastChannelRef.current = null;
+    };
+  }, [applyWorkspaceTokens, notifyRefreshWaiters]);
+
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (!event || !event.key) {
+        return;
+      }
+      if (event.key === WORKSPACE_TOKEN_KEY) {
+        const nextToken = event.newValue || "";
+        workspaceTokenRef.current = nextToken;
+        setWorkspaceToken(nextToken);
+        if (nextToken) {
+          notifyRefreshWaiters(nextToken);
+        }
+        return;
+      }
+      if (event.key === WORKSPACE_REFRESH_TOKEN_KEY) {
+        const nextRefreshToken = event.newValue || "";
+        workspaceRefreshTokenRef.current = nextRefreshToken;
+        setWorkspaceRefreshToken(nextRefreshToken);
+        return;
+      }
+      if (event.key === WORKSPACE_ID_KEY) {
+        setWorkspaceId(event.newValue || "");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [notifyRefreshWaiters]);
+
   const apiFetch = useCallback(
     async (input, init = {}) => {
       const headers = new Headers(init.headers || {});
-      if (workspaceToken) {
-        headers.set("Authorization", `Bearer ${workspaceToken}`);
+      const tokenForRequest = workspaceTokenRef.current || workspaceToken;
+      if (tokenForRequest) {
+        headers.set("Authorization", `Bearer ${tokenForRequest}`);
       }
       const response = await fetch(input, { ...init, headers });
       if (response.status !== 401) {
@@ -177,6 +422,12 @@ export default function useWorkspaceAuth({
       }
       const refreshedToken = await refreshWorkspaceToken();
       if (!refreshedToken) {
+        const latestToken = workspaceTokenRef.current || readWorkspaceToken();
+        if (latestToken && latestToken !== tokenForRequest) {
+          const retryHeaders = new Headers(init.headers || {});
+          retryHeaders.set("Authorization", `Bearer ${latestToken}`);
+          return fetch(input, { ...init, headers: retryHeaders });
+        }
         return response;
       }
       const retryHeaders = new Headers(init.headers || {});

@@ -5,6 +5,9 @@ import { generateId, hashRefreshToken, generateRefreshToken } from "../helpers.j
 const refreshTokenTtlSeconds =
   Number(process.env.REFRESH_TOKEN_TTL_SECONDS) || 30 * 24 * 60 * 60;
 const refreshTokenTtlMs = refreshTokenTtlSeconds * 1000;
+const refreshRotationGraceSeconds =
+  Number(process.env.REFRESH_TOKEN_ROTATION_GRACE_SECONDS) || 20;
+const refreshRotationGraceMs = Math.max(0, refreshRotationGraceSeconds * 1000);
 const handoffTokenTtlMs =
   Number(process.env.HANDOFF_TOKEN_TTL_MS) || 120 * 1000;
 
@@ -15,11 +18,21 @@ export const issueWorkspaceTokens = async (workspaceId) => {
   const refreshToken = generateRefreshToken();
   const tokenHash = hashRefreshToken(refreshToken);
   const expiresAt = Date.now() + refreshTokenTtlMs;
+  const existingRefreshState = await storage.getWorkspaceRefreshState(workspaceId);
+  const previousTokenHash =
+    typeof existingRefreshState?.currentTokenHash === "string" &&
+    existingRefreshState.currentTokenHash
+      ? existingRefreshState.currentTokenHash
+      : null;
+  const previousValidUntil = previousTokenHash
+    ? Date.now() + refreshRotationGraceMs
+    : null;
   await storage.saveWorkspaceRefreshToken(
     workspaceId,
     tokenHash,
     expiresAt,
-    refreshTokenTtlMs
+    refreshTokenTtlMs,
+    { previousTokenHash, previousValidUntil }
   );
   return {
     workspaceToken,
@@ -54,4 +67,9 @@ export const cleanupHandoffTokens = () => {
   }
 };
 
-export { hashRefreshToken, refreshTokenTtlMs, refreshTokenTtlSeconds };
+export {
+  hashRefreshToken,
+  refreshTokenTtlMs,
+  refreshTokenTtlSeconds,
+  refreshRotationGraceMs,
+};

@@ -38,6 +38,8 @@ export const createRedisStorage = () => {
     buildKey(prefix, "workspaceUserIds", workspaceId);
   const workspaceRefreshTokenKey = (workspaceId) =>
     buildKey(prefix, "workspaceRefreshToken", workspaceId);
+  const workspaceRefreshStateKey = (workspaceId) =>
+    buildKey(prefix, "workspaceRefreshState", workspaceId);
   const workspaceKey = (workspaceId) => buildKey(prefix, "workspace", workspaceId);
   const workspaceAuditEventsKey = (workspaceId) =>
     buildKey(prefix, "workspace", workspaceId, "auditEvents");
@@ -246,20 +248,65 @@ export const createRedisStorage = () => {
     workspaceId,
     tokenHash,
     expiresAt,
-    ttlMs
+    ttlMs,
+    options = {}
   ) => {
     await ensureConnected();
-    const existingHash = await client.get(workspaceRefreshTokenKey(workspaceId));
-    if (existingHash && existingHash !== tokenHash) {
-      await client.del(refreshTokenKey(existingHash));
-    }
-    const payload = { workspaceId, tokenHash, expiresAt };
+    const previousTokenHash =
+      typeof options?.previousTokenHash === "string" && options.previousTokenHash
+        ? options.previousTokenHash
+        : null;
+    const previousValidUntil =
+      Number.isFinite(options?.previousValidUntil) ? options.previousValidUntil : null;
+    const payload = {
+      workspaceId,
+      currentTokenHash: tokenHash,
+      currentExpiresAt: expiresAt,
+      previousTokenHash,
+      previousValidUntil,
+    };
+    const currentTokenPayload = {
+      workspaceId,
+      tokenHash,
+      kind: "current",
+      expiresAt,
+      previousValidUntil,
+    };
     if (ttlMs && ttlMs > 0) {
-      await client.set(refreshTokenKey(tokenHash), toJson(payload), { PX: ttlMs });
+      await client.set(refreshTokenKey(tokenHash), toJson(currentTokenPayload), { PX: ttlMs });
+      await client.set(workspaceRefreshStateKey(workspaceId), toJson(payload), { PX: ttlMs });
       await client.set(workspaceRefreshTokenKey(workspaceId), tokenHash, { PX: ttlMs });
+      if (previousTokenHash && previousValidUntil && previousValidUntil > Date.now()) {
+        const previousTtlMs = previousValidUntil - Date.now();
+        const previousPayload = {
+          workspaceId,
+          tokenHash: previousTokenHash,
+          kind: "previous",
+          expiresAt,
+          previousValidUntil,
+        };
+        await client.set(refreshTokenKey(previousTokenHash), toJson(previousPayload), {
+          PX: previousTtlMs,
+        });
+      } else if (previousTokenHash) {
+        await client.del(refreshTokenKey(previousTokenHash));
+      }
     } else {
-      await client.set(refreshTokenKey(tokenHash), toJson(payload));
+      await client.set(refreshTokenKey(tokenHash), toJson(currentTokenPayload));
+      await client.set(workspaceRefreshStateKey(workspaceId), toJson(payload));
       await client.set(workspaceRefreshTokenKey(workspaceId), tokenHash);
+      if (previousTokenHash && previousValidUntil && previousValidUntil > Date.now()) {
+        const previousPayload = {
+          workspaceId,
+          tokenHash: previousTokenHash,
+          kind: "previous",
+          expiresAt,
+          previousValidUntil,
+        };
+        await client.set(refreshTokenKey(previousTokenHash), toJson(previousPayload));
+      } else if (previousTokenHash) {
+        await client.del(refreshTokenKey(previousTokenHash));
+      }
     }
   };
 
@@ -269,8 +316,32 @@ export const createRedisStorage = () => {
     return fromJson(raw);
   };
 
+  const getWorkspaceRefreshState = async (workspaceId) => {
+    await ensureConnected();
+    const raw = await client.get(workspaceRefreshStateKey(workspaceId));
+    return fromJson(raw);
+  };
+
   const deleteWorkspaceRefreshToken = async (tokenHash) => {
     await ensureConnected();
+    const record = fromJson(await client.get(refreshTokenKey(tokenHash)));
+    if (!record?.workspaceId) {
+      await client.del(refreshTokenKey(tokenHash));
+      return;
+    }
+    const state = fromJson(await client.get(workspaceRefreshStateKey(record.workspaceId)));
+    if (state) {
+      if (state.currentTokenHash === tokenHash) {
+        state.currentTokenHash = null;
+        state.currentExpiresAt = null;
+        await client.del(workspaceRefreshTokenKey(record.workspaceId));
+      }
+      if (state.previousTokenHash === tokenHash) {
+        state.previousTokenHash = null;
+        state.previousValidUntil = null;
+      }
+      await client.set(workspaceRefreshStateKey(record.workspaceId), toJson(state));
+    }
     await client.del(refreshTokenKey(tokenHash));
   };
 
@@ -327,6 +398,7 @@ export const createRedisStorage = () => {
     getWorkspaceUserIds,
     saveWorkspaceRefreshToken,
     getWorkspaceRefreshToken,
+    getWorkspaceRefreshState,
     deleteWorkspaceRefreshToken,
     getNextWorkspaceUid,
     saveWorkspace,
