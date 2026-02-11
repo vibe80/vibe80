@@ -1,6 +1,7 @@
 package app.vibe80.android.ui.screens
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -307,6 +308,8 @@ private fun WorkspaceCredentialsScreen(
     onContinue: () -> Unit,
     onBack: () -> Unit
 ) {
+    BackHandler(onBack = onBack)
+
     ScreenContainer {
         BrandHeader(title = "")
 
@@ -378,6 +381,8 @@ private fun ProviderConfigScreen(
     onContinue: () -> Unit,
     onBack: () -> Unit
 ) {
+    BackHandler(onBack = onBack)
+
     val codexConfig = providerConfigs["codex"]
     val claudeConfig = providerConfigs["claude"]
 
@@ -795,6 +800,8 @@ private fun StartSessionScreen(
     loadingState: LoadingState,
     error: String?
 ) {
+    BackHandler(onBack = onBack)
+
     ScreenContainer {
         BrandHeader(title = stringResource(R.string.session_start_title))
 
