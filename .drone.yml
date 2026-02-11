@@ -164,6 +164,21 @@ steps:
       - 'git commit -m "vibecoder: bump image to ${DRONE_COMMIT_SHA:0:8}" || exit 0'
       - git push
 
+  - name: vibe80_integration_loop
+    image: alpine:3.20
+    environment:
+      BASE_URL: https://vibe80.lab.adho.app/
+      WORKSPACE_ID:
+        from_secret: workspace_id
+      WORKSPACE_SECRET:
+        from_secret: workspace_secret
+    commands:
+      - apk add --no-cache bash git jq curl
+      - . scripts/parse_commit_metadata.sh
+      - echo "Parsed session $SESSION_ID ; parsed worktree $WORKTREE_ID"
+      - bash scripts/worktree_message.sh --text "Hello world"
+
+
 trigger:
   event:
     - push
