@@ -22,7 +22,7 @@ steps:
     commands:
       - apk add --no-cache bash git jq curl
       - bash -c '
-          . scripts/parse_commit_metadata.sh
+          . scripts/parse_commit_metadata.sh;
           scripts/worktree_message.sh --text "Hello world"
         '
 
