@@ -1783,8 +1783,8 @@ function App() {
       return;
     }
     const tabId = activeWorktreeId || "main";
-    requestExplorerTree(tabId);
-    requestExplorerStatus(tabId);
+    requestExplorerTree(tabId, true);
+    requestExplorerStatus(tabId, true);
   }, [
     activePane,
     activeWorktreeId,

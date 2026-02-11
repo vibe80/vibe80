@@ -277,6 +277,17 @@ export default function useExplorerActions({
       updateExplorerState(tabId, { loading: true, error: "" });
       try {
         await fetchExplorerChildren(tabId, "");
+        if (force) {
+          const expandedPaths = Array.isArray(explorerRef.current[tabId]?.expandedPaths)
+            ? explorerRef.current[tabId].expandedPaths
+            : [];
+          const uniqueExpanded = Array.from(
+            new Set(expandedPaths.filter((path) => typeof path === "string" && path.length > 0))
+          );
+          for (const dirPath of uniqueExpanded) {
+            await fetchExplorerChildren(tabId, dirPath);
+          }
+        }
       } catch (error) {
         updateExplorerState(tabId, {
           loading: false,
