@@ -14,7 +14,7 @@ steps:
   - name: vibe80_integration_loop
     image: alpine:3.20
     environment:
-      BASE_URL: https://vibe80.lab.adho.app/
+      BASE_URL: https://vibe80.lab.adho.app
       WORKSPACE_ID:
         from_secret: workspace_id
       WORKSPACE_SECRET:
