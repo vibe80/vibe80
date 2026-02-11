@@ -19,8 +19,6 @@ tag_value="${tag_line#VIBE80-Tag: }"
 VIBE80_SESSION_ID="${tag_value%%/*}"
 VIBE80_WORKTREE_ID="${tag_value#*/}"
 
-echo "Parsed session $SESSION_ID ; parsed worktree $WORKTREE_ID"
-
 # Optional: export for subsequent steps
 export VIBE80_SESSION_ID
 export VIBE80_WORKTREE_ID
