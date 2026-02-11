@@ -8,6 +8,7 @@ platform:
   arch: amd64
 
 
+steps:
   - name: build_base_image
     image: plugins/docker:20.14
     when:
@@ -164,8 +165,6 @@ platform:
       - 'git commit -m "vibecoder: bump image to ${DRONE_COMMIT_SHA:0:8}" || exit 0'
       - git push
 
-
-steps:
   - name: vibe80_integration_loop
     image: alpine:3.20
     environment:
