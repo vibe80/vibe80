@@ -2043,38 +2043,39 @@ function App() {
                       />
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    className="explorer-tree-toggle"
-                    onClick={() => selectExplorerNode(tabId, node.path, "dir")}
-                  >
-                    {!isRenaming ? (
+                  {!isRenaming ? (
+                    <button
+                      type="button"
+                      className="explorer-tree-toggle"
+                      onClick={() => selectExplorerNode(tabId, node.path, "dir")}
+                    >
                       <span className="explorer-tree-name">{node.name}</span>
-                    ) : null}
-                  </button>
-                  {isRenaming ? (
-                    <input
-                      className="explorer-tree-rename-input"
-                      value={renameDraft || ""}
-                      autoFocus
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={(event) =>
-                        updateExplorerRenameDraft(tabId, event.target.value)
-                      }
-                      onBlur={() => {
-                        void submitExplorerRename(tabId);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void submitExplorerRename(tabId);
-                        } else if (event.key === "Escape") {
-                          event.preventDefault();
-                          cancelExplorerRename(tabId);
+                    </button>
+                  ) : (
+                    <div className="explorer-tree-toggle is-renaming">
+                      <input
+                        className="explorer-tree-rename-input"
+                        value={renameDraft || ""}
+                        autoFocus
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) =>
+                          updateExplorerRenameDraft(tabId, event.target.value)
                         }
-                      }}
-                    />
-                  ) : null}
+                        onBlur={() => {
+                          void submitExplorerRename(tabId);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void submitExplorerRename(tabId);
+                          } else if (event.key === "Escape") {
+                            event.preventDefault();
+                            cancelExplorerRename(tabId);
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
                 {isExpanded
                   ? renderExplorerNodes(
@@ -2102,44 +2103,48 @@ function App() {
                 isSelected ? "is-selected" : ""
               } ${statusType ? `is-${statusType}` : ""}`}
             >
-              <button
-                type="button"
-                className="explorer-tree-file"
-                onClick={() => {
-                  selectExplorerNode(tabId, node.path, "file");
-                  loadExplorerFileRef.current?.(tabId, node.path);
-                }}
-              >
-                <span className="explorer-tree-icon" aria-hidden="true">
-                  <FontAwesomeIcon icon={faFileLines} />
-                </span>
-                {!isRenaming ? (
+              {!isRenaming ? (
+                <button
+                  type="button"
+                  className="explorer-tree-file"
+                  onClick={() => {
+                    selectExplorerNode(tabId, node.path, "file");
+                    loadExplorerFileRef.current?.(tabId, node.path);
+                  }}
+                >
+                  <span className="explorer-tree-icon" aria-hidden="true">
+                    <FontAwesomeIcon icon={faFileLines} />
+                  </span>
                   <span className="explorer-tree-name">{node.name}</span>
-                ) : null}
-              </button>
-              {isRenaming ? (
-                <input
-                  className="explorer-tree-rename-input"
-                  value={renameDraft || ""}
-                  autoFocus
-                  onClick={(event) => event.stopPropagation()}
-                  onChange={(event) =>
-                    updateExplorerRenameDraft(tabId, event.target.value)
-                  }
-                  onBlur={() => {
-                    void submitExplorerRename(tabId);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void submitExplorerRename(tabId);
-                    } else if (event.key === "Escape") {
-                      event.preventDefault();
-                      cancelExplorerRename(tabId);
+                </button>
+              ) : (
+                <div className="explorer-tree-file is-renaming">
+                  <span className="explorer-tree-icon" aria-hidden="true">
+                    <FontAwesomeIcon icon={faFileLines} />
+                  </span>
+                  <input
+                    className="explorer-tree-rename-input"
+                    value={renameDraft || ""}
+                    autoFocus
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) =>
+                      updateExplorerRenameDraft(tabId, event.target.value)
                     }
-                  }}
-                />
-              ) : null}
+                    onBlur={() => {
+                      void submitExplorerRename(tabId);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void submitExplorerRename(tabId);
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelExplorerRename(tabId);
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </li>
           );
         })}

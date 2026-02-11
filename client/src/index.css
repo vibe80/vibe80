@@ -2076,6 +2076,7 @@ main.chat {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .explorer-tree-toggle,
@@ -2091,6 +2092,7 @@ main.chat {
   cursor: pointer;
   text-align: left;
   font-size: 13px;
+  min-width: 0;
 }
 
 .explorer-tree-entry .explorer-tree-toggle {
@@ -2145,6 +2147,8 @@ main.chat {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .explorer-tree-rename-input {
@@ -2153,7 +2157,8 @@ main.chat {
   padding: 2px 6px;
   font-size: 12px;
   line-height: 1.2;
-  width: 100%;
+  width: auto;
+  flex: 1;
   min-width: 0;
   background: rgba(255, 255, 255, 0.9);
   color: var(--ink);
@@ -2378,6 +2383,11 @@ main.chat {
 
 :root[data-theme="dark"] .explorer-tree-caret-button:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.explorer-tree-toggle.is-renaming,
+.explorer-tree-file.is-renaming {
+  cursor: default;
 }
 
 :root[data-theme="dark"] .explorer-tree-rename-input {
