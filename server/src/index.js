@@ -441,10 +441,11 @@ wss.on("connection", (socket, req) => {
           return;
         }
         try {
-          const messageId = createMessageId();
+          const requestMessageId = createMessageId();
+          const resultMessageId = createMessageId();
           const actionText = `/${requestType} ${arg}`.trim();
           const actionMessage = {
-            id: messageId,
+            id: requestMessageId,
             role: "user",
             type: "action_request",
             text: actionText,
@@ -456,7 +457,7 @@ wss.on("connection", (socket, req) => {
           await appendWorktreeMessage(session, worktreeId, actionMessage);
           const requestPayload = {
             type: "action_request",
-            id: messageId,
+            id: requestMessageId,
             request: requestType,
             arg,
             text: actionText,
@@ -497,7 +498,7 @@ wss.on("connection", (socket, req) => {
           const resultText = `\`\`\`\n${trimmedOutput}${trimmedOutput ? "\n" : ""}\`\`\``;
           const status = code === 0 ? "success" : "error";
           const resultMessage = {
-            id: messageId,
+            id: resultMessageId,
             role: "assistant",
             type: "action_result",
             text: resultText,
@@ -506,17 +507,19 @@ wss.on("connection", (socket, req) => {
               arg,
               status,
               output: output || "",
+              requestMessageId,
             },
           };
           await appendWorktreeMessage(session, worktreeId, resultMessage);
           const resultPayload = {
             type: "action_result",
-            id: messageId,
+            id: resultMessageId,
             request: requestType,
             arg,
             status,
             output: output || "",
             text: resultText,
+            requestMessageId,
           };
           if (worktreeId !== "main") {
             resultPayload.worktreeId = worktreeId;
