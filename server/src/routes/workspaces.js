@@ -7,7 +7,7 @@ import {
   createWorkspace,
   updateWorkspace,
   readWorkspaceConfig,
-  readWorkspaceSecret,
+  verifyWorkspaceSecret,
   getWorkspaceUserIds,
   sanitizeProvidersForResponse,
   mergeProvidersForUpdate,
@@ -109,8 +109,8 @@ export default function workspaceRoutes() {
       return;
     }
     try {
-      const storedSecret = await readWorkspaceSecret(workspaceId);
-      if (storedSecret !== workspaceSecret) {
+      const matches = await verifyWorkspaceSecret(workspaceId, workspaceSecret);
+      if (!matches) {
         await appendAuditLog(workspaceId, "workspace_login_failed");
         res.status(401).json({ error: "Invalid workspace credentials." });
         return;

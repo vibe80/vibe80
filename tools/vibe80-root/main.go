@@ -1,7 +1,6 @@
 package main
 
 import (
-  "encoding/json"
   "errors"
   "fmt"
   "os"
@@ -13,7 +12,6 @@ import (
 )
 
 const (
-  workspaceMetadataDirName = "metadata"
   workspaceSessionsDirName = "sessions"
 )
 
@@ -59,10 +57,8 @@ func ensureWorkspace(workspaceID string) {
 
   homeDir := filepath.Join(homeBase, workspaceID)
   rootDir := filepath.Join(workspaceRootBase, workspaceID)
-  metadataDir := filepath.Join(rootDir, workspaceMetadataDirName)
   sessionsDir := filepath.Join(rootDir, workspaceSessionsDirName)
-
-  desiredUID, desiredGID := readWorkspaceUIDGID(metadataDir)
+  desiredUID, desiredGID := -1, -1
 
   if err := ensureUser(workspaceID, homeDir, desiredUID, desiredGID); err != nil {
     fail(err.Error())
@@ -85,14 +81,9 @@ func ensureWorkspace(workspaceID string) {
   if err := ensureDir(rootDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
-  if err := ensureDir(metadataDir, 02750, uid, gid); err != nil {
-    fail(err.Error())
-  }
   if err := ensureDir(sessionsDir, 02750, uid, gid); err != nil {
     fail(err.Error())
   }
-  ensureOwnership(filepath.Join(metadataDir, "workspace.json"), uid, gid)
-  ensureOwnership(filepath.Join(metadataDir, "workspace.secret"), uid, gid)
 }
 
 func ensureUser(workspaceID, homeDir string, uid, gid int) error {
@@ -167,37 +158,11 @@ func ensureFile(path string, mode os.FileMode, uid, gid int) error {
   return nil
 }
 
-func ensureOwnership(path string, uid, gid int) {
-  if _, err := os.Stat(path); err != nil {
-    return
-  }
-  _ = os.Chown(path, uid, gid)
-}
-
 func ensureGroup(name string, gid int) {
   if _, err := exec.Command("getent", "group", strconv.Itoa(gid)).Output(); err == nil {
     return
   }
   _ = exec.Command("groupadd", "-g", strconv.Itoa(gid), name).Run()
-}
-
-func readWorkspaceUIDGID(metadataDir string) (int, int) {
-  configPath := filepath.Join(metadataDir, "workspace.json")
-  raw, err := os.ReadFile(configPath)
-  if err != nil {
-    return -1, -1
-  }
-  var payload struct {
-    UID int `json:"uid"`
-    GID int `json:"gid"`
-  }
-  if err := json.Unmarshal(raw, &payload); err != nil {
-    return -1, -1
-  }
-  if payload.UID <= 0 || payload.GID <= 0 {
-    return -1, -1
-  }
-  return payload.UID, payload.GID
 }
 
 func fail(message string) {

@@ -140,6 +140,27 @@ export const createSqliteStorage = () => {
     );
     await run(
       db,
+      `CREATE TABLE IF NOT EXISTS workspaces (
+        workspaceId TEXT PRIMARY KEY,
+        data TEXT NOT NULL
+      );`
+    );
+    await run(
+      db,
+      `CREATE TABLE IF NOT EXISTS workspace_audit_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        workspaceId TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        data TEXT NOT NULL
+      );`
+    );
+    await run(
+      db,
+      `CREATE INDEX IF NOT EXISTS workspace_audit_events_workspace_idx
+       ON workspace_audit_events (workspaceId, createdAt DESC);`
+    );
+    await run(
+      db,
       `CREATE INDEX IF NOT EXISTS workspace_refresh_tokens_hash_idx
        ON workspace_refresh_tokens (tokenHash);`
     );
@@ -444,6 +465,39 @@ export const createSqliteStorage = () => {
     }
   };
 
+  const saveWorkspace = async (workspaceId, data) => {
+    await ensureConnected();
+    await run(
+      db,
+      `INSERT INTO workspaces (workspaceId, data)
+       VALUES (?, ?)
+       ON CONFLICT(workspaceId) DO UPDATE SET data=excluded.data;`,
+      [workspaceId, toJson(data)]
+    );
+  };
+
+  const getWorkspace = async (workspaceId) => {
+    await ensureConnected();
+    const row = await get(
+      db,
+      "SELECT data FROM workspaces WHERE workspaceId = ?",
+      [workspaceId]
+    );
+    return fromJson(row?.data);
+  };
+
+  const appendWorkspaceAuditEvent = async (workspaceId, data) => {
+    await ensureConnected();
+    const createdAt =
+      typeof data?.ts === "number" && Number.isFinite(data.ts) ? data.ts : Date.now();
+    await run(
+      db,
+      `INSERT INTO workspace_audit_events (workspaceId, createdAt, data)
+       VALUES (?, ?, ?)`,
+      [workspaceId, createdAt, toJson(data)]
+    );
+  };
+
   return {
     init: ensureConnected,
     close: async () => {
@@ -477,5 +531,8 @@ export const createSqliteStorage = () => {
     getWorkspaceRefreshToken,
     deleteWorkspaceRefreshToken,
     getNextWorkspaceUid,
+    saveWorkspace,
+    getWorkspace,
+    appendWorkspaceAuditEvent,
   };
 };

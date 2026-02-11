@@ -38,6 +38,9 @@ export const createRedisStorage = () => {
     buildKey(prefix, "workspaceUserIds", workspaceId);
   const workspaceRefreshTokenKey = (workspaceId) =>
     buildKey(prefix, "workspaceRefreshToken", workspaceId);
+  const workspaceKey = (workspaceId) => buildKey(prefix, "workspace", workspaceId);
+  const workspaceAuditEventsKey = (workspaceId) =>
+    buildKey(prefix, "workspace", workspaceId, "auditEvents");
   const workspaceUidSeqKey = () => buildKey(prefix, "workspaceUidSeq");
   const refreshTokenKey = (tokenHash) => buildKey(prefix, "refreshToken", tokenHash);
   const globalSessionsKey = () => buildKey(prefix, "sessions");
@@ -285,6 +288,22 @@ export const createRedisStorage = () => {
     return Number(next);
   };
 
+  const saveWorkspace = async (workspaceId, data) => {
+    await ensureConnected();
+    await client.set(workspaceKey(workspaceId), toJson(data));
+  };
+
+  const getWorkspace = async (workspaceId) => {
+    await ensureConnected();
+    const raw = await client.get(workspaceKey(workspaceId));
+    return fromJson(raw);
+  };
+
+  const appendWorkspaceAuditEvent = async (workspaceId, data) => {
+    await ensureConnected();
+    await client.rPush(workspaceAuditEventsKey(workspaceId), toJson(data));
+  };
+
   return {
     init: ensureConnected,
     close: async () => {
@@ -310,5 +329,8 @@ export const createRedisStorage = () => {
     getWorkspaceRefreshToken,
     deleteWorkspaceRefreshToken,
     getNextWorkspaceUid,
+    saveWorkspace,
+    getWorkspace,
+    appendWorkspaceAuditEvent,
   };
 };

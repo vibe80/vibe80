@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import path from "path";
 import os from "os";
-import fs from "fs";
 import {
   runCommand,
   runCommandOutput,
@@ -17,14 +16,11 @@ const isMonoUser = deploymentMode === "mono_user";
 const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
 const workspaceRootBase = process.env.WORKSPACE_ROOT_DIRECTORY || "/workspaces";
 const workspaceRootName = "vibe80_workspace";
-const workspaceMetadataDirName = "metadata";
 const workspaceSessionsDirName = "sessions";
 const rootHelperPath = process.env.VIBE80_ROOT_HELPER || "/usr/local/bin/vibe80-root";
 const sudoPath = process.env.VIBE80_SUDO_PATH || "sudo";
 const workspaceUidMin = Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
 const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
-const workspaceIdsUsed = new Set();
-let workspaceIdsScanned = false;
 
 export const workspaceIdPattern = isMonoUser ? /^default$/ : /^w[0-9a-f]{24}$/;
 
@@ -37,28 +33,16 @@ const runRootCommand = (args, options = {}) => {
   return runCommand(sudoPath, ["-n", rootHelperPath, ...args], options);
 };
 
-const runRootCommandOutput = (args, options = {}) => {
-  if (isMonoUser) {
-    throw new Error("Root helpers are not available in mono_user mode.");
-  }
-  return runCommandOutput(sudoPath, ["-n", rootHelperPath, ...args], options);
-};
-
 export const getWorkspacePaths = (workspaceId) => {
   const home = isMonoUser ? os.homedir() : path.join(workspaceHomeBase, workspaceId);
   const root = isMonoUser
     ? path.join(home, workspaceRootName)
     : path.join(workspaceRootBase, workspaceId);
-  const metadataDir = path.join(root, workspaceMetadataDirName);
   const sessionsDir = path.join(root, workspaceSessionsDirName);
   return {
     homeDir: home,
     rootDir: root,
-    metadataDir,
     sessionsDir,
-    secretPath: path.join(metadataDir, "workspace.secret"),
-    configPath: path.join(metadataDir, "workspace.json"),
-    auditPath: path.join(metadataDir, "audit.log"),
   };
 };
 
@@ -298,14 +282,13 @@ export const buildWorkspaceEnv = (workspaceId) => {
 
 export const appendAuditLog = async (workspaceId, event, details = {}) => {
   try {
-    const paths = getWorkspacePaths(workspaceId);
-    const entry = JSON.stringify({
+    const entry = {
       ts: Date.now(),
       event,
       workspaceId,
       ...details,
-    });
-    await appendWorkspaceFile(workspaceId, paths.auditPath, `${entry}\n`, 0o600);
+    };
+    await storage.appendWorkspaceAuditEvent(workspaceId, entry);
   } catch {
     // Avoid failing requests on audit errors.
   }
@@ -487,73 +470,7 @@ export const ensureWorkspaceUserExists = async (workspaceId) => {
   });
 };
 
-const ensureWorkspaceIdsRecorded = async (workspaceId, ids, config = null) => {
-  const existing = config || (await readWorkspaceConfig(workspaceId).catch(() => null));
-  if (!existing) {
-    return;
-  }
-  if (Number.isFinite(existing.uid) && Number.isFinite(existing.gid)) {
-    return;
-  }
-  await writeWorkspaceConfig(workspaceId, existing.providers, ids, existing);
-};
-
-const scanWorkspaceIds = async () => {
-  if (isMonoUser) {
-    return;
-  }
-  if (workspaceIdsScanned) {
-    return;
-  }
-  workspaceIdsScanned = true;
-  let entries = [];
-  try {
-    entries = await fs.promises.readdir(workspaceHomeBase, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  const workspaceDirs = entries
-    .filter((entry) => entry.isDirectory() && workspaceIdPattern.test(entry.name))
-    .map((entry) => entry.name);
-  for (const workspaceId of workspaceDirs) {
-    try {
-      const config = await readWorkspaceConfig(workspaceId);
-      if (Number.isFinite(config?.uid)) {
-        workspaceIdsUsed.add(Number(config.uid));
-      }
-      if (Number.isFinite(config?.gid)) {
-        workspaceIdsUsed.add(Number(config.gid));
-      }
-      if (Number.isFinite(config?.uid) && Number.isFinite(config?.gid)) {
-        continue;
-      }
-    } catch {
-      // ignore missing config
-    }
-    try {
-      const homePath = path.join(workspaceHomeBase, workspaceId);
-      const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
-        "-c",
-        "%u\t%g",
-        homePath,
-      ]);
-      const [uidRaw, gidRaw] = output.trim().split("\t");
-      const uid = Number(uidRaw);
-      const gid = Number(gidRaw);
-      if (Number.isFinite(uid)) {
-        workspaceIdsUsed.add(uid);
-      }
-      if (Number.isFinite(gid)) {
-        workspaceIdsUsed.add(gid);
-      }
-    } catch {
-      // ignore missing home dir
-    }
-  }
-};
-
 const allocateWorkspaceIds = async () => {
-  await scanWorkspaceIds();
   const min = Math.max(1, workspaceUidMin);
   const max = Math.max(min, workspaceUidMax);
   const attempts = 1000;
@@ -562,19 +479,72 @@ const allocateWorkspaceIds = async () => {
     if (candidate < min || candidate > max) {
       continue;
     }
-    if (workspaceIdsUsed.has(candidate)) {
-      continue;
-    }
     try {
       await runCommandOutput("getent", ["passwd", String(candidate)]);
       continue;
     } catch {
       // free uid
     }
-    workspaceIdsUsed.add(candidate);
     return { uid: candidate, gid: candidate };
   }
   throw new Error("Unable to allocate a workspace uid/gid.");
+};
+
+const hashWorkspaceSecret = (workspaceSecret) =>
+  crypto.createHash("sha256").update(String(workspaceSecret || ""), "utf8").digest("hex");
+
+const compareWorkspaceSecretHash = (workspaceSecret, expectedHash) => {
+  if (typeof expectedHash !== "string" || !expectedHash) {
+    return false;
+  }
+  const computed = hashWorkspaceSecret(workspaceSecret);
+  const computedBuffer = Buffer.from(computed, "hex");
+  const expectedBuffer = Buffer.from(expectedHash, "hex");
+  if (computedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(computedBuffer, expectedBuffer);
+};
+
+const toWorkspaceConfigPayload = (record) => ({
+  workspaceId: record.workspaceId,
+  providers: record.providers || {},
+  uid: Number.isFinite(record.uid) ? record.uid : null,
+  gid: Number.isFinite(record.gid) ? record.gid : null,
+  createdAt: Number.isFinite(record.createdAt) ? record.createdAt : null,
+  updatedAt: Number.isFinite(record.updatedAt) ? record.updatedAt : null,
+});
+
+const persistWorkspaceRecord = async ({
+  workspaceId,
+  providers,
+  ids = null,
+  workspaceSecretHash,
+  existing = null,
+}) => {
+  const now = Date.now();
+  const payload = {
+    workspaceId,
+    providers: providers || existing?.providers || {},
+    uid: Number.isFinite(ids?.uid) ? ids.uid : existing?.uid ?? null,
+    gid: Number.isFinite(ids?.gid) ? ids.gid : existing?.gid ?? null,
+    workspaceSecretHash:
+      typeof workspaceSecretHash === "string" && workspaceSecretHash
+        ? workspaceSecretHash
+        : existing?.workspaceSecretHash || null,
+    createdAt: Number.isFinite(existing?.createdAt) ? existing.createdAt : now,
+    updatedAt: now,
+  };
+  await storage.saveWorkspace(workspaceId, payload);
+  return payload;
+};
+
+const getWorkspaceRecord = async (workspaceId) => {
+  const record = await storage.getWorkspace(workspaceId);
+  if (!record || typeof record !== "object") {
+    throw new Error("Workspace not found.");
+  }
+  return record;
 };
 
 const recoverWorkspaceIds = async (workspaceId) => {
@@ -584,14 +554,14 @@ const recoverWorkspaceIds = async (workspaceId) => {
     return { uid, gid };
   }
   const homeDir = path.join(workspaceHomeBase, workspaceId);
-  let config = null;
+  let workspaceRecord = null;
   try {
-    config = await readWorkspaceConfig(workspaceId);
+    workspaceRecord = await getWorkspaceRecord(workspaceId);
   } catch {
-    config = null;
+    workspaceRecord = null;
   }
-  let uid = Number.isFinite(config?.uid) ? Number(config.uid) : null;
-  let gid = Number.isFinite(config?.gid) ? Number(config.gid) : null;
+  let uid = Number.isFinite(workspaceRecord?.uid) ? Number(workspaceRecord.uid) : null;
+  let gid = Number.isFinite(workspaceRecord?.gid) ? Number(workspaceRecord.gid) : null;
   if (!Number.isFinite(uid) || !Number.isFinite(gid)) {
     try {
       const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
@@ -615,7 +585,14 @@ const recoverWorkspaceIds = async (workspaceId) => {
   }
   const ids = { uid, gid };
   await ensureWorkspaceUser(workspaceId, homeDir, ids);
-  await ensureWorkspaceIdsRecorded(workspaceId, ids, config);
+  if (workspaceRecord) {
+    await persistWorkspaceRecord({
+      workspaceId,
+      providers: workspaceRecord.providers || {},
+      ids,
+      existing: workspaceRecord,
+    });
+  }
   await appendAuditLog(workspaceId, "workspace_user_rehydrated", {
     uid: ids.uid,
     gid: ids.gid,
@@ -625,8 +602,6 @@ const recoverWorkspaceIds = async (workspaceId) => {
 
 const ensureWorkspaceDirs = async (workspaceId) => {
   const paths = getWorkspacePaths(workspaceId);
-  await runAsCommand(workspaceId, "/bin/mkdir", ["-p", paths.metadataDir]);
-  await runAsCommand(workspaceId, "/bin/chmod", ["700", paths.metadataDir]);
   await runAsCommand(workspaceId, "/bin/mkdir", ["-p", paths.sessionsDir]);
   await runAsCommand(workspaceId, "/bin/chmod", ["700", paths.sessionsDir]);
   const sshPaths = getWorkspaceSshPaths(paths.homeDir);
@@ -723,29 +698,14 @@ const writeWorkspaceProviderAuth = async (workspaceId, providers) => {
   }
 };
 
-export const writeWorkspaceConfig = async (workspaceId, providers, ids, existingConfig = null) => {
-  const paths = getWorkspacePaths(workspaceId);
-  const existing = existingConfig || null;
-  const payload = {
-    workspaceId,
-    providers,
-    uid: Number.isFinite(existing?.uid) ? existing.uid : ids?.uid,
-    gid: Number.isFinite(existing?.gid) ? existing.gid : ids?.gid,
-    updatedAt: Date.now(),
-  };
-  await writeWorkspaceFile(workspaceId, paths.configPath, JSON.stringify(payload, null, 2), 0o600);
-  return payload;
-};
-
 export const readWorkspaceConfig = async (workspaceId) => {
-  const paths = getWorkspacePaths(workspaceId);
-  const raw = await runAsCommandOutput(workspaceId, "/bin/cat", [paths.configPath]);
-  return JSON.parse(raw);
+  const record = await getWorkspaceRecord(workspaceId);
+  return toWorkspaceConfigPayload(record);
 };
 
-export const readWorkspaceSecret = async (workspaceId) => {
-  const paths = getWorkspacePaths(workspaceId);
-  return runAsCommandOutput(workspaceId, "/bin/cat", [paths.secretPath]).then((value) => value.trim());
+export const verifyWorkspaceSecret = async (workspaceId, workspaceSecret) => {
+  const record = await getWorkspaceRecord(workspaceId);
+  return compareWorkspaceSecretHash(workspaceSecret, record.workspaceSecretHash);
 };
 
 export const ensureDefaultMonoWorkspace = async () => {
@@ -753,21 +713,21 @@ export const ensureDefaultMonoWorkspace = async () => {
     return;
   }
   const workspaceId = "default";
-  const paths = getWorkspacePaths(workspaceId);
   await ensureWorkspaceDirs(workspaceId);
-  try {
-    await readWorkspaceSecret(workspaceId);
-  } catch {
-    await writeWorkspaceFile(workspaceId, paths.secretPath, "default", 0o600);
-  }
   const ids = await getWorkspaceUserIds(workspaceId);
-  const existing = await readWorkspaceConfig(workspaceId).catch(() => null);
+  const existing = await storage.getWorkspace(workspaceId);
   if (!existing) {
     const providers = {
       codex: { enabled: true, auth: null },
       claude: { enabled: true, auth: null },
     };
-    await writeWorkspaceConfig(workspaceId, providers, ids);
+    await persistWorkspaceRecord({
+      workspaceId,
+      providers,
+      ids,
+      workspaceSecretHash: hashWorkspaceSecret("default"),
+      existing: null,
+    });
     await appendAuditLog(workspaceId, "workspace_created");
   }
 };
@@ -779,18 +739,18 @@ export const createWorkspace = async (providers) => {
   }
   if (isMonoUser) {
     const workspaceId = "default";
-    const paths = getWorkspacePaths(workspaceId);
     await ensureWorkspaceDirs(workspaceId);
-    let secret = "";
-    try {
-      secret = await readWorkspaceSecret(workspaceId);
-    } catch {
-      secret = crypto.randomBytes(32).toString("hex");
-      await writeWorkspaceFile(workspaceId, paths.secretPath, secret, 0o600);
-    }
+    const secret = "default";
     const ids = await getWorkspaceUserIds(workspaceId);
+    const existing = await storage.getWorkspace(workspaceId);
     await writeWorkspaceProviderAuth(workspaceId, providers);
-    await writeWorkspaceConfig(workspaceId, providers, ids);
+    await persistWorkspaceRecord({
+      workspaceId,
+      providers,
+      ids,
+      workspaceSecretHash: hashWorkspaceSecret(secret),
+      existing,
+    });
     await appendAuditLog(workspaceId, "workspace_created");
     return { workspaceId, workspaceSecret: secret };
   }
@@ -799,16 +759,19 @@ export const createWorkspace = async (providers) => {
     if (!workspaceIdPattern.test(workspaceId)) {
       continue;
     }
-    const paths = getWorkspacePaths(workspaceId);
     if (await workspaceUserExists(workspaceId)) {
       continue;
     }
     await runRootCommand(["create-workspace", "--workspace-id", workspaceId]);
     const ids = await getWorkspaceUserIds(workspaceId);
     const secret = crypto.randomBytes(32).toString("hex");
-    await writeWorkspaceFile(workspaceId, paths.secretPath, secret, 0o600);
     await writeWorkspaceProviderAuth(workspaceId, providers);
-    await writeWorkspaceConfig(workspaceId, providers, ids);
+    await persistWorkspaceRecord({
+      workspaceId,
+      providers,
+      ids,
+      workspaceSecretHash: hashWorkspaceSecret(secret),
+    });
     await appendAuditLog(workspaceId, "workspace_created");
     return { workspaceId, workspaceSecret: secret };
   }
@@ -820,9 +783,17 @@ export const updateWorkspace = async (workspaceId, providers) => {
     throw new Error(validationError);
   }
   const ids = await getWorkspaceUserIds(workspaceId);
-  const existing = await readWorkspaceConfig(workspaceId).catch(() => null);
+  const existing = await storage.getWorkspace(workspaceId);
+  if (!existing) {
+    throw new Error("Workspace not found.");
+  }
   await writeWorkspaceProviderAuth(workspaceId, providers);
-  const payload = await writeWorkspaceConfig(workspaceId, providers, ids, existing);
+  const payload = await persistWorkspaceRecord({
+    workspaceId,
+    providers,
+    ids,
+    existing,
+  });
   await appendAuditLog(workspaceId, "workspace_updated");
-  return payload;
+  return toWorkspaceConfigPayload(payload);
 };

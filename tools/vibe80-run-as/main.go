@@ -1,7 +1,6 @@
 package main
 
 import (
-  "encoding/json"
   "errors"
   "fmt"
   "os"
@@ -18,8 +17,6 @@ import (
 )
 
 var workspaceIDPattern = regexp.MustCompile(`^w[0-9a-f]{24}$`)
-const workspaceMetadataDirName = "metadata"
-const workspaceConfigName = "workspace.json"
 
 var allowedCommands = map[string]struct{}{
   "/usr/bin/git":        {},
@@ -285,11 +282,6 @@ func lookupIDs(workspaceID string) (uint32, uint32, error) {
     return uid, gid, nil
   }
 
-  uid, gid, err := readIDsFromConfig(workspaceID)
-  if err == nil {
-    return uid, gid, nil
-  }
-
   if uidErr != nil {
     return 0, 0, errors.New("unable to resolve uid")
   }
@@ -305,36 +297,6 @@ func parseUint(value string) (uint32, error) {
     return 0, err
   }
   return uint32(parsed), nil
-}
-
-type workspaceConfig struct {
-  UID int `json:"uid"`
-  GID int `json:"gid"`
-}
-
-func readIDsFromConfig(workspaceID string) (uint32, uint32, error) {
-  workspaceRootBase := os.Getenv("WORKSPACE_ROOT_DIRECTORY")
-  if workspaceRootBase == "" {
-    workspaceRootBase = "/workspaces"
-  }
-  configPath := filepath.Join(
-    workspaceRootBase,
-    workspaceID,
-    workspaceMetadataDirName,
-    workspaceConfigName,
-  )
-  raw, err := os.ReadFile(configPath)
-  if err != nil {
-    return 0, 0, err
-  }
-  var config workspaceConfig
-  if err := json.Unmarshal(raw, &config); err != nil {
-    return 0, 0, err
-  }
-  if config.UID < 0 || config.GID < 0 {
-    return 0, 0, errors.New("invalid workspace ids")
-  }
-  return uint32(config.UID), uint32(config.GID), nil
 }
 
 func fail(message string) {
