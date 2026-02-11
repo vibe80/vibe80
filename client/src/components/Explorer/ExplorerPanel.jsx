@@ -191,42 +191,39 @@ export default function ExplorerPanel({
 
         <div className="explorer-editor">
           <div className="explorer-editor-tabs">
-            {openTabPaths.map((path) => {
-              const file = activeExplorer.filesByPath?.[path];
-              const isActive = path === activeFilePath;
-              return (
-                <div
-                  key={path}
-                  className={`explorer-editor-tab ${isActive ? "is-active" : ""}`}
-                >
-                  <button
-                    type="button"
-                    className="explorer-editor-tab-open"
-                    onClick={() => setActiveExplorerFile(tabId, path)}
+            <div className="explorer-editor-tabs-list">
+              {openTabPaths.map((path) => {
+                const file = activeExplorer.filesByPath?.[path];
+                const isActive = path === activeFilePath;
+                return (
+                  <div
+                    key={path}
+                    className={`explorer-editor-tab ${isActive ? "is-active" : ""}`}
                   >
-                    {getFileLabel(path)}
-                    {file?.isDirty ? " *" : ""}
-                  </button>
-                  <button
-                    type="button"
-                    className="explorer-editor-tab-close"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      closeExplorerFile(tabId, path);
-                    }}
-                    aria-label={t("Close")}
-                  >
-                    ×
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-          <div className="explorer-editor-header">
-            <span className="explorer-editor-path">
-              {activeFilePath || t("No file selected")}
-            </span>
-            <div className="explorer-editor-actions">
+                    <button
+                      type="button"
+                      className="explorer-editor-tab-open"
+                      onClick={() => setActiveExplorerFile(tabId, path)}
+                    >
+                      {getFileLabel(path)}
+                      {file?.isDirty ? " *" : ""}
+                    </button>
+                    <button
+                      type="button"
+                      className="explorer-editor-tab-close"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeExplorerFile(tabId, path);
+                      }}
+                      aria-label={t("Close")}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="explorer-editor-tabs-actions">
               {activeFilePath && !activeFile?.binary && (
                 <button
                   type="button"

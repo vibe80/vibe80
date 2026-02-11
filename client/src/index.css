@@ -1926,11 +1926,27 @@ main.chat {
 .explorer-editor-tabs {
   display: flex;
   align-items: center;
-  gap: 6px;
   padding: 6px 8px;
   border-bottom: 1px solid rgba(20, 19, 17, 0.08);
   background: rgba(20, 19, 17, 0.03);
+  overflow: hidden;
+  min-height: 41px;
+}
+
+.explorer-editor-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
+}
+
+.explorer-editor-tabs-actions {
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .explorer-editor-tab {
