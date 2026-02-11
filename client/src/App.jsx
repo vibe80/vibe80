@@ -1598,9 +1598,6 @@ function App() {
     : currentBranch || repoLastCommit?.branch || "";
   const shortSha =
     typeof activeCommit?.sha === "string" ? activeCommit.sha.slice(0, 7) : "";
-  const activeTaskLabel = isInWorktree
-    ? activeWorktree?.taskLabel
-    : mainTaskLabel;
   const showInternetAccess = isInWorktree
     ? Boolean(activeWorktree?.internetAccess)
     : Boolean(defaultInternetAccess);
@@ -1619,6 +1616,11 @@ function App() {
   const isWorktreeProcessing = activeWorktree?.status === "processing";
   const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
   const currentActivity = isInWorktree ? activeWorktree?.activity || "" : activity;
+  const activeTaskLabel = currentProcessing
+    ? isInWorktree
+      ? activeWorktree?.taskLabel
+      : mainTaskLabel
+    : "";
   const currentTurnIdForActive = isInWorktree
     ? activeWorktree?.currentTurnId
     : currentTurnId;

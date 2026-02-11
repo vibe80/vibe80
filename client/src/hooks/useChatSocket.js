@@ -1029,6 +1029,9 @@ export default function useChatSocket({
             const nextStatus = payload.status;
             setProcessing(nextStatus === "processing");
             setActivity(nextStatus === "processing" ? t("Processing...") : "");
+            if (nextStatus !== "processing") {
+              setMainTaskLabel("");
+            }
             return;
           }
           if (!payload.status) {
@@ -1042,6 +1045,9 @@ export default function useChatSocket({
                 ...wt,
                 status: payload.status,
                 error: payload.error || null,
+                ...(payload.status === "processing"
+                  ? {}
+                  : { activity: "", taskLabel: "", currentTurnId: null }),
               });
             }
             return next;
