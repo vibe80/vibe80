@@ -2,7 +2,6 @@ package app.vibe80.shared.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class SessionState(
@@ -70,13 +69,6 @@ data class SessionSummary(
 @Serializable
 data class SessionListResponse(
     val sessions: List<SessionSummary> = emptyList()
-)
-
-@Serializable
-data class RpcLogEntry(
-    val direction: String,
-    val timestamp: Long,
-    val payload: JsonElement
 )
 
 @Serializable
