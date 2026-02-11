@@ -480,8 +480,8 @@ wss.on("connection", (socket, req) => {
           ].filter(Boolean);
           const { output, code } = await runSessionCommandOutputWithStatus(
             session,
-            requestType === "run" ? "/bin/bash" : "git",
-            requestType === "run" ? ["-lc", arg] : arg.split(/\s+/).filter(Boolean),
+            "/bin/bash",
+            ["-lc", requestType === "run" ? arg: "git " + arg],
             {
               cwd,
               sandbox: true,
