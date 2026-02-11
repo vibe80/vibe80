@@ -87,14 +87,42 @@ api() {
   curl "${args[@]}"
 }
 
+is_json() {
+  local payload="${1:-}"
+  echo "$payload" | jq -e . >/dev/null 2>&1
+}
+
 echo "[1/4] Login workspace..."
 LOGIN_BODY=$(jq -nc --arg workspaceId "$WORKSPACE_ID" --arg workspaceSecret "$WORKSPACE_SECRET" '{workspaceId:$workspaceId, workspaceSecret:$workspaceSecret}')
-LOGIN_RESP=$(api POST "$BASE_URL/api/workspaces/login" "$LOGIN_BODY")
-WORKSPACE_TOKEN=$(echo "$LOGIN_RESP" | jq -r '.workspaceToken // empty')
+LOGIN_RESP=$(curl -sS -X POST "$BASE_URL/api/workspaces/login" \
+  -H "Content-Type: application/json" \
+  --data "$LOGIN_BODY" \
+  --connect-timeout "$TIMEOUT" --max-time "$TIMEOUT" \
+  -w '\n%{http_code}')
+LOGIN_BODY_RESP=$(echo "$LOGIN_RESP" | sed '$d')
+LOGIN_CODE=$(echo "$LOGIN_RESP" | tail -n1)
+
+if [[ "$LOGIN_CODE" -lt 200 || "$LOGIN_CODE" -ge 300 ]]; then
+  echo "Workspace login failed ($LOGIN_CODE)." >&2
+  if is_json "$LOGIN_BODY_RESP"; then
+    echo "$LOGIN_BODY_RESP" | jq . >&2
+  else
+    echo "$LOGIN_BODY_RESP" >&2
+  fi
+  exit 1
+fi
+
+if ! is_json "$LOGIN_BODY_RESP"; then
+  echo "Workspace login failed: non-JSON response body." >&2
+  echo "$LOGIN_BODY_RESP" >&2
+  exit 1
+fi
+
+WORKSPACE_TOKEN=$(echo "$LOGIN_BODY_RESP" | jq -r '.workspaceToken // empty')
 
 if [[ -z "$WORKSPACE_TOKEN" ]]; then
   echo "Workspace login failed. Response:" >&2
-  echo "$LOGIN_RESP" | jq . >&2 || echo "$LOGIN_RESP" >&2
+  echo "$LOGIN_BODY_RESP" | jq . >&2 || echo "$LOGIN_BODY_RESP" >&2
   exit 1
 fi
 
