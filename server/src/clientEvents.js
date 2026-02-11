@@ -4,7 +4,7 @@
  * Each function receives a `context` object and a `deps` object:
  *
  * context = { sessionId, worktreeId, provider, client }
- *   - worktreeId: null for the main session, a string for a worktree
+ *   - worktreeId: null/"main" for the main session, a string for a worktree
  *
  * deps = {
  *   getSession, broadcastToSession, appendMessage, broadcastDiff,
@@ -33,6 +33,11 @@ export function attachCodexEvents(context, deps) {
   } = deps;
 
   const isWorktree = worktreeId != null;
+  const scopedWorktreeId = worktreeId || "main";
+  const withWorktreeScope = (payload) => ({
+    ...payload,
+    worktreeId: scopedWorktreeId,
+  });
   let lastAuthError = null;
 
   client.on("thread_starting", () => {
@@ -195,9 +200,10 @@ export function attachCodexEvents(context, deps) {
         case "codex/event/agent_reasoning": {
           const text = message?.params?.msg?.text || "";
           if (text) {
-            const payload = { type: "agent_reasoning", text, provider };
-            if (isWorktree) payload.worktreeId = worktreeId;
-            broadcastToSession(sessionId, payload);
+            broadcastToSession(
+              sessionId,
+              withWorktreeScope({ type: "agent_reasoning", text, provider })
+            );
           }
           break;
         }
@@ -210,8 +216,7 @@ export function attachCodexEvents(context, deps) {
             turnId,
             provider,
           };
-          if (isWorktree) payload.worktreeId = worktreeId;
-          broadcastToSession(sessionId, payload);
+          broadcastToSession(sessionId, withWorktreeScope(payload));
           break;
         }
         case "item/commandExecution/outputDelta": {
@@ -224,8 +229,7 @@ export function attachCodexEvents(context, deps) {
             threadId,
             provider,
           };
-          if (isWorktree) payload.worktreeId = worktreeId;
-          broadcastToSession(sessionId, payload);
+          broadcastToSession(sessionId, withWorktreeScope(payload));
           break;
         }
         case "item/completed": {
@@ -244,8 +248,7 @@ export function attachCodexEvents(context, deps) {
               turnId,
               provider,
             };
-            if (isWorktree) payload.worktreeId = worktreeId;
-            broadcastToSession(sessionId, payload);
+            broadcastToSession(sessionId, withWorktreeScope(payload));
             void broadcastDiff(sessionId, worktreeId);
           }
           if (item?.type === "commandExecution") {
@@ -268,8 +271,7 @@ export function attachCodexEvents(context, deps) {
               turnId,
               provider,
             };
-            if (isWorktree) payload.worktreeId = worktreeId;
-            broadcastToSession(sessionId, payload);
+            broadcastToSession(sessionId, withWorktreeScope(payload));
           }
           break;
         }
@@ -298,8 +300,7 @@ export function attachCodexEvents(context, deps) {
             error: turn.error || null,
             provider,
           };
-          if (isWorktree) payload.worktreeId = worktreeId;
-          broadcastToSession(sessionId, payload);
+          broadcastToSession(sessionId, withWorktreeScope(payload));
           break;
         }
         case "turn/started": {
@@ -326,8 +327,7 @@ export function attachCodexEvents(context, deps) {
             status: turn.status,
             provider,
           };
-          if (isWorktree) payload.worktreeId = worktreeId;
-          broadcastToSession(sessionId, payload);
+          broadcastToSession(sessionId, withWorktreeScope(payload));
           break;
         }
         case "item/started": {
@@ -339,8 +339,7 @@ export function attachCodexEvents(context, deps) {
             item,
             provider,
           };
-          if (isWorktree) payload.worktreeId = worktreeId;
-          broadcastToSession(sessionId, payload);
+          broadcastToSession(sessionId, withWorktreeScope(payload));
           break;
         }
         case "error": {
@@ -353,8 +352,7 @@ export function attachCodexEvents(context, deps) {
             message: error?.message || "Unknown error",
             provider,
           };
-          if (isWorktree) payload.worktreeId = worktreeId;
-          broadcastToSession(sessionId, payload);
+          broadcastToSession(sessionId, withWorktreeScope(payload));
           break;
         }
         case "account/login/completed": {
@@ -385,7 +383,7 @@ export function attachCodexEvents(context, deps) {
         payload,
         provider,
       };
-      if (isWorktree) entry.worktreeId = worktreeId;
+      entry.worktreeId = scopedWorktreeId;
       await appendRpcLog(sessionId, entry);
       broadcastToSession(sessionId, { type: "rpc_log", entry });
     })();
@@ -400,7 +398,7 @@ export function attachCodexEvents(context, deps) {
         payload,
         provider,
       };
-      if (isWorktree) entry.worktreeId = worktreeId;
+      entry.worktreeId = scopedWorktreeId;
       await appendRpcLog(sessionId, entry);
       broadcastToSession(sessionId, { type: "rpc_log", entry });
     })();
@@ -424,6 +422,11 @@ export function attachClaudeEvents(context, deps) {
   } = deps;
 
   const isWorktree = worktreeId != null;
+  const scopedWorktreeId = worktreeId || "main";
+  const withWorktreeScope = (payload) => ({
+    ...payload,
+    worktreeId: scopedWorktreeId,
+  });
 
   client.on("ready", ({ threadId }) => {
     void (async () => {
@@ -477,8 +480,7 @@ export function attachClaudeEvents(context, deps) {
         status: status || "processing",
         provider,
       };
-      if (isWorktree) payload.worktreeId = worktreeId;
-      broadcastToSession(sessionId, payload);
+      broadcastToSession(sessionId, withWorktreeScope(payload));
     })();
   });
 
@@ -500,7 +502,7 @@ export function attachClaudeEvents(context, deps) {
         payload: message,
         provider,
       };
-      if (isWorktree) entry.worktreeId = worktreeId;
+      entry.worktreeId = scopedWorktreeId;
       await appendRpcLog(sessionId, entry);
       broadcastToSession(sessionId, { type: "rpc_log", entry });
     })();
@@ -525,8 +527,7 @@ export function attachClaudeEvents(context, deps) {
         turnId,
         provider,
       };
-      if (isWorktree) payload.worktreeId = worktreeId;
-      broadcastToSession(sessionId, payload);
+      broadcastToSession(sessionId, withWorktreeScope(payload));
       void broadcastDiff(sessionId, worktreeId);
     })();
   });
@@ -556,8 +557,7 @@ export function attachClaudeEvents(context, deps) {
         turnId: payload.turnId,
         provider,
       };
-      if (isWorktree) msg.worktreeId = worktreeId;
-      broadcastToSession(sessionId, msg);
+      broadcastToSession(sessionId, withWorktreeScope(msg));
     })();
   });
 
@@ -589,8 +589,7 @@ export function attachClaudeEvents(context, deps) {
         error: null,
         provider,
       };
-      if (isWorktree) payload.worktreeId = worktreeId;
-      broadcastToSession(sessionId, payload);
+      broadcastToSession(sessionId, withWorktreeScope(payload));
     })();
   });
 
@@ -606,8 +605,7 @@ export function attachClaudeEvents(context, deps) {
         message: message || "Claude CLI error.",
         provider,
       };
-      if (isWorktree) payload.worktreeId = worktreeId;
-      broadcastToSession(sessionId, payload);
+      broadcastToSession(sessionId, withWorktreeScope(payload));
     })();
   });
 }

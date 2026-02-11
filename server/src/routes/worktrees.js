@@ -411,10 +411,8 @@ export default function worktreeRoutes(deps) {
         threadId: client.threadId,
         provider: worktree.provider,
         status: "processing",
+        worktreeId,
       };
-      if (!isMainWorktree) {
-        turnPayload.worktreeId = worktreeId;
-      }
       broadcastToSession(sessionId, turnPayload);
       res.json({
         messageId,

@@ -184,10 +184,15 @@ export default function useChatSocket({
           return;
         }
 
-        const isWorktreeScoped = Boolean(payload.worktreeId);
+        const scopedWorktreeId =
+          typeof payload.worktreeId === "string" ? payload.worktreeId : "";
+        const hasWorktreeScope = scopedWorktreeId.length > 0;
+        const isMainScope = scopedWorktreeId === "main";
+        const isWorktreeScoped = hasWorktreeScope && !isMainScope;
+        const isMainScopedOrLegacy = isMainScope || !hasWorktreeScope;
 
         if (
-          !isWorktreeScoped &&
+          isMainScopedOrLegacy &&
           (payload.type === "assistant_delta" ||
             payload.type === "command_execution_delta" ||
             payload.type === "command_execution_completed" ||
@@ -244,7 +249,7 @@ export default function useChatSocket({
           }
         }
 
-        if (!isWorktreeScoped && payload.type === "assistant_delta") {
+        if (isMainScopedOrLegacy && payload.type === "assistant_delta") {
           if (typeof payload.delta !== "string") {
             return;
           }
@@ -269,7 +274,7 @@ export default function useChatSocket({
           });
         }
 
-        if (!isWorktreeScoped && payload.type === "assistant_message") {
+        if (isMainScopedOrLegacy && payload.type === "assistant_message") {
           if (typeof payload.text !== "string") {
             return;
           }
@@ -300,7 +305,7 @@ export default function useChatSocket({
           });
         }
 
-        if (!isWorktreeScoped && payload.type === "action_request") {
+        if (isMainScopedOrLegacy && payload.type === "action_request") {
           if (!payload.id) {
             return;
           }
@@ -327,7 +332,7 @@ export default function useChatSocket({
           });
         }
 
-        if (!isWorktreeScoped && payload.type === "action_result") {
+        if (isMainScopedOrLegacy && payload.type === "action_result") {
           if (!payload.id) {
             return;
           }
@@ -364,7 +369,7 @@ export default function useChatSocket({
           }
         }
 
-        if (!isWorktreeScoped && payload.type === "backlog_view") {
+        if (isMainScopedOrLegacy && payload.type === "backlog_view") {
           if (!payload.id) {
             return;
           }
@@ -389,7 +394,7 @@ export default function useChatSocket({
           });
         }
 
-        if (!isWorktreeScoped && payload.type === "command_execution_delta") {
+        if (isMainScopedOrLegacy && payload.type === "command_execution_delta") {
           if (typeof payload.delta !== "string") {
             return;
           }
@@ -417,7 +422,10 @@ export default function useChatSocket({
           });
         }
 
-        if (!isWorktreeScoped && payload.type === "command_execution_completed") {
+        if (
+          isMainScopedOrLegacy &&
+          payload.type === "command_execution_completed"
+        ) {
           const item = payload.item;
           const itemId = payload.itemId || item?.id;
           if (!itemId) {
@@ -451,30 +459,30 @@ export default function useChatSocket({
           });
         }
 
-        if (!isWorktreeScoped && payload.type === "turn_error") {
+        if (isMainScopedOrLegacy && payload.type === "turn_error") {
           setStatus(t("Error: {{message}}", { message: payload.message }));
           setCurrentTurnId(null);
           setMainTaskLabel("");
         }
 
-        if (!isWorktreeScoped && payload.type === "agent_reasoning") {
+        if (isMainScopedOrLegacy && payload.type === "agent_reasoning") {
           const label = extractFirstLine(payload.text);
           if (label) {
             setMainTaskLabel(label);
           }
         }
 
-        if (!isWorktreeScoped && payload.type === "error") {
+        if (isMainScopedOrLegacy && payload.type === "error") {
           setStatus(payload.message || t("Unexpected error"));
           setModelLoading(false);
           setModelError(payload.message || t("Unexpected error"));
         }
 
-        if (!isWorktreeScoped && payload.type === "turn_started") {
+        if (isMainScopedOrLegacy && payload.type === "turn_started") {
           setCurrentTurnId(payload.turnId || null);
         }
 
-        if (!isWorktreeScoped && payload.type === "turn_completed") {
+        if (isMainScopedOrLegacy && payload.type === "turn_completed") {
           const errorPayload = payload?.turn?.error || payload?.error || null;
           const turnErrorInfo = errorPayload?.codexErrorInfo;
           if (turnErrorInfo === "usageLimitExceeded") {
@@ -505,14 +513,14 @@ export default function useChatSocket({
           void loadRepoLastCommit();
         }
 
-        if (!isWorktreeScoped && payload.type === "repo_diff") {
+        if (isMainScopedOrLegacy && payload.type === "repo_diff") {
           setRepoDiff({
             status: payload.status || "",
             diff: payload.diff || "",
           });
         }
 
-        if (!isWorktreeScoped && payload.type === "model_list") {
+        if (isMainScopedOrLegacy && payload.type === "model_list") {
           const list = Array.isArray(payload.models) ? payload.models : [];
           setModels(list);
           if (payload.provider) {
@@ -536,7 +544,7 @@ export default function useChatSocket({
           setModelError("");
         }
 
-        if (!isWorktreeScoped && payload.type === "model_set") {
+        if (isMainScopedOrLegacy && payload.type === "model_set") {
           setSelectedModel(payload.model || "");
           if (payload.reasoningEffort !== undefined) {
             setSelectedReasoningEffort(payload.reasoningEffort || "");
@@ -545,7 +553,7 @@ export default function useChatSocket({
           setModelError("");
         }
 
-        if (!isWorktreeScoped && payload.type === "rpc_log") {
+        if (isMainScopedOrLegacy && payload.type === "rpc_log") {
           if (!rpcLogsEnabledRef.current) {
             return;
           }
@@ -554,7 +562,7 @@ export default function useChatSocket({
           }
         }
 
-        if (!isWorktreeScoped && payload.type === "session_sync") {
+        if (isMainScopedOrLegacy && payload.type === "session_sync") {
           if (!payload?.session) {
             return;
           }
@@ -580,11 +588,11 @@ export default function useChatSocket({
           }
         }
 
-        if (!isWorktreeScoped && payload.type === "worktrees_list") {
+        if (isMainScopedOrLegacy && payload.type === "worktrees_list") {
           applyWorktreesList(payload.worktrees || []);
         }
 
-        if (!isWorktreeScoped && payload.type === "worktree_messages_sync") {
+        if (isMainScopedOrLegacy && payload.type === "worktree_messages_sync") {
           if (payload.worktreeId === "main") {
             mergeAndApplyMessages(payload.messages || []);
             return;
@@ -637,7 +645,7 @@ export default function useChatSocket({
         }
 
         if (
-          payload.worktreeId &&
+          isWorktreeScoped &&
           (payload.type === "assistant_delta" ||
             payload.type === "assistant_message" ||
             payload.type === "action_request" ||
@@ -947,7 +955,7 @@ export default function useChatSocket({
           }
         }
 
-        if (payload.type === "agent_reasoning" && payload.worktreeId) {
+        if (payload.type === "agent_reasoning" && isWorktreeScoped) {
           const label = extractFirstLine(payload.text);
           if (label) {
             setWorktrees((current) => {
@@ -960,7 +968,7 @@ export default function useChatSocket({
           }
         }
 
-        if (payload.worktreeId && payload.type === "item_started") {
+        if (payload.type === "item_started" && isWorktreeScoped) {
           const label = getItemActivityLabel(payload.item);
           if (!label) {
             return;

@@ -461,10 +461,8 @@ wss.on("connection", (socket, req) => {
             request: requestType,
             arg,
             text: actionText,
+            worktreeId,
           };
-          if (worktreeId !== "main") {
-            requestPayload.worktreeId = worktreeId;
-          }
           broadcastToSession(session.sessionId, requestPayload);
 
           const cwd = worktree?.path || session.repoDir;
@@ -520,10 +518,8 @@ wss.on("connection", (socket, req) => {
             output: output || "",
             text: resultText,
             requestMessageId,
+            worktreeId,
           };
-          if (worktreeId !== "main") {
-            resultPayload.worktreeId = worktreeId;
-          }
           broadcastToSession(session.sessionId, resultPayload);
         } catch (error) {
           socket.send(
@@ -663,10 +659,8 @@ wss.on("connection", (socket, req) => {
             threadId: client.threadId,
             provider: worktree.provider,
             status: "processing",
+            worktreeId,
           };
-          if (!isMainWorktree) {
-            turnPayload.worktreeId = worktreeId;
-          }
           socket.send(JSON.stringify(turnPayload));
         } catch (error) {
           socket.send(
