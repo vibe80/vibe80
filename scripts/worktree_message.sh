@@ -68,9 +68,11 @@ require_cmd jq
 [[ -n "$WORKTREE_ID" ]] || { echo "WORKTREE_ID is required" >&2; exit 1; }
 [[ -n "$TEXT" ]] || { echo "--text is required" >&2; exit 1; }
 
-for f in "${FILES[@]:-}"; do
-  [[ -f "$f" ]] || { echo "File not found: $f" >&2; exit 1; }
-done
+if [[ ${#FILES[@]} -gt 0 ]]; then
+  for f in "${FILES[@]}"; do
+    [[ -f "$f" ]] || { echo "File not found: $f" >&2; exit 1; }
+  done
+fi
 
 api() {
   local method="$1" url="$2" data="${3:-}" auth_token="${4:-}"
