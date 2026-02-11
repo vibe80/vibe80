@@ -16,11 +16,11 @@ fi
 tag_value="${tag_line#VIBE80-Tag: }"
 
 # Split sessionId / worktreeId
-SESSION_ID="${tag_value%%/*}"
-WORKTREE_ID="${tag_value#*/}"
+VIBE80_SESSION_ID="${tag_value%%/*}"
+VIBE80_WORKTREE_ID="${tag_value#*/}"
 
 echo "Parsed session $SESSION_ID ; parsed worktree $WORKTREE_ID"
 
 # Optional: export for subsequent steps
-export SESSION_ID
-export WORKTREE_ID
+export VIBE80_SESSION_ID
+export VIBE80_WORKTREE_ID

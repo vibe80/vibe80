@@ -36,13 +36,13 @@ require_cmd() {
   }
 }
 
-BASE_URL="${BASE_URL:-}"
-WORKSPACE_ID="${WORKSPACE_ID:-}"
-WORKSPACE_SECRET="${WORKSPACE_SECRET:-}"
-SESSION_ID="${SESSION_ID:-}"
-WORKTREE_ID="${WORKTREE_ID:-}"
+BASE_URL="${VIBE80_BASE_URL:-}"
+WORKSPACE_ID="${VIBE80_WORKSPACE_ID:-}"
+WORKSPACE_SECRET="${VIBE80_WORKSPACE_SECRET:-}"
+SESSION_ID="${VIBE80_SESSION_ID:-}"
+WORKTREE_ID="${VIBE80_WORKTREE_ID:-}"
 TEXT=""
-TIMEOUT="${TIMEOUT:-30}"
+TIMEOUT="${VIBE80_TIMEOUT:-30}"
 FILES=()
 
 while [[ $# -gt 0 ]]; do
@@ -61,11 +61,11 @@ done
 require_cmd curl
 require_cmd jq
 
-[[ -n "$BASE_URL" ]] || { echo "BASE_URL is required" >&2; exit 1; }
-[[ -n "$WORKSPACE_ID" ]] || { echo "WORKSPACE_ID is required" >&2; exit 1; }
-[[ -n "$WORKSPACE_SECRET" ]] || { echo "WORKSPACE_SECRET is required" >&2; exit 1; }
-[[ -n "$SESSION_ID" ]] || { echo "SESSION_ID is required" >&2; exit 1; }
-[[ -n "$WORKTREE_ID" ]] || { echo "WORKTREE_ID is required" >&2; exit 1; }
+[[ -n "$BASE_URL" ]] || { echo "VIBE80_BASE_URL is required" >&2; exit 1; }
+[[ -n "$WORKSPACE_ID" ]] || { echo "VIBE80_WORKSPACE_ID is required" >&2; exit 1; }
+[[ -n "$WORKSPACE_SECRET" ]] || { echo "VIBE80_WORKSPACE_SECRET is required" >&2; exit 1; }
+[[ -n "$SESSION_ID" ]] || { echo "VIBE80_SESSION_ID is required" >&2; exit 1; }
+[[ -n "$WORKTREE_ID" ]] || { echo "VIBE80_WORKTREE_ID is required" >&2; exit 1; }
 [[ -n "$TEXT" ]] || { echo "--text is required" >&2; exit 1; }
 
 if [[ ${#FILES[@]} -gt 0 ]]; then
