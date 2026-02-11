@@ -675,6 +675,48 @@ export default function worktreeRoutes(deps) {
     }
   });
 
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/file/delete", async (req, res) => {
+    const sessionId = req.params.sessionId;
+    const session = await getSession(sessionId, req.workspaceId);
+    if (!session) {
+      res.status(400).json({ error: "Invalid session." });
+      return;
+    }
+    await touchSession(session);
+    const { rootPath } = await resolveWorktreeRoot(session, req.params.worktreeId);
+    if (!rootPath) {
+      res.status(404).json({ error: "Worktree not found." });
+      return;
+    }
+    const requestedPath = req.body?.path;
+    if (!requestedPath || typeof requestedPath !== "string") {
+      res.status(400).json({ error: "Path is required." });
+      return;
+    }
+    const resolved = resolveRelativePath(rootPath, requestedPath);
+    if (!resolved) {
+      res.status(400).json({ error: "Invalid path." });
+      return;
+    }
+    try {
+      await runSessionCommand(
+        session,
+        "/bin/rm",
+        ["-rf", resolved.absPath],
+        { cwd: rootPath }
+      );
+      res.json({ ok: true, path: requestedPath });
+    } catch (error) {
+      console.error("Failed to delete path:", {
+        sessionId,
+        worktreeId: req.params.worktreeId,
+        path: requestedPath,
+        error: error?.message || error,
+      });
+      res.status(500).json({ error: "Failed to delete path." });
+    }
+  });
+
   router.get("/sessions/:sessionId/worktrees/:worktreeId/status", async (req, res) => {
     const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);

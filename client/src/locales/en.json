@@ -6,6 +6,9 @@
   "e.g. src/new-file.ts": "e.g. src/new-file.ts",
   "Unable to rename.": "Unable to rename.",
   "Unable to create file.": "Unable to create file.",
+  "Unable to delete.": "Unable to delete.",
   "Renamed.": "Renamed.",
-  "File created.": "File created."
+  "File created.": "File created.",
+  "Deleted.": "Deleted.",
+  "Delete \"{{path}}\"? This action is irreversible.": "Delete \"{{path}}\"? This action is irreversible."
 }

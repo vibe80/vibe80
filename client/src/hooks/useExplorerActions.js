@@ -985,6 +985,99 @@ export default function useExplorerActions({
     ]
   );
 
+  const deleteExplorerSelection = useCallback(
+    async (tabId) => {
+      if (!attachmentSessionId || !tabId) {
+        return false;
+      }
+      const state = explorerRef.current?.[tabId] || explorerDefaultState;
+      const selectedPath = state.selectedPath || "";
+      if (!selectedPath) {
+        return false;
+      }
+      const shouldDelete = window.confirm(
+        t("Delete \"{{path}}\"? This action is irreversible.", {
+          path: selectedPath,
+        })
+      );
+      if (!shouldDelete) {
+        return false;
+      }
+
+      updateExplorerState(tabId, { deletingPath: selectedPath });
+      try {
+        const response = await apiFetch(
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(tabId)}/file/delete`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: selectedPath }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to delete path");
+        }
+
+        setExplorerByTab((current) => {
+          const prev = current[tabId] || explorerDefaultState;
+          const nextOpenTabs = (prev.openTabPaths || []).filter(
+            (path) => path !== selectedPath && !path.startsWith(`${selectedPath}/`)
+          );
+          const nextFiles = {};
+          Object.entries(prev.filesByPath || {}).forEach(([path, fileState]) => {
+            if (path === selectedPath || path.startsWith(`${selectedPath}/`)) {
+              return;
+            }
+            nextFiles[path] = fileState;
+          });
+          const nextActive =
+            prev.activeFilePath === selectedPath ||
+            String(prev.activeFilePath || "").startsWith(`${selectedPath}/`)
+              ? nextOpenTabs[nextOpenTabs.length - 1] || null
+              : prev.activeFilePath;
+          return {
+            ...current,
+            [tabId]: {
+              ...explorerDefaultState,
+              ...prev,
+              openTabPaths: nextOpenTabs,
+              filesByPath: nextFiles,
+              activeFilePath: nextActive,
+              selectedPath: pathDirname(selectedPath) || nextActive,
+              selectedType: pathDirname(selectedPath) ? "dir" : nextActive ? "file" : null,
+              renamingPath: null,
+              renameDraft: "",
+              deletingPath: null,
+            },
+          };
+        });
+
+        await requestExplorerTree(tabId, true);
+        await requestExplorerStatus(tabId, true);
+        showToast(t("Deleted."), "success");
+        return true;
+      } catch {
+        updateExplorerState(tabId, { deletingPath: null });
+        showToast(t("Unable to delete."), "error");
+        return false;
+      }
+    },
+    [
+      attachmentSessionId,
+      explorerRef,
+      explorerDefaultState,
+      setExplorerByTab,
+      updateExplorerState,
+      requestExplorerTree,
+      requestExplorerStatus,
+      apiFetch,
+      showToast,
+      t,
+    ]
+  );
+
   const toggleExplorerEditMode = useCallback(
     (tabId, nextMode) => {
       if (!tabId) {
@@ -1028,5 +1121,6 @@ export default function useExplorerActions({
     updateExplorerRenameDraft,
     submitExplorerRename,
     createExplorerFile,
+    deleteExplorerSelection,
   };
 }

@@ -746,6 +746,7 @@ function App() {
       selectedType: null,
       renamingPath: null,
       renameDraft: "",
+      deletingPath: null,
       fileContent: "",
       draftContent: "",
       fileLoading: false,
@@ -1717,6 +1718,7 @@ function App() {
     updateExplorerRenameDraft,
     submitExplorerRename,
     createExplorerFile,
+    deleteExplorerSelection,
   } = useExplorerActions({
     attachmentSessionId: attachmentSession?.sessionId,
     apiFetch,
@@ -2355,6 +2357,7 @@ function App() {
                 closeExplorerFile={closeExplorerFile}
                 startExplorerRename={startExplorerRename}
                 createExplorerFile={createExplorerFile}
+                deleteExplorerSelection={deleteExplorerSelection}
                 getLanguageForPath={getLanguageForPath}
                 themeMode={themeMode}
               />

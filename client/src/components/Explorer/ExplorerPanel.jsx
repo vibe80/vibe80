@@ -5,6 +5,7 @@ import {
   faArrowsRotate,
   faFileCirclePlus,
   faPenToSquare,
+  faTrashCan,
 } from "@fortawesome/free-solid-svg-icons";
 
 export default function ExplorerPanel({
@@ -27,6 +28,7 @@ export default function ExplorerPanel({
   closeExplorerFile,
   startExplorerRename,
   createExplorerFile,
+  deleteExplorerSelection,
   getLanguageForPath,
   themeMode,
 }) {
@@ -43,6 +45,8 @@ export default function ExplorerPanel({
   const [newFileSubmitting, setNewFileSubmitting] = useState(false);
 
   const selectedPath = activeExplorer.selectedPath || "";
+  const canRename = Boolean(selectedPath);
+  const canDelete = Boolean(selectedPath);
 
   useEffect(() => {
     if (activePane !== "explorer") {
@@ -81,8 +85,6 @@ export default function ExplorerPanel({
     const parts = path.split("/");
     return parts[parts.length - 1] || path;
   };
-
-  const canRename = Boolean(selectedPath);
 
   const subtitle = useMemo(() => {
     if (isInWorktree) {
@@ -126,6 +128,18 @@ export default function ExplorerPanel({
               disabled={!attachmentSession?.sessionId || !canRename}
             >
               <FontAwesomeIcon icon={faPenToSquare} />
+            </button>
+            <button
+              type="button"
+              className="explorer-tree-icon-btn"
+              title={t("Delete")}
+              aria-label={t("Delete")}
+              onClick={() => {
+                void deleteExplorerSelection(tabId);
+              }}
+              disabled={!attachmentSession?.sessionId || !canDelete || Boolean(activeExplorer.deletingPath)}
+            >
+              <FontAwesomeIcon icon={faTrashCan} />
             </button>
             <button
               type="button"
