@@ -37,6 +37,7 @@ import {
 
 export default function worktreeRoutes(deps) {
   const {
+    getActiveClient,
     getOrCreateClient,
     attachClientEvents,
     attachClaudeEvents,
