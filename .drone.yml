@@ -171,14 +171,15 @@ steps:
       status:
         - failure
     environment:
-      BASE_URL: https://vibe80.lab.adho.app
       DRONE_SERVER: https://drone.lab.adho.app
-      WORKSPACE_ID:
-        from_secret: workspace_id
-      WORKSPACE_SECRET:
-        from_secret: workspace_secret
       DRONE_TOKEN:
         from_secret: drone_token
+      VIBE80_BASE_URL: https://vibe80.lab.adho.app
+      VIBE80_WORKSPACE_ID:
+        from_secret: workspace_id
+      VIBE80_WORKSPACE_SECRET:
+        from_secret: workspace_secret
+
     commands:
       - apk add --no-cache bash git jq curl
       - curl -L https://github.com/harness/drone-cli/releases/latest/download/drone_linux_amd64.tar.gz | tar zx
