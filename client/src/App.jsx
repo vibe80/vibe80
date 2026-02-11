@@ -753,6 +753,9 @@ function App() {
       error: "",
       treeTruncated: false,
       treeTotal: 0,
+      openTabPaths: [],
+      activeFilePath: null,
+      filesByPath: {},
       selectedPath: null,
       fileContent: "",
       draftContent: "",
@@ -1713,6 +1716,8 @@ function App() {
     requestExplorerStatus,
     loadExplorerFile,
     openFileInExplorer,
+    setActiveExplorerFile,
+    closeExplorerFile,
     toggleExplorerDir,
     toggleExplorerEditMode,
     updateExplorerDraft,
@@ -1721,7 +1726,6 @@ function App() {
     attachmentSessionId: attachmentSession?.sessionId,
     apiFetch,
     t,
-    explorerByTab,
     setExplorerByTab,
     explorerDefaultState,
     explorerRef,
@@ -2284,6 +2288,8 @@ function App() {
                 explorerDirStatus={explorerDirStatus}
                 saveExplorerFile={saveExplorerFile}
                 updateExplorerDraft={updateExplorerDraft}
+                setActiveExplorerFile={setActiveExplorerFile}
+                closeExplorerFile={closeExplorerFile}
                 getLanguageForPath={getLanguageForPath}
                 themeMode={themeMode}
               />

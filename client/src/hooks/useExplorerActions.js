@@ -4,7 +4,6 @@ export default function useExplorerActions({
   attachmentSessionId,
   apiFetch,
   t,
-  explorerByTab,
   setExplorerByTab,
   explorerDefaultState,
   explorerRef,
@@ -172,13 +171,6 @@ export default function useExplorerActions({
       });
       updateExplorerState(tabId, {
         expandedPaths: expanded,
-        selectedPath: "",
-        fileContent: "",
-        draftContent: "",
-        fileError: "",
-        fileBinary: false,
-        editMode: false,
-        isDirty: false,
       });
     },
     [updateExplorerState]
@@ -355,35 +347,53 @@ export default function useExplorerActions({
   }, [requestExplorerStatus, requestExplorerStatusRef]);
 
   const loadExplorerFile = useCallback(
-    async (tabId, filePath) => {
+    async (tabId, filePath, force = false) => {
       if (!attachmentSessionId || !tabId || !filePath) {
         return;
       }
-      const currentState = explorerByTab[tabId];
-      if (
-        currentState?.isDirty &&
-        currentState?.selectedPath &&
-        currentState.selectedPath !== filePath
-      ) {
-        const shouldContinue = window.confirm(
-          t(
-            "Vous avez des modifications non sauvegardees. Continuer sans sauvegarder ?"
-          )
-        );
-        if (!shouldContinue) {
-          return;
-        }
-      }
-      updateExplorerState(tabId, {
-        selectedPath: filePath,
-        fileLoading: true,
-        fileError: "",
-        fileBinary: false,
-        fileSaveError: "",
-        fileSaving: false,
-        editMode: true,
-        isDirty: false,
+      const existingState = explorerRef.current[tabId] || explorerDefaultState;
+      const openTabPaths = Array.isArray(existingState.openTabPaths)
+        ? existingState.openTabPaths
+        : [];
+      const existingFile = existingState.filesByPath?.[filePath];
+
+      setExplorerByTab((current) => {
+        const prev = current[tabId] || explorerDefaultState;
+        const prevOpenTabs = Array.isArray(prev.openTabPaths) ? prev.openTabPaths : [];
+        const nextOpenTabs = prevOpenTabs.includes(filePath)
+          ? prevOpenTabs
+          : [...prevOpenTabs, filePath];
+        const prevFile = prev.filesByPath?.[filePath] || {};
+        const shouldLoad = force || prevFile.content == null;
+        return {
+          ...current,
+          [tabId]: {
+            ...explorerDefaultState,
+            ...prev,
+            openTabPaths: nextOpenTabs,
+            activeFilePath: filePath,
+            selectedPath: filePath,
+            editMode: true,
+            filesByPath: {
+              ...(prev.filesByPath || {}),
+              [filePath]: {
+                ...prevFile,
+                path: filePath,
+                loading: shouldLoad,
+                error: "",
+                saveError: "",
+                saving: false,
+                binary: shouldLoad ? false : Boolean(prevFile.binary),
+              },
+            },
+          },
+        };
       });
+
+      if (!force && openTabPaths.includes(filePath) && existingFile?.content != null) {
+        return;
+      }
+
       try {
         const response = await apiFetch(
           `/api/sessions/${encodeURIComponent(
@@ -397,22 +407,62 @@ export default function useExplorerActions({
         }
         const payload = await response.json();
         const content = payload?.content || "";
-        updateExplorerState(tabId, {
-          fileContent: content,
-          draftContent: content,
-          fileLoading: false,
-          fileError: "",
-          fileTruncated: Boolean(payload?.truncated),
-          fileBinary: Boolean(payload?.binary),
+        setExplorerByTab((current) => {
+          const prev = current[tabId] || explorerDefaultState;
+          const prevFile = prev.filesByPath?.[filePath] || {};
+          return {
+            ...current,
+            [tabId]: {
+              ...explorerDefaultState,
+              ...prev,
+              filesByPath: {
+                ...(prev.filesByPath || {}),
+                [filePath]: {
+                  ...prevFile,
+                  path: filePath,
+                  content,
+                  draftContent: content,
+                  loading: false,
+                  error: "",
+                  truncated: Boolean(payload?.truncated),
+                  binary: Boolean(payload?.binary),
+                  isDirty: false,
+                },
+              },
+            },
+          };
         });
       } catch (error) {
-        updateExplorerState(tabId, {
-          fileLoading: false,
-          fileError: t("Unable to load the file."),
+        setExplorerByTab((current) => {
+          const prev = current[tabId] || explorerDefaultState;
+          const prevFile = prev.filesByPath?.[filePath] || {};
+          return {
+            ...current,
+            [tabId]: {
+              ...explorerDefaultState,
+              ...prev,
+              filesByPath: {
+                ...(prev.filesByPath || {}),
+                [filePath]: {
+                  ...prevFile,
+                  path: filePath,
+                  loading: false,
+                  error: t("Unable to load the file."),
+                },
+              },
+            },
+          };
         });
       }
     },
-    [attachmentSessionId, explorerByTab, updateExplorerState, t, apiFetch]
+    [
+      attachmentSessionId,
+      explorerDefaultState,
+      explorerRef,
+      setExplorerByTab,
+      t,
+      apiFetch,
+    ]
   );
 
   useEffect(() => {
@@ -496,28 +546,78 @@ export default function useExplorerActions({
   );
 
   const updateExplorerDraft = useCallback(
-    (tabId, value) => {
+    (tabId, filePath, value) => {
       if (!tabId) {
         return;
       }
-      updateExplorerState(tabId, {
-        draftContent: value,
-        isDirty: true,
+      const targetPath =
+        filePath ||
+        explorerRef.current?.[tabId]?.activeFilePath ||
+        explorerRef.current?.[tabId]?.selectedPath;
+      if (!targetPath) {
+        return;
+      }
+      setExplorerByTab((current) => {
+        const prev = current[tabId] || explorerDefaultState;
+        const prevFile = prev.filesByPath?.[targetPath];
+        if (!prevFile) {
+          return current;
+        }
+        const nextDraft = value ?? "";
+        return {
+          ...current,
+          [tabId]: {
+            ...explorerDefaultState,
+            ...prev,
+            filesByPath: {
+              ...(prev.filesByPath || {}),
+              [targetPath]: {
+                ...prevFile,
+                draftContent: nextDraft,
+                isDirty: nextDraft !== (prevFile.content || ""),
+                saveError: "",
+              },
+            },
+          },
+        };
       });
     },
-    [updateExplorerState]
+    [explorerDefaultState, explorerRef, setExplorerByTab]
   );
 
   const saveExplorerFile = useCallback(
-    async (tabId) => {
+    async (tabId, filePath) => {
       if (!attachmentSessionId || !tabId) {
         return;
       }
-      const state = explorerByTab[tabId];
-      if (!state?.selectedPath || state?.fileBinary) {
+      const state = explorerRef.current?.[tabId];
+      const targetPath = filePath || state?.activeFilePath || state?.selectedPath;
+      const targetFile = targetPath ? state?.filesByPath?.[targetPath] : null;
+      if (!targetPath || !targetFile || targetFile.binary) {
         return;
       }
-      updateExplorerState(tabId, { fileSaving: true, fileSaveError: "" });
+      setExplorerByTab((current) => {
+        const prev = current[tabId] || explorerDefaultState;
+        const prevFile = prev.filesByPath?.[targetPath];
+        if (!prevFile) {
+          return current;
+        }
+        return {
+          ...current,
+          [tabId]: {
+            ...explorerDefaultState,
+            ...prev,
+            filesByPath: {
+              ...(prev.filesByPath || {}),
+              [targetPath]: {
+                ...prevFile,
+                saving: true,
+                saveError: "",
+              },
+            },
+          },
+        };
+      });
       try {
         const response = await apiFetch(
           `/api/sessions/${encodeURIComponent(
@@ -527,36 +627,138 @@ export default function useExplorerActions({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              path: state.selectedPath,
-              content: state.draftContent || "",
+              path: targetPath,
+              content: targetFile.draftContent || "",
             }),
           }
         );
         if (!response.ok) {
           throw new Error("Failed to save file");
         }
-        updateExplorerState(tabId, {
-          fileContent: state.draftContent || "",
-          fileSaving: false,
-          fileSaveError: "",
-          isDirty: false,
+        setExplorerByTab((current) => {
+          const prev = current[tabId] || explorerDefaultState;
+          const prevFile = prev.filesByPath?.[targetPath];
+          if (!prevFile) {
+            return current;
+          }
+          return {
+            ...current,
+            [tabId]: {
+              ...explorerDefaultState,
+              ...prev,
+              filesByPath: {
+                ...(prev.filesByPath || {}),
+                [targetPath]: {
+                  ...prevFile,
+                  content: prevFile.draftContent || "",
+                  saving: false,
+                  saveError: "",
+                  isDirty: false,
+                },
+              },
+            },
+          };
         });
         requestExplorerStatus(tabId, true);
       } catch (error) {
-        updateExplorerState(tabId, {
-          fileSaving: false,
-          fileSaveError: t("Unable to save the file."),
+        setExplorerByTab((current) => {
+          const prev = current[tabId] || explorerDefaultState;
+          const prevFile = prev.filesByPath?.[targetPath];
+          if (!prevFile) {
+            return current;
+          }
+          return {
+            ...current,
+            [tabId]: {
+              ...explorerDefaultState,
+              ...prev,
+              filesByPath: {
+                ...(prev.filesByPath || {}),
+                [targetPath]: {
+                  ...prevFile,
+                  saving: false,
+                  saveError: t("Unable to save the file."),
+                },
+              },
+            },
+          };
         });
       }
     },
     [
       attachmentSessionId,
-      explorerByTab,
-      updateExplorerState,
+      explorerDefaultState,
+      explorerRef,
+      setExplorerByTab,
       requestExplorerStatus,
       t,
       apiFetch,
     ]
+  );
+
+  const setActiveExplorerFile = useCallback(
+    (tabId, filePath) => {
+      if (!tabId || !filePath) {
+        return;
+      }
+      updateExplorerState(tabId, {
+        activeFilePath: filePath,
+        selectedPath: filePath,
+      });
+    },
+    [updateExplorerState]
+  );
+
+  const closeExplorerFile = useCallback(
+    (tabId, filePath) => {
+      if (!tabId || !filePath) {
+        return;
+      }
+      const state = explorerRef.current?.[tabId] || explorerDefaultState;
+      const openTabPaths = Array.isArray(state.openTabPaths) ? state.openTabPaths : [];
+      if (!openTabPaths.includes(filePath)) {
+        return;
+      }
+      const fileState = state.filesByPath?.[filePath];
+      if (fileState?.isDirty) {
+        const shouldClose = window.confirm(t("You have unsaved changes. Continue without saving?"));
+        if (!shouldClose) {
+          return;
+        }
+      }
+      setExplorerByTab((current) => {
+        const prev = current[tabId] || explorerDefaultState;
+        const prevOpenTabs = Array.isArray(prev.openTabPaths) ? prev.openTabPaths : [];
+        const targetIndex = prevOpenTabs.indexOf(filePath);
+        if (targetIndex < 0) {
+          return current;
+        }
+        const nextOpenTabs = prevOpenTabs.filter((path) => path !== filePath);
+        const nextFiles = { ...(prev.filesByPath || {}) };
+        delete nextFiles[filePath];
+        let nextActive = prev.activeFilePath || null;
+        if (nextActive === filePath) {
+          nextActive =
+            nextOpenTabs[targetIndex - 1] ||
+            nextOpenTabs[targetIndex] ||
+            nextOpenTabs[nextOpenTabs.length - 1] ||
+            null;
+        }
+        return {
+          ...current,
+          [tabId]: {
+            ...explorerDefaultState,
+            ...prev,
+            openTabPaths: nextOpenTabs,
+            filesByPath: nextFiles,
+            activeFilePath: nextActive,
+            selectedPath: nextActive,
+            editMode: Boolean(nextActive),
+          },
+        };
+      });
+    },
+    [explorerDefaultState, explorerRef, setExplorerByTab, t]
   );
 
   return {
@@ -566,6 +768,8 @@ export default function useExplorerActions({
     requestExplorerStatus,
     loadExplorerFile,
     openFileInExplorer,
+    setActiveExplorerFile,
+    closeExplorerFile,
     toggleExplorerDir,
     toggleExplorerEditMode,
     updateExplorerDraft,

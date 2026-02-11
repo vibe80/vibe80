@@ -1859,6 +1859,59 @@ main.chat {
   overflow: hidden;
 }
 
+.explorer-editor-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(20, 19, 17, 0.08);
+  background: rgba(20, 19, 17, 0.03);
+  overflow-x: auto;
+}
+
+.explorer-editor-tab {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  border: 1px solid rgba(20, 19, 17, 0.14);
+  border-radius: 8px;
+  background: rgba(20, 19, 17, 0.03);
+}
+
+.explorer-editor-tab.is-active {
+  border-color: rgba(238, 93, 59, 0.45);
+  background: rgba(238, 93, 59, 0.12);
+}
+
+.explorer-editor-tab-open,
+.explorer-editor-tab-close {
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.explorer-editor-tab-open {
+  max-width: 180px;
+  padding: 6px 8px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.explorer-editor-tab-close {
+  padding: 6px 6px 6px 2px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.explorer-editor-tab-close:hover {
+  opacity: 1;
+}
+
 .explorer-editor-header {
   padding: 8px 12px;
   font-size: 12px;
@@ -2089,6 +2142,26 @@ main.chat {
   border-bottom-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: var(--ink-muted);
+}
+
+:root[data-theme="dark"] .explorer-editor-tabs {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme="dark"] .explorer-editor-tab {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="dark"] .explorer-editor-tab.is-active {
+  border-color: rgba(238, 93, 59, 0.5);
+  background: rgba(238, 93, 59, 0.22);
+}
+
+:root[data-theme="dark"] .explorer-editor-tab-open,
+:root[data-theme="dark"] .explorer-editor-tab-close {
+  color: #e6edf3;
 }
 
 :root[data-theme="dark"] .explorer-tree-toggle:hover,

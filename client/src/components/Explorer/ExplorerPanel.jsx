@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Editor from "@monaco-editor/react";
 
 export default function ExplorerPanel({
@@ -17,9 +17,49 @@ export default function ExplorerPanel({
   explorerDirStatus,
   saveExplorerFile,
   updateExplorerDraft,
+  setActiveExplorerFile,
+  closeExplorerFile,
   getLanguageForPath,
   themeMode,
 }) {
+  const tabId = activeWorktreeId || "main";
+  const openTabPaths = Array.isArray(activeExplorer.openTabPaths)
+    ? activeExplorer.openTabPaths
+    : [];
+  const activeFilePath = activeExplorer.activeFilePath || activeExplorer.selectedPath || "";
+  const activeFile = activeFilePath ? activeExplorer.filesByPath?.[activeFilePath] : null;
+
+  useEffect(() => {
+    if (activePane !== "explorer") {
+      return undefined;
+    }
+    const onKeyDown = (event) => {
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
+      if (event.key.toLowerCase() !== "s") {
+        return;
+      }
+      if (!activeFilePath || activeFile?.binary || activeFile?.saving) {
+        return;
+      }
+      event.preventDefault();
+      saveExplorerFile(tabId, activeFilePath);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [activePane, activeFilePath, activeFile?.binary, activeFile?.saving, saveExplorerFile, tabId]);
+
+  const getFileLabel = (path) => {
+    if (!path) {
+      return "";
+    }
+    const parts = path.split("/");
+    return parts[parts.length - 1] || path;
+  };
+
   return (
     <div
       className={`explorer-panel ${activePane === "explorer" ? "" : "is-hidden"}`}
@@ -39,7 +79,6 @@ export default function ExplorerPanel({
           type="button"
           className="explorer-refresh"
           onClick={() => {
-            const tabId = activeWorktreeId || "main";
             requestExplorerTree(tabId, true);
             requestExplorerStatus(tabId, true);
           }}
@@ -59,9 +98,9 @@ export default function ExplorerPanel({
             <>
               {renderExplorerNodes(
                 activeExplorer.tree,
-                activeWorktreeId || "main",
+                tabId,
                 new Set(activeExplorer.expandedPaths || []),
-                activeExplorer.selectedPath,
+                activeFilePath,
                 explorerStatusByPath,
                 explorerDirStatus
               )}
@@ -78,43 +117,75 @@ export default function ExplorerPanel({
           )}
         </div>
         <div className="explorer-editor">
+          <div className="explorer-editor-tabs">
+            {openTabPaths.map((path) => {
+              const file = activeExplorer.filesByPath?.[path];
+              const isActive = path === activeFilePath;
+              return (
+                <div
+                  key={path}
+                  className={`explorer-editor-tab ${isActive ? "is-active" : ""}`}
+                >
+                  <button
+                    type="button"
+                    className="explorer-editor-tab-open"
+                    onClick={() => setActiveExplorerFile(tabId, path)}
+                  >
+                    {getFileLabel(path)}
+                    {file?.isDirty ? " *" : ""}
+                  </button>
+                  <button
+                    type="button"
+                    className="explorer-editor-tab-close"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      closeExplorerFile(tabId, path);
+                    }}
+                    aria-label={t("Close")}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
           <div className="explorer-editor-header">
             <span className="explorer-editor-path">
-              {activeExplorer.selectedPath || t("No file selected")}
+              {activeFilePath || t("No file selected")}
             </span>
             <div className="explorer-editor-actions">
-              {activeExplorer.selectedPath && !activeExplorer.fileBinary && (
+              {activeFilePath && !activeFile?.binary && (
                 <button
                   type="button"
                   className="explorer-action primary"
-                  onClick={() => saveExplorerFile(activeWorktreeId || "main")}
-                  disabled={activeExplorer.fileSaving || !activeExplorer.isDirty}
+                  onClick={() => saveExplorerFile(tabId, activeFilePath)}
+                  disabled={activeFile?.saving || !activeFile?.isDirty}
                 >
-                  {activeExplorer.fileSaving ? t("Saving...") : t("Save")}
+                  {activeFile?.saving ? t("Saving...") : t("Save")}
                 </button>
               )}
             </div>
           </div>
-          {activeExplorer.fileLoading ? (
+          {activeFile?.loading ? (
             <div className="explorer-editor-empty">{t("Loading...")}</div>
-          ) : activeExplorer.fileError ? (
+          ) : activeFile?.error ? (
             <div className="explorer-editor-empty">
-              {activeExplorer.fileError}
+              {activeFile.error}
             </div>
-          ) : activeExplorer.fileBinary ? (
+          ) : activeFile?.binary ? (
             <div className="explorer-editor-empty">
               {t("Binary file not displayed.")}
             </div>
-          ) : activeExplorer.selectedPath ? (
+          ) : activeFilePath ? (
             <>
               <div className="explorer-editor-input">
                 <Editor
-                  key={activeExplorer.selectedPath}
-                  value={activeExplorer.draftContent || ""}
+                  key={activeFilePath}
+                  value={activeFile?.draftContent || ""}
                   onChange={(value) =>
-                    updateExplorerDraft(activeWorktreeId || "main", value || "")
+                    updateExplorerDraft(tabId, activeFilePath, value || "")
                   }
-                  language={getLanguageForPath(activeExplorer.selectedPath)}
+                  language={getLanguageForPath(activeFilePath)}
                   theme={themeMode === "dark" ? "vs-dark" : "light"}
                   options={{
                     minimap: { enabled: false },
@@ -129,12 +200,12 @@ export default function ExplorerPanel({
                   }}
                 />
               </div>
-              {activeExplorer.fileSaveError && (
+              {activeFile?.saveError && (
                 <div className="explorer-truncated">
-                  {activeExplorer.fileSaveError}
+                  {activeFile.saveError}
                 </div>
               )}
-              {activeExplorer.fileTruncated && (
+              {activeFile?.truncated && (
                 <div className="explorer-truncated">
                   {t("File truncated for display.")}
                 </div>
