@@ -50,6 +50,7 @@ export class CodexAppServerClient extends EventEmitter {
     this.restarting = false;
     this.starting = false;
     this.stopping = false;
+    this.stopReason = null;
     this.lastIdleAt = Date.now();
     this.providerLogger = createProviderLogger({
       provider: "codex",
@@ -142,6 +143,8 @@ export class CodexAppServerClient extends EventEmitter {
     });
 
     this.proc.on("exit", (code, signal) => {
+      const stopReason = this.stopReason;
+      this.stopReason = null;
       this.ready = false;
       this.activeTurnIds.clear();
       this.starting = false;
@@ -150,7 +153,7 @@ export class CodexAppServerClient extends EventEmitter {
       this.#flushLogBuffer("OUT", "stdoutLogBuffer");
       this.#flushLogBuffer("ERR", "stderrLogBuffer");
       this.providerLogger?.close?.();
-      this.emit("exit", { code, signal });
+      this.emit("exit", { code, signal, reason: stopReason });
     });
 
     try {
@@ -166,11 +169,12 @@ export class CodexAppServerClient extends EventEmitter {
     }
   }
 
-  async stop({ force = false, timeoutMs = 5000 } = {}) {
+  async stop({ force = false, timeoutMs = 5000, reason = null } = {}) {
     if (!this.proc) {
       return;
     }
     this.stopping = true;
+    this.stopReason = reason || null;
     const proc = this.proc;
     this.proc = null;
     const exitPromise = new Promise((resolve) => {
@@ -199,6 +203,7 @@ export class CodexAppServerClient extends EventEmitter {
     if (this.restarting) return "restarting";
     if (this.starting) return "starting";
     if (this.stopping) return "stopping";
+    if (!this.proc && !this.ready) return "stopped";
     if (!this.ready) return "starting";
     if (this.activeTurnIds.size > 0) return "busy";
     return "idle";

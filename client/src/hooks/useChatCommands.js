@@ -11,6 +11,7 @@ export default function useChatCommands({
   handleSendMessageRef,
   handleViewSelect,
   input,
+  isWorktreeStopped,
   isCodexReady,
   isInWorktree,
   openPathInExplorer,
@@ -31,6 +32,10 @@ export default function useChatCommands({
     (textOverride, attachmentsOverride) => {
       const rawText = (textOverride ?? input).trim();
       if (!rawText) {
+        return;
+      }
+      if (isWorktreeStopped) {
+        showToast(t("Worktree is stopped. Wake it up before sending a message."), "info");
         return;
       }
       if (activeProvider === "codex" && !isCodexReady) {
@@ -228,6 +233,7 @@ export default function useChatCommands({
       connected,
       handleViewSelect,
       input,
+      isWorktreeStopped,
       isCodexReady,
       isInWorktree,
       openPathInExplorer,

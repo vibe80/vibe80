@@ -38,6 +38,7 @@ export default function ChatMessages({
   setToolResultPanelOpen,
   renderMessageAttachments,
   currentProcessing,
+  currentInteractionBlocked,
   currentActivity,
   extractVibe80Blocks,
   handleChoiceClick,
@@ -599,7 +600,7 @@ export default function ChatMessages({
                                               choiceIndex
                                             )
                                           }
-                                          disabled={currentProcessing}
+                                          disabled={currentInteractionBlocked}
                                           className={`choice-button ${
                                             isSelected
                                               ? "is-selected"

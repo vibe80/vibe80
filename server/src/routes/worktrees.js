@@ -317,7 +317,6 @@ export default function worktreeRoutes(deps) {
       res.status(404).json({ error: "Worktree not found." });
       return;
     }
-
     try {
       const limitValue = Number.parseInt(req.query?.limit, 10);
       const limit =
@@ -361,6 +360,12 @@ export default function worktreeRoutes(deps) {
     const worktree = await getWorktree(session, worktreeId);
     if (!worktree) {
       res.status(404).json({ error: "Worktree not found." });
+      return;
+    }
+    if (worktree.status === "stopped") {
+      res.status(409).json({
+        error: "Worktree is stopped. Wake it up before sending a message.",
+      });
       return;
     }
 

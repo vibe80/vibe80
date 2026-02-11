@@ -39,6 +39,7 @@ export default function ChatComposer({
   interruptTurn,
   connected,
   isCodexReady,
+  interactionBlocked,
   attachmentsError,
 }) {
   if (activePane !== "chat") {
@@ -181,7 +182,9 @@ export default function ChatComposer({
             <button
               type="submit"
               className="primary send-button"
-              disabled={!connected || !input.trim() || !isCodexReady}
+              disabled={
+                !connected || !input.trim() || !isCodexReady || interactionBlocked
+              }
               aria-label={t("Send")}
               title={t("Send")}
             >

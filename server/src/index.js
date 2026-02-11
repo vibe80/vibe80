@@ -9,7 +9,6 @@ import rateLimit from "express-rate-limit";
 import storage from "./storage/index.js";
 import {
   getSessionRuntime,
-  listSessionRuntimes,
   listSessionRuntimeEntries,
 } from "./runtimeStore.js";
 import {
@@ -626,6 +625,15 @@ wss.on("connection", (socket, req) => {
         const worktree = await getWorktree(session, worktreeId);
         if (!worktree) {
           socket.send(JSON.stringify({ type: "error", message: "Worktree not found." }));
+          return;
+        }
+        if (worktree.status === "stopped") {
+          socket.send(
+            JSON.stringify({
+              type: "error",
+              message: "Worktree is stopped. Wake it up before sending a message.",
+            })
+          );
           return;
         }
         const isMainWorktree = worktreeId === "main";
@@ -1269,17 +1277,17 @@ if (Number.isFinite(codexIdleGcIntervalSeconds) && codexIdleGcIntervalSeconds > 
     }
     const ttlMs = codexIdleTtlSeconds * 1000;
     const now = Date.now();
-    for (const runtime of listSessionRuntimes()) {
+    for (const [sessionId, runtime] of listSessionRuntimeEntries()) {
       const candidates = [];
       if (runtime?.clients?.codex) {
-        candidates.push(runtime.clients.codex);
+        candidates.push(["main", runtime.clients.codex]);
       }
       if (runtime?.worktreeClients instanceof Map) {
-        runtime.worktreeClients.forEach((client) => {
-          candidates.push(client);
+        runtime.worktreeClients.forEach((client, worktreeId) => {
+          candidates.push([worktreeId, client]);
         });
       }
-      candidates.forEach((client) => {
+      candidates.forEach(([worktreeId, client]) => {
         if (!client || client?.constructor?.name !== "CodexAppServerClient") {
           return;
         }
@@ -1296,7 +1304,23 @@ if (Number.isFinite(codexIdleGcIntervalSeconds) && codexIdleGcIntervalSeconds > 
         if (now - lastIdleAt < ttlMs) {
           return;
         }
-        client.stop({ force: false }).catch(() => null);
+        client.stop({ force: false, reason: "gc_idle" }).catch(() => null);
+        if (worktreeId === "main") {
+          return;
+        }
+        void (async () => {
+          const session = await getSession(sessionId);
+          if (!session) {
+            return;
+          }
+          await updateWorktreeStatus(session, worktreeId, "stopped");
+          broadcastToSession(sessionId, {
+            type: "worktree_status",
+            worktreeId,
+            status: "stopped",
+            error: null,
+          });
+        })();
       });
     }
   }, codexIdleGcIntervalSeconds * 1000);
@@ -1337,10 +1361,11 @@ setInterval(() => {
               status = "processing";
             } else if (
               runtimeStatus === "starting" ||
-              runtimeStatus === "restarting" ||
-              runtimeStatus === "stopping"
+              runtimeStatus === "restarting"
             ) {
               status = "processing";
+            } else if (runtimeStatus === "stopping") {
+              status = "stopped";
             } else if (runtimeStatus === "idle") {
               status = "ready";
             }

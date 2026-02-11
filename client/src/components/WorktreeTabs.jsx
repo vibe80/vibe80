@@ -15,6 +15,7 @@ const STATUS_ICONS = {
   creating: faCircleNotch,
   ready: faCircle,
   processing: faCircleHalfStroke,
+  stopped: faCircle,
   completed: faCheck,
   error: faXmark,
 };
@@ -23,6 +24,7 @@ const STATUS_COLORS = {
   creating: "#9ca3af",
   ready: "#10b981",
   processing: "#f59e0b",
+  stopped: "#ef4444",
   completed: "#3b82f6",
   error: "#ef4444",
 };
@@ -77,6 +79,7 @@ export default function WorktreeTabs({
       creating: t("Creating"),
       ready: t("Ready"),
       processing: t("In progress"),
+      stopped: t("Stopped"),
       completed: t("Completed"),
       error: t("Error"),
     }),

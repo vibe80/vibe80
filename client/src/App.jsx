@@ -1602,7 +1602,10 @@ function App() {
     Boolean(activeBranchLabel && shortSha && activeCommit?.message);
 
   const isWorktreeProcessing = activeWorktree?.status === "processing";
+  const isWorktreeStopped = activeWorktree?.status === "stopped";
   const currentProcessing = isInWorktree ? isWorktreeProcessing : processing;
+  const currentInteractionBlocked =
+    currentProcessing || (isInWorktree && isWorktreeStopped);
   const currentActivity = isInWorktree ? activeWorktree?.activity || "" : activity;
   const activeTaskLabel = currentProcessing
     ? isInWorktree
@@ -1744,6 +1747,7 @@ function App() {
     handleSendMessageRef,
     handleViewSelect,
     input,
+    isWorktreeStopped,
     isCodexReady,
     isInWorktree,
     openPathInExplorer,
@@ -2306,6 +2310,7 @@ function App() {
               setToolResultPanelOpen={setToolResultPanelOpen}
               renderMessageAttachments={renderMessageAttachments}
               currentProcessing={currentProcessing}
+              currentInteractionBlocked={currentInteractionBlocked}
               currentActivity={currentActivity}
               extractVibe80Blocks={extractVibe80Blocks}
               handleChoiceClick={handleChoiceClick}
@@ -2455,6 +2460,7 @@ function App() {
             interruptTurn={interruptTurn}
             connected={connected}
             isCodexReady={isCodexReady}
+            interactionBlocked={currentInteractionBlocked}
             attachmentsError={attachmentsError}
           />
         </section>
@@ -2483,7 +2489,16 @@ function App() {
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
-            <form className="vibe80-form-body" onSubmit={submitActiveForm}>
+            <form
+              className="vibe80-form-body"
+              onSubmit={(event) => {
+                if (currentInteractionBlocked) {
+                  event.preventDefault();
+                  return;
+                }
+                submitActiveForm(event);
+              }}
+            >
               {activeForm.fields.map((field) => {
                 const fieldId = `vibe80-${activeForm.key}-${field.id}`;
                 const value = activeFormValues[field.id] ?? "";
@@ -2611,7 +2626,7 @@ function App() {
                 <button
                   type="submit"
                   className="vibe80-form-submit"
-                  disabled={currentProcessing}
+                  disabled={currentInteractionBlocked}
                 >
                   {t("Send")}
                 </button>

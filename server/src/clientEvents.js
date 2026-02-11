@@ -137,22 +137,33 @@ export function attachCodexEvents(context, deps) {
     }
   });
 
-  client.on("exit", ({ code, signal }) => {
+  client.on("exit", ({ code, signal, reason }) => {
     void (async () => {
       const session = await getSession(sessionId);
       if (isWorktree) {
         if (session) {
-          await updateWorktreeStatus(session, worktreeId, "error");
-          broadcastToSession(sessionId, {
-            type: "worktree_status",
-            worktreeId,
-            status: "error",
-            error: lastAuthError || "Codex app-server stopped.",
-          });
+          if (reason === "gc_idle") {
+            await updateWorktreeStatus(session, worktreeId, "stopped");
+            broadcastToSession(sessionId, {
+              type: "worktree_status",
+              worktreeId,
+              status: "stopped",
+              error: null,
+            });
+          } else {
+            await updateWorktreeStatus(session, worktreeId, "error");
+            broadcastToSession(sessionId, {
+              type: "worktree_status",
+              worktreeId,
+              status: "error",
+              error: lastAuthError || "Codex app-server stopped.",
+            });
+          }
         }
         console.error("Worktree Codex app-server stopped.", {
           code,
           signal,
+          reason,
           sessionId,
           worktreeId,
         });

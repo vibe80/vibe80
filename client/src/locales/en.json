@@ -10,5 +10,7 @@
   "Renamed.": "Renamed.",
   "File created.": "File created.",
   "Deleted.": "Deleted.",
-  "Delete \"{{path}}\"? This action is irreversible.": "Delete \"{{path}}\"? This action is irreversible."
+  "Delete \"{{path}}\"? This action is irreversible.": "Delete \"{{path}}\"? This action is irreversible.",
+  "Stopped": "Stopped",
+  "Worktree is stopped. Wake it up before sending a message.": "Worktree is stopped. Wake it up before sending a message."
 }
