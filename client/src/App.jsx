@@ -277,7 +277,6 @@ const LLM_PROVIDER_KEY = "llmProvider";
 const LLM_PROVIDERS_KEY = "llmProviders";
 const CHAT_COMMANDS_VISIBLE_KEY = "chatCommandsVisible";
 const TOOL_RESULTS_VISIBLE_KEY = "toolResultsVisible";
-const CHAT_FULL_WIDTH_KEY = "chatFullWidth";
 const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const THEME_MODE_KEY = "themeMode";
 const COMPOSER_INPUT_MODE_KEY = "composerInputMode";
@@ -437,18 +436,6 @@ const readChatCommandsVisible = () => {
 const readToolResultsVisible = () => {
   try {
     const stored = localStorage.getItem(TOOL_RESULTS_VISIBLE_KEY);
-    if (stored === "true" || stored === "false") {
-      return stored === "true";
-    }
-  } catch (error) {
-    // Ignore storage errors (private mode, quota).
-  }
-  return false;
-};
-
-const readChatFullWidth = () => {
-  try {
-    const stored = localStorage.getItem(CHAT_FULL_WIDTH_KEY);
     if (stored === "true" || stored === "false") {
       return stored === "true";
     }
@@ -714,7 +701,6 @@ function App() {
   const [showToolResults, setShowToolResults] = useState(
     readToolResultsVisible
   );
-  const [chatFullWidth, setChatFullWidth] = useState(readChatFullWidth);
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     readNotificationsEnabled
   );
@@ -1013,7 +999,6 @@ function App() {
     openAiAuthMode,
     showChatCommands,
     showToolResults,
-    chatFullWidth,
     notificationsEnabled,
     themeMode,
     composerInputMode,
@@ -1028,7 +1013,6 @@ function App() {
     OPENAI_AUTH_MODE_KEY,
     CHAT_COMMANDS_VISIBLE_KEY,
     TOOL_RESULTS_VISIBLE_KEY,
-    CHAT_FULL_WIDTH_KEY,
     NOTIFICATIONS_ENABLED_KEY,
     THEME_MODE_KEY,
     COMPOSER_INPUT_MODE_KEY,
@@ -2276,12 +2260,7 @@ function App() {
           </div>
         </aside>
 
-        <section
-          className={`conversation ${
-            chatFullWidth ? "is-chat-full" : "is-chat-narrow"
-          }`}
-          ref={conversationRef}
-        >
+        <section className="conversation is-chat-narrow" ref={conversationRef}>
           <div className="pane-stack">
             <ChatToolbar
               t={t}
@@ -2414,8 +2393,6 @@ function App() {
                 setShowChatCommands={setShowChatCommands}
                 showToolResults={showToolResults}
                 setShowToolResults={setShowToolResults}
-                chatFullWidth={chatFullWidth}
-                setChatFullWidth={setChatFullWidth}
                 notificationsEnabled={notificationsEnabled}
                 setNotificationsEnabled={setNotificationsEnabled}
                 themeMode={themeMode}

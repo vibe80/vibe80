@@ -12,8 +12,6 @@ export default function SettingsPanel({
   setShowChatCommands,
   showToolResults,
   setShowToolResults,
-  chatFullWidth,
-  setChatFullWidth,
   notificationsEnabled,
   setNotificationsEnabled,
   themeMode,
@@ -97,20 +95,6 @@ export default function SettingsPanel({
             className="settings-toggle"
             checked={showToolResults}
             onChange={(event) => setShowToolResults(event.target.checked)}
-          />
-        </label>
-        <label className="settings-item">
-          <span className="settings-text">
-            <span className="settings-name">{t("Full width chat")}</span>
-            <span className="settings-hint">
-              {t("Use the full available width for the chat area.")}
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            className="settings-toggle"
-            checked={chatFullWidth}
-            onChange={(event) => setChatFullWidth(event.target.checked)}
           />
         </label>
         <label className="settings-item">

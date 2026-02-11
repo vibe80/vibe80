@@ -7,7 +7,6 @@ export default function useLocalPreferences({
   openAiAuthMode,
   showChatCommands,
   showToolResults,
-  chatFullWidth,
   notificationsEnabled,
   themeMode,
   composerInputMode,
@@ -22,7 +21,6 @@ export default function useLocalPreferences({
   OPENAI_AUTH_MODE_KEY,
   CHAT_COMMANDS_VISIBLE_KEY,
   TOOL_RESULTS_VISIBLE_KEY,
-  CHAT_FULL_WIDTH_KEY,
   NOTIFICATIONS_ENABLED_KEY,
   THEME_MODE_KEY,
   COMPOSER_INPUT_MODE_KEY,
@@ -97,17 +95,6 @@ export default function useLocalPreferences({
       // Ignore storage errors (private mode, quota).
     }
   }, [TOOL_RESULTS_VISIBLE_KEY, showToolResults]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        CHAT_FULL_WIDTH_KEY,
-        chatFullWidth ? "true" : "false"
-      );
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [CHAT_FULL_WIDTH_KEY, chatFullWidth]);
 
   useEffect(() => {
     try {
