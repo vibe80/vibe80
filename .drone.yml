@@ -8,24 +8,6 @@ platform:
   arch: amd64
 
 
-
-
-steps:
-  - name: vibe80_integration_loop
-    image: alpine:3.20
-    environment:
-      BASE_URL: https://vibe80.lab.adho.app
-      WORKSPACE_ID:
-        from_secret: workspace_id
-      WORKSPACE_SECRET:
-        from_secret: workspace_secret
-    commands:
-      - apk add --no-cache bash git jq curl
-      - bash -c '
-          . scripts/parse_commit_metadata.sh;
-          scripts/worktree_message.sh --text "Hello world"
-        '
-
   - name: build_base_image
     image: plugins/docker:20.14
     when:
@@ -182,6 +164,22 @@ steps:
       - 'git commit -m "vibecoder: bump image to ${DRONE_COMMIT_SHA:0:8}" || exit 0'
       - git push
 
+
+steps:
+  - name: vibe80_integration_loop
+    image: alpine:3.20
+    environment:
+      BASE_URL: https://vibe80.lab.adho.app
+      WORKSPACE_ID:
+        from_secret: workspace_id
+      WORKSPACE_SECRET:
+        from_secret: workspace_secret
+    commands:
+      - apk add --no-cache bash git jq curl
+      - bash -c '
+          . scripts/parse_commit_metadata.sh;
+          scripts/worktree_message.sh --text "Hello world"
+        '
 
 trigger:
   event:
