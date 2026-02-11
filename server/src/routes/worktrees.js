@@ -1,6 +1,9 @@
 import path from "path";
 import { Router } from "express";
 import {
+  createWorktreeClient,
+} from "../clientFactory.js";
+import {
   getSession,
   touchSession,
   runSessionCommandOutput,
@@ -17,7 +20,8 @@ import {
   getWorktreeMessages,
   getWorktreeDiff,
 } from "../services/session.js";
-import { getSessionTmpDir } from "../helpers.js";
+import { getSessionTmpDir, createMessageId } from "../helpers.js";
+import { getSessionRuntime } from "../runtimeStore.js";
 import {
   listWorktrees,
   createWorktree,
@@ -30,18 +34,111 @@ import {
   updateWorktreeStatus,
   appendWorktreeMessage,
 } from "../worktreeManager.js";
-import { getSessionRuntime } from "../runtimeStore.js";
-import { getActiveClient } from "../clientFactory.js";
-import { createMessageId } from "../helpers.js";
 
 export default function worktreeRoutes(deps) {
   const {
     getOrCreateClient,
+    attachClientEvents,
+    attachClaudeEvents,
     attachClientEventsForWorktree,
     attachClaudeEventsForWorktree,
   } = deps;
 
   const router = Router();
+  const DEFAULT_WAKEUP_TIMEOUT_MS = 15000;
+
+  const waitUntilClientReady = (client, timeoutMs) =>
+    new Promise((resolve, reject) => {
+      if (client?.ready) {
+        resolve();
+        return;
+      }
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error("Wakeup timeout."));
+      }, timeoutMs);
+      const cleanup = () => {
+        clearTimeout(timeout);
+        client?.off?.("ready", onReady);
+        client?.off?.("exit", onExit);
+      };
+      const onReady = () => {
+        cleanup();
+        resolve();
+      };
+      const onExit = (payload) => {
+        cleanup();
+        reject(
+          new Error(
+            `Client exited before ready (code=${payload?.code ?? "unknown"}, signal=${payload?.signal ?? "unknown"}).`
+          )
+        );
+      };
+      client.on("ready", onReady);
+      client.on("exit", onExit);
+    });
+
+  const ensureReadyWorktreeClient = async (session, worktree, timeoutMs = DEFAULT_WAKEUP_TIMEOUT_MS) => {
+    const sessionId = session.sessionId;
+    const runtime = getSessionRuntime(sessionId);
+    const worktreeId = worktree?.id === `main-${sessionId}` ? "main" : worktree?.id;
+    const isMain = worktreeId === "main";
+    const provider = isMain ? session.activeProvider : worktree.provider;
+    let client = null;
+
+    if (isMain) {
+      client = await getOrCreateClient(session, provider);
+      const procExited = client?.proc && client.proc.exitCode != null;
+      if (procExited && runtime?.clients?.[provider]) {
+        delete runtime.clients[provider];
+        client = await getOrCreateClient(session, provider);
+      }
+      if (!client.listenerCount("ready")) {
+        if (provider === "claude") {
+          attachClaudeEvents(sessionId, client);
+        } else {
+          attachClientEvents(sessionId, client, provider);
+        }
+      }
+    } else {
+      client = runtime?.worktreeClients?.get(worktreeId) || null;
+      const procExited = client?.proc && client.proc.exitCode != null;
+      if (procExited && runtime?.worktreeClients) {
+        runtime.worktreeClients.delete(worktreeId);
+        client = null;
+      }
+      if (!client) {
+        client = createWorktreeClient(
+          worktree,
+          session.attachmentsDir,
+          session.repoDir,
+          worktree.internetAccess,
+          worktree.threadId,
+          session.gitDir || path.join(session.dir, "git")
+        );
+        runtime?.worktreeClients?.set(worktreeId, client);
+      }
+      worktree.client = client;
+      if (!client.listenerCount("ready")) {
+        if (provider === "claude") {
+          attachClaudeEventsForWorktree(sessionId, worktree);
+        } else {
+          attachClientEventsForWorktree(sessionId, worktree);
+        }
+      }
+    }
+
+    if (!client.ready && !client.proc) {
+      await client.start();
+    }
+    if (!client.ready) {
+      await waitUntilClientReady(client, timeoutMs);
+    }
+    if (typeof client.markActive === "function") {
+      client.markActive();
+    }
+    return client;
+  };
 
   router.get("/sessions/:sessionId/worktrees", async (req, res) => {
     const sessionId = req.params.sessionId;
@@ -317,6 +414,59 @@ export default function worktreeRoutes(deps) {
       res.status(500).json({ error: error.message || "Failed to send message." });
     }
   });
+
+  const handleWorktreeWakeup = async (req, res) => {
+    const sessionId = req.params.sessionId;
+    const session = await getSession(sessionId, req.workspaceId);
+    if (!session) {
+      res.status(400).json({ error: "Invalid session." });
+      return;
+    }
+    await touchSession(session);
+
+    const worktreeId = req.params.worktreeId;
+    const worktree = await getWorktree(session, worktreeId);
+    if (!worktree) {
+      res.status(404).json({ error: "Worktree not found." });
+      return;
+    }
+
+    const requestedTimeout = Number.parseInt(req.body?.timeoutMs, 10);
+    const timeoutMs = Number.isFinite(requestedTimeout)
+      ? Math.min(Math.max(requestedTimeout, 1000), 60000)
+      : DEFAULT_WAKEUP_TIMEOUT_MS;
+
+    try {
+      const client = await ensureReadyWorktreeClient(session, worktree, timeoutMs);
+      const effectiveWorktreeId = worktreeId || "main";
+      const provider = effectiveWorktreeId === "main"
+        ? session.activeProvider
+        : worktree.provider;
+      res.json({
+        worktreeId: effectiveWorktreeId,
+        provider,
+        status: "ready",
+        threadId: client?.threadId || null,
+      });
+    } catch (error) {
+      const message = error?.message || "Failed to wake provider.";
+      if (/timeout/i.test(message)) {
+        res.status(504).json({ error: message });
+        return;
+      }
+      if (/not ready/i.test(message) || /exited before ready/i.test(message)) {
+        res.status(409).json({ error: message });
+        return;
+      }
+      const providerLabel = (worktreeId === "main" ? session.activeProvider : worktree.provider) === "claude"
+        ? "Claude CLI"
+        : "Codex app-server";
+      res.status(500).json({ error: `${providerLabel} wakeup failed: ${message}` });
+    }
+  };
+
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/wakeup", handleWorktreeWakeup);
+  router.post("/sessions/:sessionId/worktrees/:worktreeId/wakup", handleWorktreeWakeup);
 
   router.get("/sessions/:sessionId/worktrees/:worktreeId/browse", async (req, res) => {
     const sessionId = req.params.sessionId;
