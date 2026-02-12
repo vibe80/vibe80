@@ -22,6 +22,7 @@ export default function useChatSocket({
   setStatus,
   setConnected,
   setAppServerReady,
+  setHasMainWorktreeStatus,
   setMessages,
   setProcessing,
   setActivity,
@@ -1034,6 +1035,7 @@ export default function useChatSocket({
             if (!payload.status) {
               return;
             }
+            setHasMainWorktreeStatus?.(true);
             const nextStatus = payload.status;
             setProcessing(nextStatus === "processing");
             setActivity(nextStatus === "processing" ? t("Processing...") : "");

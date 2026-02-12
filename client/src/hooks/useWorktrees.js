@@ -164,6 +164,7 @@ export default function useWorktrees({
       worktreesList.forEach((wt) => {
         nextMap.set(wt.id, {
           ...wt,
+          status: wt?.status || "processing",
           messages: [],
           activity: "",
           currentTurnId: null,

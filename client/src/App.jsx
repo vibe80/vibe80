@@ -662,6 +662,7 @@ function App() {
   const [input, setInput] = useState("");
   const [status, setStatus] = useState(() => t("Connecting..."));
   const [processing, setProcessing] = useState(false);
+  const [hasMainWorktreeStatus, setHasMainWorktreeStatus] = useState(false);
   const [activity, setActivity] = useState("");
   const [connected, setConnected] = useState(false);
   const [attachmentSession, setAttachmentSession] = useState(null);
@@ -1280,6 +1281,7 @@ function App() {
     setStatus,
     setConnected,
     setAppServerReady,
+    setHasMainWorktreeStatus,
     setMessages,
     setProcessing,
     setActivity,
@@ -1353,6 +1355,7 @@ function App() {
     setRpcLogs(logsEnabled ? attachmentSession.rpcLogs || [] : []);
     setStatus(t("Connecting..."));
     setConnected(false);
+    setHasMainWorktreeStatus(false);
   }, [attachmentSession?.sessionId, loadMainWorktreeSnapshot, messageIndex, t]);
 
   useEffect(() => {
@@ -1519,13 +1522,25 @@ function App() {
       name: currentBranch || "Main",
       branchName: currentBranch || "main",
       provider: llmProvider,
-      status: processing ? "processing" : (connected ? "ready" : "creating"),
+      status: processing
+        ? "processing"
+        : connected
+          ? (hasMainWorktreeStatus ? "ready" : "processing")
+          : "creating",
       color: "#6b7280",
       messages: messages,
     };
     const wtList = Array.from(worktrees.values());
     return [mainTab, ...wtList];
-  }, [currentBranch, llmProvider, processing, connected, messages, worktrees]);
+  }, [
+    currentBranch,
+    llmProvider,
+    processing,
+    connected,
+    hasMainWorktreeStatus,
+    messages,
+    worktrees,
+  ]);
 
   // Group messages for display (works with both legacy and worktree modes)
   const displayedGroupedMessages = useMemo(() => {
