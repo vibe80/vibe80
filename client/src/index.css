@@ -4170,7 +4170,7 @@ main.chat {
   box-shadow: var(--shadow);
   align-items: stretch;
   position: relative;
-  width: max-content;
+  width: calc(100% - 24px);
   max-width: calc(100% - 24px);
 }
 
@@ -4184,7 +4184,7 @@ main.chat {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: auto;
+  width: 100%;
 }
 
 .composer-attach-button {
