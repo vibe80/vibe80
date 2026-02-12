@@ -236,7 +236,9 @@ export async function createWorktree(session, options) {
     resolvedModel = null;
     resolvedReasoningEffort = null;
     resolvedSourceWorktreeId = sourceWorktree === "main" ? "main" : sourceWorktreeRecord.id;
-    forkSourceThreadId = sourceWorktreeRecord.threadId || null;
+    forkSourceThreadId =
+      sourceWorktreeRecord.threadId ||
+      (resolvedSourceWorktreeId === "main" ? session.threadId || null : null);
     if (!forkSourceThreadId) {
       throw new Error("Source worktree has no threadId to fork from.");
     }

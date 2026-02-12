@@ -91,6 +91,7 @@ export function attachCodexEvents(context, deps) {
         if (threadId) {
           const updated = { ...session, threadId, lastActivityAt: Date.now() };
           await storage.saveSession(sessionId, updated);
+          await updateWorktreeThreadId(session, "main", threadId);
         }
         if (session.activeProvider === provider) {
           await updateWorktreeStatus(session, "main", "ready");

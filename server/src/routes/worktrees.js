@@ -215,7 +215,9 @@ export default function worktreeRoutes(deps) {
         res.status(404).json({ error: "Source worktree not found." });
         return;
       }
-      if (!source.threadId) {
+      const sourceThreadId =
+        source.threadId || (sourceWorktree === "main" ? session.threadId || null : null);
+      if (!sourceThreadId) {
         res.status(409).json({ error: "Source worktree has no threadId to fork from." });
         return;
       }
