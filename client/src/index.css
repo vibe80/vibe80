@@ -3,6 +3,7 @@
 :root {
   color-scheme: light;
   font-family: "Space Grotesk", system-ui, sans-serif;
+  --diff-font-family: "Space Mono";
   --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
   --bg: #f5f2ea;
