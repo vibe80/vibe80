@@ -16,6 +16,25 @@ export default function DiffPanel({
   untrackedLoading,
 }) {
   const hasUntrackedPanels = Array.isArray(untrackedFilePanels) && untrackedFilePanels.length > 0;
+  const renderUntrackedText = (content) => {
+    const lines = String(content || "").split(/\r?\n/);
+    return (
+      <table className="diff-view untracked-diff-view">
+        <tbody>
+          {lines.map((line, index) => (
+            <tr key={`line-${index}`} className="diff-line diff-line-add">
+              <td className="diff-gutter diff-gutter-added">
+                <span className="diff-line-number">{index + 1}</span>
+              </td>
+              <td className="diff-code diff-code-added">
+                {line.length > 0 ? line : "\u00a0"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   return (
     <div className={`diff-panel ${activePane === "diff" ? "" : "is-hidden"}`}>
@@ -88,7 +107,7 @@ export default function DiffPanel({
                   <pre className="diff-fallback">{t("binary data")}</pre>
                 ) : (
                   <>
-                    <pre className="diff-fallback">{panel.content || ""}</pre>
+                    {renderUntrackedText(panel.content || "")}
                     {panel.truncated && (
                       <div className="diff-file-note">{t("File truncated for display.")}</div>
                     )}

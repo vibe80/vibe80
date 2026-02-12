@@ -2887,6 +2887,26 @@ main.chat {
   font-size: 12px;
 }
 
+.untracked-diff-view {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.untracked-diff-view .diff-gutter {
+  width: 56px;
+  min-width: 56px;
+  text-align: right;
+  user-select: none;
+}
+
+.untracked-diff-view .diff-code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .diff-empty {
   color: var(--ink-muted);
   font-size: 13px;
