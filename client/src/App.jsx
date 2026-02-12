@@ -1480,6 +1480,9 @@ function App() {
     normalizeAttachments,
     draftAttachments,
     setWorktrees,
+    setProcessing,
+    setActivity,
+    processingLabel: t("Processing..."),
     handleSendMessageRef,
     ensureNotificationPermission,
   });

@@ -10,6 +10,9 @@ export default function useChatSend({
   normalizeAttachments,
   draftAttachments,
   setWorktrees,
+  setProcessing,
+  setActivity,
+  processingLabel,
   handleSendMessageRef,
   ensureNotificationPermission,
 }) {
@@ -42,6 +45,8 @@ export default function useChatSend({
           attachments: resolvedAttachments,
         },
       ]);
+      setProcessing?.(true);
+      setActivity?.(processingLabel || "Processing...");
       socketRef.current.send(
         JSON.stringify({
           type: "worktree_send_message",
@@ -96,6 +101,9 @@ export default function useChatSend({
 
       setWorktrees((current) => {
         const next = new Map(current);
+        if (worktreeId === "main") {
+          return next;
+        }
         const wt = next.get(worktreeId);
         if (wt) {
           const messages = [
@@ -107,10 +115,14 @@ export default function useChatSend({
               attachments: resolvedAttachments,
             },
           ];
-          next.set(worktreeId, { ...wt, messages });
+          next.set(worktreeId, { ...wt, messages, status: "processing" });
         }
         return next;
       });
+      if (worktreeId === "main") {
+        setProcessing?.(true);
+        setActivity?.(processingLabel || "Processing...");
+      }
 
       socketRef.current.send(
         JSON.stringify({
