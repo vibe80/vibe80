@@ -52,12 +52,33 @@ enum class WorktreeStatus {
     PROCESSING,
     @SerialName("completed")
     COMPLETED,
+    @SerialName("idle")
+    IDLE,
+    @SerialName("stopped")
+    STOPPED,
     @SerialName("error")
     ERROR,
     @SerialName("merging")
     MERGING,
     @SerialName("merge_conflict")
-    MERGE_CONFLICT
+    MERGE_CONFLICT;
+
+    companion object {
+        fun fromWire(value: String?): WorktreeStatus? =
+            when (value?.lowercase()) {
+                null -> null
+                "creating" -> CREATING
+                "ready" -> READY
+                "processing" -> PROCESSING
+                "completed" -> COMPLETED
+                "idle" -> IDLE
+                "stopped" -> STOPPED
+                "error" -> ERROR
+                "merging" -> MERGING
+                "merge_conflict" -> MERGE_CONFLICT
+                else -> READY
+            }
+    }
 }
 
 @Serializable

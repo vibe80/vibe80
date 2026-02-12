@@ -137,6 +137,11 @@ class WebSocketManager(
                                 is AuthMessage -> "auth" to json.encodeToString(AuthMessage.serializer(), message)
                                 is WakeUpRequest -> "wake_up" to json.encodeToString(WakeUpRequest.serializer(), message)
                                 is SwitchProviderRequest -> "switch_provider" to json.encodeToString(SwitchProviderRequest.serializer(), message)
+                                is TurnInterruptRequest -> "turn_interrupt" to json.encodeToString(TurnInterruptRequest.serializer(), message)
+                                is ModelListRequest -> "model_list" to json.encodeToString(ModelListRequest.serializer(), message)
+                                is ModelSetRequest -> "model_set" to json.encodeToString(ModelSetRequest.serializer(), message)
+                                is AccountLoginStartRequest -> "account_login_start" to json.encodeToString(AccountLoginStartRequest.serializer(), message)
+                                is ActionRequestClientMessage -> "action_request" to json.encodeToString(ActionRequestClientMessage.serializer(), message)
                                 is WorktreeMessageRequest -> "worktree_send_message" to json.encodeToString(WorktreeMessageRequest.serializer(), message)
                                 is SyncWorktreeMessagesRequest -> "worktree_messages_sync" to json.encodeToString(SyncWorktreeMessagesRequest.serializer(), message)
                             }
@@ -211,6 +216,7 @@ class WebSocketManager(
             }
 
             val message: ServerMessage? = when (type) {
+                "auth_ok" -> json.decodeFromString<AuthOkMessage>(text)
                 "ready" -> json.decodeFromString<ReadyMessage>(text)
                 "status" -> json.decodeFromString<StatusMessage>(text)
                 "provider_status" -> json.decodeFromString<ProviderStatusMessage>(text)
@@ -276,15 +282,7 @@ class WebSocketManager(
                     LLMProvider.valueOf(providerValue.uppercase())
                 }.getOrElse { LLMProvider.CODEX }
                 val statusValue = jsonObject["status"]?.jsonPrimitive?.contentOrNull ?: "ready"
-                val status = when (statusValue.lowercase()) {
-                    "creating" -> WorktreeStatus.CREATING
-                    "processing" -> WorktreeStatus.PROCESSING
-                    "completed" -> WorktreeStatus.COMPLETED
-                    "error" -> WorktreeStatus.ERROR
-                    "merging" -> WorktreeStatus.MERGING
-                    "merge_conflict" -> WorktreeStatus.MERGE_CONFLICT
-                    else -> WorktreeStatus.READY
-                }
+                val status = WorktreeStatus.fromWire(statusValue) ?: WorktreeStatus.READY
                 val color = jsonObject["color"]?.jsonPrimitive?.contentOrNull
                     ?: Worktree.COLORS.first()
 

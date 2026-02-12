@@ -21,6 +21,12 @@ data class ReadyMessage(
 ) : ServerMessage()
 
 @Serializable
+@SerialName("auth_ok")
+data class AuthOkMessage(
+    override val type: String = "auth_ok"
+) : ServerMessage()
+
+@Serializable
 @SerialName("status")
 data class StatusMessage(
     override val type: String = "status",
@@ -62,7 +68,7 @@ data class AssistantMessageComplete(
 @SerialName("turn_started")
 data class TurnStartedMessage(
     override val type: String = "turn_started",
-    val threadId: String,
+    val threadId: String? = null,
     val turnId: String,
     val status: String,
     val worktreeId: String? = null,
@@ -73,7 +79,7 @@ data class TurnStartedMessage(
 @SerialName("turn_completed")
 data class TurnCompletedMessage(
     override val type: String = "turn_completed",
-    val threadId: String,
+    val threadId: String? = null,
     val turnId: String,
     val status: String,
     val error: String? = null,
@@ -149,7 +155,7 @@ data class WorktreeMessagesSyncMessage(
     override val type: String = "worktree_messages_sync",
     val worktreeId: String,
     val messages: List<ChatMessage> = emptyList(),
-    val status: WorktreeStatus? = null
+    val status: String? = null
 ) : ServerMessage()
 
 @Serializable
@@ -164,7 +170,7 @@ data class WorktreeCreatedMessage(
 data class WorktreeUpdatedMessage(
     override val type: String = "worktree_updated",
     val worktreeId: String,
-    val status: WorktreeStatus? = null,
+    val status: String? = null,
     val changes: Map<String, JsonElement> = emptyMap()
 ) : ServerMessage()
 
@@ -173,7 +179,7 @@ data class WorktreeUpdatedMessage(
 data class WorktreeStatusMessage(
     override val type: String = "worktree_status",
     val worktreeId: String,
-    val status: WorktreeStatus? = null,
+    val status: String? = null,
     val error: String? = null
 ) : ServerMessage()
 
@@ -411,6 +417,36 @@ data class WakeUpRequest(
 data class SwitchProviderRequest(
     override val type: String = "switch_provider",
     val provider: String
+) : ClientMessage()
+
+@Serializable
+data class TurnInterruptRequest(
+    override val type: String = "turn_interrupt"
+) : ClientMessage()
+
+@Serializable
+data class ModelListRequest(
+    override val type: String = "model_list"
+) : ClientMessage()
+
+@Serializable
+data class ModelSetRequest(
+    override val type: String = "model_set",
+    val model: String,
+    val reasoningEffort: String? = null
+) : ClientMessage()
+
+@Serializable
+data class AccountLoginStartRequest(
+    override val type: String = "account_login_start"
+) : ClientMessage()
+
+@Serializable
+data class ActionRequestClientMessage(
+    override val type: String = "action_request",
+    val id: String,
+    val request: String,
+    val arg: String? = null
 ) : ClientMessage()
 
 @Serializable

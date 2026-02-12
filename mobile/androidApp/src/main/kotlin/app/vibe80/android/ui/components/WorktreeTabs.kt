@@ -193,6 +193,9 @@ private fun WorktreeStatusIndicator(
                 }
             }
         }
+        WorktreeStatus.IDLE, WorktreeStatus.STOPPED -> {
+            // No indicator for idle/stopped state
+        }
         WorktreeStatus.READY -> {
             // No indicator for ready state
         }

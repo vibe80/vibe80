@@ -135,6 +135,10 @@ class SessionRepository(
 
     private fun handleServerMessage(message: ServerMessage) {
         when (message) {
+            is AuthOkMessage -> {
+                // WebSocket authentication acknowledged
+            }
+
             is ReadyMessage -> {
                 _sessionState.update { it?.copy(appServerReady = true) }
             }
@@ -266,6 +270,14 @@ class SessionRepository(
             }
 
             is WorktreeMessagesSyncMessage -> {
+                val syncedStatus = WorktreeStatus.fromWire(message.status)
+                if (syncedStatus != null) {
+                    _worktrees.update { current ->
+                        current[message.worktreeId]?.let { worktree ->
+                            current + (message.worktreeId to worktree.copy(status = syncedStatus))
+                        } ?: current
+                    }
+                }
                 if (message.worktreeId == Worktree.MAIN_WORKTREE_ID) {
                     if (message.messages.isNotEmpty()) {
                         _messages.value = message.messages
@@ -290,8 +302,9 @@ class SessionRepository(
             is WorktreeUpdatedMessage -> {
                 _worktrees.update { current ->
                     current[message.worktreeId]?.let { worktree ->
-                        val updated = if (message.status != null) {
-                            worktree.copy(status = message.status)
+                        val updatedStatus = WorktreeStatus.fromWire(message.status)
+                        val updated = if (updatedStatus != null) {
+                            worktree.copy(status = updatedStatus)
                         } else {
                             worktree
                         }
@@ -303,8 +316,9 @@ class SessionRepository(
             is WorktreeStatusMessage -> {
                 _worktrees.update { current ->
                     current[message.worktreeId]?.let { worktree ->
-                        val updated = if (message.status != null) {
-                            worktree.copy(status = message.status)
+                        val updatedStatus = WorktreeStatus.fromWire(message.status)
+                        val updated = if (updatedStatus != null) {
+                            worktree.copy(status = updatedStatus)
                         } else {
                             worktree
                         }
