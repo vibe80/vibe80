@@ -1141,6 +1141,8 @@ function App() {
     diffFiles,
     diffStatusLines,
     hasCurrentChanges,
+    untrackedFilePanels,
+    untrackedLoading,
     loadRepoLastCommit,
     loadWorktreeLastCommit,
     repoDiff,
@@ -2494,6 +2496,8 @@ function App() {
                 sendCommitMessage={sendCommitMessage}
                 diffFiles={diffFiles}
                 currentDiff={currentDiff}
+                untrackedFilePanels={untrackedFilePanels}
+                untrackedLoading={untrackedLoading}
               />
             </Suspense>
             <Suspense fallback={null}>

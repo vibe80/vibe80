@@ -12,7 +12,11 @@ export default function DiffPanel({
   sendCommitMessage,
   diffFiles,
   currentDiff,
+  untrackedFilePanels,
+  untrackedLoading,
 }) {
+  const hasUntrackedPanels = Array.isArray(untrackedFilePanels) && untrackedFilePanels.length > 0;
+
   return (
     <div className={`diff-panel ${activePane === "diff" ? "" : "is-hidden"}`}>
       <div className="diff-header">
@@ -54,7 +58,7 @@ export default function DiffPanel({
           ))}
         </div>
       )}
-      {diffFiles.length > 0 ? (
+      {diffFiles.length > 0 || hasUntrackedPanels ? (
         <div className="diff-body">
           {diffFiles.map((file) => {
             const fileLabel = file.newPath || file.oldPath || t("Diff");
@@ -74,6 +78,27 @@ export default function DiffPanel({
               </div>
             );
           })}
+          {hasUntrackedPanels &&
+            untrackedFilePanels.map((panel) => (
+              <div key={`untracked-${panel.path}`} className="diff-file">
+                <div className="diff-file-header">{`?? ${panel.path}`}</div>
+                {panel.error ? (
+                  <pre className="diff-fallback">{t("Unable to load file.")}</pre>
+                ) : panel.binary ? (
+                  <pre className="diff-fallback">{t("binary data")}</pre>
+                ) : (
+                  <>
+                    <pre className="diff-fallback">{panel.content || ""}</pre>
+                    {panel.truncated && (
+                      <div className="diff-file-note">{t("File truncated for display.")}</div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          {untrackedLoading && (
+            <div className="diff-file-note">{t("Loading untracked files...")}</div>
+          )}
         </div>
       ) : currentDiff.diff ? (
         <pre className="diff-fallback">{currentDiff.diff}</pre>

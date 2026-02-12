@@ -2428,6 +2428,10 @@ main.chat {
   color: #e6edf3;
 }
 
+:root[data-theme="dark"] .diff-file-note {
+  color: #c9d1d9;
+}
+
 :root[data-theme="dark"] .diff-line,
 :root[data-theme="dark"] .diff-code,
 :root[data-theme="dark"] .diff-gutter {
@@ -2875,6 +2879,12 @@ main.chat {
   font-family: var(--font-mono);
   font-size: 12px;
   white-space: pre-wrap;
+}
+
+.diff-file-note {
+  padding: 8px 12px 12px;
+  color: var(--ink-muted);
+  font-size: 12px;
 }
 
 .diff-empty {
