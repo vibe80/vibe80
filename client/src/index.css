@@ -4170,7 +4170,7 @@ main.chat {
   box-shadow: var(--shadow);
   align-items: stretch;
   position: relative;
-  width: calc(100% - 24px);
+  width: max-content;
   max-width: calc(100% - 24px);
 }
 
@@ -4184,7 +4184,7 @@ main.chat {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 100%;
+  width: auto;
 }
 
 .composer-attach-button {
@@ -4257,7 +4257,7 @@ main.chat {
 
 .composer-main {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(240px, clamp(240px, 36vw, 520px)) auto auto;
   gap: 10px;
   align-items: flex-end;
 }
