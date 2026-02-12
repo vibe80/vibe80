@@ -25,6 +25,8 @@ var allowedCommands = map[string]struct{}{
   "/bin/chmod":          {},
   "/bin/cat":            {},
   "/bin/rm":             {},
+  "/bin/cp":             {},
+  "/usr/bin/cp":         {},
   "/bin/mv":             {},
   "/usr/bin/mv":         {},
   "/bin/ls":             {},

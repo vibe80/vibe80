@@ -5,6 +5,7 @@ import storage from "./storage/index.js";
 import { getSessionRuntime } from "./runtimeStore.js";
 import { createWorktreeClient } from "./clientFactory.js";
 import { createMessageId } from "./helpers.js";
+import { copyClaudeThreadDirectory } from "./services/claudeThreadDirectory.js";
 
 const MAIN_WORKTREE_SENTINEL = "main";
 const MAIN_WORKTREE_PREFIX = "main-";
@@ -364,6 +365,9 @@ export async function createWorktree(session, options) {
   );
   await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", worktreePath]);
   await applyVibe80WorktreeMetadata(session, worktreePath, worktreeId);
+  if (creationContext === "fork" && resolvedProvider === "claude" && sourceWorktreeRecord?.path) {
+    await copyClaudeThreadDirectory(session.workspaceId, sourceWorktreeRecord.path, worktreePath);
+  }
 
   if (shareGitCredentials) {
     await ensureSessionGitDir(session);
