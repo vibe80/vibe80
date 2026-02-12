@@ -478,6 +478,22 @@ export default function useChatSocket({
           setModelError(payload.message || t("Unexpected error"));
         }
 
+        if (isWorktreeScoped && payload.type === "error") {
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(scopedWorktreeId);
+            if (!wt) {
+              return current;
+            }
+            next.set(scopedWorktreeId, {
+              ...wt,
+              modelLoading: false,
+              modelError: payload.message || t("Unexpected error"),
+            });
+            return next;
+          });
+        }
+
         if (isMainScopedOrLegacy && payload.type === "turn_started") {
           setCurrentTurnId(payload.turnId || null);
         }
@@ -544,6 +560,27 @@ export default function useChatSocket({
           setModelError("");
         }
 
+        if (isWorktreeScoped && payload.type === "model_list") {
+          const list = Array.isArray(payload.models) ? payload.models : [];
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(scopedWorktreeId);
+            if (!wt) {
+              return current;
+            }
+            const defaultModel = list.find((model) => model.isDefault);
+            const resolvedModel = wt.model || defaultModel?.model || null;
+            next.set(scopedWorktreeId, {
+              ...wt,
+              models: list,
+              model: resolvedModel,
+              modelLoading: false,
+              modelError: "",
+            });
+            return next;
+          });
+        }
+
         if (isMainScopedOrLegacy && payload.type === "model_set") {
           setSelectedModel(payload.model || "");
           if (payload.reasoningEffort !== undefined) {
@@ -551,6 +588,24 @@ export default function useChatSocket({
           }
           setModelLoading(false);
           setModelError("");
+        }
+
+        if (isWorktreeScoped && payload.type === "model_set") {
+          setWorktrees((current) => {
+            const next = new Map(current);
+            const wt = next.get(scopedWorktreeId);
+            if (!wt) {
+              return current;
+            }
+            next.set(scopedWorktreeId, {
+              ...wt,
+              model: payload.model || null,
+              reasoningEffort: payload.reasoningEffort ?? wt.reasoningEffort ?? null,
+              modelLoading: false,
+              modelError: "",
+            });
+            return next;
+          });
         }
 
         if (isMainScopedOrLegacy && payload.type === "rpc_log") {
@@ -1001,6 +1056,9 @@ export default function useChatSocket({
                   : true,
               status: payload.status || "creating",
               color: payload.color,
+              models: [],
+              modelLoading: false,
+              modelError: "",
               messages: [],
               activity: "",
               currentTurnId: null,

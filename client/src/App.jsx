@@ -1114,8 +1114,12 @@ function App() {
     defaultBranch,
     loadBranches,
     loadProviderModels,
+    modelError,
+    modelLoading,
+    models,
     providerModelState,
     selectedModel,
+    selectedReasoningEffort,
     setModelError,
     setModelLoading,
     setModels,
@@ -1163,6 +1167,20 @@ function App() {
   const activeWorktree = isInWorktree ? worktrees.get(activeWorktreeId) : null;
   const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
   const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
+  const activeChatKey = activeWorktreeId || "main";
+  const activeModelOptions = isInWorktree
+    ? Array.isArray(activeWorktree?.models)
+      ? activeWorktree.models
+      : []
+    : Array.isArray(models)
+      ? models
+      : [];
+  const activeModelLoading = isInWorktree
+    ? Boolean(activeWorktree?.modelLoading)
+    : Boolean(modelLoading);
+  const activeModelError = isInWorktree
+    ? activeWorktree?.modelError || ""
+    : modelError;
   const currentMessages =
     isInWorktree && !activeWorktree
       ? []
@@ -1311,6 +1329,86 @@ function App() {
     connected,
   });
 
+  const requestScopedModelList = useCallback(
+    (worktreeId = "main") => {
+      const socket = socketRef.current;
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      if (worktreeId === "main") {
+        setModelLoading(true);
+        setModelError("");
+      } else {
+        setWorktrees((current) => {
+          const next = new Map(current);
+          const wt = next.get(worktreeId);
+          if (!wt) {
+            return current;
+          }
+          next.set(worktreeId, {
+            ...wt,
+            modelLoading: true,
+            modelError: "",
+          });
+          return next;
+        });
+      }
+      socket.send(JSON.stringify({ type: "model_list", worktreeId }));
+    },
+    [setModelError, setModelLoading, setWorktrees, socketRef]
+  );
+
+  const handleComposerModelChange = useCallback(
+    (nextModelValue) => {
+      const socket = socketRef.current;
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      const nextModel = nextModelValue || null;
+      if (activeChatKey === "main") {
+        setSelectedModel(nextModel || "");
+        setModelLoading(true);
+        setModelError("");
+      } else {
+        setWorktrees((current) => {
+          const next = new Map(current);
+          const wt = next.get(activeChatKey);
+          if (!wt) {
+            return current;
+          }
+          next.set(activeChatKey, {
+            ...wt,
+            model: nextModel,
+            modelLoading: true,
+            modelError: "",
+          });
+          return next;
+        });
+      }
+      socket.send(
+        JSON.stringify({
+          type: "model_set",
+          worktreeId: activeChatKey,
+          model: nextModel,
+          reasoningEffort:
+            activeChatKey === "main"
+              ? selectedReasoningEffort || null
+              : activeWorktree?.reasoningEffort ?? null,
+        })
+      );
+    },
+    [
+      activeChatKey,
+      activeWorktree?.reasoningEffort,
+      selectedReasoningEffort,
+      setModelError,
+      setModelLoading,
+      setSelectedModel,
+      setWorktrees,
+      socketRef,
+    ]
+  );
+
   useTerminalSession({
     activePane,
     activeWorktreeId,
@@ -1337,6 +1435,31 @@ function App() {
   useEffect(() => {
     setAppServerReady(false);
   }, [attachmentSession?.sessionId]);
+
+  useEffect(() => {
+    if (!connected || !attachmentSession?.sessionId) {
+      return;
+    }
+    if (activeProvider !== "codex" && activeProvider !== "claude") {
+      return;
+    }
+    if (isInWorktree && activeWorktree?.status !== "ready") {
+      return;
+    }
+    if (!isInWorktree && activeProvider === "codex" && !appServerReady) {
+      return;
+    }
+    requestScopedModelList(activeChatKey);
+  }, [
+    activeChatKey,
+    activeWorktree?.status,
+    activeProvider,
+    appServerReady,
+    attachmentSession?.sessionId,
+    connected,
+    isInWorktree,
+    requestScopedModelList,
+  ]);
 
 
   useEffect(() => {
@@ -1564,7 +1687,6 @@ function App() {
     });
     return grouped;
   }, [currentMessages, showChatCommands, showToolResults]);
-  const activeChatKey = activeWorktreeId || "main";
   const {
     showOlderMessagesByTab,
     setShowOlderMessagesByTab,
@@ -1622,6 +1744,14 @@ function App() {
       : isInWorktree
         ? activeWorktree?.status === "ready"
         : appServerReady;
+  const composerModelVisible =
+    activeProvider === "codex" || activeProvider === "claude";
+  const composerModelDisabled =
+    !connected ||
+    currentInteractionBlocked ||
+    activeModelLoading ||
+    !activeModelOptions.length;
+  const composerSelectedModel = activeModel || "";
 
   const { handleViewSelect, handleOpenSettings, handleSettingsBack } =
     usePaneNavigation({
@@ -2466,6 +2596,13 @@ function App() {
             canInterrupt={canInterrupt}
             interruptTurn={interruptTurn}
             connected={connected}
+            modelSelectorVisible={composerModelVisible}
+            modelOptions={activeModelOptions}
+            selectedModel={composerSelectedModel}
+            modelLoading={activeModelLoading}
+            modelDisabled={composerModelDisabled}
+            modelError={activeModelError}
+            onModelChange={handleComposerModelChange}
             isCodexReady={isCodexReady}
             interactionBlocked={currentInteractionBlocked}
             attachmentsError={attachmentsError}

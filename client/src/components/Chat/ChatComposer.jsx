@@ -38,6 +38,13 @@ export default function ChatComposer({
   canInterrupt,
   interruptTurn,
   connected,
+  modelSelectorVisible,
+  modelOptions,
+  selectedModel,
+  modelLoading,
+  modelDisabled,
+  modelError,
+  onModelChange,
   isCodexReady,
   interactionBlocked,
   attachmentsError,
@@ -168,6 +175,26 @@ export default function ChatComposer({
             rows={composerInputMode === "single" ? 1 : 2}
             ref={inputRef}
           />
+          {modelSelectorVisible ? (
+            <select
+              className="composer-model-select"
+              value={selectedModel || ""}
+              onChange={(event) => onModelChange?.(event.target.value)}
+              disabled={modelDisabled}
+              aria-label={t("Model")}
+              title={modelError || t("Model")}
+            >
+              {modelLoading ? (
+                <option value="">{t("Loading...")}</option>
+              ) : null}
+              <option value="">{t("Default model")}</option>
+              {(Array.isArray(modelOptions) ? modelOptions : []).map((model) => (
+                <option key={model.id || model.model} value={model.model || ""}>
+                  {model.displayName || model.model || ""}
+                </option>
+              ))}
+            </select>
+          ) : null}
           {canInterrupt ? (
             <button
               type="button"

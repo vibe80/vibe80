@@ -165,6 +165,9 @@ export default function useWorktrees({
         nextMap.set(wt.id, {
           ...wt,
           messages: [],
+          models: [],
+          modelLoading: false,
+          modelError: "",
           activity: "",
           currentTurnId: null,
         });
