@@ -38,7 +38,11 @@ import { verifyWorkspaceToken } from "./middleware/auth.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { errorTypesMiddleware } from "./middleware/errorTypes.js";
 import { attachWebSocketDebug, debugMiddleware, debugApiWsLog } from "./middleware/debug.js";
-import { cleanupHandoffTokens } from "./services/auth.js";
+import {
+  cleanupHandoffTokens,
+  createMonoAuthToken,
+  cleanupMonoAuthTokens,
+} from "./services/auth.js";
 import {
   ensureDefaultMonoWorkspace,
   isMonoUser,
@@ -1296,6 +1300,22 @@ if (fs.existsSync(distPath)) {
 const port = process.env.PORT || 5179;
 server.listen(port, async () => {
   console.log(`Server listening on http://localhost:${port}`);
+  if (deploymentMode === "mono_user") {
+    const monoAuthRecord = createMonoAuthToken("default");
+    const monoAuthOrigin = process.env.MONO_AUTH_ORIGIN || `http://127.0.0.1:${port}`;
+    const monoAuthUrl = `${monoAuthOrigin.replace(/\/+$/, "")}/#mono_auth=${encodeURIComponent(
+      monoAuthRecord.token
+    )}`;
+    const monoAuthUrlFile = process.env.VIBE80_MONO_AUTH_URL_FILE;
+    if (monoAuthUrlFile) {
+      try {
+        fs.writeFileSync(monoAuthUrlFile, `${monoAuthUrl}\n`, { mode: 0o600 });
+      } catch (error) {
+        console.error("Failed to write mono auth URL file:", error?.message || error);
+      }
+    }
+    console.log("Mono auth URL generated.");
+  }
 });
 
 setInterval(() => {
@@ -1305,6 +1325,7 @@ setInterval(() => {
 }, sessionGcIntervalMs);
 setInterval(() => {
   cleanupHandoffTokens();
+  cleanupMonoAuthTokens();
 }, 30 * 1000);
 if (Number.isFinite(codexIdleGcIntervalSeconds) && codexIdleGcIntervalSeconds > 0) {
   setInterval(() => {

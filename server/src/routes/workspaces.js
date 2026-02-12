@@ -1,7 +1,7 @@
 import { Router } from "express";
 import storage from "../storage/index.js";
 import { hashRefreshToken } from "../helpers.js";
-import { issueWorkspaceTokens } from "../services/auth.js";
+import { consumeMonoAuthToken, issueWorkspaceTokens } from "../services/auth.js";
 import {
   workspaceIdPattern,
   createWorkspace,
@@ -86,6 +86,7 @@ const restartCodexClientsForWorkspace = async (workspaceId) => {
 
 export default function workspaceRoutes() {
   const router = Router();
+  const deploymentMode = process.env.DEPLOYMENT_MODE;
 
   router.post("/workspaces", async (req, res) => {
     try {
@@ -98,6 +99,54 @@ export default function workspaceRoutes() {
   });
 
   router.post("/workspaces/login", async (req, res) => {
+    const grantType = typeof req.body?.grantType === "string"
+      ? req.body.grantType.trim()
+      : "";
+    if (grantType === "mono_auth_token") {
+      if (deploymentMode !== "mono_user") {
+        res.status(403).json({
+          error: "Mono auth token grant is only available in mono_user mode.",
+          error_type: "MONO_AUTH_FORBIDDEN",
+        });
+        return;
+      }
+      const monoAuthToken = typeof req.body?.monoAuthToken === "string"
+        ? req.body.monoAuthToken.trim()
+        : "";
+      if (!monoAuthToken) {
+        res.status(400).json({
+          error: "monoAuthToken is required.",
+          error_type: "MONO_AUTH_TOKEN_REQUIRED",
+        });
+        return;
+      }
+      const consumed = consumeMonoAuthToken(monoAuthToken);
+      if (!consumed.ok || !consumed.workspaceId) {
+        res.status(401).json({
+          error: "Invalid mono auth token.",
+          error_type: consumed.code || "MONO_AUTH_TOKEN_INVALID",
+        });
+        return;
+      }
+      try {
+        await getWorkspaceUserIds(consumed.workspaceId);
+        const tokens = await issueWorkspaceTokens(consumed.workspaceId);
+        await appendAuditLog(consumed.workspaceId, "workspace_login_success", {
+          grantType: "mono_auth_token",
+        });
+        res.json(tokens);
+      } catch {
+        await appendAuditLog(consumed.workspaceId, "workspace_login_failed", {
+          grantType: "mono_auth_token",
+        });
+        res.status(401).json({
+          error: "Invalid mono auth token.",
+          error_type: "MONO_AUTH_TOKEN_INVALID",
+        });
+      }
+      return;
+    }
+
     const workspaceId = req.body?.workspaceId;
     const workspaceSecret = req.body?.workspaceSecret;
     if (!workspaceId || !workspaceSecret) {

@@ -8,6 +8,7 @@ const WORKSPACE_REFRESH_LOCK_KEY = "workspaceRefreshLock";
 const REFRESH_LOCK_TTL_MS = 15000;
 const REFRESH_WAIT_TIMEOUT_MS = 5000;
 const REFRESH_RETRY_WAIT_MS = 1500;
+const MONO_AUTH_GRANT_TYPE = "mono_auth_token";
 
 const readWorkspaceToken = () => {
   try {
@@ -31,6 +32,16 @@ const readWorkspaceId = () => {
   } catch {
     return "";
   }
+};
+
+const readMonoAuthTokenFromHash = () => {
+  const hash = String(window.location.hash || "");
+  if (!hash || !hash.startsWith("#")) {
+    return "";
+  }
+  const raw = hash.slice(1);
+  const params = new URLSearchParams(raw);
+  return (params.get("mono_auth") || "").trim();
 };
 
 const defaultProvidersState = () => ({
@@ -106,7 +117,6 @@ export default function useWorkspaceAuth({
   const refreshInFlightRef = useRef(null);
   const refreshBroadcastChannelRef = useRef(null);
   const refreshBroadcastWaitersRef = useRef([]);
-  const monoWorkspaceLoginAttemptedRef = useRef(false);
   const workspaceCopyTimersRef = useRef({ id: null, secret: null });
 
   const applyWorkspaceTokens = useCallback(
@@ -463,45 +473,68 @@ export default function useWorkspaceAuth({
     if (workspaceToken || workspaceRefreshToken) {
       return;
     }
-    if (workspaceStep !== 1) {
+    const monoAuthToken = readMonoAuthTokenFromHash();
+    if (!monoAuthToken) {
       return;
     }
-    if (monoWorkspaceLoginAttemptedRef.current) {
-      return;
-    }
-    monoWorkspaceLoginAttemptedRef.current = true;
-    const attemptDefaultLogin = async () => {
+    let cancelled = false;
+    const consumeMonoAuthToken = async () => {
       try {
-        const response = await apiFetch("/api/workspaces/login", {
+        const response = await fetch("/api/workspaces/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            workspaceId: "default",
-            workspaceSecret: "default",
+            grantType: MONO_AUTH_GRANT_TYPE,
+            monoAuthToken,
           }),
         });
         if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          const errorMessage =
+            payload?.error || t("Automatic mono-user authentication failed.");
+          if (!cancelled) {
+            setWorkspaceError(errorMessage);
+          }
           return;
         }
         const data = await response.json();
         if (!data?.workspaceToken) {
           return;
         }
-        setWorkspaceToken(data.workspaceToken || "");
-        setWorkspaceRefreshToken(data.refreshToken || "");
-        setWorkspaceId("default");
-        setWorkspaceIdInput("default");
-        setWorkspaceStep(4);
+        if (!cancelled) {
+          setWorkspaceToken(data.workspaceToken || "");
+          setWorkspaceRefreshToken(data.refreshToken || "");
+          setWorkspaceId("default");
+          setWorkspaceIdInput("default");
+          setWorkspaceStep(4);
+          setWorkspaceError("");
+        }
       } catch {
-        // Silent fallback for non-mono deployments.
+        if (!cancelled) {
+          setWorkspaceError(t("Automatic mono-user authentication failed."));
+        }
+      } finally {
+        const url = new URL(window.location.href);
+        if (url.hash.includes("mono_auth=")) {
+          url.hash = "";
+          window.history.replaceState({}, "", url);
+        }
       }
     };
-    attemptDefaultLogin();
+    consumeMonoAuthToken();
+    return () => {
+      cancelled = true;
+    };
   }, [
     workspaceToken,
     workspaceRefreshToken,
-    workspaceStep,
-    apiFetch,
+    t,
+    setWorkspaceId,
+    setWorkspaceIdInput,
+    setWorkspaceRefreshToken,
+    setWorkspaceStep,
+    setWorkspaceToken,
+    setWorkspaceError,
   ]);
 
   useEffect(() => {

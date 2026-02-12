@@ -10,8 +10,11 @@ const refreshRotationGraceSeconds =
 const refreshRotationGraceMs = Math.max(0, refreshRotationGraceSeconds * 1000);
 const handoffTokenTtlMs =
   Number(process.env.HANDOFF_TOKEN_TTL_MS) || 120 * 1000;
+const monoAuthTokenTtlMs =
+  Number(process.env.MONO_AUTH_TOKEN_TTL_MS) || 5 * 60 * 1000;
 
 export const handoffTokens = new Map();
+const monoAuthTokens = new Map();
 
 export const issueWorkspaceTokens = async (workspaceId) => {
   const workspaceToken = createWorkspaceToken(workspaceId);
@@ -57,12 +60,57 @@ export const createHandoffToken = (session) => {
   return record;
 };
 
+export const createMonoAuthToken = (workspaceId = "default") => {
+  const now = Date.now();
+  const token = generateId("m");
+  const record = {
+    token,
+    workspaceId,
+    createdAt: now,
+    expiresAt: now + monoAuthTokenTtlMs,
+    usedAt: null,
+  };
+  monoAuthTokens.set(token, record);
+  return record;
+};
+
+export const consumeMonoAuthToken = (token) => {
+  const record = monoAuthTokens.get(token);
+  if (!record) {
+    return { ok: false, code: "MONO_AUTH_TOKEN_INVALID" };
+  }
+  if (record.usedAt) {
+    monoAuthTokens.delete(token);
+    return { ok: false, code: "MONO_AUTH_TOKEN_USED" };
+  }
+  if (record.expiresAt && record.expiresAt <= Date.now()) {
+    monoAuthTokens.delete(token);
+    return { ok: false, code: "MONO_AUTH_TOKEN_EXPIRED" };
+  }
+  record.usedAt = Date.now();
+  monoAuthTokens.delete(token);
+  return {
+    ok: true,
+    workspaceId: record.workspaceId,
+  };
+};
+
 export const cleanupHandoffTokens = () => {
   if (handoffTokens.size === 0) return;
   const now = Date.now();
   for (const [token, record] of handoffTokens.entries()) {
     if (record.usedAt || (record.expiresAt && record.expiresAt <= now)) {
       handoffTokens.delete(token);
+    }
+  }
+};
+
+export const cleanupMonoAuthTokens = () => {
+  if (monoAuthTokens.size === 0) return;
+  const now = Date.now();
+  for (const [token, record] of monoAuthTokens.entries()) {
+    if (record.usedAt || (record.expiresAt && record.expiresAt <= now)) {
+      monoAuthTokens.delete(token);
     }
   }
 };
