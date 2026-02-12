@@ -166,6 +166,9 @@ export default function useWorktrees({
           ...wt,
           status: wt?.status || "processing",
           messages: [],
+          models: [],
+          modelLoading: false,
+          modelError: "",
           activity: "",
           currentTurnId: null,
         });

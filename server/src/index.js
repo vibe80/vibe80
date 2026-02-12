@@ -26,6 +26,7 @@ import {
   getWorktree,
   getMainWorktreeStorageId,
   updateWorktreeStatus,
+  updateWorktreeModel,
   appendWorktreeMessage,
 } from "./worktreeManager.js";
 import {
@@ -743,12 +744,27 @@ wss.on("connection", (socket, req) => {
       }
 
       if (payload.type === "model_list") {
-        const client = getActiveClient(session);
+        const worktreeId =
+          typeof payload.worktreeId === "string" && payload.worktreeId.trim()
+            ? payload.worktreeId.trim()
+            : "main";
+        const isMainWorktree = worktreeId === "main";
+        const worktree = isMainWorktree ? null : await getWorktree(session, worktreeId);
+        if (!isMainWorktree && !worktree) {
+          socket.send(JSON.stringify({ type: "error", message: "Worktree not found." }));
+          return;
+        }
+        const client = isMainWorktree
+          ? getActiveClient(session)
+          : runtime?.worktreeClients?.get(worktreeId);
         if (!client?.ready) {
+          const providerLabel = isMainWorktree
+            ? getProviderLabel(session)
+            : (worktree.provider === "claude" ? "Claude CLI" : "Codex app-server");
           socket.send(
             JSON.stringify({
               type: "error",
-              message: `${getProviderLabel(session)} not ready yet.`,
+              message: `${providerLabel} not ready yet.`,
             })
           );
           return;
@@ -766,8 +782,9 @@ wss.on("connection", (socket, req) => {
           socket.send(
             JSON.stringify({
               type: "model_list",
+              worktreeId,
               models,
-              provider: session.activeProvider,
+              provider: isMainWorktree ? session.activeProvider : worktree.provider,
             })
           );
         } catch (error) {
@@ -781,27 +798,46 @@ wss.on("connection", (socket, req) => {
       }
 
       if (payload.type === "model_set") {
-        const client = getActiveClient(session);
+        const worktreeId =
+          typeof payload.worktreeId === "string" && payload.worktreeId.trim()
+            ? payload.worktreeId.trim()
+            : "main";
+        const isMainWorktree = worktreeId === "main";
+        const worktree = isMainWorktree ? null : await getWorktree(session, worktreeId);
+        if (!isMainWorktree && !worktree) {
+          socket.send(JSON.stringify({ type: "error", message: "Worktree not found." }));
+          return;
+        }
+        const client = isMainWorktree
+          ? getActiveClient(session)
+          : runtime?.worktreeClients?.get(worktreeId);
         if (!client?.ready) {
+          const providerLabel = isMainWorktree
+            ? getProviderLabel(session)
+            : (worktree.provider === "claude" ? "Claude CLI" : "Codex app-server");
           socket.send(
             JSON.stringify({
               type: "error",
-              message: `${getProviderLabel(session)} not ready yet.`,
+              message: `${providerLabel} not ready yet.`,
             })
           );
           return;
         }
         try {
+          const model = payload.model || null;
+          const reasoningEffort = payload.reasoningEffort ?? null;
           await client.setDefaultModel(
-            payload.model || null,
-            payload.reasoningEffort ?? null
+            model,
+            reasoningEffort
           );
+          await updateWorktreeModel(session, worktreeId, model, reasoningEffort);
           socket.send(
             JSON.stringify({
               type: "model_set",
-              model: payload.model || null,
-              reasoningEffort: payload.reasoningEffort ?? null,
-              provider: session.activeProvider,
+              worktreeId,
+              model,
+              reasoningEffort,
+              provider: isMainWorktree ? session.activeProvider : worktree.provider,
             })
           );
         } catch (error) {

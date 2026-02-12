@@ -654,6 +654,27 @@ export async function updateWorktreeThreadId(session, worktreeId, threadId) {
   await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));
 }
 
+export async function updateWorktreeModel(
+  session,
+  worktreeId,
+  model = null,
+  reasoningEffort = null
+) {
+  const resolvedId = resolveWorktreeStorageId(session, worktreeId);
+  let worktree = await loadWorktree(resolvedId);
+  if (!worktree && isMainWorktreeStorageId(session, resolvedId)) {
+    worktree = await ensureMainWorktree(session);
+  }
+  if (!worktree) return;
+  const updated = {
+    ...worktree,
+    model: model || null,
+    reasoningEffort: reasoningEffort || null,
+    lastActivityAt: new Date().toISOString(),
+  };
+  await storage.saveWorktree(session.sessionId, resolvedId, serializeWorktree(updated));
+}
+
 export async function appendWorktreeMessage(session, worktreeId, message) {
   const resolvedId = resolveWorktreeStorageId(session, worktreeId);
   let worktree = await loadWorktree(resolvedId);

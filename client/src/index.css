@@ -4255,9 +4255,26 @@ main.chat {
 
 .composer-main {
   display: grid;
-  grid-template-columns: auto auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 10px;
   align-items: flex-end;
+}
+
+.composer-model-select {
+  height: var(--composer-control-height);
+  min-width: 150px;
+  max-width: 220px;
+  padding: 0 30px 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.composer-model-select:disabled {
+  opacity: 0.55;
 }
 
 .composer-actions {
@@ -4814,7 +4831,7 @@ main.chat {
   }
 
   .layout.is-mobile .composer-main {
-    grid-template-columns: auto auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     gap: 8px;
     align-items: center;
   }
@@ -4829,9 +4846,16 @@ main.chat {
 
   .layout.is-mobile .composer-input {
     min-height: var(--composer-control-height);
-    width: clamp(200px, 60vw, 420px);
+    width: clamp(180px, 46vw, 320px);
     padding: 10px 12px;
     overflow: auto;
+  }
+
+  .layout.is-mobile .composer-model-select {
+    min-width: 96px;
+    max-width: 120px;
+    font-size: 12px;
+    padding-right: 24px;
   }
 
   .layout.is-mobile .composer-meta {
