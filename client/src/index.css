@@ -4225,7 +4225,8 @@ main.chat {
 }
 
 .composer-input {
-  width: clamp(240px, 36vw, 520px);
+  width: 100%;
+  min-width: 0;
   min-height: var(--composer-control-height);
   border-radius: 16px;
   border: none;
@@ -4249,8 +4250,9 @@ main.chat {
 }
 
 .composer-input:focus {
-  border-color: rgba(238, 93, 59, 0.4);
-  box-shadow: 0 0 0 3px rgba(238, 93, 59, 0.12);
+  border: none;
+  box-shadow: none;
+  outline: none;
 }
 
 .composer-main {
@@ -4262,15 +4264,17 @@ main.chat {
 
 .composer-model-select {
   height: var(--composer-control-height);
-  min-width: 150px;
-  max-width: 220px;
-  padding: 0 30px 0 12px;
+  min-width: 120px;
+  max-width: 180px;
+  padding: 0 12px 0 6px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--ink);
   font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 13px;
+  font-size: 12px;
+  text-align: right;
+  text-align-last: right;
 }
 
 .composer-model-select:disabled {
@@ -4846,7 +4850,7 @@ main.chat {
 
   .layout.is-mobile .composer-input {
     min-height: var(--composer-control-height);
-    width: clamp(180px, 46vw, 320px);
+    width: 100%;
     padding: 10px 12px;
     overflow: auto;
   }
