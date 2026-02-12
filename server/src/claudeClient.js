@@ -47,7 +47,7 @@ export class ClaudeCliClient extends EventEmitter {
     this.sessionId = sessionId || null;
     this.worktreeId = worktreeId || "main";
     this.ready = false;
-    this.threadId = "claude-session";
+    this.threadId = null;
     this.modelInfo = null;
     this.defaultModel = null;
     this.toolUses = new Map();
@@ -323,6 +323,13 @@ export class ClaudeCliClient extends EventEmitter {
   #handleMessage(turnId, message) {
     if (message?.type === "system" && message.subtype === "init") {
       this.modelInfo = { model: message.model || null };
+      if (typeof message.session_id === "string" && message.session_id.trim()) {
+        const nextThreadId = message.session_id.trim();
+        if (this.threadId !== nextThreadId) {
+          this.threadId = nextThreadId;
+          this.emit("ready", { threadId: this.threadId });
+        }
+      }
       return;
     }
 

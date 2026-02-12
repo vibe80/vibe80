@@ -428,7 +428,9 @@ export function attachClaudeEvents(context, deps) {
     appendMessage,
     broadcastDiff,
     updateWorktreeStatus,
+    updateWorktreeThreadId,
     appendRpcLog,
+    storage,
     debugApiWsLog,
   } = deps;
 
@@ -444,6 +446,9 @@ export function attachClaudeEvents(context, deps) {
       const session = await getSession(sessionId);
       if (!session) return;
       if (isWorktree) {
+        if (threadId) {
+          await updateWorktreeThreadId(session, worktreeId, threadId);
+        }
         await updateWorktreeStatus(session, worktreeId, "ready");
         broadcastToSession(sessionId, {
           type: "worktree_ready",
@@ -452,6 +457,11 @@ export function attachClaudeEvents(context, deps) {
           provider,
         });
       } else if (session.activeProvider === provider) {
+        if (threadId) {
+          const updated = { ...session, threadId, lastActivityAt: Date.now() };
+          await storage.saveSession(sessionId, updated);
+          await updateWorktreeThreadId(session, "main", threadId);
+        }
         await updateWorktreeStatus(session, "main", "ready");
         broadcastToSession(sessionId, {
           type: "worktree_status",
