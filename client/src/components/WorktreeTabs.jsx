@@ -64,6 +64,8 @@ export default function WorktreeTabs({
     [providers, provider]
   );
   const [newProvider, setNewProvider] = useState(providerOptions[0]);
+  const [newContext, setNewContext] = useState("new");
+  const [newSourceWorktree, setNewSourceWorktree] = useState("main");
   const [newModel, setNewModel] = useState("");
   const [newReasoningEffort, setNewReasoningEffort] = useState("");
   const [newInternetAccess, setNewInternetAccess] = useState(
@@ -115,7 +117,7 @@ export default function WorktreeTabs({
     if (!branches?.length && onRefreshBranches && !branchLoading) {
       onRefreshBranches();
     }
-    if (onRequestProviderModels) {
+    if (newContext === "new" && onRequestProviderModels) {
       const providerState = providerModelState?.[newProvider] || {};
       if (!providerState.loading && !(providerState.models || []).length) {
         onRequestProviderModels(newProvider);
@@ -130,6 +132,7 @@ export default function WorktreeTabs({
     defaultDenyGitCredentialsAccess,
     onRefreshBranches,
     branchLoading,
+    newContext,
     newProvider,
     onRequestProviderModels,
   ]);
@@ -141,15 +144,17 @@ export default function WorktreeTabs({
   }, [providerOptions, newProvider]);
 
   useEffect(() => {
-    if (onRequestProviderModels) {
+    if (newContext === "new" && onRequestProviderModels) {
       const providerState = providerModelState?.[newProvider] || {};
       if (!providerState.loading && !(providerState.models || []).length) {
         onRequestProviderModels(newProvider);
       }
     }
-    setNewModel("");
-    setNewReasoningEffort("");
-  }, [newProvider, onRequestProviderModels]);
+    if (newContext === "new") {
+      setNewModel("");
+      setNewReasoningEffort("");
+    }
+  }, [newContext, newProvider, onRequestProviderModels]);
 
   const providerState = providerModelState?.[newProvider] || {};
   const availableModels = Array.isArray(providerState.models) ? providerState.models : [];
@@ -172,10 +177,14 @@ export default function WorktreeTabs({
     [availableModels, newModel]
   );
   const showReasoningField =
+    newContext === "new" &&
     newProvider === "codex" &&
     (selectedModelDetails?.supportedReasoningEfforts?.length || 0) > 0;
 
   useEffect(() => {
+    if (newContext !== "new") {
+      return;
+    }
     if (!newModel && defaultModel?.model) {
       setNewModel(defaultModel.model);
     }
@@ -185,10 +194,10 @@ export default function WorktreeTabs({
     if (newProvider !== "codex" && newReasoningEffort) {
       setNewReasoningEffort("");
     }
-  }, [newProvider, newModel, newReasoningEffort, defaultModel]);
+  }, [newContext, newProvider, newModel, newReasoningEffort, defaultModel]);
 
   useEffect(() => {
-    if (newProvider !== "codex") {
+    if (newContext !== "new" || newProvider !== "codex") {
       if (newReasoningEffort) {
         setNewReasoningEffort("");
       }
@@ -206,22 +215,26 @@ export default function WorktreeTabs({
     if (!valid && newReasoningEffort) {
       setNewReasoningEffort("");
     }
-  }, [selectedModelDetails, newReasoningEffort]);
+  }, [newContext, newProvider, selectedModelDetails, newReasoningEffort]);
 
   const handleCreate = () => {
     if (onCreate) {
       onCreate({
+        context: newContext,
         name: newName.trim() || null,
         provider: newProvider,
+        sourceWorktree: newContext === "fork" ? newSourceWorktree : null,
         startingBranch: effectiveBranch || null,
-        model: newModel || null,
-        reasoningEffort: newReasoningEffort || null,
+        model: newContext === "new" ? newModel || null : null,
+        reasoningEffort: newContext === "new" ? newReasoningEffort || null : null,
         internetAccess: newInternetAccess,
         denyGitCredentialsAccess: newDenyGitCredentialsAccess,
       });
     }
     setNewName("");
+    setNewContext("new");
     setNewProvider(providerOptions[0]);
+    setNewSourceWorktree("main");
     setStartingBranch(defaultBranch || "");
     setNewModel("");
     setNewReasoningEffort("");
@@ -274,6 +287,22 @@ export default function WorktreeTabs({
     const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
     return aTime - bTime;
   });
+  const sourceWorktreeOptions = worktreeList.map((wt) => ({
+    id: wt.id,
+    label: wt.id === "main" ? "main" : (wt.name || wt.branchName || wt.id),
+  }));
+
+  useEffect(() => {
+    if (!sourceWorktreeOptions.length) {
+      return;
+    }
+    const exists = sourceWorktreeOptions.some((wt) => wt.id === newSourceWorktree);
+    if (!exists) {
+      const fallback = sourceWorktreeOptions.find((wt) => wt.id === "main")?.id
+        || sourceWorktreeOptions[0].id;
+      setNewSourceWorktree(fallback);
+    }
+  }, [newSourceWorktree, sourceWorktreeOptions]);
 
   return (
     <div className="worktree-tabs-container">
@@ -417,22 +446,48 @@ export default function WorktreeTabs({
                 )}
                 {branchError && <div className="worktree-field-error">{branchError}</div>}
               </div>
-              <div className="worktree-create-field is-full">
-                <label>{t("Provider")}</label>
+              <div className="worktree-create-field">
+                <label>{t("Context")}</label>
                 <select
-                  value={newProvider}
-                  onChange={(e) => setNewProvider(e.target.value)}
-                  disabled={providerOptions.length <= 1}
+                  value={newContext}
+                  onChange={(e) => setNewContext(e.target.value === "fork" ? "fork" : "new")}
                 >
-                  {providerOptions.includes("codex") && (
-                    <option value="codex">{t("Codex (OpenAI)")}</option>
-                  )}
-                  {providerOptions.includes("claude") && (
-                    <option value="claude">{t("Claude")}</option>
-                  )}
+                  <option value="new">{t("New")}</option>
+                  <option value="fork">{t("Fork")}</option>
                 </select>
               </div>
-              {(newProvider === "codex" || newProvider === "claude") && (
+              {newContext === "new" ? (
+                <div className="worktree-create-field">
+                  <label>{t("Provider")}</label>
+                  <select
+                    value={newProvider}
+                    onChange={(e) => setNewProvider(e.target.value)}
+                    disabled={providerOptions.length <= 1}
+                  >
+                    {providerOptions.includes("codex") && (
+                      <option value="codex">{t("Codex (OpenAI)")}</option>
+                    )}
+                    {providerOptions.includes("claude") && (
+                      <option value="claude">{t("Claude")}</option>
+                    )}
+                  </select>
+                </div>
+              ) : (
+                <div className="worktree-create-field">
+                  <label>{t("Source worktree")}</label>
+                  <select
+                    value={newSourceWorktree}
+                    onChange={(e) => setNewSourceWorktree(e.target.value || "main")}
+                  >
+                    {sourceWorktreeOptions.map((wt) => (
+                      <option key={wt.id} value={wt.id}>
+                        {wt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {newContext === "new" && (newProvider === "codex" || newProvider === "claude") && (
                 <>
                   <div
                     className={`worktree-create-field ${
@@ -519,7 +574,7 @@ export default function WorktreeTabs({
               <button
                 className="worktree-btn-create"
                 onClick={handleCreate}
-                disabled={!isBranchValid}
+                disabled={!isBranchValid || (newContext === "fork" && !newSourceWorktree)}
               >
                 {t("Create")}
               </button>

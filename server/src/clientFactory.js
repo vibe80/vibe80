@@ -40,6 +40,7 @@ export async function getOrCreateClient(session, provider) {
           tmpDir: path.join(session.dir, "tmp"),
           sessionId: session.sessionId,
           worktreeId: "main",
+          threadId: session.threadId || null,
         })
       : new CodexAppServerClient({
           cwd: session.repoDir,
@@ -81,7 +82,8 @@ export function createWorktreeClient(
   repoDir,
   internetAccess,
   threadId,
-  gitDir
+  gitDir,
+  options = {}
 ) {
   const sessionDir = repoDir ? path.dirname(repoDir) : null;
   const tmpDir = sessionDir ? path.join(sessionDir, "tmp") : null;
@@ -108,6 +110,10 @@ export function createWorktreeClient(
           tmpDir,
           sessionId: worktree.sessionId,
           worktreeId: worktree.id,
+          threadId: threadId || worktree.threadId || null,
+          forkFromThreadId:
+            options.sourceThreadId ||
+            (worktree.context === "fork" ? worktree.forkSourceThreadId || null : null),
         })
       : new CodexAppServerClient({
           cwd: worktree.path,
@@ -125,6 +131,12 @@ export function createWorktreeClient(
           tmpDir,
           sessionId: worktree.sessionId,
           worktreeId: worktree.id,
+          threadStartMode:
+            options.threadStartMode ||
+            (worktree.context === "fork" ? "fork" : "new"),
+          sourceThreadId:
+            options.sourceThreadId ||
+            (worktree.context === "fork" ? worktree.forkSourceThreadId || null : null),
         });
 
   return client;

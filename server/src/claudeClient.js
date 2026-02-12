@@ -28,6 +28,8 @@ export class ClaudeCliClient extends EventEmitter {
     tmpDir,
     sessionId,
     worktreeId,
+    threadId,
+    forkFromThreadId,
   }) {
     super();
     this.cwd = cwd;
@@ -47,7 +49,8 @@ export class ClaudeCliClient extends EventEmitter {
     this.sessionId = sessionId || null;
     this.worktreeId = worktreeId || "main";
     this.ready = false;
-    this.threadId = null;
+    this.threadId = threadId || null;
+    this.pendingForkFromThreadId = forkFromThreadId || null;
     this.modelInfo = null;
     this.defaultModel = null;
     this.toolUses = new Map();
@@ -128,8 +131,14 @@ export class ClaudeCliClient extends EventEmitter {
       allowedTools.push("WebSearch");
       allowedTools.push("WebFetch");
     }
+    const shouldForkSession =
+      !this.threadId &&
+      typeof this.pendingForkFromThreadId === "string" &&
+      this.pendingForkFromThreadId.trim();
     const args = [
-      "--continue",
+      ...(shouldForkSession
+        ? ["--fork-session", "--resume", this.pendingForkFromThreadId.trim()]
+        : ["--continue"]),
       "--verbose",
       "-p",
       ...(this.defaultModel ? ["--model", this.defaultModel] : []),
@@ -325,6 +334,7 @@ export class ClaudeCliClient extends EventEmitter {
       this.modelInfo = { model: message.model || null };
       if (typeof message.session_id === "string" && message.session_id.trim()) {
         const nextThreadId = message.session_id.trim();
+        this.pendingForkFromThreadId = null;
         if (this.threadId !== nextThreadId) {
           this.threadId = nextThreadId;
           this.emit("ready", { threadId: this.threadId });

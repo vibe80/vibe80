@@ -182,18 +182,51 @@ export default function worktreeRoutes(deps) {
     }
     await touchSession(session);
 
+    const context = req.body?.context === "fork" ? "fork" : "new";
     const provider = req.body?.provider;
-    if (!isValidProvider(provider)) {
-      res.status(400).json({ error: "Invalid provider. Must be 'codex' or 'claude'." });
-      return;
-    }
-    if (
-      Array.isArray(session.providers) &&
-      session.providers.length &&
-      !session.providers.includes(provider)
-    ) {
-      res.status(400).json({ error: "Provider not enabled for this session." });
-      return;
+    const sourceWorktree = req.body?.sourceWorktree;
+
+    if (context === "new") {
+      if (!isValidProvider(provider)) {
+        res.status(400).json({ error: "Invalid provider. Must be 'codex' or 'claude'." });
+        return;
+      }
+      if (
+        Array.isArray(session.providers) &&
+        session.providers.length &&
+        !session.providers.includes(provider)
+      ) {
+        res.status(400).json({ error: "Provider not enabled for this session." });
+        return;
+      }
+    } else {
+      if (!sourceWorktree || typeof sourceWorktree !== "string") {
+        res.status(400).json({ error: "sourceWorktree is required when context=fork." });
+        return;
+      }
+      if (provider != null || req.body?.model != null || req.body?.reasoningEffort != null) {
+        res.status(400).json({
+          error: "provider, model and reasoningEffort must not be provided when context=fork.",
+        });
+        return;
+      }
+      const source = await getWorktree(session, sourceWorktree);
+      if (!source) {
+        res.status(404).json({ error: "Source worktree not found." });
+        return;
+      }
+      if (!source.threadId) {
+        res.status(409).json({ error: "Source worktree has no threadId to fork from." });
+        return;
+      }
+      if (
+        Array.isArray(session.providers) &&
+        session.providers.length &&
+        !session.providers.includes(source.provider)
+      ) {
+        res.status(400).json({ error: "Source provider not enabled for this session." });
+        return;
+      }
     }
 
     try {
@@ -208,16 +241,20 @@ export default function worktreeRoutes(deps) {
           ? req.body.denyGitCredentialsAccess
           : resolveDefaultDenyGitCredentialsAccess(session);
       const worktree = await createWorktree(session, {
-        provider,
+        context,
+        provider: context === "new" ? provider : null,
+        sourceWorktree: context === "fork" ? sourceWorktree : null,
         name: req.body?.name || null,
         parentWorktreeId: req.body?.parentWorktreeId || null,
         startingBranch: req.body?.startingBranch || null,
+        model: context === "new" ? req.body?.model || null : null,
+        reasoningEffort: context === "new" ? req.body?.reasoningEffort || null : null,
         internetAccess,
         denyGitCredentialsAccess,
       });
 
       if (worktree.client) {
-        if (provider === "claude") {
+        if (worktree.provider === "claude") {
           attachClaudeEventsForWorktree(sessionId, worktree);
         } else {
           attachClientEventsForWorktree(sessionId, worktree);
@@ -241,6 +278,10 @@ export default function worktreeRoutes(deps) {
         name: worktree.name,
         branchName: worktree.branchName,
         provider: worktree.provider,
+        context: worktree.context || "new",
+        sourceWorktreeId: worktree.sourceWorktreeId || null,
+        model: worktree.model || null,
+        reasoningEffort: worktree.reasoningEffort || null,
         internetAccess: Boolean(worktree.internetAccess),
         denyGitCredentialsAccess:
           typeof worktree.denyGitCredentialsAccess === "boolean"
@@ -280,6 +321,8 @@ export default function worktreeRoutes(deps) {
         name: worktree.name,
         branchName: worktree.branchName,
         provider: worktree.provider,
+        context: worktree.context || "new",
+        sourceWorktreeId: worktree.sourceWorktreeId || null,
         model: worktree.model || null,
         reasoningEffort: worktree.reasoningEffort || null,
         internetAccess: Boolean(worktree.internetAccess),

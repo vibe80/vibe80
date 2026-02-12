@@ -23,6 +23,8 @@ export class CodexAppServerClient extends EventEmitter {
     tmpDir,
     sessionId,
     worktreeId,
+    threadStartMode,
+    sourceThreadId,
   }) {
     super();
     this.cwd = cwd;
@@ -60,6 +62,9 @@ export class CodexAppServerClient extends EventEmitter {
     this.nextId = 1;
     this.pending = new Map();
     this.threadId = threadId || null;
+    this.threadStartMode =
+      threadStartMode === "fork" && !threadId ? "fork" : threadId ? "resume" : "new";
+    this.sourceThreadId = sourceThreadId || null;
     this.ready = false;
   }
 
@@ -429,20 +434,33 @@ export class CodexAppServerClient extends EventEmitter {
     };
 
     this.emit("thread_starting", {
-      mode: this.threadId ? "resume" : "start",
-      threadId: this.threadId || null,
+      mode:
+        this.threadStartMode === "fork"
+          ? "fork"
+          : this.threadId
+            ? "resume"
+            : "start",
+      threadId: this.threadStartMode === "fork" ? this.sourceThreadId : this.threadId || null,
     });
 
-    const result = this.threadId
-      ? await this.#sendRequest("thread/resume", {
-          ...params,
-          threadId: this.threadId,
-        })
-      : await this.#sendRequest("thread/start", {
-          ...params,
-          includePlanTool: true,
-        });
+    const result =
+      this.threadStartMode === "fork" && this.sourceThreadId
+        ? await this.#sendRequest("thread/fork", {
+            ...params,
+            threadId: this.sourceThreadId,
+          })
+        : this.threadId
+          ? await this.#sendRequest("thread/resume", {
+              ...params,
+              threadId: this.threadId,
+            })
+          : await this.#sendRequest("thread/start", {
+              ...params,
+              includePlanTool: true,
+            });
 
     this.threadId = result.thread.id;
+    this.threadStartMode = "resume";
+    this.sourceThreadId = null;
   }
 }

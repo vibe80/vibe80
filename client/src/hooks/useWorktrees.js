@@ -233,8 +233,10 @@ export default function useWorktrees({
 
   const createWorktree = useCallback(
     async ({
+      context,
       name,
       provider: wtProvider,
+      sourceWorktree,
       startingBranch,
       model,
       reasoningEffort,
@@ -252,13 +254,18 @@ export default function useWorktrees({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              provider: availableProviders.includes(wtProvider)
-                ? wtProvider
-                : llmProvider,
+              context: context === "fork" ? "fork" : "new",
+              provider:
+                context === "new"
+                  ? (availableProviders.includes(wtProvider)
+                    ? wtProvider
+                    : llmProvider)
+                  : undefined,
+              sourceWorktree: context === "fork" ? sourceWorktree || null : undefined,
               name: name || null,
               startingBranch: startingBranch || null,
-              model: model || null,
-              reasoningEffort: reasoningEffort ?? null,
+              model: context === "new" ? model || null : undefined,
+              reasoningEffort: context === "new" ? reasoningEffort ?? null : undefined,
               internetAccess: Boolean(internetAccess),
               denyGitCredentialsAccess: Boolean(denyGitCredentialsAccess),
             }),
@@ -280,6 +287,8 @@ export default function useWorktrees({
             provider: payload.provider,
             model: payload.model || null,
             reasoningEffort: payload.reasoningEffort || null,
+            context: payload.context || "new",
+            sourceWorktreeId: payload.sourceWorktreeId || null,
             internetAccess: Boolean(payload.internetAccess),
             denyGitCredentialsAccess: Boolean(payload.denyGitCredentialsAccess),
             status: payload.status || "creating",

@@ -208,7 +208,9 @@ const generateWorktreeName = (text, index) => {
  */
 export async function createWorktree(session, options) {
   const {
+    context,
     provider,
+    sourceWorktree,
     name,
     parentWorktreeId,
     startingBranch,
@@ -217,10 +219,44 @@ export async function createWorktree(session, options) {
     internetAccess,
     denyGitCredentialsAccess,
   } = options;
+  const creationContext = context === "fork" ? "fork" : "new";
+  let resolvedProvider = provider;
+  let resolvedModel = model || null;
+  let resolvedReasoningEffort = reasoningEffort || null;
+  let resolvedSourceWorktreeId = null;
+  let forkSourceThreadId = null;
+  let sourceWorktreeRecord = null;
+
+  if (creationContext === "fork") {
+    sourceWorktreeRecord = await getWorktree(session, sourceWorktree);
+    if (!sourceWorktreeRecord) {
+      throw new Error("Source worktree not found.");
+    }
+    resolvedProvider = sourceWorktreeRecord.provider;
+    resolvedModel = null;
+    resolvedReasoningEffort = null;
+    resolvedSourceWorktreeId = sourceWorktree === "main" ? "main" : sourceWorktreeRecord.id;
+    forkSourceThreadId = sourceWorktreeRecord.threadId || null;
+    if (!forkSourceThreadId) {
+      throw new Error("Source worktree has no threadId to fork from.");
+    }
+  }
+
+  if (resolvedProvider !== "codex" && resolvedProvider !== "claude") {
+    throw new Error("Invalid provider for worktree creation.");
+  }
   const resolvedDenyGitCredentialsAccess =
     typeof denyGitCredentialsAccess === "boolean"
       ? denyGitCredentialsAccess
+      : typeof sourceWorktreeRecord?.denyGitCredentialsAccess === "boolean"
+        ? sourceWorktreeRecord.denyGitCredentialsAccess
       : resolveSessionDenyGitCredentialsAccess(session);
+  const resolvedInternetAccess =
+    typeof internetAccess === "boolean"
+      ? internetAccess
+      : typeof sourceWorktreeRecord?.internetAccess === "boolean"
+        ? sourceWorktreeRecord.internetAccess
+        : true;
   const shareGitCredentials = !resolvedDenyGitCredentialsAccess;
 
   const worktreesDir = path.join(session.dir, "worktrees");
@@ -338,10 +374,13 @@ export async function createWorktree(session, options) {
     branchName,
     threadId: null,
     path: worktreePath,
-    provider,
-    model: model || null,
-    reasoningEffort: reasoningEffort || null,
-    internetAccess: Boolean(internetAccess),
+    provider: resolvedProvider,
+    model: resolvedModel,
+    reasoningEffort: resolvedReasoningEffort,
+    context: creationContext,
+    sourceWorktreeId: resolvedSourceWorktreeId,
+    forkSourceThreadId: creationContext === "fork" ? forkSourceThreadId : null,
+    internetAccess: Boolean(resolvedInternetAccess),
     denyGitCredentialsAccess: resolvedDenyGitCredentialsAccess,
     startingBranch: startingBranch || null,
     workspaceId: session.workspaceId,
@@ -362,7 +401,11 @@ export async function createWorktree(session, options) {
       session.repoDir,
       worktree.internetAccess,
       worktree.threadId,
-      resolveSessionGitDir(session)
+      resolveSessionGitDir(session),
+      {
+        threadStartMode: creationContext === "fork" ? "fork" : "new",
+        sourceThreadId: creationContext === "fork" ? forkSourceThreadId : null,
+      }
     );
     const runtime = getSessionRuntime(session.sessionId);
     if (runtime) {
@@ -548,6 +591,8 @@ export async function listWorktrees(session) {
     provider: wt.provider,
     model: wt.model || null,
     reasoningEffort: wt.reasoningEffort || null,
+    context: wt.context || "new",
+    sourceWorktreeId: wt.sourceWorktreeId || null,
     status: wt.status,
     parentWorktreeId: wt.parentWorktreeId,
     internetAccess: Boolean(wt.internetAccess),
