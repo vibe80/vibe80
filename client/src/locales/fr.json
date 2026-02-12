@@ -138,6 +138,7 @@
   "No changes detected.": "Aucun changement detecte.",
   "No file found.": "Aucun fichier trouve.",
   "No file selected": "Aucun fichier selectionne",
+  "Claude Code does not natively support forked sessions with directory changes. This feature is experimental.": "Claude Code ne supporte pas nativement les sessions forkées avec changement de répertoire, cette feature est expérimentale.",
   "No logs yet.": "Aucun log pour le moment.",
   "No options": "Aucune option",
   "No options.": "Aucune option.",

@@ -290,7 +290,13 @@ export default function WorktreeTabs({
   const sourceWorktreeOptions = worktreeList.map((wt) => ({
     id: wt.id,
     label: wt.id === "main" ? "main" : (wt.name || wt.branchName || wt.id),
+    provider: wt.provider || (wt.id === "main" ? provider || null : null),
   }));
+  const selectedSourceWorktree = sourceWorktreeOptions.find(
+    (wt) => wt.id === newSourceWorktree
+  );
+  const showClaudeForkWarning =
+    newContext === "fork" && selectedSourceWorktree?.provider === "claude";
 
   useEffect(() => {
     if (!sourceWorktreeOptions.length) {
@@ -485,6 +491,15 @@ export default function WorktreeTabs({
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+              {showClaudeForkWarning && (
+                <div className="worktree-create-field is-full">
+                  <div className="worktree-warning-bubble">
+                    {t(
+                      "Claude Code does not natively support forked sessions with directory changes. This feature is experimental."
+                    )}
+                  </div>
                 </div>
               )}
               {newContext === "new" && (newProvider === "codex" || newProvider === "claude") && (
