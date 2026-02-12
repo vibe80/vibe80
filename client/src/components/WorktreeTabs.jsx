@@ -332,8 +332,8 @@ export default function WorktreeTabs({
               className="worktree-tab-add"
               onClick={() => setCreateDialogOpen(true)}
               disabled={disabled || worktreeList.length >= 10}
-              title={t("New parallel branch")}
-              aria-label={t("New parallel branch")}
+              title={t("New worktree")}
+              aria-label={t("New worktree")}
             >
               <FontAwesomeIcon icon={faPlus} />
             </button>
@@ -406,7 +406,7 @@ export default function WorktreeTabs({
               className="worktree-tab-add"
               onClick={() => setCreateDialogOpen(true)}
               disabled={disabled || worktreeList.length >= 10}
-              title={t("New parallel branch")}
+              title={t("New worktree")}
             >
               <FontAwesomeIcon icon={faPlus} />
             </button>
@@ -417,7 +417,7 @@ export default function WorktreeTabs({
       {createDialogOpen && (
         <div className="worktree-create-dialog-overlay" onClick={() => setCreateDialogOpen(false)}>
           <div className="worktree-create-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3>{t("New parallel branch")}</h3>
+            <h3>{t("New worktree")}</h3>
             <div className="worktree-create-grid">
               <div className="worktree-create-field">
                 <label>{t("Name (optional)")}</label>

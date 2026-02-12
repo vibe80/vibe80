@@ -12,6 +12,7 @@
   "Deleted.": "Deleted.",
   "Delete \"{{path}}\"? This action is irreversible.": "Delete \"{{path}}\"? This action is irreversible.",
   "Stopped": "Stopped",
+  "New worktree": "New worktree",
   "Worktree is stopped. Wake it up before sending a message.": "Worktree is stopped. Wake it up before sending a message.",
   "Claude Code does not natively support forked sessions with directory changes. This feature is experimental.": "Claude Code does not natively support forked sessions with directory changes. This feature is experimental."
 }
