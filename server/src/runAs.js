@@ -27,6 +27,7 @@ export const DEFAULT_ALLOW_RO = [
 ];
 export const DEFAULT_ALLOW_RW = [
   "/dev",
+  "/tmp",
 ];
 
 const normalizePaths = (paths = []) => {
