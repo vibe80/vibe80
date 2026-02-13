@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -338,6 +339,14 @@ fun ChatScreen(
                         Icon(
                             imageVector = Icons.Default.BugReport,
                             contentDescription = stringResource(R.string.logs_title_simple)
+                        )
+                    }
+
+                    // Refresh worktrees
+                    IconButton(onClick = viewModel::refreshWorktrees) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.worktree_refresh)
                         )
                     }
 

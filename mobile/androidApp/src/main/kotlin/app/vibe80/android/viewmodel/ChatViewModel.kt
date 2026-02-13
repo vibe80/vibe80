@@ -615,6 +615,12 @@ class ChatViewModel(
         }
     }
 
+    fun refreshWorktrees() {
+        viewModelScope.launch {
+            sessionRepository.listWorktrees()
+        }
+    }
+
     fun showWorktreeMenu(worktreeId: String) {
         _uiState.update { it.copy(showWorktreeMenuFor = worktreeId) }
     }

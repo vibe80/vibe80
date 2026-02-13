@@ -159,6 +159,7 @@
     <string name="worktree_name_placeholder_example">ex: refactor-auth</string>
     <string name="worktree_new_title">Nouveau Worktree</string>
     <string name="worktree_options">Options</string>
+    <string name="worktree_refresh">Rafraîchir les worktrees</string>
     <string name="worktree_source_branch_label">Branche source</string>
     <string name="worktree_title">Worktree : %s</string>
     <string name="worktrees_title">Worktrees</string>
