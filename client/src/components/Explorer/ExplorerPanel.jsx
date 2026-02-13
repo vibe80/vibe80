@@ -156,7 +156,10 @@ export default function ExplorerPanel({
 
   const onDragOverRoot = (e) => {
     if (!attachmentSession?.sessionId) return;
-    const hasFiles = e.dataTransfer?.files?.length > 0;
+    const dt = e.dataTransfer;
+    const hasFiles =
+      (dt?.files && dt.files.length > 0) ||
+      (dt?.types && Array.from(dt.types).includes("Files"));
     const hasInternal = Boolean(draggingPath);
     if (hasFiles || hasInternal) {
       e.preventDefault();
