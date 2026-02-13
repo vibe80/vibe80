@@ -412,4 +412,45 @@ describe("routes/workspaces", () => {
     expect(res.statusCode).toBe(400);
     expect(res.body).toEqual({ error: "Failed to update workspace." });
   });
+
+  it("DELETE /api/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "delete");
+    const res = createMockRes();
+    await handler({ params: { workspaceId: "invalid-id" } }, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "Invalid workspaceId." });
+  });
+
+  it("DELETE /api/workspaces/:workspaceId renvoie 403 si accès interdit", async () => {
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "delete");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: "wffffffffffffffffffffffff",
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ error: "Forbidden." });
+  });
+
+  it("DELETE /api/workspaces/:workspaceId renvoie 501 (non implémenté)", async () => {
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "delete");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: validCredentials.workspaceId,
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(501);
+    expect(res.body).toEqual({
+      error: "Workspace deletion policy not implemented yet.",
+    });
+  });
 });
