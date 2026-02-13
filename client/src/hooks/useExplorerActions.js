@@ -985,6 +985,78 @@ export default function useExplorerActions({
     ]
   );
 
+  const uploadExplorerFiles = useCallback(
+    async (tabId, targetDir, fileList) => {
+      if (!attachmentSessionId || !tabId) {
+        return false;
+      }
+      if (!fileList || fileList.length === 0) {
+        return false;
+      }
+      const form = new FormData();
+      Array.from(fileList).forEach((file) => {
+        form.append("files", file, file.name);
+      });
+      try {
+        const response = await apiFetch(
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(tabId)}/file/upload?path=${encodeURIComponent(
+            targetDir || "."
+          )}`,
+          {
+            method: "POST",
+            body: form,
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Upload failed");
+        }
+        await requestExplorerTree(tabId, true);
+        await requestExplorerStatus(tabId, true);
+        showToast(t("Uploaded."), "success");
+        return true;
+      } catch {
+        showToast(t("Unable to upload."), "error");
+        return false;
+      }
+    },
+    [attachmentSessionId, apiFetch, requestExplorerTree, requestExplorerStatus, showToast, t]
+  );
+
+  const moveExplorerNode = useCallback(
+    async (tabId, fromPath, toDirPath) => {
+      if (!attachmentSessionId || !tabId || !fromPath || !toDirPath) {
+        return false;
+      }
+      const name = fromPath.split("/").pop();
+      const toPath = joinPath(toDirPath, name);
+      try {
+        const response = await apiFetch(
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(tabId)}/file/rename`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fromPath, toPath }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Move failed");
+        }
+        await requestExplorerTree(tabId, true);
+        await requestExplorerStatus(tabId, true);
+        showToast(t("Moved."), "success");
+        return true;
+      } catch {
+        showToast(t("Unable to move."), "error");
+        return false;
+      }
+    },
+    [attachmentSessionId, apiFetch, requestExplorerTree, requestExplorerStatus, showToast, t]
+  );
+
   const deleteExplorerSelection = useCallback(
     async (tabId) => {
       if (!attachmentSessionId || !tabId) {
@@ -1122,5 +1194,7 @@ export default function useExplorerActions({
     submitExplorerRename,
     createExplorerFile,
     deleteExplorerSelection,
+    uploadExplorerFiles,
+    moveExplorerNode,
   };
 }

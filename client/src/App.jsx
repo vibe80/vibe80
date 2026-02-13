@@ -69,11 +69,18 @@ import vibe80LogoDark from "./assets/vibe80_dark.svg";
 import vibe80LogoLight from "./assets/vibe80_light.svg";
 import { useI18n } from "./i18n.jsx";
 
-const getSessionIdFromUrl = () =>
-  new URLSearchParams(window.location.search).get("session");
+  const getSessionIdFromUrl = () =>
+    new URLSearchParams(window.location.search).get("session");
 
-const getRepositoryFromUrl = () =>
-  new URLSearchParams(window.location.search).get("repository");
+  const getRepositoryFromUrl = () =>
+    new URLSearchParams(window.location.search).get("repository");
+
+  const pathDirname = (value) => {
+    if (!value) return "";
+    const parts = value.split("/");
+    parts.pop();
+    return parts.join("/");
+  };
 
 const getInitialRepoUrl = () => {
   const sessionId = getSessionIdFromUrl();
@@ -1872,6 +1879,8 @@ function App() {
     submitExplorerRename,
     createExplorerFile,
     deleteExplorerSelection,
+    uploadExplorerFiles,
+    moveExplorerNode,
   } = useExplorerActions({
     attachmentSessionId: attachmentSession?.sessionId,
     apiFetch,
@@ -2156,8 +2165,16 @@ function App() {
     renamingPath,
     renameDraft,
     statusByPath,
-    dirStatus
+    dirStatus,
+    dragProps = {}
   ) => {
+    const {
+      dragOverPath,
+      onDragOverDir,
+      onDragLeaveDir,
+      onDropDir,
+      onDragStartNode,
+    } = dragProps;
     if (!Array.isArray(nodes) || nodes.length === 0) {
       return null;
     }
@@ -2169,6 +2186,7 @@ function App() {
             const isSelected = selectedPath === node.path && selectedType === "dir";
             const isRenaming = renamingPath === node.path;
             const statusType = dirStatus?.[node.path] || "";
+            const isDragOver = dragOverPath === node.path;
             return (
               <li
                 key={node.path}
@@ -2176,7 +2194,10 @@ function App() {
                   isSelected ? "is-selected" : ""
                 } ${
                   statusType ? `is-${statusType}` : ""
-                }`}
+                } ${isDragOver ? "is-drag-over" : ""}`}
+                onDragOver={(event) => onDragOverDir?.(event, node.path)}
+                onDragLeave={onDragLeaveDir}
+                onDrop={(event) => onDropDir?.(event, node.path)}
               >
                 <div className="explorer-tree-entry">
                   <button
@@ -2197,6 +2218,8 @@ function App() {
                     <button
                       type="button"
                       className="explorer-tree-toggle"
+                      draggable
+                      onDragStart={(event) => onDragStartNode?.(event, node.path)}
                       onClick={() => selectExplorerNode(tabId, node.path, "dir")}
                     >
                       <span className="explorer-tree-name">{node.name}</span>
@@ -2246,17 +2269,25 @@ function App() {
           const isSelected = selectedPath === node.path && selectedType === "file";
           const isRenaming = renamingPath === node.path;
           const statusType = statusByPath?.[node.path] || "";
+          const isDragOver = dragOverPath === node.path;
           return (
             <li
               key={node.path}
               className={`explorer-tree-item is-file ${
                 isSelected ? "is-selected" : ""
-              } ${statusType ? `is-${statusType}` : ""}`}
+              } ${statusType ? `is-${statusType}` : ""} ${
+                isDragOver ? "is-drag-over" : ""
+              }`}
+              onDragOver={(event) => onDragOverDir?.(event, pathDirname(node.path))}
+              onDragLeave={onDragLeaveDir}
+              onDrop={(event) => onDropDir?.(event, pathDirname(node.path))}
             >
               {!isRenaming ? (
                 <button
                   type="button"
                   className="explorer-tree-file"
+                  draggable
+                  onDragStart={(event) => onDragStartNode?.(event, node.path)}
                   onClick={() => {
                     selectExplorerNode(tabId, node.path, "file");
                     loadExplorerFileRef.current?.(tabId, node.path);
@@ -2522,6 +2553,8 @@ function App() {
                 startExplorerRename={startExplorerRename}
                 createExplorerFile={createExplorerFile}
                 deleteExplorerSelection={deleteExplorerSelection}
+                uploadExplorerFiles={uploadExplorerFiles}
+                moveExplorerNode={moveExplorerNode}
                 getLanguageForPath={getLanguageForPath}
                 themeMode={themeMode}
               />

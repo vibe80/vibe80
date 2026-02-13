@@ -2079,6 +2079,10 @@ main.chat {
   gap: 2px;
   min-width: 0;
 }
+.explorer-tree-item.is-drag-over {
+  background: var(--bg-subtle);
+  outline: 1px dashed var(--primary, #3b82f6);
+}
 
 .explorer-tree-toggle,
 .explorer-tree-file {
