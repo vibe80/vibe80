@@ -9,6 +9,12 @@ platform:
 
 
 steps:
+  - name: server_tests
+    image: node:22
+    commands:
+      - npm ci
+      - npm --workspace server run test
+
   - name: build_base_image
     image: plugins/docker:20.14
     when:
