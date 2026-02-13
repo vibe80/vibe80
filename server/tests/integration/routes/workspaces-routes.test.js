@@ -5,13 +5,14 @@ const verifyWorkspaceSecretMock = vi.hoisted(() => vi.fn());
 const issueWorkspaceTokensMock = vi.hoisted(() => vi.fn());
 const appendAuditLogMock = vi.hoisted(() => vi.fn());
 const getWorkspaceUserIdsMock = vi.hoisted(() => vi.fn());
+const storageMock = vi.hoisted(() => ({
+  listSessions: vi.fn(async () => []),
+  getWorkspaceRefreshToken: vi.fn(),
+  deleteWorkspaceRefreshToken: vi.fn(),
+}));
 
 vi.mock("../../../src/storage/index.js", () => ({
-  default: {
-    listSessions: vi.fn(async () => []),
-    getWorkspaceRefreshToken: vi.fn(),
-    deleteWorkspaceRefreshToken: vi.fn(),
-  },
+  default: storageMock,
 }));
 
 vi.mock("../../../src/services/auth.js", () => ({
@@ -48,6 +49,8 @@ describe("routes/workspaces", () => {
     });
     getWorkspaceUserIdsMock.mockResolvedValue({ uid: 200001, gid: 200001 });
     appendAuditLogMock.mockResolvedValue();
+    storageMock.getWorkspaceRefreshToken.mockResolvedValue(null);
+    storageMock.deleteWorkspaceRefreshToken.mockResolvedValue();
   });
 
   const createRouteHandler = async (path, method) => {
@@ -136,5 +139,84 @@ describe("routes/workspaces", () => {
       validCredentials.workspaceId,
       "workspace_login_success"
     );
+  });
+
+  it("POST /api/workspaces/refresh renvoie 400 si refreshToken manquant", async () => {
+    const handler = await createRouteHandler("/workspaces/refresh", "post");
+    const res = createMockRes();
+    await handler({ body: {} }, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "refreshToken is required." });
+  });
+
+  it("POST /api/workspaces/refresh renvoie 401 si refresh token invalide", async () => {
+    storageMock.getWorkspaceRefreshToken.mockResolvedValueOnce(null);
+    const handler = await createRouteHandler("/workspaces/refresh", "post");
+    const res = createMockRes();
+    await handler({ body: { refreshToken: "bad-refresh-token" } }, res);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({
+      error: "Invalid refresh token.",
+      code: "invalid_refresh_token",
+    });
+  });
+
+  it("POST /api/workspaces/refresh renvoie 401 si token current expiré", async () => {
+    storageMock.getWorkspaceRefreshToken.mockResolvedValueOnce({
+      workspaceId: validCredentials.workspaceId,
+      kind: "current",
+      expiresAt: Date.now() - 1,
+    });
+    const handler = await createRouteHandler("/workspaces/refresh", "post");
+    const res = createMockRes();
+    await handler({ body: { refreshToken: "expired-refresh-token" } }, res);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({
+      error: "Refresh token expired.",
+      code: "refresh_token_expired",
+    });
+    expect(storageMock.deleteWorkspaceRefreshToken).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteWorkspaceRefreshToken).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it("POST /api/workspaces/refresh renvoie 401 si token previous réutilisé", async () => {
+    storageMock.getWorkspaceRefreshToken.mockResolvedValueOnce({
+      workspaceId: validCredentials.workspaceId,
+      kind: "previous",
+      previousValidUntil: Date.now() - 1,
+    });
+    const handler = await createRouteHandler("/workspaces/refresh", "post");
+    const res = createMockRes();
+    await handler({ body: { refreshToken: "reused-refresh-token" } }, res);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({
+      error: "Refresh token reused.",
+      code: "refresh_token_reused",
+    });
+    expect(storageMock.deleteWorkspaceRefreshToken).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteWorkspaceRefreshToken).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it("POST /api/workspaces/refresh renvoie 200 si refresh token valide", async () => {
+    storageMock.getWorkspaceRefreshToken.mockResolvedValueOnce({
+      workspaceId: validCredentials.workspaceId,
+      kind: "current",
+      expiresAt: Date.now() + 60_000,
+    });
+    const handler = await createRouteHandler("/workspaces/refresh", "post");
+    const res = createMockRes();
+    await handler({ body: { refreshToken: "valid-refresh-token" } }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      workspaceToken: "workspace-token",
+      refreshToken: "refresh-token",
+    });
+    expect(issueWorkspaceTokensMock).toHaveBeenCalledWith(validCredentials.workspaceId);
+    expect(storageMock.deleteWorkspaceRefreshToken).not.toHaveBeenCalled();
   });
 });
