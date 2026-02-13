@@ -3,6 +3,7 @@ import { makeWorkspaceCredentials } from "../../factories/workspaceFactory.js";
 
 const verifyWorkspaceSecretMock = vi.hoisted(() => vi.fn());
 const issueWorkspaceTokensMock = vi.hoisted(() => vi.fn());
+const consumeMonoAuthTokenMock = vi.hoisted(() => vi.fn());
 const appendAuditLogMock = vi.hoisted(() => vi.fn());
 const getWorkspaceUserIdsMock = vi.hoisted(() => vi.fn());
 const readWorkspaceConfigMock = vi.hoisted(() => vi.fn());
@@ -22,7 +23,7 @@ vi.mock("../../../src/storage/index.js", () => ({
 }));
 
 vi.mock("../../../src/services/auth.js", () => ({
-  consumeMonoAuthToken: vi.fn(() => ({ ok: false, code: "MONO_AUTH_TOKEN_INVALID" })),
+  consumeMonoAuthToken: consumeMonoAuthTokenMock,
   issueWorkspaceTokens: issueWorkspaceTokensMock,
 }));
 
@@ -47,11 +48,16 @@ describe("routes/workspaces", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.DEPLOYMENT_MODE = "multi_user";
     issueWorkspaceTokensMock.mockResolvedValue({
       workspaceToken: "workspace-token",
       refreshToken: "refresh-token",
       expiresIn: 3600,
       refreshExpiresIn: 86400,
+    });
+    consumeMonoAuthTokenMock.mockReturnValue({
+      ok: false,
+      code: "MONO_AUTH_TOKEN_INVALID",
     });
     getWorkspaceUserIdsMock.mockResolvedValue({ uid: 200001, gid: 200001 });
     appendAuditLogMock.mockResolvedValue();
@@ -68,6 +74,103 @@ describe("routes/workspaces", () => {
         codex: { enabled: true },
       },
     });
+  });
+
+  it("POST /api/workspaces/login mono_auth_token renvoie 403 hors mono_user", async () => {
+    process.env.DEPLOYMENT_MODE = "multi_user";
+    const handler = await createRouteHandler("/workspaces/login", "post");
+    const res = createMockRes();
+    await handler(
+      { body: { grantType: "mono_auth_token", monoAuthToken: "token-1" } },
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({
+      error_type: "MONO_AUTH_FORBIDDEN",
+    });
+  });
+
+  it("POST /api/workspaces/login mono_auth_token renvoie 400 si token manquant", async () => {
+    process.env.DEPLOYMENT_MODE = "mono_user";
+    const handler = await createRouteHandler("/workspaces/login", "post");
+    const res = createMockRes();
+    await handler({ body: { grantType: "mono_auth_token" } }, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toMatchObject({
+      error_type: "MONO_AUTH_TOKEN_REQUIRED",
+    });
+  });
+
+  it("POST /api/workspaces/login mono_auth_token renvoie 401 si token invalide", async () => {
+    process.env.DEPLOYMENT_MODE = "mono_user";
+    consumeMonoAuthTokenMock.mockReturnValueOnce({
+      ok: false,
+      code: "MONO_AUTH_TOKEN_INVALID",
+    });
+    const handler = await createRouteHandler("/workspaces/login", "post");
+    const res = createMockRes();
+    await handler(
+      { body: { grantType: "mono_auth_token", monoAuthToken: "bad-token" } },
+      res
+    );
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toMatchObject({
+      error_type: "MONO_AUTH_TOKEN_INVALID",
+    });
+  });
+
+  it("POST /api/workspaces/login mono_auth_token renvoie 401 si workspace non résolu", async () => {
+    process.env.DEPLOYMENT_MODE = "mono_user";
+    consumeMonoAuthTokenMock.mockReturnValueOnce({
+      ok: true,
+      workspaceId: validCredentials.workspaceId,
+    });
+    getWorkspaceUserIdsMock.mockRejectedValueOnce(new Error("Workspace not found."));
+    const handler = await createRouteHandler("/workspaces/login", "post");
+    const res = createMockRes();
+    await handler(
+      { body: { grantType: "mono_auth_token", monoAuthToken: "token-x" } },
+      res
+    );
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toMatchObject({
+      error_type: "MONO_AUTH_TOKEN_INVALID",
+    });
+    expect(appendAuditLogMock).toHaveBeenCalledWith(
+      validCredentials.workspaceId,
+      "workspace_login_failed",
+      { grantType: "mono_auth_token" }
+    );
+  });
+
+  it("POST /api/workspaces/login mono_auth_token renvoie 200 en succès", async () => {
+    process.env.DEPLOYMENT_MODE = "mono_user";
+    consumeMonoAuthTokenMock.mockReturnValueOnce({
+      ok: true,
+      workspaceId: validCredentials.workspaceId,
+    });
+    const handler = await createRouteHandler("/workspaces/login", "post");
+    const res = createMockRes();
+    await handler(
+      { body: { grantType: "mono_auth_token", monoAuthToken: "token-ok" } },
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      workspaceToken: "workspace-token",
+      refreshToken: "refresh-token",
+    });
+    expect(issueWorkspaceTokensMock).toHaveBeenCalledWith(validCredentials.workspaceId);
+    expect(appendAuditLogMock).toHaveBeenCalledWith(
+      validCredentials.workspaceId,
+      "workspace_login_success",
+      { grantType: "mono_auth_token" }
+    );
   });
 
   const createRouteHandler = async (path, method) => {
