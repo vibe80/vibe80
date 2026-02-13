@@ -542,6 +542,10 @@ class ChatViewModel(
                 }
                 sessionRepository.reconnectSession(sessionId)
             }
+            // Always refresh worktrees when (re)entering a chat session.
+            // Without this, a resumed session that is already connected would skip the
+            // initial GET /worktrees call, leaving the UI with an empty list.
+            sessionRepository.listWorktrees()
             if (!worktreeId.isNullOrBlank()) {
                 sessionRepository.setActiveWorktree(worktreeId)
             }
