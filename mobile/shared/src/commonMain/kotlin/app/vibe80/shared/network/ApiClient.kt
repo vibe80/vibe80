@@ -1,6 +1,7 @@
 package app.vibe80.shared.network
 
 import app.vibe80.shared.logging.AppLogger
+import app.vibe80.shared.logging.LogSource
 import app.vibe80.shared.models.*
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -57,11 +58,18 @@ class ApiClient(
         return refreshMutex.withLock {
             val currentToken = refreshToken ?: return@withLock false
             val url = "$baseUrl/api/workspaces/refresh"
+            AppLogger.apiRequest("POST", url)
             return@withLock try {
                 val response = httpClient.post(url) {
                     contentType(ContentType.Application.Json)
                     setBody(WorkspaceRefreshRequest(refreshToken = currentToken))
                 }
+                val responseBody = if (!response.status.isSuccess()) {
+                    try { response.bodyAsText() } catch (_: Exception) { "" }
+                } else {
+                    ""
+                }
+                AppLogger.apiResponse("POST", url, response.status.value, responseBody)
                 if (response.status.isSuccess()) {
                     val payload: WorkspaceRefreshResponse = response.body()
                     setWorkspaceToken(payload.workspaceToken)
@@ -73,7 +81,8 @@ class ApiClient(
                 } else {
                     false
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLogger.apiError("POST", url, e)
                 false
             }
         }
@@ -89,8 +98,10 @@ class ApiClient(
         }
         val refreshed = refreshWorkspaceToken()
         if (!refreshed) {
+            AppLogger.warning(LogSource.API, "Token refresh failed after 401", "url=$url")
             return response
         }
+        AppLogger.info(LogSource.API, "Retrying request after token refresh", "url=$url")
         return request()
     }
     private fun parseErrorPayload(bodyText: String): ApiErrorPayload? {
@@ -242,15 +253,20 @@ class ApiClient(
      * Check if session is healthy and ready
      */
     suspend fun checkHealth(sessionId: String): Result<Boolean> {
+        val url = "$baseUrl/api/health"
+        AppLogger.apiRequest("GET", "$url?session=$sessionId")
         return runCatching {
-            val url = "$baseUrl/api/health"
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
                     parameter("session", sessionId)
                     applyAuth(this)
                 }
             }
+            val status = response.status.value
+            AppLogger.apiResponse("GET", "$url?session=$sessionId", status)
             response.status.value in 200..299
+        }.onFailure { e ->
+            AppLogger.apiError("GET", "$url?session=$sessionId", e)
         }
     }
 
@@ -259,6 +275,7 @@ class ApiClient(
      */
     suspend fun getModels(sessionId: String, provider: String): Result<ModelsResponse> {
         val url = "$baseUrl/api/models"
+        AppLogger.apiRequest("GET", "$url?session=$sessionId&provider=$provider")
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
@@ -267,12 +284,19 @@ class ApiClient(
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", "$url?session=$sessionId&provider=$provider", response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("GET", "$url?session=$sessionId&provider=$provider", e)
             Result.failure(e)
         }
     }
@@ -311,18 +335,26 @@ class ApiClient(
      */
     suspend fun getWorktreeDiff(sessionId: String, worktreeId: String): Result<WorktreeDiffResponse> {
         val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/diff"
+        AppLogger.apiRequest("GET", url)
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("GET", url, e)
             Result.failure(e)
         }
     }
@@ -369,6 +401,7 @@ class ApiClient(
             model = request.model,
             reasoningEffort = request.reasoningEffort
         )
+        AppLogger.apiRequest("POST", url, json.encodeToString(payload))
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
@@ -377,12 +410,19 @@ class ApiClient(
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("POST", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("POST", url, e)
             Result.failure(e)
         }
     }
@@ -396,6 +436,7 @@ class ApiClient(
         path: String
     ): Result<WorktreeFileResponse> {
         val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/file"
+        AppLogger.apiRequest("GET", "$url?path=$path")
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
@@ -403,12 +444,19 @@ class ApiClient(
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", "$url?path=$path", response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("GET", "$url?path=$path", e)
             Result.failure(e)
         }
     }
@@ -421,6 +469,7 @@ class ApiClient(
         request: WorktreeCreateRequest
     ): Result<WorktreeCreateResponse> {
         val url = "$baseUrl/api/sessions/$sessionId/worktrees"
+        AppLogger.apiRequest("POST", url, json.encodeToString(request))
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
@@ -429,12 +478,19 @@ class ApiClient(
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("POST", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("POST", url, e)
             Result.failure(e)
         }
     }
@@ -444,18 +500,26 @@ class ApiClient(
      */
     suspend fun deleteWorktree(sessionId: String, worktreeId: String): Result<Unit> {
         val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId"
+        AppLogger.apiRequest("DELETE", url)
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.delete(url) {
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("DELETE", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(Unit)
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("DELETE", url, e)
             Result.failure(e)
         }
     }
@@ -465,18 +529,26 @@ class ApiClient(
      */
     suspend fun abortMerge(sessionId: String, worktreeId: String): Result<Unit> {
         val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/abort-merge"
+        AppLogger.apiRequest("POST", url)
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("POST", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(Unit)
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("POST", url, e)
             Result.failure(e)
         }
     }
@@ -486,6 +558,7 @@ class ApiClient(
      */
     suspend fun listAttachments(sessionId: String): Result<AttachmentListResponse> {
         val url = "$baseUrl/api/attachments"
+        AppLogger.apiRequest("GET", "$url?session=$sessionId")
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
@@ -493,12 +566,19 @@ class ApiClient(
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", "$url?session=$sessionId", response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("GET", "$url?session=$sessionId", e)
             Result.failure(e)
         }
     }

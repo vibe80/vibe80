@@ -3,6 +3,7 @@ package app.vibe80.android.data
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import app.vibe80.shared.logging.AppLogger
 import app.vibe80.shared.models.Attachment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,14 +58,29 @@ class AttachmentUploader(
                 .post(multipartBuilder.build())
                 .build()
 
-            val response = client.newCall(request).execute()
+            try {
+                AppLogger.apiRequest("POST", request.url.toString(), "files=${fileUris.size}")
+                val response = client.newCall(request).execute()
 
-            if (!response.isSuccessful) {
-                throw Exception("Upload failed: ${response.code}")
+                val responseBody = response.body?.string().orEmpty()
+                AppLogger.apiResponse(
+                    "POST",
+                    request.url.toString(),
+                    response.code,
+                    if (response.isSuccessful) "" else responseBody
+                )
+
+                if (!response.isSuccessful) {
+                    throw Exception("Upload failed: ${response.code}")
+                }
+                if (responseBody.isBlank()) {
+                    throw Exception("Empty response")
+                }
+                parseUploadResponse(responseBody)
+            } catch (e: Exception) {
+                AppLogger.apiError("POST", request.url.toString(), e)
+                throw e
             }
-
-            val body = response.body?.string() ?: throw Exception("Empty response")
-            parseUploadResponse(body)
         } finally {
             tempFiles.forEach { it.delete() }
         }
