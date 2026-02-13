@@ -321,6 +321,44 @@ describe("routes/workspaces", () => {
     expect(storageMock.deleteWorkspaceRefreshToken).toHaveBeenCalledWith(expect.any(String));
   });
 
+  it("POST /api/workspaces/refresh renvoie 401 si token previous sans validUntil", async () => {
+    storageMock.getWorkspaceRefreshToken.mockResolvedValueOnce({
+      workspaceId: validCredentials.workspaceId,
+      kind: "previous",
+      previousValidUntil: null,
+    });
+    const handler = await createRouteHandler("/workspaces/refresh", "post");
+    const res = createMockRes();
+    await handler({ body: { refreshToken: "previous-no-valid-until" } }, res);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({
+      error: "Refresh token reused.",
+      code: "refresh_token_reused",
+    });
+    expect(storageMock.deleteWorkspaceRefreshToken).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteWorkspaceRefreshToken).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it("POST /api/workspaces/refresh accepte un token previous encore valide", async () => {
+    storageMock.getWorkspaceRefreshToken.mockResolvedValueOnce({
+      workspaceId: validCredentials.workspaceId,
+      kind: "previous",
+      previousValidUntil: Date.now() + 10_000,
+    });
+    const handler = await createRouteHandler("/workspaces/refresh", "post");
+    const res = createMockRes();
+    await handler({ body: { refreshToken: "previous-still-valid" } }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      workspaceToken: "workspace-token",
+      refreshToken: "refresh-token",
+    });
+    expect(issueWorkspaceTokensMock).toHaveBeenCalledWith(validCredentials.workspaceId);
+    expect(storageMock.deleteWorkspaceRefreshToken).not.toHaveBeenCalled();
+  });
+
   it("POST /api/workspaces/refresh renvoie 200 si refresh token valide", async () => {
     storageMock.getWorkspaceRefreshToken.mockResolvedValueOnce({
       workspaceId: validCredentials.workspaceId,
