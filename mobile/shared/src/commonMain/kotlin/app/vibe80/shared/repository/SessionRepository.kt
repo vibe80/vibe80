@@ -97,9 +97,31 @@ class SessionRepository(
 
     private fun handleApiFailure(error: Throwable, context: String) {
         val errorType = extractErrorType(error)
+        AppLogger.error(
+            LogSource.APP,
+            "API call failed",
+            "context=$context type=${errorType ?: "unknown"} error=${error.message ?: error::class.simpleName}"
+        )
         if (errorType == "WORKSPACE_TOKEN_INVALID") {
             AppLogger.warning(LogSource.APP, "Invalid workspace token detected", "context=$context")
             _workspaceAuthInvalid.tryEmit("Token workspace invalide. Merci de vous reconnecter.")
+            return
+        }
+        val isWorktreeContext = context.contains("worktree", ignoreCase = true)
+        _lastError.value = if (isWorktreeContext) {
+            AppError(
+                type = ErrorType.WORKTREE,
+                message = "Échec de l’opération worktree ($context).",
+                details = error.message ?: error.toString(),
+                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
+                canRetry = true,
+                context = context
+            )
+        } else {
+            AppError.network(
+                message = "Échec de l’appel API ($context).",
+                details = error.message ?: error.toString()
+            ).copy(context = context)
         }
     }
     private fun observeWebSocketErrors() {
@@ -659,23 +681,25 @@ class SessionRepository(
                 val lastSeen = _worktreeMessages.value[worktreeId]?.lastOrNull()?.id
                 webSocketManager.syncWorktreeMessages(worktreeId, lastSeenMessageId = lastSeen)
             }
-            apiClient.getWorktree(sessionId, worktreeId).onSuccess { snapshot ->
-                if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
-                    _messages.value = snapshot.messages
-                } else {
-                    _worktreeMessages.update { current ->
-                        current + (worktreeId to snapshot.messages)
-                    }
-                    val status = snapshot.status
-                    if (status != null) {
-                        _worktrees.update { current ->
-                            current[worktreeId]?.let { worktree ->
-                                current + (worktreeId to worktree.copy(status = status))
-                            } ?: current
+            apiClient.getWorktree(sessionId, worktreeId)
+                .onSuccess { snapshot ->
+                    if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        _messages.value = snapshot.messages
+                    } else {
+                        _worktreeMessages.update { current ->
+                            current + (worktreeId to snapshot.messages)
+                        }
+                        val status = snapshot.status
+                        if (status != null) {
+                            _worktrees.update { current ->
+                                current[worktreeId]?.let { worktree ->
+                                    current + (worktreeId to worktree.copy(status = status))
+                                } ?: current
+                            }
                         }
                     }
                 }
-            }
+                .onFailure { handleApiFailure(it, "getWorktree") }
         }
     }
 

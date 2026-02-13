@@ -282,18 +282,26 @@ class ApiClient(
      */
     suspend fun getWorktree(sessionId: String, worktreeId: String): Result<WorktreeGetResponse> {
         val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId"
+        AppLogger.apiRequest("GET", url)
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("GET", url, e)
             Result.failure(e)
         }
     }
@@ -324,18 +332,26 @@ class ApiClient(
      */
     suspend fun listWorktrees(sessionId: String): Result<WorktreesListResponse> {
         val url = "$baseUrl/api/sessions/$sessionId/worktrees"
+        AppLogger.apiRequest("GET", url)
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
                     applyAuth(this)
                 }
             }
+            val responseBody = if (!response.status.isSuccess()) {
+                try { response.bodyAsText() } catch (_: Exception) { "" }
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
-                Result.failure(buildApiException(response, url))
+                Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
+            AppLogger.apiError("GET", url, e)
             Result.failure(e)
         }
     }
