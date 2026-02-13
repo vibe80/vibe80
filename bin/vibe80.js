@@ -123,14 +123,12 @@ const maybeOpenMonoAuthUrl = async () => {
   }
   const url = await waitForMonoAuthUrl();
   if (!url) {
-    console.log("// L'ouverture automatique a échoué.");
-    console.log(`// Ouvrez manuellement: http://127.0.0.1:${serverPort}`);
+    console.log(`==> Open this URL to access the application: http://localhost:${serverPort}`);
     return;
   }
   const opened = await tryOpenUrl(url);
   if (!opened) {
-    console.log("// L'ouverture automatique a échoué.");
-    console.log(`// Ouvrez cette URL pour vous authentifier: ${url}`);
+    console.log(`==> Open this URL to authenticate: ${url}`);
   }
 };
 
