@@ -5,6 +5,12 @@ const verifyWorkspaceSecretMock = vi.hoisted(() => vi.fn());
 const issueWorkspaceTokensMock = vi.hoisted(() => vi.fn());
 const appendAuditLogMock = vi.hoisted(() => vi.fn());
 const getWorkspaceUserIdsMock = vi.hoisted(() => vi.fn());
+const readWorkspaceConfigMock = vi.hoisted(() => vi.fn());
+const sanitizeProvidersForResponseMock = vi.hoisted(() => vi.fn((providers) => providers || {}));
+const updateWorkspaceMock = vi.hoisted(() => vi.fn());
+const mergeProvidersForUpdateMock = vi.hoisted(() =>
+  vi.fn((existing, incoming) => ({ ...existing, ...incoming }))
+);
 const storageMock = vi.hoisted(() => ({
   listSessions: vi.fn(async () => []),
   getWorkspaceRefreshToken: vi.fn(),
@@ -27,12 +33,12 @@ vi.mock("../../../src/runtimeStore.js", () => ({
 vi.mock("../../../src/services/workspace.js", () => ({
   workspaceIdPattern: /^w[0-9a-f]{24}$/,
   createWorkspace: vi.fn(),
-  updateWorkspace: vi.fn(),
-  readWorkspaceConfig: vi.fn(),
+  updateWorkspace: updateWorkspaceMock,
+  readWorkspaceConfig: readWorkspaceConfigMock,
   verifyWorkspaceSecret: verifyWorkspaceSecretMock,
   getWorkspaceUserIds: getWorkspaceUserIdsMock,
-  sanitizeProvidersForResponse: vi.fn((providers) => providers || {}),
-  mergeProvidersForUpdate: vi.fn((existing, incoming) => ({ ...existing, ...incoming })),
+  sanitizeProvidersForResponse: sanitizeProvidersForResponseMock,
+  mergeProvidersForUpdate: mergeProvidersForUpdateMock,
   appendAuditLog: appendAuditLogMock,
 }));
 
@@ -51,6 +57,17 @@ describe("routes/workspaces", () => {
     appendAuditLogMock.mockResolvedValue();
     storageMock.getWorkspaceRefreshToken.mockResolvedValue(null);
     storageMock.deleteWorkspaceRefreshToken.mockResolvedValue();
+    storageMock.listSessions.mockResolvedValue([]);
+    readWorkspaceConfigMock.mockResolvedValue({
+      providers: {
+        codex: { enabled: true },
+      },
+    });
+    updateWorkspaceMock.mockResolvedValue({
+      providers: {
+        codex: { enabled: true },
+      },
+    });
   });
 
   const createRouteHandler = async (path, method) => {
@@ -218,5 +235,181 @@ describe("routes/workspaces", () => {
     });
     expect(issueWorkspaceTokensMock).toHaveBeenCalledWith(validCredentials.workspaceId);
     expect(storageMock.deleteWorkspaceRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/workspaces/refresh renvoie 500 en cas d’erreur interne", async () => {
+    storageMock.getWorkspaceRefreshToken.mockRejectedValueOnce(new Error("storage down"));
+    const handler = await createRouteHandler("/workspaces/refresh", "post");
+    const res = createMockRes();
+    await handler({ body: { refreshToken: "valid-refresh-token" } }, res);
+
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({ error: "Failed to refresh workspace token." });
+  });
+
+  it("GET /api/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "get");
+    const res = createMockRes();
+    await handler({ params: { workspaceId: "invalid-id" } }, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "Invalid workspaceId." });
+  });
+
+  it("GET /api/workspaces/:workspaceId renvoie 403 si workspaceId ne correspond pas au token", async () => {
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "get");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: "wffffffffffffffffffffffff",
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ error: "Forbidden." });
+  });
+
+  it("GET /api/workspaces/:workspaceId renvoie 200 si accès autorisé", async () => {
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "get");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: validCredentials.workspaceId,
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      workspaceId: validCredentials.workspaceId,
+      providers: {
+        codex: { enabled: true },
+      },
+    });
+    expect(readWorkspaceConfigMock).toHaveBeenCalledWith(validCredentials.workspaceId);
+    expect(sanitizeProvidersForResponseMock).toHaveBeenCalled();
+  });
+
+  it("GET /api/workspaces/:workspaceId renvoie 400 si la lecture échoue", async () => {
+    readWorkspaceConfigMock.mockRejectedValueOnce(new Error("Workspace not found."));
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "get");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: validCredentials.workspaceId,
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "Workspace not found." });
+  });
+
+  it("PATCH /api/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "patch");
+    const res = createMockRes();
+    await handler({ params: { workspaceId: "invalid-id" }, body: {} }, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "Invalid workspaceId." });
+  });
+
+  it("PATCH /api/workspaces/:workspaceId renvoie 403 si accès interdit", async () => {
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "patch");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: "wffffffffffffffffffffffff",
+        body: {},
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ error: "Forbidden." });
+  });
+
+  it("PATCH /api/workspaces/:workspaceId renvoie 403 si provider actif en session", async () => {
+    mergeProvidersForUpdateMock.mockReturnValueOnce({
+      codex: { enabled: false },
+    });
+    readWorkspaceConfigMock.mockResolvedValueOnce({
+      providers: {
+        codex: { enabled: true },
+      },
+    });
+    storageMock.listSessions.mockResolvedValueOnce([
+      { sessionId: "s1", activeProvider: "codex" },
+    ]);
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "patch");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: validCredentials.workspaceId,
+        body: { providers: { codex: { enabled: false } } },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({
+      error: "Provider cannot be disabled: active sessions use it.",
+    });
+    expect(updateWorkspaceMock).not.toHaveBeenCalled();
+  });
+
+  it("PATCH /api/workspaces/:workspaceId renvoie 200 en succès", async () => {
+    mergeProvidersForUpdateMock.mockReturnValueOnce({
+      codex: { enabled: true },
+    });
+    updateWorkspaceMock.mockResolvedValueOnce({
+      providers: {
+        codex: { enabled: true },
+      },
+    });
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "patch");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: validCredentials.workspaceId,
+        body: { providers: { codex: { enabled: true } } },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      workspaceId: validCredentials.workspaceId,
+      providers: {
+        codex: { enabled: true },
+      },
+    });
+    expect(updateWorkspaceMock).toHaveBeenCalledWith(validCredentials.workspaceId, {
+      codex: { enabled: true },
+    });
+  });
+
+  it("PATCH /api/workspaces/:workspaceId renvoie 400 si update échoue", async () => {
+    updateWorkspaceMock.mockRejectedValueOnce(new Error("Failed to update workspace."));
+    const handler = await createRouteHandler("/workspaces/:workspaceId", "patch");
+    const res = createMockRes();
+    await handler(
+      {
+        params: { workspaceId: validCredentials.workspaceId },
+        workspaceId: validCredentials.workspaceId,
+        body: { providers: { codex: { enabled: true } } },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "Failed to update workspace." });
   });
 });
