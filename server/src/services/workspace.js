@@ -708,6 +708,27 @@ export const verifyWorkspaceSecret = async (workspaceId, workspaceSecret) => {
   return compareWorkspaceSecretHash(workspaceSecret, record.workspaceSecretHash);
 };
 
+export const rotateWorkspaceSecret = async (workspaceId, options = {}) => {
+  if (!workspaceIdPattern.test(workspaceId)) {
+    throw new Error("Invalid workspaceId.");
+  }
+  const record = await getWorkspaceRecord(workspaceId);
+  const provided =
+    typeof options?.workspaceSecret === "string" ? options.workspaceSecret.trim() : "";
+  const nextSecret = provided || crypto.randomBytes(32).toString("hex");
+  await persistWorkspaceRecord({
+    workspaceId,
+    providers: record.providers || {},
+    ids: null,
+    workspaceSecretHash: hashWorkspaceSecret(nextSecret),
+    existing: record,
+  });
+  await appendAuditLog(workspaceId, "workspace_secret_rotated", {
+    actor: typeof options?.actor === "string" && options.actor ? options.actor : "system",
+  });
+  return { workspaceId, workspaceSecret: nextSecret };
+};
+
 export const ensureDefaultMonoWorkspace = async () => {
   if (!isMonoUser) {
     return;

@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "workspace:rotate-secret": "node scripts/rotate-workspace-secret.js"
   },
   "dependencies": {
     "docker-names": "^1.2.1",
