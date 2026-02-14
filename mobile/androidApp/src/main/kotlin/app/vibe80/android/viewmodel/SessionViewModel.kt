@@ -49,7 +49,6 @@ data class SessionUiState(
     val isCheckingExistingSession: Boolean = true,
     val error: String? = null,
     val sessionId: String? = null,
-    val hasSavedSession: Boolean = false,
     val workspaceSessions: List<app.vibe80.shared.models.SessionSummary> = emptyList(),
     val sessionsLoading: Boolean = false,
     val sessionsError: String? = null,
@@ -104,7 +103,7 @@ class SessionViewModel(
     private val handoffJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
     init {
-        checkExistingSession()
+        _uiState.update { it.copy(isCheckingExistingSession = false) }
         loadWorkspace()
         observeWorkspaceAuthInvalid()
         observeWorkspaceTokenUpdates()
@@ -188,103 +187,6 @@ class SessionViewModel(
         }
     }
 
-    private fun checkExistingSession() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isCheckingExistingSession = true) }
-
-            val savedSession = sessionPreferences.savedSession.first()
-            if (savedSession != null) {
-                _uiState.update {
-                    it.copy(
-                        isCheckingExistingSession = false,
-                        hasSavedSession = true,
-                        repoUrl = savedSession.repoUrl
-                    )
-                }
-            } else {
-                _uiState.update {
-                    it.copy(
-                        isCheckingExistingSession = false,
-                        hasSavedSession = false
-                    )
-                }
-            }
-        }
-    }
-
-    fun resumeExistingSession() {
-        viewModelScope.launch {
-            val token = _uiState.value.workspaceToken
-            if (token.isNullOrBlank()) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        loadingState = LoadingState.NONE,
-                        error = "Workspace non authentifié"
-                    )
-                }
-                return@launch
-            }
-            sessionRepository.setWorkspaceToken(token)
-            sessionRepository.setRefreshToken(_uiState.value.workspaceRefreshToken)
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    loadingState = LoadingState.RESUMING,
-                    error = null
-                )
-            }
-
-            val savedSession = sessionPreferences.savedSession.first()
-            if (savedSession == null) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        loadingState = LoadingState.NONE,
-                        error = "Aucune session sauvegardée",
-                        hasSavedSession = false
-                    )
-                }
-                return@launch
-            }
-
-            // Try to reconnect to existing session
-            val result = sessionRepository.reconnectSession(savedSession.sessionId)
-
-            result.fold(
-                onSuccess = {
-                    sessionRepository.listWorktrees()
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            loadingState = LoadingState.NONE,
-                            sessionId = savedSession.sessionId
-                        )
-                    }
-                },
-                onFailure = { exception ->
-                    val shouldClear = (exception as? app.vibe80.shared.network.SessionGetException)
-                        ?.statusCode == 404
-                    if (shouldClear) {
-                        sessionPreferences.clearSession()
-                    }
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            loadingState = LoadingState.NONE,
-                            error = if (shouldClear) {
-                                "Session expirée. Veuillez créer une nouvelle session."
-                            } else {
-                                "Impossible de reprendre la session. Vérifiez la connexion."
-                            },
-                            hasSavedSession = if (shouldClear) false else it.hasSavedSession
-                        )
-                    }
-                }
-            )
-        }
-    }
-
     fun resumeWorkspaceSession(sessionId: String, repoUrl: String?) {
         viewModelScope.launch {
             val token = _uiState.value.workspaceToken
@@ -310,14 +212,8 @@ class SessionViewModel(
 
             val result = sessionRepository.reconnectSession(sessionId)
             result.fold(
-                onSuccess = { state ->
+                onSuccess = {
                     sessionRepository.listWorktrees()
-                    sessionPreferences.saveSession(
-                        sessionId = sessionId,
-                        repoUrl = repoUrl ?: "",
-                        provider = state.activeProvider.name,
-                        baseUrl = Vibe80Application.BASE_URL
-                    )
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -674,14 +570,6 @@ class SessionViewModel(
 
             result.fold(
                 onSuccess = { sessionState ->
-                    // Save session for later
-                    sessionPreferences.saveSession(
-                        sessionId = sessionState.sessionId,
-                        repoUrl = state.repoUrl,
-                        provider = sessionState.activeProvider.name,
-                        baseUrl = Vibe80Application.BASE_URL
-                    )
-
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -715,13 +603,6 @@ class SessionViewModel(
         }
     }
 
-    fun clearSavedSession() {
-        viewModelScope.launch {
-            sessionPreferences.clearSession()
-            _uiState.update { it.copy(hasSavedSession = false) }
-        }
-    }
-
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
@@ -735,7 +616,6 @@ class SessionViewModel(
             sessionRepository.setWorkspaceToken(null)
             sessionRepository.setRefreshToken(null)
             sessionPreferences.clearWorkspace()
-            sessionPreferences.clearSession()
             _uiState.update { state ->
                 state.copy(
                     entryScreen = EntryScreen.WORKSPACE_MODE,
@@ -750,7 +630,6 @@ class SessionViewModel(
                     workspaceBusy = false,
                     repoUrl = "",
                     sessionId = null,
-                    hasSavedSession = false,
                     workspaceSessions = emptyList(),
                     sessionsLoading = false,
                     sessionsError = null
@@ -806,12 +685,6 @@ class SessionViewModel(
                         .reconnectSession(response.sessionId)
                         .getOrNull()
                     sessionRepository.listWorktrees()
-                    sessionPreferences.saveSession(
-                        sessionId = response.sessionId,
-                        repoUrl = sessionState?.repoUrl ?: "",
-                        provider = sessionState?.activeProvider?.name ?: "CODEX",
-                        baseUrl = Vibe80Application.BASE_URL
-                    )
                     _uiState.update {
                         it.copy(
                             workspaceId = response.workspaceId,

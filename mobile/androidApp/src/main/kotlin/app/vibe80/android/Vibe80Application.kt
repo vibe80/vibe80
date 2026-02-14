@@ -8,7 +8,6 @@ import app.vibe80.android.di.appModule
 import app.vibe80.android.data.SessionPreferences
 import app.vibe80.android.notifications.MessageNotifier
 import app.vibe80.shared.di.sharedModule
-import app.vibe80.shared.models.LLMProvider
 import app.vibe80.shared.models.MessageRole
 import app.vibe80.shared.repository.SessionRepository
 import kotlinx.coroutines.CoroutineScope
@@ -53,21 +52,12 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
         val sessionRepository: SessionRepository = get()
 
         appScope.launch {
-            val savedSession = sessionPreferences.savedSession.first()
             val savedWorkspace = sessionPreferences.savedWorkspace.first()
             if (!savedWorkspace?.workspaceToken.isNullOrBlank()) {
                 sessionRepository.setWorkspaceToken(savedWorkspace.workspaceToken)
             }
             if (!savedWorkspace?.workspaceRefreshToken.isNullOrBlank()) {
                 sessionRepository.setRefreshToken(savedWorkspace.workspaceRefreshToken)
-            }
-            if (savedSession != null && !savedWorkspace?.workspaceToken.isNullOrBlank()) {
-                val provider = try {
-                    LLMProvider.valueOf(savedSession.provider.uppercase())
-                } catch (e: Exception) {
-                    LLMProvider.CODEX
-                }
-                sessionRepository.ensureWebSocketConnected(savedSession.sessionId)
             }
         }
     }

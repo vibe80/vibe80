@@ -508,9 +508,6 @@ class ChatViewModel(
     }
 
     fun disconnect() {
-        viewModelScope.launch {
-            sessionPreferences.clearSession()
-        }
         sessionRepository.disconnect()
     }
 

@@ -173,18 +173,13 @@ fun SessionScreen(
                     )
 
                     EntryScreen.JOIN_SESSION -> JoinSessionScreen(
-                        hasSavedSession = uiState.hasSavedSession,
-                        repoUrl = uiState.repoUrl,
                         error = uiState.error,
-                        loadingState = uiState.loadingState,
                         isLoading = uiState.isLoading,
                         workspaceSessions = uiState.workspaceSessions,
                         sessionsLoading = uiState.sessionsLoading,
                         sessionsError = uiState.sessionsError,
                         onStartSession = viewModel::openStartSession,
                         onReconfigureProviders = viewModel::openProviderConfigForUpdate,
-                        onResumeSession = viewModel::resumeExistingSession,
-                        onDeleteSession = viewModel::clearSavedSession,
                         onResumeWorkspaceSession = viewModel::resumeWorkspaceSession,
                         onRefreshSessions = viewModel::loadWorkspaceSessions,
                         onLeaveWorkspace = viewModel::leaveWorkspace
@@ -633,18 +628,13 @@ private fun WorkspaceCreatedScreen(
 
 @Composable
 private fun JoinSessionScreen(
-    hasSavedSession: Boolean,
-    repoUrl: String,
     error: String?,
-    loadingState: LoadingState,
     isLoading: Boolean,
     workspaceSessions: List<app.vibe80.shared.models.SessionSummary>,
     sessionsLoading: Boolean,
     sessionsError: String?,
     onStartSession: () -> Unit,
     onReconfigureProviders: () -> Unit,
-    onResumeSession: () -> Unit,
-    onDeleteSession: () -> Unit,
     onResumeWorkspaceSession: (String, String?) -> Unit,
     onRefreshSessions: () -> Unit,
     onLeaveWorkspace: () -> Unit
@@ -694,43 +684,6 @@ private fun JoinSessionScreen(
             }
         }
 
-        if (hasSavedSession) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(repoUrl.ifBlank { stringResource(R.string.session_saved_placeholder) })
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = onResumeSession,
-                            enabled = !isLoading
-                        ) {
-                            Text(
-                                if (loadingState == LoadingState.RESUMING) {
-                                    stringResource(R.string.action_resume_progress)
-                                } else {
-                                    stringResource(R.string.action_resume)
-                                }
-                            )
-                        }
-                        OutlinedButton(onClick = onDeleteSession) {
-                            Text(stringResource(R.string.action_delete))
-                        }
-                    }
-                }
-            }
-        } else {
-            Text(
-                text = stringResource(R.string.session_saved_empty),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
         if (workspaceSessions.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 workspaceSessions.forEach { session ->
@@ -746,13 +699,15 @@ private fun JoinSessionScreen(
                             Text(
                                 text = session.name?.takeIf { it.isNotBlank() }
                                     ?: session.repoUrl?.takeIf { it.isNotBlank() }
-                                    ?: "Session ${session.sessionId}"
+                                    ?: "Session"
                             )
-                            Text(
-                                text = session.sessionId,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            extractRepoShortName(session.repoUrl)?.let { repoShortName ->
+                                Text(
+                                    text = repoShortName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             Button(
                                 onClick = { onResumeWorkspaceSession(session.sessionId, session.repoUrl) },
                                 enabled = !isLoading
@@ -778,6 +733,12 @@ private fun JoinSessionScreen(
             Text(it, color = MaterialTheme.colorScheme.error)
         }
     }
+}
+
+private fun extractRepoShortName(repoUrl: String?): String? {
+    val value = repoUrl?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() } ?: return null
+    val pathPart = value.substringAfterLast('/').substringAfterLast(':')
+    return pathPart.takeIf { it.isNotBlank() }
 }
 
 @Composable
