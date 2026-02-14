@@ -23,6 +23,7 @@ class SessionRepository(
 ) {
     private val scope = CoroutineScope(Dispatchers.Default)
     private var syncOnConnectJob: Job? = null
+    private var setActiveWorktreeJob: Job? = null
 
     private val _sessionState = MutableStateFlow<SessionState?>(null)
     val sessionState: StateFlow<SessionState?> = _sessionState.asStateFlow()
@@ -337,14 +338,10 @@ class SessionRepository(
                     }
                 }
                 if (message.worktreeId == Worktree.MAIN_WORKTREE_ID) {
-                    if (message.messages.isNotEmpty()) {
-                        _messages.value = message.messages
-                    }
+                    _messages.value = message.messages
                 } else {
-                    if (message.messages.isNotEmpty()) {
-                        _worktreeMessages.update { current ->
-                            current + (message.worktreeId to message.messages)
-                        }
+                    _worktreeMessages.update { current ->
+                        current + (message.worktreeId to message.messages)
                     }
                 }
             }
@@ -710,9 +707,11 @@ class SessionRepository(
     // ========== Worktree Management ==========
 
     fun setActiveWorktree(worktreeId: String) {
+        if (_activeWorktreeId.value == worktreeId) return
         _activeWorktreeId.value = worktreeId
         val sessionId = _sessionState.value?.sessionId ?: return
-        scope.launch {
+        setActiveWorktreeJob?.cancel()
+        setActiveWorktreeJob = scope.launch {
             if (worktreeId != Worktree.MAIN_WORKTREE_ID) {
                 webSocketManager.wakeUpWorktree(worktreeId)
                 val lastSeen = _worktreeMessages.value[worktreeId]?.lastOrNull()?.id
@@ -720,6 +719,8 @@ class SessionRepository(
             }
             apiClient.getWorktree(sessionId, worktreeId)
                 .onSuccess { snapshot ->
+                    // Ignore stale response if user switched tab while request was in flight.
+                    if (_activeWorktreeId.value != worktreeId) return@onSuccess
                     if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
                         _messages.value = snapshot.messages
                     } else {

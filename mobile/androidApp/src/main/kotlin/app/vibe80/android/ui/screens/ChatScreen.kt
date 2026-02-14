@@ -14,9 +14,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -79,7 +79,8 @@ fun ChatScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
+    val listStatesByWorktree = remember { mutableStateMapOf<String, LazyListState>() }
+    val listState = listStatesByWorktree.getOrPut(uiState.activeWorktreeId) { LazyListState() }
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingCameraPhoto by remember { mutableStateOf<CameraPhoto?>(null) }
 
@@ -215,7 +216,7 @@ fun ChatScreen(
     }
 
     // Auto-scroll to bottom on new messages
-    LaunchedEffect(uiState.messages.size, uiState.currentStreamingMessage) {
+    LaunchedEffect(uiState.activeWorktreeId, uiState.messages.size, uiState.currentStreamingMessage) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
         }
@@ -408,7 +409,7 @@ fun ChatScreen(
                 ) {
                 items(
                     items = uiState.messages,
-                    key = { it.id }
+                    key = { "${uiState.activeWorktreeId}:${it.id}" }
                 ) { message ->
                     MessageBubble(
                         message = message,
