@@ -33,8 +33,12 @@ fun Vibe80NavHost(
 ) {
     pendingNotification?.let { notification ->
         androidx.compose.runtime.LaunchedEffect(notification) {
+            val targetRoute = Screen.Chat.createRoute(notification.sessionId, notification.worktreeId)
+            if (navController.currentDestination?.route == Screen.Chat.route) {
+                navController.popBackStack()
+            }
             navController.navigate(
-                Screen.Chat.createRoute(notification.sessionId, notification.worktreeId)
+                targetRoute
             ) {
                 launchSingleTop = true
                 popUpTo(Screen.Session.route) { inclusive = false }

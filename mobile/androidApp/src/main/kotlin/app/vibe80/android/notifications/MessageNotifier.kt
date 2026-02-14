@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import app.vibe80.android.MainActivity
 import app.vibe80.android.R
+import app.vibe80.shared.utils.NotificationSanitizer
 
 class MessageNotifier(private val context: Context) {
 
@@ -44,16 +45,20 @@ class MessageNotifier(private val context: Context) {
     }
 
     fun notifyMessage(title: String, body: String, sessionId: String?, worktreeId: String?) {
-        if (body.isBlank() || !canNotify()) return
+        val sanitizedBody = NotificationSanitizer.sanitizeForNotification(body)
+        if (sanitizedBody.isBlank() || !canNotify()) return
 
+        val notificationKey = listOf(title, sanitizedBody, sessionId.orEmpty(), worktreeId.orEmpty()).joinToString("|")
+        val notificationId = notificationKey.hashCode()
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = "app.vibe80.NOTIFICATION_OPEN.$notificationId"
             putExtra(EXTRA_SESSION_ID, sessionId)
             putExtra(EXTRA_WORKTREE_ID, worktreeId)
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            0,
+            notificationId,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -61,13 +66,13 @@ class MessageNotifier(private val context: Context) {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentText(sanitizedBody)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(sanitizedBody))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
 
-        NotificationManagerCompat.from(context).notify(body.hashCode(), notification)
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 
     companion object {

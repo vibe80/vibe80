@@ -44,6 +44,10 @@
 "composer.model" = "Model";
 "composer.model.unavailable" = "Coming soon";
 "composer.photos" = "Photos";
+"composer.action.section" = "Action";
+"composer.action.llm" = "LLM message";
+"composer.action.shell" = "Shell command";
+"composer.action.git" = "Git command";
 "diff.additions" = "Additions";
 "diff.deletions" = "Deletions";
 "diff.empty.subtitle" = "Working tree is clean";
@@ -160,5 +164,11 @@
 "worktree.options" = "Options";
 "worktree.refresh" = "Refresh worktrees";
 "worktree.source_branch.label" = "Source branch";
+"worktree.source_worktree.label" = "Source worktree";
+"worktree.context.label" = "Context";
+"worktree.context.new" = "New";
+"worktree.context.fork" = "Fork";
+"worktree.internet_access.label" = "Internet access";
+"worktree.deny_git_credentials.label" = "Deny git credentials access";
 "worktree.title" = "Worktree: %s";
 "worktrees.title" = "Worktrees";

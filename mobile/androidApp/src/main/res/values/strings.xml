@@ -46,6 +46,10 @@
     <string name="composer_model">Modèle</string>
     <string name="composer_model_unavailable">Bientôt disponible</string>
     <string name="composer_photos">Photos</string>
+    <string name="composer_action_section">Action</string>
+    <string name="composer_action_llm">Message LLM</string>
+    <string name="composer_action_shell">Shell command</string>
+    <string name="composer_action_git">Git command</string>
     <string name="diff_additions">Ajouts</string>
     <string name="diff_deletions">Suppressions</string>
     <string name="diff_empty_subtitle">Le répertoire de travail est propre</string>
@@ -162,6 +166,12 @@
     <string name="worktree_options">Options</string>
     <string name="worktree_refresh">Rafraîchir les worktrees</string>
     <string name="worktree_source_branch_label">Branche source</string>
+    <string name="worktree_source_worktree_label">Worktree source</string>
+    <string name="worktree_context_label">Contexte</string>
+    <string name="worktree_context_new">Nouveau</string>
+    <string name="worktree_context_fork">Fork</string>
+    <string name="worktree_internet_access_label">Accès Internet</string>
+    <string name="worktree_deny_git_credentials_label">Refuser l’accès aux identifiants Git</string>
     <string name="worktree_title">Worktree : %s</string>
     <string name="worktrees_title">Worktrees</string>
 </resources>

@@ -33,6 +33,12 @@ data class UploadedAttachment(
     val size: Long
 )
 
+enum class ComposerActionMode {
+    LLM,
+    SHELL,
+    GIT
+}
+
 data class ChatUiState(
     val sessionId: String = "",
     val workspaceToken: String? = null,
@@ -64,6 +70,8 @@ data class ChatUiState(
     val showCloseWorktreeConfirm: String? = null,
     // Provider models
     val providerModelState: Map<String, ProviderModelState> = emptyMap(),
+    val selectedModelByWorktree: Map<String, String?> = emptyMap(),
+    val actionModeByWorktree: Map<String, ComposerActionMode> = emptyMap(),
     // Vibe80 forms
     val submittedFormMessageIds: Set<String> = emptySet(),
     val submittedYesNoMessageIds: Set<String> = emptySet(),
@@ -83,6 +91,12 @@ data class ChatUiState(
     /** Get active worktree */
     val activeWorktree: Worktree?
         get() = worktrees[activeWorktreeId]
+
+    val activeActionMode: ComposerActionMode
+        get() = actionModeByWorktree[activeWorktreeId] ?: ComposerActionMode.LLM
+
+    val activeSelectedModel: String?
+        get() = selectedModelByWorktree[activeWorktreeId]
 
     /** Sorted list of worktrees (main first, then by creation) */
     val sortedWorktrees: List<Worktree>
@@ -424,10 +438,38 @@ class ChatViewModel(
     fun sendMessageWithAttachments() {
         val text = _uiState.value.inputText.trim()
         val attachments = _uiState.value.pendingAttachments
+        val actionMode = _uiState.value.activeActionMode
 
-        AppLogger.info(LogSource.APP, "sendMessageWithAttachments called", "text='$text', attachments=${attachments.size}")
+        AppLogger.info(
+            LogSource.APP,
+            "sendMessageWithAttachments called",
+            "text='$text', attachments=${attachments.size}, actionMode=$actionMode"
+        )
 
         viewModelScope.launch {
+            if (actionMode != ComposerActionMode.LLM) {
+                val request = when (actionMode) {
+                    ComposerActionMode.SHELL -> "run"
+                    ComposerActionMode.GIT -> "git"
+                    else -> "run"
+                }
+                if (text.isNotBlank()) {
+                    sessionRepository.sendActionRequest(
+                        worktreeId = _uiState.value.activeWorktreeId,
+                        request = request,
+                        arg = text
+                    )
+                }
+                _uiState.update {
+                    it.copy(
+                        inputText = "",
+                        pendingAttachments = emptyList(),
+                        uploadingAttachments = false
+                    )
+                }
+                return@launch
+            }
+
             _uiState.update { it.copy(inputText = "", uploadingAttachments = attachments.isNotEmpty()) }
 
             val uploadedAttachments = if (attachments.isNotEmpty()) {
@@ -539,6 +581,29 @@ class ChatViewModel(
 
     fun selectWorktree(worktreeId: String) {
         sessionRepository.setActiveWorktree(worktreeId)
+        _uiState.value.worktrees[worktreeId]?.let { worktree ->
+            loadProviderModels(worktree.provider.name.lowercase())
+        }
+    }
+
+    fun setComposerActionModeForActiveWorktree(mode: ComposerActionMode) {
+        val worktreeId = _uiState.value.activeWorktreeId
+        _uiState.update {
+            it.copy(actionModeByWorktree = it.actionModeByWorktree + (worktreeId to mode))
+        }
+    }
+
+    fun setActiveWorktreeModel(model: String?) {
+        val worktree = _uiState.value.activeWorktree ?: return
+        val providerKey = worktree.provider.name.lowercase()
+        _uiState.update {
+            it.copy(selectedModelByWorktree = it.selectedModelByWorktree + (worktree.id to model))
+        }
+        if (model.isNullOrBlank()) return
+        viewModelScope.launch {
+            sessionRepository.setModel(worktree.id, model)
+        }
+        loadProviderModels(providerKey)
     }
 
     fun showCreateWorktreeSheet() {
@@ -554,10 +619,24 @@ class ChatViewModel(
         provider: LLMProvider,
         branchName: String? = null,
         model: String? = null,
-        reasoningEffort: String? = null
+        reasoningEffort: String? = null,
+        context: String? = null,
+        sourceWorktree: String? = null,
+        internetAccess: Boolean? = null,
+        denyGitCredentialsAccess: Boolean? = null
     ) {
         viewModelScope.launch {
-            sessionRepository.createWorktree(name, provider, branchName, model, reasoningEffort)
+            sessionRepository.createWorktree(
+                name = name,
+                provider = provider,
+                branchName = branchName,
+                model = model,
+                reasoningEffort = reasoningEffort,
+                context = context,
+                sourceWorktree = sourceWorktree,
+                internetAccess = internetAccess,
+                denyGitCredentialsAccess = denyGitCredentialsAccess
+            )
             _uiState.update { it.copy(showCreateWorktreeSheet = false) }
         }
     }
@@ -575,12 +654,22 @@ class ChatViewModel(
             sessionRepository.loadProviderModels(provider)
                 .onSuccess { models ->
                     _uiState.update { state ->
+                        val activeWorktreeId = state.activeWorktreeId
+                        val currentSelection = state.selectedModelByWorktree[activeWorktreeId]
+                        val resolvedSelection = currentSelection
+                            ?: models.firstOrNull { it.isDefault }?.model
+                            ?: models.firstOrNull()?.model
                         state.copy(
                             providerModelState = state.providerModelState + (provider to ProviderModelState(
                                 models = models,
                                 loading = false,
                                 error = null
-                            ))
+                            )),
+                            selectedModelByWorktree = if (resolvedSelection != null) {
+                                state.selectedModelByWorktree + (activeWorktreeId to resolvedSelection)
+                            } else {
+                                state.selectedModelByWorktree
+                            }
                         )
                     }
                 }

@@ -1,11 +1,17 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
+import shared
 
 struct ComposerView: View {
     @Binding var text: String
     let isLoading: Bool
+    let actionMode: ComposerActionMode
+    let activeModel: String?
+    let availableModels: [ProviderModel]
     let onSend: () -> Void
+    let onSelectActionMode: (ComposerActionMode) -> Void
+    let onSelectModel: (String) -> Void
 
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var pendingAttachments: [PendingAttachment] = []
@@ -19,64 +25,95 @@ struct ComposerView: View {
         VStack(spacing: 0) {
             Divider()
 
-            // Pending attachments
             if !pendingAttachments.isEmpty {
                 attachmentsPreview
             }
 
-            // Input row
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: 4) {
                 Menu {
-                    Button {
-                        showCameraPicker = true
-                    } label: {
-                        Label("composer.camera", systemImage: "camera")
+                    Section("action.add") {
+                        Button {
+                            showCameraPicker = true
+                        } label: {
+                            Label("composer.camera", systemImage: "camera")
+                        }
+
+                        Button {
+                            showPhotoPicker = true
+                        } label: {
+                            Label("composer.photos", systemImage: "photo")
+                        }
+
+                        Button {
+                            showFileImporter = true
+                        } label: {
+                            Label("composer.files", systemImage: "doc")
+                        }
                     }
 
-                    Button {
-                        showPhotoPicker = true
-                    } label: {
-                        Label("composer.photos", systemImage: "photo")
+                    Section("composer.model") {
+                        Menu {
+                            if availableModels.isEmpty {
+                                Text("composer.model.unavailable")
+                            } else {
+                                ForEach(availableModels, id: \.id) { model in
+                                    Button {
+                                        onSelectModel(model.model)
+                                    } label: {
+                                        let label = model.displayName ?? model.model
+                                        if activeModel == model.model {
+                                            Label(label, systemImage: "checkmark")
+                                        } else {
+                                            Text(label)
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label(activeModel ?? NSLocalizedString("composer.model.unavailable", comment: ""), systemImage: "sparkles")
+                        }
                     }
 
-                    Button {
-                        showFileImporter = true
-                    } label: {
-                        Label("composer.files", systemImage: "doc")
+                    Section("composer.action.section") {
+                        actionModeButton(.llm, title: "composer.action.llm")
+                        actionModeButton(.shell, title: "composer.action.shell")
+                        actionModeButton(.git, title: "composer.action.git")
                     }
-
-                    Button {
-                        // no-op
-                    } label: {
-                        Label("composer.model", systemImage: "sparkles")
-                    }
-                    .disabled(true)
                 } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(.vibe80Accent)
+                    Group {
+                        switch actionMode {
+                        case .llm:
+                            Image(systemName: "plus.circle.fill")
+                        case .shell:
+                            Text("$")
+                                .font(.headline)
+                        case .git:
+                            Image(systemName: "arrow.triangle.branch")
+                        }
+                    }
+                    .font(.title3)
+                    .foregroundColor(.vibe80Accent)
+                    .frame(width: 28, height: 28)
                 }
 
-                // Text input
                 TextField("composer.message.placeholder", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
                     .focused($isFocused)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
                     .background(Color.vibe80SurfaceElevated)
-                    .cornerRadius(20)
+                    .cornerRadius(16)
 
-                // Send button
                 Button(action: sendMessage) {
                     Image(systemName: isLoading ? "stop.fill" : "arrow.up.circle.fill")
-                        .font(.title)
+                        .font(.title2)
                         .foregroundColor(canSend ? .vibe80Accent : .vibe80InkMuted)
                 }
                 .disabled(!canSend && !isLoading)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
             .background(Color.vibe80Surface)
         }
         .photosPicker(
@@ -105,13 +142,24 @@ struct ComposerView: View {
         }
     }
 
-    // MARK: - Computed
-
-    private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pendingAttachments.isEmpty
+    private func actionModeButton(_ mode: ComposerActionMode, title: String) -> some View {
+        Button {
+            onSelectActionMode(mode)
+        } label: {
+            if actionMode == mode {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
     }
 
-    // MARK: - Attachments Preview
+    private var canSend: Bool {
+        if actionMode == .llm {
+            return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pendingAttachments.isEmpty
+        }
+        return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     private var attachmentsPreview: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -120,8 +168,8 @@ struct ComposerView: View {
                     attachmentChip(attachment)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
         }
         .background(Color.vibe80BackgroundStrong)
     }
@@ -158,17 +206,13 @@ struct ComposerView: View {
         .shadow(color: .black.opacity(0.1), radius: 2)
     }
 
-    // MARK: - Actions
-
     private func sendMessage() {
         if isLoading {
-            // TODO: Cancel current request
             return
         }
 
         guard canSend else { return }
 
-        // TODO: Include pendingAttachments in the message
         pendingAttachments.removeAll()
         selectedItems.removeAll()
 
@@ -244,8 +288,6 @@ struct ComposerView: View {
     }
 }
 
-// MARK: - Pending Attachment Model
-
 struct PendingAttachment: Identifiable {
     let id: UUID
     let name: String
@@ -264,37 +306,18 @@ struct PendingAttachment: Identifiable {
     }
 }
 
-// MARK: - Preview
-
 #Preview {
     VStack {
         Spacer()
         ComposerView(
             text: .constant(""),
             isLoading: false,
-            onSend: {}
-        )
-    }
-}
-
-#Preview("With Text") {
-    VStack {
-        Spacer()
-        ComposerView(
-            text: .constant("Hello world"),
-            isLoading: false,
-            onSend: {}
-        )
-    }
-}
-
-#Preview("Loading") {
-    VStack {
-        Spacer()
-        ComposerView(
-            text: .constant(""),
-            isLoading: true,
-            onSend: {}
+            actionMode: .llm,
+            activeModel: nil,
+            availableModels: [],
+            onSend: {},
+            onSelectActionMode: { _ in },
+            onSelectModel: { _ in }
         )
     }
 }

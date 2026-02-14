@@ -355,6 +355,33 @@ class WebSocketManager(
         ))
     }
 
+    suspend fun sendActionRequest(request: String, arg: String, worktreeId: String? = null) {
+        val normalizedWorktreeId = worktreeId?.takeIf {
+            it.isNotBlank() && it != Worktree.MAIN_WORKTREE_ID
+        }
+        send(
+            ActionRequestClientMessage(
+                id = "action_${kotlinx.datetime.Clock.System.now().toEpochMilliseconds()}_${(0..9999).random()}",
+                request = request,
+                arg = arg,
+                worktreeId = normalizedWorktreeId
+            )
+        )
+    }
+
+    suspend fun sendModelSet(model: String, reasoningEffort: String? = null, worktreeId: String? = null) {
+        val normalizedWorktreeId = worktreeId?.takeIf {
+            it.isNotBlank() && it != Worktree.MAIN_WORKTREE_ID
+        }
+        send(
+            ModelSetRequest(
+                model = model,
+                reasoningEffort = reasoningEffort,
+                worktreeId = normalizedWorktreeId
+            )
+        )
+    }
+
     suspend fun syncWorktreeMessages(worktreeId: String, lastSeenMessageId: String? = null) {
         send(SyncWorktreeMessagesRequest(worktreeId = worktreeId, lastSeenMessageId = lastSeenMessageId))
     }

@@ -330,7 +330,8 @@ data class ModelSetMessage(
     override val type: String = "model_set",
     val model: String? = null,
     val reasoningEffort: String? = null,
-    val provider: String? = null
+    val provider: String? = null,
+    val worktreeId: String? = null
 ) : ServerMessage()
 
 @Serializable
@@ -436,7 +437,8 @@ data class ModelListRequest(
 data class ModelSetRequest(
     override val type: String = "model_set",
     val model: String,
-    val reasoningEffort: String? = null
+    val reasoningEffort: String? = null,
+    val worktreeId: String? = null
 ) : ClientMessage()
 
 @Serializable
@@ -449,7 +451,8 @@ data class ActionRequestClientMessage(
     override val type: String = "action_request",
     val id: String,
     val request: String,
-    val arg: String? = null
+    val arg: String? = null,
+    val worktreeId: String? = null
 ) : ClientMessage()
 
 @Serializable

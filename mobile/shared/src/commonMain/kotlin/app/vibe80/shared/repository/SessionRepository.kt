@@ -614,11 +614,70 @@ class SessionRepository(
             }
 
             is ActionRequestMessage -> {
-                // Optional: handle action requests
+                val requestId = message.id ?: return
+                val requestType = message.request ?: "run"
+                val commandArg = message.arg ?: ""
+                val commandText = message.text ?: "/$requestType $commandArg".trim()
+                val userActionMessage = ChatMessage(
+                    id = requestId,
+                    role = MessageRole.USER,
+                    text = commandText,
+                    timestamp = System.currentTimeMillis()
+                )
+                val worktreeId = message.worktreeId
+                if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                    _worktreeMessages.update { current ->
+                        val messages = current[worktreeId] ?: emptyList()
+                        if (messages.any { it.id == requestId }) return@update current
+                        current + (worktreeId to (messages + userActionMessage))
+                    }
+                } else {
+                    _messages.update { current ->
+                        if (current.any { it.id == requestId }) return@update current
+                        current + userActionMessage
+                    }
+                }
             }
 
             is ActionResultMessage -> {
-                // Optional: handle action results
+                val resultId = message.id ?: return
+                val requestType = message.request ?: "run"
+                val commandArg = message.arg ?: ""
+                val commandText = "/$requestType $commandArg".trim()
+                val output = message.output ?: message.text.orEmpty()
+                val status = when (message.status?.lowercase()) {
+                    "running" -> ExecutionStatus.RUNNING
+                    "completed", "success", "ok" -> ExecutionStatus.COMPLETED
+                    else -> ExecutionStatus.ERROR
+                }
+                val commandMessage = ChatMessage(
+                    id = resultId,
+                    role = MessageRole.TOOL_RESULT,
+                    text = output,
+                    timestamp = System.currentTimeMillis(),
+                    command = commandText,
+                    output = output,
+                    status = status,
+                    toolResult = ToolResult(
+                        callId = resultId,
+                        name = requestType,
+                        output = output,
+                        success = status != ExecutionStatus.ERROR
+                    )
+                )
+                val worktreeId = message.worktreeId
+                if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
+                    _worktreeMessages.update { current ->
+                        val messages = current[worktreeId] ?: emptyList()
+                        if (messages.any { it.id == resultId }) return@update current
+                        current + (worktreeId to (messages + commandMessage))
+                    }
+                } else {
+                    _messages.update { current ->
+                        if (current.any { it.id == resultId }) return@update current
+                        current + commandMessage
+                    }
+                }
             }
 
             is ModelListMessage -> {
@@ -757,6 +816,22 @@ class SessionRepository(
         webSocketManager.switchProvider(provider.name.lowercase())
     }
 
+    suspend fun setModel(worktreeId: String, model: String, reasoningEffort: String? = null) {
+        webSocketManager.sendModelSet(
+            model = model,
+            reasoningEffort = reasoningEffort,
+            worktreeId = worktreeId
+        )
+    }
+
+    suspend fun sendActionRequest(worktreeId: String, request: String, arg: String) {
+        webSocketManager.sendActionRequest(
+            request = request,
+            arg = arg,
+            worktreeId = worktreeId
+        )
+    }
+
     suspend fun loadDiff() {
         val sessionId = _sessionState.value?.sessionId ?: return
         val worktreeId = _activeWorktreeId.value
@@ -784,6 +859,10 @@ class SessionRepository(
      * Reconnect to an existing session
      */
     suspend fun reconnectSession(sessionId: String): Result<SessionState> {
+        return reconnectSession(sessionId, null)
+    }
+
+    suspend fun reconnectSession(sessionId: String, repoUrlOverride: String?): Result<SessionState> {
         val result = apiClient.getSession(sessionId)
         result.onFailure { handleApiFailure(it, "reconnectSession") }
         return result.map { response ->
@@ -793,9 +872,15 @@ class SessionRepository(
             } else {
                 listOf("codex", "claude")
             }
+            val resolvedRepoUrl = repoUrlOverride
+                ?.takeIf { it.isNotBlank() }
+                ?: _sessionState.value
+                    ?.takeIf { it.sessionId == sessionId }
+                    ?.repoUrl
+                    .orEmpty()
             val state = SessionState(
                 sessionId = sessionId,
-                repoUrl = "", // Not returned by getSession
+                repoUrl = resolvedRepoUrl,
                 activeProvider = LLMProvider.valueOf(providerValue),
                 providers = providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
@@ -879,18 +964,26 @@ class SessionRepository(
         provider: LLMProvider,
         branchName: String? = null,
         model: String? = null,
-        reasoningEffort: String? = null
+        reasoningEffort: String? = null,
+        context: String? = null,
+        sourceWorktree: String? = null,
+        internetAccess: Boolean? = null,
+        denyGitCredentialsAccess: Boolean? = null
     ) {
         val sessionId = _sessionState.value?.sessionId
             ?: return
         val request = WorktreeCreateApiRequest(
             session = sessionId,
             provider = provider.name.lowercase(),
+            context = context,
+            sourceWorktree = sourceWorktree,
             name = name,
             parentWorktreeId = _activeWorktreeId.value,
             startingBranch = branchName,
             model = model,
-            reasoningEffort = reasoningEffort
+            reasoningEffort = reasoningEffort,
+            internetAccess = internetAccess,
+            denyGitCredentialsAccess = denyGitCredentialsAccess
         )
         val result = apiClient.createWorktree(request)
         result.onFailure { handleApiFailure(it, "createWorktree") }

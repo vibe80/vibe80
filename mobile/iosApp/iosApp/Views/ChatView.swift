@@ -64,7 +64,12 @@ struct ChatView: View {
                 ComposerView(
                     text: $viewModel.inputText,
                     isLoading: viewModel.isProcessing,
-                    onSend: viewModel.sendMessage
+                    actionMode: viewModel.activeActionMode,
+                    activeModel: viewModel.activeSelectedModel,
+                    availableModels: viewModel.activeModels,
+                    onSend: viewModel.sendMessage,
+                    onSelectActionMode: viewModel.setActionMode,
+                    onSelectModel: viewModel.setActiveModel
                 )
             }
             .navigationTitle("app.name")
@@ -133,8 +138,19 @@ struct ChatView: View {
             .sheet(isPresented: $showCreateWorktreeSheet) {
                 CreateWorktreeSheetView(
                     currentProvider: viewModel.activeProvider,
-                    onCreate: { name, provider, branch in
-                        viewModel.createWorktree(name: name, provider: provider, branchName: branch)
+                    worktrees: viewModel.sortedWorktrees,
+                    onCreate: { name, provider, branch, model, reasoningEffort, context, sourceWorktree, internetAccess, denyGitCredentialsAccess in
+                        viewModel.createWorktree(
+                            name: name,
+                            provider: provider,
+                            branchName: branch,
+                            model: model,
+                            reasoningEffort: reasoningEffort,
+                            context: context,
+                            sourceWorktree: sourceWorktree,
+                            internetAccess: internetAccess,
+                            denyGitCredentialsAccess: denyGitCredentialsAccess
+                        )
                         showCreateWorktreeSheet = false
                     }
                 )
@@ -155,6 +171,10 @@ struct ChatView: View {
         }
         .onAppear {
             viewModel.connect(sessionId: sessionId)
+            viewModel.loadModelsForActiveWorktree()
+        }
+        .onChange(of: viewModel.activeWorktreeId) { _ in
+            viewModel.loadModelsForActiveWorktree()
         }
     }
 

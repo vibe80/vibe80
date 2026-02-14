@@ -44,6 +44,10 @@
 "composer.model" = "Modèle";
 "composer.model.unavailable" = "Bientôt disponible";
 "composer.photos" = "Photos";
+"composer.action.section" = "Action";
+"composer.action.llm" = "Message LLM";
+"composer.action.shell" = "Shell command";
+"composer.action.git" = "Git command";
 "diff.additions" = "Ajouts";
 "diff.deletions" = "Suppressions";
 "diff.empty.subtitle" = "Le répertoire de travail est propre";
@@ -160,5 +164,11 @@
 "worktree.options" = "Options";
 "worktree.refresh" = "Rafraîchir les worktrees";
 "worktree.source_branch.label" = "Branche source";
+"worktree.source_worktree.label" = "Worktree source";
+"worktree.context.label" = "Contexte";
+"worktree.context.new" = "Nouveau";
+"worktree.context.fork" = "Fork";
+"worktree.internet_access.label" = "Accès Internet";
+"worktree.deny_git_credentials.label" = "Refuser l’accès aux identifiants Git";
 "worktree.title" = "Worktree : %s";
 "worktrees.title" = "Worktrees";
