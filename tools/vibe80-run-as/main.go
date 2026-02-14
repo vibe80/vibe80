@@ -270,27 +270,24 @@ func resolveCommand(command string) (string, error) {
 }
 
 func lookupIDs(workspaceID string) (uint32, uint32, error) {
-  uidRaw, uidErr := exec.Command("id", "-u", workspaceID).Output()
-  gidRaw, gidErr := exec.Command("id", "-g", workspaceID).Output()
-  if uidErr == nil && gidErr == nil {
-    uid, err := parseUint(strings.TrimSpace(string(uidRaw)))
-    if err != nil {
-      return 0, 0, errors.New("invalid uid")
-    }
-    gid, err := parseUint(strings.TrimSpace(string(gidRaw)))
-    if err != nil {
-      return 0, 0, errors.New("invalid gid")
-    }
-    return uid, gid, nil
+  output, err := exec.Command("getent", "passwd", workspaceID).Output()
+  if err != nil {
+    return 0, 0, errors.New("unable to resolve workspace ids")
   }
-
-  if uidErr != nil {
-    return 0, 0, errors.New("unable to resolve uid")
+  line := strings.TrimSpace(string(output))
+  fields := strings.Split(line, ":")
+  if len(fields) < 4 {
+    return 0, 0, errors.New("invalid passwd entry")
   }
-  if gidErr != nil {
-    return 0, 0, errors.New("unable to resolve gid")
+  uid, err := parseUint(strings.TrimSpace(fields[2]))
+  if err != nil {
+    return 0, 0, errors.New("invalid uid")
   }
-  return 0, 0, errors.New("unable to resolve workspace ids")
+  gid, err := parseUint(strings.TrimSpace(fields[3]))
+  if err != nil {
+    return 0, 0, errors.New("invalid gid")
+  }
+  return uid, gid, nil
 }
 
 func parseUint(value string) (uint32, error) {

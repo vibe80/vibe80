@@ -25,7 +25,9 @@ func main() {
   switch os.Args[1] {
   case "create-workspace":
     workspaceID := parseFlagValue("--workspace-id")
-    ensureWorkspace(workspaceID)
+    uid := parseFlagIntValue("--uid")
+    gid := parseFlagIntValue("--gid")
+    ensureWorkspace(workspaceID, uid, gid)
   default:
     fail("unknown command")
   }
@@ -41,9 +43,21 @@ func parseFlagValue(flag string) string {
   return ""
 }
 
-func ensureWorkspace(workspaceID string) {
+func parseFlagIntValue(flag string) int {
+  value := parseFlagValue(flag)
+  parsed, err := strconv.Atoi(strings.TrimSpace(value))
+  if err != nil {
+    fail("invalid value for " + flag)
+  }
+  return parsed
+}
+
+func ensureWorkspace(workspaceID string, desiredUID, desiredGID int) {
   if !workspaceIDPattern.MatchString(workspaceID) {
     fail("invalid workspace-id")
+  }
+  if desiredUID < 1 || desiredGID < 1 {
+    fail("uid/gid must be >= 1")
   }
 
   homeBase := os.Getenv("WORKSPACE_HOME_BASE")
@@ -58,37 +72,40 @@ func ensureWorkspace(workspaceID string) {
   homeDir := filepath.Join(homeBase, workspaceID)
   rootDir := filepath.Join(workspaceRootBase, workspaceID)
   sessionsDir := filepath.Join(rootDir, workspaceSessionsDirName)
-  desiredUID, desiredGID := -1, -1
 
   if err := ensureUser(workspaceID, homeDir, desiredUID, desiredGID); err != nil {
     fail(err.Error())
   }
 
-  uid, gid, err := lookupIDs(workspaceID)
-  if err != nil {
+  if err := ensureDir(homeDir, 02750, desiredUID, desiredGID); err != nil {
     fail(err.Error())
   }
-
-  if err := ensureDir(homeDir, 02750, uid, gid); err != nil {
+  if err := ensureFile(filepath.Join(homeDir, ".profile"), 0640, desiredUID, desiredGID); err != nil {
     fail(err.Error())
   }
-  if err := ensureFile(filepath.Join(homeDir, ".profile"), 0640, uid, gid); err != nil {
+  if err := ensureFile(filepath.Join(homeDir, ".bashrc"), 0640, desiredUID, desiredGID); err != nil {
     fail(err.Error())
   }
-  if err := ensureFile(filepath.Join(homeDir, ".bashrc"), 0640, uid, gid); err != nil {
+  if err := ensureDir(rootDir, 02750, desiredUID, desiredGID); err != nil {
     fail(err.Error())
   }
-  if err := ensureDir(rootDir, 02750, uid, gid); err != nil {
-    fail(err.Error())
-  }
-  if err := ensureDir(sessionsDir, 02750, uid, gid); err != nil {
+  if err := ensureDir(sessionsDir, 02750, desiredUID, desiredGID); err != nil {
     fail(err.Error())
   }
 }
 
 func ensureUser(workspaceID, homeDir string, uid, gid int) error {
-  _, err := exec.Command("id", "-u", workspaceID).Output()
-  if err == nil {
+  existingUID, existingGID, found, err := lookupPasswdByName(workspaceID)
+  if err != nil {
+    return err
+  }
+  if found {
+    if uid >= 0 && existingUID != uid {
+      return fmt.Errorf("existing user uid mismatch for %s", workspaceID)
+    }
+    if gid >= 0 && existingGID != gid {
+      return fmt.Errorf("existing user gid mismatch for %s", workspaceID)
+    }
     return nil
   }
   args := []string{"-m", "-d", homeDir, "-s", "/bin/bash"}
@@ -108,24 +125,31 @@ func ensureUser(workspaceID, homeDir string, uid, gid int) error {
   return nil
 }
 
-func lookupIDs(workspaceID string) (int, int, error) {
-  uidRaw, err := exec.Command("id", "-u", workspaceID).Output()
+func lookupPasswdByName(workspaceID string) (int, int, bool, error) {
+  output, err := exec.Command("getent", "passwd", workspaceID).Output()
   if err != nil {
-    return 0, 0, errors.New("unable to resolve uid")
+    if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() != 0 {
+      return 0, 0, false, nil
+    }
+    return 0, 0, false, errors.New("unable to resolve workspace ids")
   }
-  gidRaw, err := exec.Command("id", "-g", workspaceID).Output()
+  line := strings.TrimSpace(string(output))
+  if line == "" {
+    return 0, 0, false, nil
+  }
+  fields := strings.Split(line, ":")
+  if len(fields) < 4 {
+    return 0, 0, false, errors.New("invalid passwd entry")
+  }
+  uid, err := strconv.Atoi(fields[2])
   if err != nil {
-    return 0, 0, errors.New("unable to resolve gid")
+    return 0, 0, false, errors.New("invalid uid")
   }
-  uid, err := strconv.Atoi(strings.TrimSpace(string(uidRaw)))
+  gid, err := strconv.Atoi(fields[3])
   if err != nil {
-    return 0, 0, errors.New("invalid uid")
+    return 0, 0, false, errors.New("invalid gid")
   }
-  gid, err := strconv.Atoi(strings.TrimSpace(string(gidRaw)))
-  if err != nil {
-    return 0, 0, errors.New("invalid gid")
-  }
-  return uid, gid, nil
+  return uid, gid, true, nil
 }
 
 func ensureDir(path string, mode os.FileMode, uid, gid int) error {
