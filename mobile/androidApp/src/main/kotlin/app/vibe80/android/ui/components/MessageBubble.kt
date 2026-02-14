@@ -508,7 +508,7 @@ private fun CollapsibleCodeBlock(
         modifier = modifier
             .clip(MaterialTheme.shapes.small)
             .background(background)
-            .padding(8.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier
@@ -545,7 +545,7 @@ private fun CollapsibleCodeBlock(
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(3.dp))
 
         if (expanded) {
             Text(
@@ -558,7 +558,7 @@ private fun CollapsibleCodeBlock(
                     .heightIn(max = 240.dp)
                     .verticalScroll(rememberScrollState())
                     .horizontalScroll(rememberScrollState())
-                    .padding(8.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             )
         } else {
             Text(
@@ -570,7 +570,7 @@ private fun CollapsibleCodeBlock(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
     }
@@ -591,7 +591,7 @@ private fun CollapsibleToolResultBlock(
         modifier = modifier
             .clip(MaterialTheme.shapes.small)
             .background(background)
-            .padding(8.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier
@@ -626,7 +626,7 @@ private fun CollapsibleToolResultBlock(
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(3.dp))
 
         if (expanded) {
             Text(
@@ -639,7 +639,7 @@ private fun CollapsibleToolResultBlock(
                     .heightIn(max = 240.dp)
                     .verticalScroll(rememberScrollState())
                     .horizontalScroll(rememberScrollState())
-                    .padding(8.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             )
         } else {
             Text(
@@ -651,7 +651,7 @@ private fun CollapsibleToolResultBlock(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
     }

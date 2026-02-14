@@ -220,7 +220,7 @@ private struct ToolResultPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
             Button {
                 expanded.toggle()
             } label: {
@@ -261,7 +261,8 @@ private struct ToolResultPanel: View {
                         .foregroundColor(.vibe80Ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
-                        .padding(8)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
                 }
                 .frame(maxHeight: 220)
                 .background(Color.vibe80BackgroundStrong)
@@ -272,7 +273,8 @@ private struct ToolResultPanel: View {
                     .foregroundColor(.vibe80Ink)
                     .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .background(Color.vibe80BackgroundStrong)
                     .cornerRadius(10)
             }
