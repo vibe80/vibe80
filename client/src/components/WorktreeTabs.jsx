@@ -44,6 +44,7 @@ export default function WorktreeTabs({
   branchError,
   defaultInternetAccess,
   defaultDenyGitCredentialsAccess,
+  deploymentMode,
   onRefreshBranches,
   providerModelState,
   onRequestProviderModels,
@@ -566,7 +567,7 @@ export default function WorktreeTabs({
                   <span>{t("Internet access")}</span>
                 </label>
               </div>
-              {newInternetAccess && (
+              {newInternetAccess && deploymentMode !== "mono_user" && (
                 <div className="worktree-create-field worktree-toggle-field">
                   <label className="worktree-toggle">
                     <input

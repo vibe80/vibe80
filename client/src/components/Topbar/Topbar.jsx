@@ -21,6 +21,7 @@ export default function Topbar({
   branchError,
   defaultInternetAccess,
   defaultDenyGitCredentialsAccess,
+  deploymentMode,
   loadBranches,
   providerModelState,
   loadProviderModels,
@@ -57,6 +58,7 @@ export default function Topbar({
             branchError={branchError}
             defaultInternetAccess={defaultInternetAccess}
             defaultDenyGitCredentialsAccess={defaultDenyGitCredentialsAccess}
+            deploymentMode={deploymentMode}
             onRefreshBranches={loadBranches}
             providerModelState={providerModelState}
             onRequestProviderModels={loadProviderModels}

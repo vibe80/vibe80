@@ -698,7 +698,7 @@ export default function SessionGate({
                             />
                             {t("Internet access")}
                           </label>
-                          {defaultInternetAccess && (
+                          {defaultInternetAccess && deploymentMode !== "mono_user" && (
                             <label className="session-auth-option">
                               <input
                                 type="checkbox"

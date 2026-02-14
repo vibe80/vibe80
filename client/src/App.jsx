@@ -2325,6 +2325,7 @@ function App() {
         branchError={branchError}
         defaultInternetAccess={defaultInternetAccess}
         defaultDenyGitCredentialsAccess={defaultDenyGitCredentialsAccess}
+        deploymentMode={deploymentMode}
         loadBranches={loadBranches}
         providerModelState={providerModelState}
         loadProviderModels={loadProviderModels}
