@@ -5,6 +5,7 @@ const verifyWorkspaceSecretMock = vi.hoisted(() => vi.fn());
 const issueWorkspaceTokensMock = vi.hoisted(() => vi.fn());
 const rotateWorkspaceRefreshTokenMock = vi.hoisted(() => vi.fn());
 const consumeMonoAuthTokenMock = vi.hoisted(() => vi.fn());
+const createWorkspaceMock = vi.hoisted(() => vi.fn());
 const appendAuditLogMock = vi.hoisted(() => vi.fn());
 const getWorkspaceUserIdsMock = vi.hoisted(() => vi.fn());
 const readWorkspaceConfigMock = vi.hoisted(() => vi.fn());
@@ -33,7 +34,7 @@ vi.mock("../../../src/runtimeStore.js", () => ({
 
 vi.mock("../../../src/services/workspace.js", () => ({
   workspaceIdPattern: /^w[0-9a-f]{24}$/,
-  createWorkspace: vi.fn(),
+  createWorkspace: createWorkspaceMock,
   updateWorkspace: updateWorkspaceMock,
   readWorkspaceConfig: readWorkspaceConfigMock,
   verifyWorkspaceSecret: verifyWorkspaceSecretMock,
@@ -71,6 +72,10 @@ describe("routes/workspaces", () => {
         refreshExpiresIn: 86400,
       },
     });
+    createWorkspaceMock.mockResolvedValue({
+      workspaceId: validCredentials.workspaceId,
+      workspaceSecret: validCredentials.workspaceSecret,
+    });
     readWorkspaceConfigMock.mockResolvedValue({
       providers: {
         codex: { enabled: true },
@@ -96,6 +101,47 @@ describe("routes/workspaces", () => {
     expect(res.body).toMatchObject({
       error_type: "MONO_AUTH_FORBIDDEN",
     });
+  });
+
+  it("POST /api/workspaces renvoie 403 en mode mono_user", async () => {
+    process.env.DEPLOYMENT_MODE = "mono_user";
+    const handler = await createRouteHandler("/workspaces", "post");
+    const res = createMockRes();
+    await handler(
+      {
+        body: {
+          providers: { codex: { enabled: true, auth: { type: "api_key", value: "x" } } },
+        },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({
+      error_type: "WORKSPACE_CREATE_FORBIDDEN",
+    });
+    expect(createWorkspaceMock).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/workspaces/login credentials renvoie 403 en mode mono_user", async () => {
+    process.env.DEPLOYMENT_MODE = "mono_user";
+    const handler = await createRouteHandler("/workspaces/login", "post");
+    const res = createMockRes();
+    await handler(
+      {
+        body: {
+          workspaceId: validCredentials.workspaceId,
+          workspaceSecret: "any-secret",
+        },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({
+      error_type: "WORKSPACE_LOGIN_FORBIDDEN",
+    });
+    expect(verifyWorkspaceSecretMock).not.toHaveBeenCalled();
   });
 
   it("POST /api/workspaces/login mono_auth_token renvoie 400 si token manquant", async () => {

@@ -92,6 +92,13 @@ export default function workspaceRoutes() {
   const deploymentMode = process.env.DEPLOYMENT_MODE;
 
   router.post("/workspaces", async (req, res) => {
+    if (deploymentMode === "mono_user") {
+      res.status(403).json({
+        error: "Workspace creation is forbidden in mono_user mode.",
+        error_type: "WORKSPACE_CREATE_FORBIDDEN",
+      });
+      return;
+    }
     try {
       const providers = req.body?.providers;
       const result = await createWorkspace(providers);
@@ -147,6 +154,14 @@ export default function workspaceRoutes() {
           error_type: "MONO_AUTH_TOKEN_INVALID",
         });
       }
+      return;
+    }
+
+    if (deploymentMode === "mono_user") {
+      res.status(403).json({
+        error: "Workspace credentials login is forbidden in mono_user mode.",
+        error_type: "WORKSPACE_LOGIN_FORBIDDEN",
+      });
       return;
     }
 
