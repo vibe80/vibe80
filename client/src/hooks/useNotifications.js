@@ -67,6 +67,10 @@ export default function useNotifications({ notificationsEnabled, t }) {
       return "";
     }
     let output = String(value);
+    const vibe80Marker = output.match(/<!--\s*vibe80:/i);
+    if (typeof vibe80Marker?.index === "number") {
+      output = output.slice(0, vibe80Marker.index);
+    }
     output = output.replace(/```([\s\S]*?)```/g, "$1");
     output = output.replace(/`([^`]+)`/g, "$1");
     output = output.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, "$1");
