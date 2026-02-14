@@ -2,6 +2,44 @@ package app.vibe80.shared.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
+import kotlinx.datetime.Instant
+
+object FlexibleTimestampAsLongSerializer : KSerializer<Long> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("FlexibleTimestampAsLong", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): Long {
+        val jsonDecoder = decoder as? JsonDecoder ?: return decoder.decodeLong()
+        val element = jsonDecoder.decodeJsonElement() as? JsonPrimitive ?: return 0L
+
+        element.longOrNull?.let { return it }
+
+        val raw = element.contentOrNull?.trim().orEmpty()
+        if (raw.isEmpty()) return 0L
+
+        raw.toLongOrNull()?.let { return it }
+
+        return try {
+            Instant.parse(raw).toEpochMilliseconds()
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: Long) {
+        encoder.encodeLong(value)
+    }
+}
 
 @Serializable
 data class Worktree(
@@ -12,6 +50,7 @@ data class Worktree(
     val status: WorktreeStatus,
     val color: String,
     val parentId: String? = null,
+    @Serializable(with = FlexibleTimestampAsLongSerializer::class)
     val createdAt: Long = 0L
 ) {
     companion object {
