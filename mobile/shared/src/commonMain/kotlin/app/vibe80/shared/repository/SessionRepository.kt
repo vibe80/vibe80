@@ -310,6 +310,11 @@ class SessionRepository(
                     _processing.value = false
                     _currentStreamingMessage.value = null
                 }
+                AppLogger.error(
+                    LogSource.APP,
+                    "TURN_ERROR received",
+                    "worktreeId=${worktreeId ?: "main"} turnId=${message.turnId ?: "unknown"} willRetry=${message.willRetry} message=${message.errorMessage ?: "n/a"}"
+                )
                 // Report the error to the UI
                 _lastError.value = AppError.turnError(
                     message = message.errorMessage ?: "An error occurred during processing",
@@ -321,6 +326,11 @@ class SessionRepository(
                 // Generic error from server (e.g., provider failed to start, authentication error)
                 _processing.value = false
                 _currentStreamingMessage.value = null
+                AppLogger.error(
+                    LogSource.APP,
+                    "Generic error event mapped to TURN_ERROR",
+                    "provider=${message.provider ?: "unknown"} message=${message.message} details=${message.details ?: "n/a"}"
+                )
                 _lastError.value = AppError.turnError(
                     message = message.message,
                     details = message.details
