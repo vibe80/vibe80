@@ -12,6 +12,15 @@ const fromJson = (value) => {
   }
 };
 
+const sanitizeSessionData = (data) => {
+  if (!data || typeof data !== "object") {
+    return data;
+  }
+  const payload = { ...data };
+  delete payload.providers;
+  return payload;
+};
+
 const openDatabase = (filename) =>
   new Promise((resolve, reject) => {
     const db = new sqlite3.Database(
@@ -192,10 +201,13 @@ export const createSqliteStorage = () => {
 
   const saveSession = async (sessionId, data) => {
     await ensureConnected();
+    const sessionData = sanitizeSessionData(data);
     const createdAt =
-      typeof data?.createdAt === "number" ? data.createdAt : Date.now();
+      typeof sessionData?.createdAt === "number" ? sessionData.createdAt : Date.now();
     const lastActivityAt =
-      typeof data?.lastActivityAt === "number" ? data.lastActivityAt : Date.now();
+      typeof sessionData?.lastActivityAt === "number"
+        ? sessionData.lastActivityAt
+        : Date.now();
     await run(
       db,
       `INSERT INTO sessions (sessionId, workspaceId, createdAt, lastActivityAt, data)
@@ -205,7 +217,13 @@ export const createSqliteStorage = () => {
          createdAt=excluded.createdAt,
          lastActivityAt=excluded.lastActivityAt,
          data=excluded.data;`,
-      [sessionId, data?.workspaceId || null, createdAt, lastActivityAt, toJson(data)]
+      [
+        sessionId,
+        sessionData?.workspaceId || null,
+        createdAt,
+        lastActivityAt,
+        toJson(sessionData),
+      ]
     );
   };
 

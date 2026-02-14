@@ -13,6 +13,8 @@ import {
 } from "../services/auth.js";
 import {
   ensureWorkspaceUserExists,
+  readWorkspaceConfig,
+  listEnabledProviders,
 } from "../services/workspace.js";
 import {
   getSession,
@@ -36,12 +38,21 @@ export default function sessionRoutes(deps) {
   const { getOrCreateClient, attachClientEvents, attachClaudeEvents } = deps;
 
   const router = Router();
+  const resolveEnabledProviders = async (workspaceId) => {
+    try {
+      const workspaceConfig = await readWorkspaceConfig(workspaceId);
+      return listEnabledProviders(workspaceConfig?.providers || {});
+    } catch {
+      return [];
+    }
+  };
 
   router.get("/sessions", (req, res) => {
     const workspaceId = req.workspaceId;
     storage
       .listSessions(workspaceId)
-      .then((sessions) => {
+      .then(async (sessions) => {
+        const enabledProviders = await resolveEnabledProviders(workspaceId);
         const payload = sessions.map((session) => ({
           sessionId: session.sessionId,
           repoUrl: session.repoUrl || "",
@@ -49,12 +60,7 @@ export default function sessionRoutes(deps) {
           createdAt: toIsoDateTime(session.createdAt),
           lastActivityAt: toIsoDateTime(session.lastActivityAt),
           activeProvider: session.activeProvider || null,
-          providers:
-            Array.isArray(session.providers) && session.providers.length
-              ? session.providers
-              : session.activeProvider
-                ? [session.activeProvider]
-                : [],
+          providers: enabledProviders,
         }));
         payload.sort((a, b) => {
           const aTime = Date.parse(a.lastActivityAt || a.createdAt || "") || 0;
@@ -132,6 +138,7 @@ export default function sessionRoutes(deps) {
     await touchSession(session);
     const repoDiff = await getRepoDiff(session);
     const activeProvider = session.activeProvider || "codex";
+    const enabledProviders = await resolveEnabledProviders(session.workspaceId);
     res.json({
       sessionId: req.params.sessionId,
       workspaceId: session.workspaceId,
@@ -139,7 +146,7 @@ export default function sessionRoutes(deps) {
       repoUrl: session.repoUrl,
       name: session.name || "",
       defaultProvider: activeProvider,
-      providers: session.providers || [activeProvider],
+      providers: enabledProviders,
       defaultInternetAccess:
         typeof session.defaultInternetAccess === "boolean"
           ? session.defaultInternetAccess
@@ -341,14 +348,17 @@ export default function sessionRoutes(deps) {
         name,
         { getOrCreateClient, attachClientEvents, attachClaudeEvents, broadcastToSession }
       );
+      const enabledProviders = await resolveEnabledProviders(req.workspaceId);
+      const defaultProvider = session.activeProvider
+        || (enabledProviders.includes("codex") ? "codex" : enabledProviders[0] || "codex");
       res.status(201).location(`/api/sessions/${session.sessionId}`).json({
         sessionId: session.sessionId,
         workspaceId: session.workspaceId || req.workspaceId,
         path: session.dir,
         repoUrl,
         name: session.name || "",
-        defaultProvider: session.activeProvider || "codex",
-        providers: session.providers || [],
+        defaultProvider,
+        providers: enabledProviders,
         defaultInternetAccess:
           typeof session.defaultInternetAccess === "boolean"
             ? session.defaultInternetAccess

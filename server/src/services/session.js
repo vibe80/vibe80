@@ -550,7 +550,6 @@ export const createSession = async (
         repoUrl,
         name: resolvedName,
         activeProvider: defaultProvider,
-        providers: enabledProviders,
         defaultInternetAccess: resolvedInternetAccess,
         defaultDenyGitCredentialsAccess: resolvedDenyGitCredentialsAccess,
         gitDir: gitCredsDir,

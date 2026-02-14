@@ -14,6 +14,15 @@ const fromJson = (value) => {
   }
 };
 
+const sanitizeSessionData = (data) => {
+  if (!data || typeof data !== "object") {
+    return data;
+  }
+  const payload = { ...data };
+  delete payload.providers;
+  return payload;
+};
+
 export const createRedisStorage = () => {
   const url = process.env.REDIS_URL;
   if (!url) {
@@ -72,14 +81,15 @@ export const createRedisStorage = () => {
 
   const saveSession = async (sessionId, data) => {
     await ensureConnected();
+    const sessionData = sanitizeSessionData(data);
     const key = sessionKey(sessionId);
-    await setWithTtl(key, toJson(data), sessionTtlMs);
+    await setWithTtl(key, toJson(sessionData), sessionTtlMs);
     await client.sAdd(globalSessionsKey(), sessionId);
-    if (data?.workspaceId) {
-      await client.sAdd(workspaceSessionsKey(data.workspaceId), sessionId);
+    if (sessionData?.workspaceId) {
+      await client.sAdd(workspaceSessionsKey(sessionData.workspaceId), sessionId);
     }
-    if (data?.workspaceId) {
-      await touchTtl(workspaceSessionsKey(data.workspaceId), sessionTtlMs);
+    if (sessionData?.workspaceId) {
+      await touchTtl(workspaceSessionsKey(sessionData.workspaceId), sessionTtlMs);
     }
   };
 
