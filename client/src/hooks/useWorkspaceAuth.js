@@ -470,9 +470,6 @@ export default function useWorkspaceAuth({
   }, []);
 
   useEffect(() => {
-    if (workspaceToken || workspaceRefreshToken) {
-      return;
-    }
     const monoAuthToken = readMonoAuthTokenFromHash();
     if (!monoAuthToken) {
       return;
@@ -527,7 +524,6 @@ export default function useWorkspaceAuth({
     };
   }, [
     workspaceToken,
-    workspaceRefreshToken,
     t,
     setWorkspaceId,
     setWorkspaceIdInput,
