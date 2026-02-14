@@ -70,6 +70,12 @@ export default function useChatComposer({
         description: t("Open diff view"),
         insert: "/diff",
       },
+      {
+        id: "annotation",
+        label: "/annotation",
+        description: t("Toggle annotation mode"),
+        insert: "/annotation on",
+      },
     ],
     [t]
   );

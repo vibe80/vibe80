@@ -19,6 +19,9 @@ export default function useChatCommands({
   requestWorktreeDiff,
   sendMessage,
   sendWorktreeMessage,
+  buildAnnotatedMessage,
+  clearScopedAnnotations,
+  setAnnotationMode,
   setCommandMenuOpen,
   setDraftAttachments,
   setInput,
@@ -32,6 +35,25 @@ export default function useChatCommands({
     (textOverride, attachmentsOverride) => {
       const rawText = (textOverride ?? input).trim();
       if (!rawText) {
+        return;
+      }
+      const annotationMatch = rawText.match(/^\/annotation\s+(on|off)\s*$/i);
+      if (annotationMatch) {
+        const nextValue = annotationMatch[1].toLowerCase() === "on";
+        setAnnotationMode(nextValue);
+        showToast(
+          nextValue
+            ? t("Annotation mode enabled.")
+            : t("Annotation mode disabled."),
+          "info"
+        );
+        setInput("");
+        setDraftAttachments([]);
+        setCommandMenuOpen(false);
+        return;
+      }
+      if (rawText.startsWith("/annotation")) {
+        showToast(t("Usage: /annotation on|off"), "info");
         return;
       }
       if (isWorktreeStopped) {
@@ -218,18 +240,29 @@ export default function useChatCommands({
         setCommandMenuOpen(false);
         return;
       }
+      const transportText = buildAnnotatedMessage
+        ? buildAnnotatedMessage(rawText)
+        : rawText;
       if (isInWorktree && activeWorktreeId) {
-        sendWorktreeMessage(activeWorktreeId, textOverride, attachmentsOverride);
+        sendWorktreeMessage(
+          activeWorktreeId,
+          rawText,
+          attachmentsOverride,
+          transportText
+        );
       } else {
-        sendMessage(textOverride, attachmentsOverride);
+        sendMessage(rawText, attachmentsOverride, transportText);
       }
+      clearScopedAnnotations?.();
     },
     [
       activeProvider,
       activeWorktreeId,
       apiFetch,
       attachmentSessionId,
+      buildAnnotatedMessage,
       captureScreenshot,
+      clearScopedAnnotations,
       connected,
       handleViewSelect,
       input,
@@ -241,6 +274,7 @@ export default function useChatCommands({
       requestWorktreeDiff,
       sendMessage,
       sendWorktreeMessage,
+      setAnnotationMode,
       setCommandMenuOpen,
       setDraftAttachments,
       setInput,

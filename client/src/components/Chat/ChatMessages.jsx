@@ -5,12 +5,41 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCode,
   faCodeBranch,
+  faCommentDots,
   faDice,
   faTowerBroadcast,
   faKey,
   faTriangleExclamation,
   faCopy,
 } from "@fortawesome/free-solid-svg-icons";
+
+const getAnnotatableLines = (text) => {
+  const lines = String(text || "").split(/\r?\n/);
+  const results = [];
+  let inCodeFence = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index];
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith("```")) {
+      inCodeFence = !inCodeFence;
+      continue;
+    }
+    if (inCodeFence || !trimmed) {
+      continue;
+    }
+    const isTableSeparator = /^[:\-\s|]+$/.test(trimmed) && trimmed.includes("|");
+    const isTableRowLike =
+      (trimmed.startsWith("|") && trimmed.endsWith("|")) || isTableSeparator;
+    if (isTableRowLike) {
+      continue;
+    }
+    results.push({
+      lineIndex: index,
+      lineText: rawLine,
+    });
+  }
+  return results;
+};
 
 export default function ChatMessages({
   t,
@@ -55,6 +84,11 @@ export default function ChatMessages({
   BACKLOG_PAGE_SIZE,
   MAX_USER_DISPLAY_LENGTH,
   getTruncatedText,
+  annotationMode,
+  scopedAnnotations,
+  setAnnotationDraft,
+  removeAnnotation,
+  addOrFocusAnnotation,
 }) {
   return (
     <main className={`chat ${activePane === "chat" ? "" : "is-hidden"}`}>
@@ -63,7 +97,9 @@ export default function ChatMessages({
           className={`chat-scroll-inner ${showChatInfoPanel ? "has-meta" : ""}`}
         >
           <div
-            className={`chat-history-grid ${showChatInfoPanel ? "has-meta" : ""}`}
+            className={`chat-history-grid ${showChatInfoPanel ? "has-meta" : ""} ${
+              annotationMode ? "has-annotations" : ""
+            }`}
           >
             {showChatInfoPanel && (
               <div className="chat-meta-rail">
@@ -530,6 +566,35 @@ export default function ChatMessages({
                           ) : (
                             content
                           )}
+                          {annotationMode && message.role === "assistant" ? (
+                            <div className="annotation-line-source-list">
+                              {getAnnotatableLines(cleanedText).map((entry) => (
+                                <div
+                                  key={`${message.id}-${entry.lineIndex}`}
+                                  className="annotation-line-source-row"
+                                >
+                                  <span className="annotation-line-source-text">
+                                    {entry.lineText}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="annotation-line-source-button"
+                                    aria-label={t("Annotate line")}
+                                    title={t("Annotate line")}
+                                    onClick={() =>
+                                      addOrFocusAnnotation({
+                                        messageId: message.id,
+                                        lineIndex: entry.lineIndex,
+                                        lineText: entry.lineText,
+                                      })
+                                    }
+                                  >
+                                    <FontAwesomeIcon icon={faCommentDots} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
                           {filerefs.length ? (
                             <ul className="fileref-list">
                               {filerefs.map((pathRef) => (
@@ -662,6 +727,53 @@ export default function ChatMessages({
                 );
               })}
             </div>
+            {annotationMode ? (
+              <div className="chat-annotation-rail">
+                <div className="chat-annotation-card">
+                  <div className="chat-annotation-title">{t("Annotations")}</div>
+                  <div className="chat-annotation-subtitle">
+                    {t("Only sent with the next message.")}
+                  </div>
+                  {scopedAnnotations.length === 0 ? (
+                    <div className="chat-annotation-empty">
+                      {t("No annotations yet.")}
+                    </div>
+                  ) : (
+                    <div className="chat-annotation-list">
+                      {scopedAnnotations.map((annotation) => (
+                        <div
+                          className="chat-annotation-item"
+                          key={annotation.annotationKey}
+                        >
+                          <div className="chat-annotation-quote">
+                            &gt; {annotation.lineText}
+                          </div>
+                          <textarea
+                            className="chat-annotation-input"
+                            value={annotation.annotationText}
+                            placeholder={t("Write annotation...")}
+                            rows={3}
+                            onChange={(event) =>
+                              setAnnotationDraft(
+                                annotation.annotationKey,
+                                event.target.value
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="chat-annotation-remove"
+                            onClick={() => removeAnnotation(annotation.annotationKey)}
+                          >
+                            {t("Delete")}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

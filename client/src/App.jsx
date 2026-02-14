@@ -663,6 +663,8 @@ function App() {
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
   const [sessionMode, setSessionMode] = useState("new");
+  const [annotationMode, setAnnotationMode] = useState(false);
+  const [annotationsByScope, setAnnotationsByScope] = useState({});
   const [defaultInternetAccess, setDefaultInternetAccess] = useState(true);
   const [defaultDenyGitCredentialsAccess, setDefaultDenyGitCredentialsAccess] = useState(false);
   const [toast, setToast] = useState(null);
@@ -1155,6 +1157,135 @@ function App() {
   const activeProvider = isInWorktree ? activeWorktree?.provider : llmProvider;
   const activeModel = isInWorktree ? activeWorktree?.model : selectedModel;
   const activeChatKey = activeWorktreeId || "main";
+  const annotationScopeKey = useMemo(() => {
+    const sessionId = attachmentSession?.sessionId;
+    if (!sessionId) {
+      return null;
+    }
+    return `${sessionId}::${activeChatKey}`;
+  }, [attachmentSession?.sessionId, activeChatKey]);
+  const scopedAnnotations = useMemo(() => {
+    if (!annotationScopeKey) {
+      return [];
+    }
+    const scoped = annotationsByScope[annotationScopeKey] || {};
+    return Object.values(scoped).sort((a, b) => {
+      if (a.messageId !== b.messageId) {
+        return String(a.messageId || "").localeCompare(String(b.messageId || ""));
+      }
+      return (a.lineIndex || 0) - (b.lineIndex || 0);
+    });
+  }, [annotationScopeKey, annotationsByScope]);
+  const setAnnotationDraft = useCallback(
+    (annotationKey, annotationText) => {
+      if (!annotationScopeKey || !annotationKey) {
+        return;
+      }
+      setAnnotationsByScope((current) => {
+        const scoped = current[annotationScopeKey];
+        if (!scoped || !scoped[annotationKey]) {
+          return current;
+        }
+        return {
+          ...current,
+          [annotationScopeKey]: {
+            ...scoped,
+            [annotationKey]: {
+              ...scoped[annotationKey],
+              annotationText,
+            },
+          },
+        };
+      });
+    },
+    [annotationScopeKey]
+  );
+  const removeAnnotation = useCallback(
+    (annotationKey) => {
+      if (!annotationScopeKey || !annotationKey) {
+        return;
+      }
+      setAnnotationsByScope((current) => {
+        const scoped = current[annotationScopeKey];
+        if (!scoped || !scoped[annotationKey]) {
+          return current;
+        }
+        const nextScoped = { ...scoped };
+        delete nextScoped[annotationKey];
+        if (Object.keys(nextScoped).length === 0) {
+          const next = { ...current };
+          delete next[annotationScopeKey];
+          return next;
+        }
+        return {
+          ...current,
+          [annotationScopeKey]: nextScoped,
+        };
+      });
+    },
+    [annotationScopeKey]
+  );
+  const addOrFocusAnnotation = useCallback(
+    ({ messageId, lineIndex, lineText }) => {
+      if (!annotationScopeKey || !messageId) {
+        return;
+      }
+      const annotationKey = `${messageId}:${lineIndex}`;
+      setAnnotationsByScope((current) => {
+        const scoped = current[annotationScopeKey] || {};
+        const existing = scoped[annotationKey];
+        return {
+          ...current,
+          [annotationScopeKey]: {
+            ...scoped,
+            [annotationKey]: {
+              annotationKey,
+              messageId,
+              lineIndex,
+              lineText: lineText || "",
+              annotationText: existing?.annotationText || "",
+            },
+          },
+        };
+      });
+    },
+    [annotationScopeKey]
+  );
+  const clearScopedAnnotations = useCallback(() => {
+    if (!annotationScopeKey) {
+      return;
+    }
+    setAnnotationsByScope((current) => {
+      if (!current[annotationScopeKey]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[annotationScopeKey];
+      return next;
+    });
+  }, [annotationScopeKey]);
+  const buildAnnotatedMessage = useCallback(
+    (composerText) => {
+      const text = String(composerText || "").trim();
+      if (!text) {
+        return "";
+      }
+      const validAnnotations = scopedAnnotations
+        .filter((entry) => entry?.annotationText?.trim())
+        .map((entry) => ({
+          lineText: entry.lineText || "",
+          annotationText: entry.annotationText.trim(),
+        }));
+      if (validAnnotations.length === 0) {
+        return text;
+      }
+      const annotationPrefix = validAnnotations
+        .map((entry) => `> ${entry.lineText}\n${entry.annotationText}`)
+        .join("\n\n");
+      return `${annotationPrefix}\n\n${text}`;
+    },
+    [scopedAnnotations]
+  );
   const activeModelOptions = isInWorktree
     ? Array.isArray(activeWorktree?.models)
       ? activeWorktree.models
@@ -1738,6 +1869,7 @@ function App() {
     setMainTaskLabel("");
     setActivity("");
     setCloseConfirm(null);
+    setAnnotationsByScope({});
   }, [
     attachmentSession?.sessionId,
     commandIndex,
@@ -1751,6 +1883,7 @@ function App() {
     setLogFilterByTab,
     setMainTaskLabel,
     setMessages,
+    setAnnotationsByScope,
     setPaneByTab,
     setRepoLastCommit,
     setShowOlderMessagesByTab,
@@ -1946,6 +2079,9 @@ function App() {
     requestWorktreeDiff,
     sendMessage,
     sendWorktreeMessage,
+    buildAnnotatedMessage,
+    clearScopedAnnotations,
+    setAnnotationMode,
     setCommandMenuOpen,
     setDraftAttachments,
     setInput,
@@ -2535,6 +2671,11 @@ function App() {
               BACKLOG_PAGE_SIZE={BACKLOG_PAGE_SIZE}
               MAX_USER_DISPLAY_LENGTH={MAX_USER_DISPLAY_LENGTH}
               getTruncatedText={getTruncatedText}
+              annotationMode={annotationMode}
+              scopedAnnotations={scopedAnnotations}
+              setAnnotationDraft={setAnnotationDraft}
+              removeAnnotation={removeAnnotation}
+              addOrFocusAnnotation={addOrFocusAnnotation}
             />
             <Suspense fallback={null}>
               <DiffPanel

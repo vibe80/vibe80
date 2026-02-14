@@ -17,9 +17,13 @@ export default function useChatSend({
   ensureNotificationPermission,
 }) {
   const sendMessage = useCallback(
-    (textOverride, attachmentsOverride) => {
-      const rawText = (textOverride ?? input).trim();
-      if (!rawText || !socketRef.current || !connected) {
+    (textOverride, attachmentsOverride, transportTextOverride) => {
+      const displayText = (textOverride ?? input).trim();
+      if (!displayText || !socketRef.current || !connected) {
+        return;
+      }
+      const rawTransportText = (transportTextOverride ?? displayText).trim();
+      if (!rawTransportText) {
         return;
       }
 
@@ -34,8 +38,7 @@ export default function useChatSend({
         selectedPaths.length > 0
           ? `;; attachments: ${JSON.stringify(selectedPaths)}`
           : "";
-      const displayText = rawText;
-      const text = `${displayText}${suffix}`;
+      const text = `${rawTransportText}${suffix}`;
       setMessages((current) => [
         ...current,
         {
@@ -82,9 +85,13 @@ export default function useChatSend({
   );
 
   const sendWorktreeMessage = useCallback(
-    (worktreeId, textOverride, attachmentsOverride) => {
-      const rawText = (textOverride ?? input).trim();
-      if (!rawText || !socketRef.current || !connected || !worktreeId) return;
+    (worktreeId, textOverride, attachmentsOverride, transportTextOverride) => {
+      const displayText = (textOverride ?? input).trim();
+      if (!displayText || !socketRef.current || !connected || !worktreeId) return;
+      const rawTransportText = (transportTextOverride ?? displayText).trim();
+      if (!rawTransportText) {
+        return;
+      }
 
       const resolvedAttachments = normalizeAttachments(
         attachmentsOverride ?? draftAttachments
@@ -96,8 +103,7 @@ export default function useChatSend({
         selectedPaths.length > 0
           ? `;; attachments: ${JSON.stringify(selectedPaths)}`
           : "";
-      const displayText = rawText;
-      const text = `${displayText}${suffix}`;
+      const text = `${rawTransportText}${suffix}`;
 
       setWorktrees((current) => {
         const next = new Map(current);
