@@ -24,6 +24,8 @@ class SessionRepository(
     private val scope = CoroutineScope(Dispatchers.Default)
     private var syncOnConnectJob: Job? = null
     private var setActiveWorktreeJob: Job? = null
+    private var websocketFailureCount: Int = 0
+    private var websocketErrorShownForCurrentOutage: Boolean = false
 
     private val _sessionState = MutableStateFlow<SessionState?>(null)
     val sessionState: StateFlow<SessionState?> = _sessionState.asStateFlow()
@@ -76,6 +78,7 @@ class SessionRepository(
     init {
         observeWebSocketMessages()
         observeWebSocketErrors()
+        observeConnectionState()
         apiClient.setTokenRefreshListener { update ->
             webSocketManager.setWorkspaceToken(update.workspaceToken)
             _workspaceTokenUpdates.tryEmit(update)
@@ -133,10 +136,25 @@ class SessionRepository(
         scope.launch {
             webSocketManager.errors.collect { throwable ->
                 AppLogger.error(LogSource.WEBSOCKET, "WebSocket error received", throwable.message)
-                _lastError.value = AppError.websocket(
-                    message = throwable.message ?: "Unknown WebSocket error",
-                    details = throwable.toString()
-                )
+                websocketFailureCount += 1
+                if (websocketFailureCount >= 3 && !websocketErrorShownForCurrentOutage) {
+                    websocketErrorShownForCurrentOutage = true
+                    _lastError.value = AppError.websocket(
+                        message = throwable.message ?: "Unknown WebSocket error",
+                        details = throwable.toString()
+                    )
+                }
+            }
+        }
+    }
+
+    private fun observeConnectionState() {
+        scope.launch {
+            connectionState.collect { state ->
+                if (state == ConnectionState.CONNECTED) {
+                    websocketFailureCount = 0
+                    websocketErrorShownForCurrentOutage = false
+                }
             }
         }
     }
