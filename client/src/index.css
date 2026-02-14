@@ -4104,6 +4104,12 @@ main.chat {
   font-size: 11px;
 }
 
+.command-execution-tool-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+}
+
 .command-execution-loader {
   padding: 0;
   background: transparent;

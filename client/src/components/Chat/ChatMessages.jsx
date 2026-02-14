@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faCode,
   faCodeBranch,
   faDice,
   faTowerBroadcast,
@@ -236,17 +237,24 @@ export default function ChatMessages({
                   return (
                     <div key={message.id} className="bubble command-execution">
                       {message.items.map((item) => {
-                        const toolTitle = `Outil : ${
-                          item.toolResult?.name ||
-                          item.toolResult?.tool ||
-                          "Tool"
-                        }`;
+                        const toolTitle = t("Tool: {{tool}}", {
+                          tool:
+                            item.toolResult?.name ||
+                            item.toolResult?.tool ||
+                            "Tool",
+                        });
                         const output =
                           item.toolResult?.output || item.text || "";
                         const isExpandable = Boolean(output);
                         const summaryContent = (
                           <span className="command-execution-title">
-                            {toolTitle}
+                            <span
+                              className="command-execution-tool-icon"
+                              aria-hidden="true"
+                            >
+                              <FontAwesomeIcon icon={faCode} />
+                            </span>
+                            <span>{toolTitle}</span>
                           </span>
                         );
                         const panelKey = `tool-${item.id}`;
