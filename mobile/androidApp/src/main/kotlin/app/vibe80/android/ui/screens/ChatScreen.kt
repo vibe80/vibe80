@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,6 +15,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -73,6 +77,8 @@ fun ChatScreen(
     val listStatesByWorktree = remember { mutableStateMapOf<String, LazyListState>() }
     val listState = listStatesByWorktree.getOrPut(uiState.activeWorktreeId) { LazyListState() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val inputInteractionSource = remember { MutableInteractionSource() }
+    val inputFocused by inputInteractionSource.collectIsFocusedAsState()
     var pendingCameraPhoto by remember { mutableStateOf<CameraPhoto?>(null) }
 
     LaunchedEffect(Unit) {
@@ -228,10 +234,14 @@ fun ChatScreen(
         }
     }
 
+    val listItemCount = uiState.messages.size +
+        (if (uiState.currentStreamingMessage != null) 1 else 0) +
+        (if (uiState.processing && uiState.currentStreamingMessage == null) 1 else 0)
+
     // Auto-scroll to bottom on new messages
-    LaunchedEffect(uiState.activeWorktreeId, uiState.messages.size, uiState.currentStreamingMessage) {
-        if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
+    LaunchedEffect(uiState.activeWorktreeId, listItemCount) {
+        if (listItemCount > 0) {
+            listState.animateScrollToItem(listItemCount - 1)
         }
     }
 
@@ -369,6 +379,18 @@ fun ChatScreen(
         var inputBarSize by remember { mutableStateOf(IntSize.Zero) }
         val density = LocalDensity.current
         val inputBarHeight = with(density) { inputBarSize.height.toDp() }
+        val animatedInputBarHeight by animateDpAsState(
+            targetValue = inputBarHeight,
+            animationSpec = tween(durationMillis = 220),
+            label = "animatedInputBarHeight"
+        )
+        val imeBottomPx = WindowInsets.ime.getBottom(density)
+
+        LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomPx, listItemCount) {
+            if (listItemCount > 0 && (inputFocused || imeBottomPx > 0)) {
+                listState.animateScrollToItem(listItemCount - 1)
+            }
+        }
 
         Box(
             modifier = Modifier
@@ -404,7 +426,7 @@ fun ChatScreen(
                         start = 16.dp,
                         top = 16.dp,
                         end = 16.dp,
-                        bottom = 16.dp + inputBarHeight
+                        bottom = 16.dp + animatedInputBarHeight
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -573,6 +595,7 @@ fun ChatScreen(
                                     disabledBorderColor = Color.Transparent,
                                     errorBorderColor = Color.Transparent
                                 ),
+                                interactionSource = inputInteractionSource,
                                 enabled = uiState.connectionState == ConnectionState.CONNECTED &&
                                         (!uiState.processing || codexReady) &&
                                         !uiState.uploadingAttachments

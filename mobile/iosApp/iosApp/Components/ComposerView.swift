@@ -12,6 +12,7 @@ struct ComposerView: View {
     let onSend: () -> Void
     let onSelectActionMode: (ComposerActionMode) -> Void
     let onSelectModel: (String) -> Void
+    let onFocusChanged: (Bool) -> Void
 
     @State private var selectedItems: [PhotosPickerItem] = []
     @State private var pendingAttachments: [PendingAttachment] = []
@@ -150,6 +151,9 @@ struct ComposerView: View {
             guard let image else { return }
             addImageAttachment(image)
             cameraImage = nil
+        }
+        .onChange(of: isFocused) { focused in
+            onFocusChanged(focused)
         }
     }
 
@@ -338,7 +342,8 @@ struct PendingAttachment: Identifiable {
             availableModels: [],
             onSend: {},
             onSelectActionMode: { _ in },
-            onSelectModel: { _ in }
+            onSelectModel: { _ in },
+            onFocusChanged: { _ in }
         )
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import shared
 
 struct ChatView: View {
@@ -11,6 +12,8 @@ struct ChatView: View {
     @State private var showProviderSheet = false
     @State private var showCreateWorktreeSheet = false
     @State private var showWorktreeMenu: String? = nil
+    @State private var isComposerFocused = false
+    @State private var keyboardHeight: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -54,8 +57,19 @@ struct ChatView: View {
                         .padding()
                     }
                     .onChange(of: viewModel.messages.count) { _ in
-                        withAnimation {
-                            proxy.scrollTo(viewModel.messages.last?.id, anchor: .bottom)
+                        scrollToBottom(proxy)
+                    }
+                    .onChange(of: viewModel.currentStreamingMessage) { _ in
+                        scrollToBottom(proxy)
+                    }
+                    .onChange(of: isComposerFocused) { focused in
+                        if focused {
+                            scrollToBottom(proxy)
+                        }
+                    }
+                    .onChange(of: keyboardHeight) { height in
+                        if height > 0 {
+                            scrollToBottom(proxy)
                         }
                     }
                 }
@@ -69,7 +83,10 @@ struct ChatView: View {
                     availableModels: viewModel.activeModels,
                     onSend: viewModel.sendMessage,
                     onSelectActionMode: viewModel.setActionMode,
-                    onSelectModel: viewModel.setActiveModel
+                    onSelectModel: viewModel.setActiveModel,
+                    onFocusChanged: { focused in
+                        isComposerFocused = focused
+                    }
                 )
             }
             .navigationTitle("app.name")
@@ -176,6 +193,20 @@ struct ChatView: View {
         .onChange(of: viewModel.activeWorktreeId) { _ in
             viewModel.loadModelsForActiveWorktree()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
+            guard
+                let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+            else { return }
+            let inset = max(0, UIScreen.main.bounds.height - frame.minY)
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = inset
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = 0
+            }
+        }
     }
 
     // MARK: - Connection Indicator
@@ -200,6 +231,23 @@ struct ChatView: View {
             return .red
         default:
             return .gray
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        let targetId: String? = {
+            if viewModel.isProcessing && viewModel.currentStreamingMessage == nil {
+                return "processing"
+            }
+            if viewModel.currentStreamingMessage != nil {
+                return "streaming"
+            }
+            return viewModel.messages.last?.id
+        }()
+
+        guard let targetId else { return }
+        withAnimation(.easeOut(duration: 0.25)) {
+            proxy.scrollTo(targetId, anchor: .bottom)
         }
     }
 }
