@@ -695,6 +695,7 @@ function App() {
   );
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const toastTimeoutRef = useRef(null);
+  const previousAttachmentSessionIdRef = useRef(null);
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
     if (toastTimeoutRef.current) {
@@ -1710,6 +1711,53 @@ function App() {
     CHAT_COLLAPSE_THRESHOLD,
     CHAT_COLLAPSE_VISIBLE,
   });
+
+  useEffect(() => {
+    const nextSessionId = attachmentSession?.sessionId || null;
+    const previousSessionId = previousAttachmentSessionIdRef.current;
+    if (previousSessionId === nextSessionId) {
+      return;
+    }
+    previousAttachmentSessionIdRef.current = nextSessionId;
+
+    // Full reset of session-scoped UI/worktree state to avoid cross-session clashes.
+    setMessages([]);
+    messageIndex.clear();
+    commandIndex.clear();
+    setWorktrees(new Map());
+    setActiveWorktreeId("main");
+    setPaneByTab({ main: "chat" });
+    setLogFilterByTab({ main: "all" });
+    setExplorerByTab({});
+    setShowOlderMessagesByTab({});
+    setCommandPanelOpen({});
+    setToolResultPanelOpen({});
+    setRepoLastCommit(null);
+    setWorktreeLastCommitById(new Map());
+    setCurrentTurnId(null);
+    setMainTaskLabel("");
+    setActivity("");
+    setCloseConfirm(null);
+  }, [
+    attachmentSession?.sessionId,
+    commandIndex,
+    messageIndex,
+    setActiveWorktreeId,
+    setActivity,
+    setCloseConfirm,
+    setCommandPanelOpen,
+    setCurrentTurnId,
+    setExplorerByTab,
+    setLogFilterByTab,
+    setMainTaskLabel,
+    setMessages,
+    setPaneByTab,
+    setRepoLastCommit,
+    setShowOlderMessagesByTab,
+    setToolResultPanelOpen,
+    setWorktreeLastCommitById,
+    setWorktrees,
+  ]);
 
   // Check if we're in a real worktree (not "main")
   const activeCommit = isInWorktree
