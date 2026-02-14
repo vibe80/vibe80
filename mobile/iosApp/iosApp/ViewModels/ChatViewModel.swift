@@ -282,7 +282,17 @@ class ChatViewModel: ObservableObject {
         appState?.sessionRepository?.setActiveWorktree(worktreeId: worktreeId)
     }
 
-    func createWorktree(name: String, provider: LLMProvider, branchName: String?) {
+    func createWorktree(
+        name: String?,
+        provider: LLMProvider,
+        branchName: String?,
+        model: String?,
+        reasoningEffort: String?,
+        context: String?,
+        sourceWorktree: String?,
+        internetAccess: Bool?,
+        denyGitCredentialsAccess: Bool?
+    ) {
         guard let repository = appState?.sessionRepository else { return }
 
         Coroutines.shared.launch(
@@ -290,7 +300,13 @@ class ChatViewModel: ObservableObject {
                 try await repository.createWorktree(
                     name: name,
                     provider: provider,
-                    branchName: branchName
+                    branchName: branchName,
+                    model: model,
+                    reasoningEffort: reasoningEffort,
+                    context: context,
+                    sourceWorktree: sourceWorktree,
+                    internetAccess: internetAccess,
+                    denyGitCredentialsAccess: denyGitCredentialsAccess
                 )
             },
             onError: { error in

@@ -160,5 +160,11 @@
 "worktree.options" = "Options";
 "worktree.refresh" = "Rafraîchir les worktrees";
 "worktree.source_branch.label" = "Branche source";
+"worktree.source_worktree.label" = "Worktree source";
+"worktree.context.label" = "Contexte";
+"worktree.context.new" = "Nouveau";
+"worktree.context.fork" = "Fork";
+"worktree.internet_access.label" = "Accès Internet";
+"worktree.deny_git_credentials.label" = "Refuser l’accès aux identifiants Git";
 "worktree.title" = "Worktree : %s";
 "worktrees.title" = "Worktrees";

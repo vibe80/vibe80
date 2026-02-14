@@ -189,12 +189,28 @@ struct WorktreeMenuView: View {
 
 struct CreateWorktreeSheetView: View {
     let currentProvider: LLMProvider
-    let onCreate: (String, LLMProvider, String?) -> Void
+    let worktrees: [Worktree]
+    let onCreate: (
+        String?,
+        LLMProvider,
+        String?,
+        String?,
+        String?,
+        String,
+        String?,
+        Bool,
+        Bool
+    ) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
     @State private var selectedProvider: LLMProvider = .codex
+    @State private var selectedContext = "new"
+    @State private var selectedSourceWorktree = "main"
+    @State private var sourceBranch = "main"
+    @State private var internetAccess = true
+    @State private var denyGitCredentialsAccess = true
     @State private var selectedColor = Worktree.companion.COLORS.first ?? "#4CAF50"
 
     var body: some View {
@@ -206,12 +222,37 @@ struct CreateWorktreeSheetView: View {
                         .disableAutocorrection(true)
                 }
 
-                Section("provider.label") {
-                    Picker("provider.label", selection: $selectedProvider) {
-                        Text("provider.codex").tag(LLMProvider.codex)
-                        Text("provider.claude").tag(LLMProvider.claude)
+                Section("worktree.source_branch.label") {
+                    TextField("main", text: $sourceBranch)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                }
+
+                Section("worktree.context.label") {
+                    Picker("worktree.context.label", selection: $selectedContext) {
+                        Text("worktree.context.new").tag("new")
+                        Text("worktree.context.fork").tag("fork")
                     }
                     .pickerStyle(.segmented)
+                }
+
+                if selectedContext == "new" {
+                    Section("provider.label") {
+                        Picker("provider.label", selection: $selectedProvider) {
+                            Text("provider.codex").tag(LLMProvider.codex)
+                            Text("provider.claude").tag(LLMProvider.claude)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                } else {
+                    Section("worktree.source_worktree.label") {
+                        Picker("worktree.source_worktree.label", selection: $selectedSourceWorktree) {
+                            ForEach(worktrees, id: \.id) { worktree in
+                                Text(worktree.id == "main" ? "main" : worktree.name)
+                                    .tag(worktree.id)
+                            }
+                        }
+                    }
                 }
 
                 Section("worktree.color.label") {
@@ -221,6 +262,13 @@ struct CreateWorktreeSheetView: View {
                                 colorButton(color)
                             }
                         }
+                    }
+                }
+
+                Section {
+                    Toggle("worktree.internet_access.label", isOn: $internetAccess)
+                    if internetAccess {
+                        Toggle("worktree.deny_git_credentials.label", isOn: $denyGitCredentialsAccess)
                     }
                 }
             }
@@ -235,14 +283,29 @@ struct CreateWorktreeSheetView: View {
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("action.create") {
-                        onCreate(name, selectedProvider, nil)
+                        onCreate(
+                            name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            selectedProvider,
+                            sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines),
+                            nil,
+                            nil,
+                            selectedContext,
+                            selectedContext == "fork" ? selectedSourceWorktree : nil,
+                            internetAccess,
+                            denyGitCredentialsAccess
+                        )
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).count < 2)
+                    .disabled(sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .fontWeight(.semibold)
                 }
             }
             .onAppear {
                 selectedProvider = currentProvider
+                if !worktrees.contains(where: { $0.id == selectedSourceWorktree }) {
+                    selectedSourceWorktree = worktrees.first(where: { $0.id == "main" })?.id
+                        ?? worktrees.first?.id
+                        ?? "main"
+                }
             }
         }
     }

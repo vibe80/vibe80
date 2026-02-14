@@ -554,10 +554,24 @@ class ChatViewModel(
         provider: LLMProvider,
         branchName: String? = null,
         model: String? = null,
-        reasoningEffort: String? = null
+        reasoningEffort: String? = null,
+        context: String? = null,
+        sourceWorktree: String? = null,
+        internetAccess: Boolean? = null,
+        denyGitCredentialsAccess: Boolean? = null
     ) {
         viewModelScope.launch {
-            sessionRepository.createWorktree(name, provider, branchName, model, reasoningEffort)
+            sessionRepository.createWorktree(
+                name = name,
+                provider = provider,
+                branchName = branchName,
+                model = model,
+                reasoningEffort = reasoningEffort,
+                context = context,
+                sourceWorktree = sourceWorktree,
+                internetAccess = internetAccess,
+                denyGitCredentialsAccess = denyGitCredentialsAccess
+            )
             _uiState.update { it.copy(showCreateWorktreeSheet = false) }
         }
     }

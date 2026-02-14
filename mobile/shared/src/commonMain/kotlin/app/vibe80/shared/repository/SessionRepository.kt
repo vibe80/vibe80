@@ -879,18 +879,26 @@ class SessionRepository(
         provider: LLMProvider,
         branchName: String? = null,
         model: String? = null,
-        reasoningEffort: String? = null
+        reasoningEffort: String? = null,
+        context: String? = null,
+        sourceWorktree: String? = null,
+        internetAccess: Boolean? = null,
+        denyGitCredentialsAccess: Boolean? = null
     ) {
         val sessionId = _sessionState.value?.sessionId
             ?: return
         val request = WorktreeCreateApiRequest(
             session = sessionId,
             provider = provider.name.lowercase(),
+            context = context,
+            sourceWorktree = sourceWorktree,
             name = name,
             parentWorktreeId = _activeWorktreeId.value,
             startingBranch = branchName,
             model = model,
-            reasoningEffort = reasoningEffort
+            reasoningEffort = reasoningEffort,
+            internetAccess = internetAccess,
+            denyGitCredentialsAccess = denyGitCredentialsAccess
         )
         val result = apiClient.createWorktree(request)
         result.onFailure { handleApiFailure(it, "createWorktree") }

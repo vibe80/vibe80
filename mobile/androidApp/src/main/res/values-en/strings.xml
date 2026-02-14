@@ -162,6 +162,12 @@
     <string name="worktree_options">Options</string>
     <string name="worktree_refresh">Refresh worktrees</string>
     <string name="worktree_source_branch_label">Source branch</string>
+    <string name="worktree_source_worktree_label">Source worktree</string>
+    <string name="worktree_context_label">Context</string>
+    <string name="worktree_context_new">New</string>
+    <string name="worktree_context_fork">Fork</string>
+    <string name="worktree_internet_access_label">Internet access</string>
+    <string name="worktree_deny_git_credentials_label">Deny git credentials access</string>
     <string name="worktree_title">Worktree: %s</string>
     <string name="worktrees_title">Worktrees</string>
 </resources>

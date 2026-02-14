@@ -133,8 +133,19 @@ struct ChatView: View {
             .sheet(isPresented: $showCreateWorktreeSheet) {
                 CreateWorktreeSheetView(
                     currentProvider: viewModel.activeProvider,
-                    onCreate: { name, provider, branch in
-                        viewModel.createWorktree(name: name, provider: provider, branchName: branch)
+                    worktrees: viewModel.sortedWorktrees,
+                    onCreate: { name, provider, branch, model, reasoningEffort, context, sourceWorktree, internetAccess, denyGitCredentialsAccess in
+                        viewModel.createWorktree(
+                            name: name,
+                            provider: provider,
+                            branchName: branch,
+                            model: model,
+                            reasoningEffort: reasoningEffort,
+                            context: context,
+                            sourceWorktree: sourceWorktree,
+                            internetAccess: internetAccess,
+                            denyGitCredentialsAccess: denyGitCredentialsAccess
+                        )
                         showCreateWorktreeSheet = false
                     }
                 )

@@ -397,11 +397,15 @@ class ApiClient(
         val url = "$baseUrl/api/sessions/${request.session}/worktrees"
         val payload = WorktreeCreateRequest(
             provider = request.provider,
+            context = request.context,
+            sourceWorktree = request.sourceWorktree,
             parentWorktreeId = request.parentWorktreeId,
             name = request.name,
             startingBranch = request.startingBranch,
             model = request.model,
-            reasoningEffort = request.reasoningEffort
+            reasoningEffort = request.reasoningEffort,
+            internetAccess = request.internetAccess,
+            denyGitCredentialsAccess = request.denyGitCredentialsAccess
         )
         AppLogger.apiRequest("POST", url, json.encodeToString(payload))
         return try {
