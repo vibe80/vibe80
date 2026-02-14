@@ -1383,6 +1383,58 @@ if (fs.existsSync(distPath)) {
 // Server start + timers
 // ---------------------------------------------------------------------------
 
+let shuttingDown = false;
+const stopAllRuntimeClients = async () => {
+  const stopPromises = [];
+  for (const [, runtime] of listSessionRuntimeEntries()) {
+    if (runtime?.clients) {
+      for (const client of Object.values(runtime.clients)) {
+        if (client && typeof client.stop === "function") {
+          stopPromises.push(client.stop({ reason: "server_shutdown" }));
+        }
+      }
+    }
+    if (runtime?.worktreeClients instanceof Map) {
+      for (const client of runtime.worktreeClients.values()) {
+        if (client && typeof client.stop === "function") {
+          stopPromises.push(client.stop({ reason: "server_shutdown" }));
+        }
+      }
+    }
+  }
+  await Promise.allSettled(stopPromises);
+};
+
+const gracefulShutdown = async (signal) => {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  console.log(`${signal} received. Stopping spawned clients...`);
+  const hardExitTimer = setTimeout(() => {
+    console.error("Forced exit after shutdown timeout.");
+    process.exit(1);
+  }, 15000);
+  hardExitTimer.unref?.();
+  try {
+    await stopAllRuntimeClients();
+  } catch (error) {
+    console.error("Failed to stop spawned clients:", error?.message || error);
+  }
+  server.close(() => {
+    process.exit(0);
+  });
+  // If there are no open handles, the close callback may not fire reliably in some edge cases.
+  setTimeout(() => process.exit(0), 1000).unref?.();
+};
+
+process.on("SIGTERM", () => {
+  void gracefulShutdown("SIGTERM");
+});
+process.on("SIGINT", () => {
+  void gracefulShutdown("SIGINT");
+});
+
 const port = process.env.PORT || 5179;
 server.listen(port, async () => {
   console.log(`Server listening on http://localhost:${port}`);

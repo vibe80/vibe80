@@ -72,7 +72,33 @@ export class ClaudeCliClient extends EventEmitter {
   }
 
   async stop() {
-    return;
+    const proc = this.activeProcess;
+    if (!proc) {
+      return;
+    }
+    this.activeProcess = null;
+    this.ready = false;
+    const exitPromise = new Promise((resolve) => {
+      proc.once("exit", resolve);
+      proc.once("close", resolve);
+    });
+    try {
+      proc.kill("SIGTERM");
+    } catch {
+      return;
+    }
+    await Promise.race([
+      exitPromise,
+      new Promise((resolve) => setTimeout(resolve, 5000)),
+    ]);
+    if (!proc.killed) {
+      try {
+        proc.kill("SIGKILL");
+      } catch {
+        return;
+      }
+      await exitPromise;
+    }
   }
 
   getStatus() {
