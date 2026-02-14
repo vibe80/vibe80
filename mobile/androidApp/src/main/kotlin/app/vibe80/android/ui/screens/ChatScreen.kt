@@ -97,6 +97,11 @@ fun ChatScreen(
     // Show error snackbar when error occurs
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
+            if (error.type == ErrorType.TURN_ERROR) {
+                // TURN_ERROR is logged in the in-app Logs panel; do not show snackbar.
+                viewModel.dismissError()
+                return@let
+            }
             val message = when (error.type) {
                 ErrorType.WEBSOCKET -> context.getString(R.string.error_websocket)
                 ErrorType.NETWORK -> context.getString(R.string.error_network)
