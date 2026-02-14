@@ -60,8 +60,7 @@ fun MessageBubble(
     onFormSubmit: ((Map<String, String>, List<Vibe80FormField>) -> Unit)? = null,
     formsSubmitted: Boolean = false,
     yesNoSubmitted: Boolean = false,
-    onYesNoSubmit: (() -> Unit)? = null,
-    onToolResultSelected: ((String, String) -> Unit)? = null
+    onYesNoSubmit: (() -> Unit)? = null
 ) {
     val isUser = message?.role == MessageRole.USER
     val rawText = streamingText ?: message?.text ?: ""
@@ -108,13 +107,16 @@ fun MessageBubble(
         result
     }
 
-    val toolName = message?.toolResult?.name ?: message?.command ?: "command"
-    val toolOutput = message?.toolResult?.output ?: message?.output ?: ""
-    val showToolBadge = message != null &&
-        (message.role == MessageRole.TOOL_RESULT || message.role == MessageRole.COMMAND_EXECUTION) &&
-        onToolResultSelected != null
-    val showToolInlineText = !(message != null &&
-        (message.role == MessageRole.TOOL_RESULT || message.role == MessageRole.COMMAND_EXECUTION))
+    val isToolOrCommand = message != null &&
+        (message.role == MessageRole.TOOL_RESULT || message.role == MessageRole.COMMAND_EXECUTION)
+    val toolName = message?.toolResult?.name
+        ?.takeIf { it.isNotBlank() }
+        ?: message?.command?.takeIf { it.isNotBlank() }
+        ?: "command"
+    val toolOutput = message?.toolResult?.output
+        ?.takeIf { it.isNotBlank() }
+        ?: message?.output?.takeIf { it.isNotBlank() }
+        ?: text
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -137,15 +139,13 @@ fun MessageBubble(
             Column(modifier = Modifier.padding(12.dp)) {
                 // Role indicator for non-user messages
                 if (!isUser && message != null && message.role != MessageRole.ASSISTANT) {
-                    if (showToolBadge) {
-                        AssistChip(
-                            onClick = { onToolResultSelected?.invoke(toolName, toolOutput) },
-                            label = { Text("Tool : $toolName") },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            ),
-                            modifier = Modifier.padding(bottom = 4.dp)
+                    if (isToolOrCommand) {
+                        CollapsibleToolResultBlock(
+                            title = stringResource(R.string.message_tool_with_name, toolName),
+                            content = toolOutput,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 4.dp)
                         )
                     } else {
                         Text(
@@ -161,27 +161,8 @@ fun MessageBubble(
                     }
                 }
 
-                // Command execution special display
-                if (message?.role == MessageRole.COMMAND_EXECUTION) {
-                    message.command?.let { cmd ->
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Text(
-                                text = "$ $cmd",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                modifier = Modifier.padding(8.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-
                 // Message content with Markdown rendering
-                if (showToolInlineText && text.isNotBlank()) {
+                if (!isToolOrCommand && text.isNotBlank()) {
                     if (isUser) {
                         // Simple text for user messages
                         Text(
@@ -589,6 +570,87 @@ private fun CollapsibleCodeBlock(
         } else {
             Text(
                 text = code,
+                color = textColor,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CollapsibleToolResultBlock(
+    title: String,
+    content: String,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember(content) { mutableStateOf(false) }
+    val background = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val lineCount = remember(content) { content.lines().size }
+
+    Column(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(background)
+            .padding(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Code,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(R.string.message_code_lines, lineCount),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        if (expanded) {
+            Text(
+                text = content,
+                color = textColor,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 240.dp)
+                    .verticalScroll(rememberScrollState())
+                    .horizontalScroll(rememberScrollState())
+                    .padding(8.dp)
+            )
+        } else {
+            Text(
+                text = content,
                 color = textColor,
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,

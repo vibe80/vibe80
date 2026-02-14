@@ -85,6 +85,7 @@
 "message.code_with_language" = "Code (%s)";
 "message.role.command" = "Command";
 "message.role.tool_result" = "Result";
+"message.tool_with_name" = "Tool: %s";
 "model.default" = "Default model";
 "model.label" = "Model";
 "model.loading" = "Loading models...";

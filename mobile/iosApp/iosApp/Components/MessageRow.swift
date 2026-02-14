@@ -14,6 +14,39 @@ struct MessageRow: View {
         return streamingText ?? message?.text ?? ""
     }
 
+    private var isToolOrCommand: Bool {
+        guard let role = message?.role else { return false }
+        return role == .tool_result || role == .commandExecution
+    }
+
+    private var toolName: String {
+        if let name = message?.toolResult?.name, !name.isEmpty {
+            return name
+        }
+        if let command = message?.command, !command.isEmpty {
+            return command
+        }
+        return "command"
+    }
+
+    private var toolOutput: String {
+        if let output = message?.toolResult?.output, !output.isEmpty {
+            return output
+        }
+        if let output = message?.output, !output.isEmpty {
+            return output
+        }
+        return message?.text ?? ""
+    }
+
+    private var localizedToolTitle: String {
+        let template = NSLocalizedString("message.tool_with_name", comment: "")
+        if template.contains("%@") {
+            return String(format: template, toolName)
+        }
+        return template.replacingOccurrences(of: "%s", with: toolName)
+    }
+
     private var isUser: Bool {
         message?.role == .user
     }
@@ -50,15 +83,24 @@ struct MessageRow: View {
     // MARK: - Message Bubble
 
     private var messageBubble: some View {
-        HStack(alignment: .top, spacing: 0) {
-            if isStreaming {
-                streamingIndicator
-            }
+        Group {
+            if isToolOrCommand {
+                ToolResultPanel(
+                    title: localizedToolTitle,
+                    content: toolOutput
+                )
+            } else {
+                HStack(alignment: .top, spacing: 0) {
+                    if isStreaming {
+                        streamingIndicator
+                    }
 
-            // Use AttributedString for Markdown support in iOS 15+
-            if !displayText.isEmpty {
-                Text(LocalizedStringKey(displayText))
-                    .textSelection(.enabled)
+                    // Use AttributedString for Markdown support in iOS 15+
+                    if !displayText.isEmpty {
+                        Text(LocalizedStringKey(displayText))
+                            .textSelection(.enabled)
+                    }
+                }
             }
         }
         .padding(.horizontal, 14)
@@ -68,7 +110,7 @@ struct MessageRow: View {
         .cornerRadius(18)
         .contextMenu {
             Button {
-                UIPasteboard.general.string = displayText
+                UIPasteboard.general.string = isToolOrCommand ? toolOutput : displayText
             } label: {
                 Label("action.copy", systemImage: "doc.on.doc")
             }
@@ -162,6 +204,74 @@ struct MessageRow: View {
             return String(format: "%.1f KB", kb)
         } else {
             return String(format: "%.1f MB", kb / 1024)
+        }
+    }
+}
+
+private struct ToolResultPanel: View {
+    let title: String
+    let content: String
+    @State private var expanded = false
+
+    private var lineCount: Int {
+        max(content.split(separator: "\n", omittingEmptySubsequences: false).count, 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                expanded.toggle()
+            } label: {
+                HStack(alignment: .center, spacing: 8) {
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        .foregroundColor(.vibe80Accent)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.vibe80Ink)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+
+                        Text(
+                            String(
+                                format: NSLocalizedString("message.code_lines", comment: ""),
+                                lineCount
+                            )
+                        )
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    }
+
+                    Spacer(minLength: 8)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .foregroundColor(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                ScrollView([.horizontal, .vertical], showsIndicators: true) {
+                    Text(verbatim: content)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.vibe80Ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .padding(8)
+                }
+                .frame(maxHeight: 220)
+                .background(Color.vibe80BackgroundStrong)
+                .cornerRadius(10)
+            } else {
+                Text(verbatim: content)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.vibe80Ink)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(Color.vibe80BackgroundStrong)
+                    .cornerRadius(10)
+            }
         }
     }
 }

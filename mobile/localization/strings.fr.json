@@ -136,6 +136,7 @@
   "logs.title": "Logs (%d)",
   "message.code": "Code",
   "message.code_with_language": "Code (%s)",
+  "message.tool_with_name": "Tool: %s",
   "message.role.command": "Commande",
   "message.role.tool_result": "Résultat",
   "model.default": "Modèle par défaut",

@@ -417,9 +417,6 @@ fun ChatScreen(
                         workspaceToken = uiState.workspaceToken,
                         formsSubmitted = uiState.submittedFormMessageIds.contains(message.id),
                         yesNoSubmitted = uiState.submittedYesNoMessageIds.contains(message.id),
-                        onToolResultSelected = { name, output ->
-                            viewModel.openToolResult(name, output)
-                        },
                         onFileRefSelected = { path ->
                             viewModel.openFileRef(path)
                         },

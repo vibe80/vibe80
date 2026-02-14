@@ -13,7 +13,6 @@
     <string name="action_expand">Développer</string>
     <string name="action_remove">Retirer</string>
     <string name="action_restart">Recommencer</string>
-    <string name="action_refresh">Rafraîchir</string>
     <string name="action_resume">Reprendre</string>
     <string name="action_resume_progress">Reprise...</string>
     <string name="action_send">Envoyer</string>
@@ -88,6 +87,7 @@
     <string name="message_code_with_language">Code (%s)</string>
     <string name="message_role_command">Commande</string>
     <string name="message_role_tool_result">Résultat</string>
+    <string name="message_tool_with_name">Tool: %s</string>
     <string name="model_default">Modèle par défaut</string>
     <string name="model_label">Modèle</string>
     <string name="model_loading">Chargement des modèles...</string>
@@ -96,7 +96,6 @@
     <string name="provider_auth_api_key_label">Clé API</string>
     <string name="provider_auth_auth_json_b64">auth_json_b64</string>
     <string name="provider_auth_auth_json_label">auth.json</string>
-    <string name="provider_auth_auth_json_file">auth.json file</string>
     <string name="provider_auth_import_auth_json">Importer auth.json</string>
     <string name="provider_auth_setup_token">setup_token</string>
     <string name="provider_auth_setup_token_label">Setup token</string>
@@ -139,7 +138,6 @@
     <string name="workspace_credentials_title">Identifiants workspace</string>
     <string name="workspace_id">Workspace ID</string>
     <string name="workspace_join">Rejoindre un workspace existant</string>
-    <string name="workspace_leave">Quitter le workspace</string>
     <string name="workspace_resume_desktop">Reprendre une session desktop</string>
     <string name="workspace_secret">Workspace secret</string>
     <string name="worktree_add">Ajouter un worktree</string>
@@ -159,10 +157,7 @@
     <string name="worktree_name_placeholder_example">ex: refactor-auth</string>
     <string name="worktree_new_title">Nouveau Worktree</string>
     <string name="worktree_options">Options</string>
-    <string name="worktree_refresh">Rafraîchir les worktrees</string>
     <string name="worktree_source_branch_label">Branche source</string>
     <string name="worktree_title">Worktree : %s</string>
     <string name="worktrees_title">Worktrees</string>
-    <string name="vibe80_yes">Oui</string>
-    <string name="vibe80_no">Non</string>
 </resources>
