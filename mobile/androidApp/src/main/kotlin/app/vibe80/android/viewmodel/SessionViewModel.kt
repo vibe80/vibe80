@@ -210,7 +210,7 @@ class SessionViewModel(
                 )
             }
 
-            val result = sessionRepository.reconnectSession(sessionId)
+            val result = sessionRepository.reconnectSession(sessionId, repoUrl)
             result.fold(
                 onSuccess = {
                     sessionRepository.listWorktrees()

@@ -784,6 +784,10 @@ class SessionRepository(
      * Reconnect to an existing session
      */
     suspend fun reconnectSession(sessionId: String): Result<SessionState> {
+        return reconnectSession(sessionId, null)
+    }
+
+    suspend fun reconnectSession(sessionId: String, repoUrlOverride: String?): Result<SessionState> {
         val result = apiClient.getSession(sessionId)
         result.onFailure { handleApiFailure(it, "reconnectSession") }
         return result.map { response ->
@@ -793,9 +797,15 @@ class SessionRepository(
             } else {
                 listOf("codex", "claude")
             }
+            val resolvedRepoUrl = repoUrlOverride
+                ?.takeIf { it.isNotBlank() }
+                ?: _sessionState.value
+                    ?.takeIf { it.sessionId == sessionId }
+                    ?.repoUrl
+                    .orEmpty()
             val state = SessionState(
                 sessionId = sessionId,
-                repoUrl = "", // Not returned by getSession
+                repoUrl = resolvedRepoUrl,
                 activeProvider = LLMProvider.valueOf(providerValue),
                 providers = providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
