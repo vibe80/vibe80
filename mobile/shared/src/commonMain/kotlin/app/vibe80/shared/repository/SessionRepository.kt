@@ -768,10 +768,28 @@ class SessionRepository(
                     // Ignore stale response if user switched tab while request was in flight.
                     if (_activeWorktreeId.value != worktreeId) return@onSuccess
                     if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
-                        _messages.value = snapshot.messages
+                        if (snapshot.messages.isNotEmpty() || _messages.value.isEmpty()) {
+                            _messages.value = snapshot.messages
+                        } else {
+                            AppLogger.debug(
+                                LogSource.APP,
+                                "Ignoring empty main snapshot from getWorktree to preserve history",
+                                "worktreeId=$worktreeId"
+                            )
+                        }
                     } else {
                         _worktreeMessages.update { current ->
-                            current + (worktreeId to snapshot.messages)
+                            val existing = current[worktreeId]
+                            if (snapshot.messages.isNotEmpty() || existing == null) {
+                                current + (worktreeId to snapshot.messages)
+                            } else {
+                                AppLogger.debug(
+                                    LogSource.APP,
+                                    "Ignoring empty worktree snapshot from getWorktree to preserve history",
+                                    "worktreeId=$worktreeId"
+                                )
+                                current
+                            }
                         }
                         val status = snapshot.status
                         if (status != null) {
