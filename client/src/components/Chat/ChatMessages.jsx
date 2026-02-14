@@ -267,12 +267,15 @@ export default function ChatMessages({
                           </span>
                         );
                         const panelKey = `tool-${item.id}`;
+                        const isPanelOpen = isActionResult
+                          ? toolResultPanelOpen[panelKey] !== false
+                          : Boolean(toolResultPanelOpen[panelKey]);
                         return (
                           <div key={item.id}>
                             {isExpandable ? (
                               <details
                                 className="command-execution-panel"
-                                open={Boolean(toolResultPanelOpen[panelKey])}
+                                open={isPanelOpen}
                                 onToggle={(event) => {
                                   const isOpen = event.currentTarget.open;
                                   setToolResultPanelOpen((prev) => ({
