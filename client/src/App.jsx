@@ -1871,6 +1871,7 @@ function App() {
     updateExplorerRenameDraft,
     submitExplorerRename,
     createExplorerFile,
+    createExplorerFolder,
     deleteExplorerSelection,
   } = useExplorerActions({
     attachmentSessionId: attachmentSession?.sessionId,
@@ -2531,6 +2532,7 @@ function App() {
                 closeExplorerFile={closeExplorerFile}
                 startExplorerRename={startExplorerRename}
                 createExplorerFile={createExplorerFile}
+                createExplorerFolder={createExplorerFolder}
                 deleteExplorerSelection={deleteExplorerSelection}
                 getLanguageForPath={getLanguageForPath}
                 themeMode={themeMode}

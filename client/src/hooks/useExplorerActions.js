@@ -985,6 +985,63 @@ export default function useExplorerActions({
     ]
   );
 
+  const createExplorerFolder = useCallback(
+    async (tabId, rawName) => {
+      if (!attachmentSessionId || !tabId) {
+        return false;
+      }
+      const folderName = normalizeOpenPath(rawName || "");
+      if (!folderName) {
+        showToast(t("Path required."), "error");
+        return false;
+      }
+      const state = explorerRef.current?.[tabId] || explorerDefaultState;
+      const selectedPath = state.selectedPath || "";
+      const selectedType = state.selectedType || null;
+      const baseDir =
+        selectedType === "dir"
+          ? selectedPath
+          : selectedType === "file"
+            ? pathDirname(selectedPath)
+            : "";
+      const targetPath = joinPath(baseDir, folderName);
+
+      try {
+        const response = await apiFetch(
+          `/api/sessions/${encodeURIComponent(
+            attachmentSessionId
+          )}/worktrees/${encodeURIComponent(tabId)}/folder`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: targetPath }),
+          }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to create folder");
+        }
+        await requestExplorerTree(tabId, true);
+        await requestExplorerStatus(tabId, true);
+        showToast(t("Folder created."), "success");
+        return true;
+      } catch {
+        showToast(t("Unable to create folder."), "error");
+        return false;
+      }
+    },
+    [
+      attachmentSessionId,
+      normalizeOpenPath,
+      explorerRef,
+      explorerDefaultState,
+      apiFetch,
+      requestExplorerTree,
+      requestExplorerStatus,
+      showToast,
+      t,
+    ]
+  );
+
   const deleteExplorerSelection = useCallback(
     async (tabId) => {
       if (!attachmentSessionId || !tabId) {
@@ -1121,6 +1178,7 @@ export default function useExplorerActions({
     updateExplorerRenameDraft,
     submitExplorerRename,
     createExplorerFile,
+    createExplorerFolder,
     deleteExplorerSelection,
   };
 }

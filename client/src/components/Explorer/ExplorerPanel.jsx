@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowsRotate,
   faFileCirclePlus,
+  faFolderPlus,
   faPenToSquare,
   faTrashCan,
 } from "@fortawesome/free-solid-svg-icons";
@@ -28,6 +29,7 @@ export default function ExplorerPanel({
   closeExplorerFile,
   startExplorerRename,
   createExplorerFile,
+  createExplorerFolder,
   deleteExplorerSelection,
   getLanguageForPath,
   themeMode,
@@ -43,6 +45,9 @@ export default function ExplorerPanel({
   const [newFileDialogOpen, setNewFileDialogOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileSubmitting, setNewFileSubmitting] = useState(false);
+  const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderSubmitting, setNewFolderSubmitting] = useState(false);
 
   const selectedPath = activeExplorer.selectedPath || "";
   const canRename = Boolean(selectedPath);
@@ -118,6 +123,19 @@ export default function ExplorerPanel({
               disabled={!attachmentSession?.sessionId}
             >
               <FontAwesomeIcon icon={faFileCirclePlus} />
+            </button>
+            <button
+              type="button"
+              className="explorer-tree-icon-btn"
+              title={t("New folder")}
+              aria-label={t("New folder")}
+              onClick={() => {
+                setNewFolderName("");
+                setNewFolderDialogOpen(true);
+              }}
+              disabled={!attachmentSession?.sessionId}
+            >
+              <FontAwesomeIcon icon={faFolderPlus} />
             </button>
             <button
               type="button"
@@ -350,6 +368,77 @@ export default function ExplorerPanel({
                 }}
               >
                 {newFileSubmitting ? t("Creating") : t("Create")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {newFolderDialogOpen && (
+        <div
+          className="explorer-file-dialog-overlay"
+          onClick={() => {
+            if (!newFolderSubmitting) {
+              setNewFolderDialogOpen(false);
+            }
+          }}
+        >
+          <div
+            className="explorer-file-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3>{t("New folder")}</h3>
+            <div className="explorer-file-dialog-field">
+              <label htmlFor="explorer-new-folder-input">{t("Folder path")}</label>
+              <input
+                id="explorer-new-folder-input"
+                type="text"
+                value={newFolderName}
+                onChange={(event) => setNewFolderName(event.target.value)}
+                placeholder={t("e.g. src/new-folder")}
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !newFolderSubmitting) {
+                    event.preventDefault();
+                    setNewFolderSubmitting(true);
+                    createExplorerFolder(tabId, newFolderName)
+                      .then((ok) => {
+                        if (ok) {
+                          setNewFolderDialogOpen(false);
+                          setNewFolderName("");
+                        }
+                      })
+                      .finally(() => setNewFolderSubmitting(false));
+                  }
+                }}
+              />
+            </div>
+            <div className="explorer-file-dialog-actions">
+              <button
+                type="button"
+                className="session-button secondary"
+                onClick={() => setNewFolderDialogOpen(false)}
+                disabled={newFolderSubmitting}
+              >
+                {t("Cancel")}
+              </button>
+              <button
+                type="button"
+                className="session-button primary"
+                disabled={newFolderSubmitting || !newFolderName.trim()}
+                onClick={() => {
+                  setNewFolderSubmitting(true);
+                  createExplorerFolder(tabId, newFolderName)
+                    .then((ok) => {
+                      if (ok) {
+                        setNewFolderDialogOpen(false);
+                        setNewFolderName("");
+                      }
+                    })
+                    .finally(() => setNewFolderSubmitting(false));
+                }}
+              >
+                {newFolderSubmitting ? t("Creating") : t("Create")}
               </button>
             </div>
           </div>
