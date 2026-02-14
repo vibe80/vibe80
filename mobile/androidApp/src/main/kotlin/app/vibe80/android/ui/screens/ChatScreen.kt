@@ -173,6 +173,8 @@ fun ChatScreen(
     val selectedModel = uiState.activeSelectedModel
         ?: activeModels.firstOrNull { it.isDefault }?.model
         ?: activeModels.firstOrNull()?.model
+    val selectedModelDisplay = activeModels.firstOrNull { it.model == selectedModel }?.displayName
+        ?: selectedModel
     val activeActionMode = uiState.activeActionMode
     val canSend = if (activeActionMode == ComposerActionMode.LLM) {
         uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()
@@ -664,7 +666,7 @@ fun ChatScreen(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(text = stringResource(R.string.composer_model), style = MaterialTheme.typography.titleSmall)
                 ListItem(
-                    headlineContent = { Text(selectedModel ?: stringResource(R.string.model_default)) },
+                    headlineContent = { Text(selectedModelDisplay ?: stringResource(R.string.model_default)) },
                     leadingContent = { Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null) },
                     trailingContent = { Text(if (modelsExpanded) "▲" else "▼") },
                     modifier = Modifier.clickable { modelsExpanded = !modelsExpanded }

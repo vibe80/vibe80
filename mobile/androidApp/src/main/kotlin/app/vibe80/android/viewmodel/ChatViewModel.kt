@@ -594,14 +594,15 @@ class ChatViewModel(
     }
 
     fun setActiveWorktreeModel(model: String?) {
-        val worktree = _uiState.value.activeWorktree ?: return
-        val providerKey = worktree.provider.name.lowercase()
+        val state = _uiState.value
+        val worktreeId = state.activeWorktreeId
+        val providerKey = (state.activeWorktree?.provider ?: state.activeProvider).name.lowercase()
         _uiState.update {
-            it.copy(selectedModelByWorktree = it.selectedModelByWorktree + (worktree.id to model))
+            it.copy(selectedModelByWorktree = it.selectedModelByWorktree + (worktreeId to model))
         }
         if (model.isNullOrBlank()) return
         viewModelScope.launch {
-            sessionRepository.setModel(worktree.id, model)
+            sessionRepository.setModel(worktreeId, model)
         }
         loadProviderModels(providerKey)
     }
