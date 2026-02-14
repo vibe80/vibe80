@@ -411,10 +411,10 @@ fun ChatScreen(
             animationSpec = tween(durationMillis = 220),
             label = "animatedInputBarHeight"
         )
-        val imeBottomPx = WindowInsets.ime.getBottom(density)
+        val imeBottomDp = with(density) { WindowInsets.ime.getBottom(density).toDp() }
 
-        LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomPx, listItemCount) {
-            if (listItemCount > 0 && (inputFocused || imeBottomPx > 0)) {
+        LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomDp, listItemCount) {
+            if (listItemCount > 0 && (inputFocused || imeBottomDp > 0.dp)) {
                 listState.animateScrollToItem(listItemCount - 1)
             }
         }
@@ -453,7 +453,7 @@ fun ChatScreen(
                         start = 16.dp,
                         top = 16.dp,
                         end = 16.dp,
-                        bottom = 16.dp + animatedInputBarHeight
+                        bottom = 16.dp + animatedInputBarHeight + imeBottomDp
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
