@@ -1958,16 +1958,16 @@
           "createdAt": {
             "type": [
               "string",
-              "number",
               "null"
-            ]
+            ],
+            "format": "date-time"
           },
           "lastActivityAt": {
             "type": [
               "string",
-              "number",
               "null"
-            ]
+            ],
+            "format": "date-time"
           },
           "color": {
             "type": "string"
@@ -2124,9 +2124,9 @@
           "createdAt": {
             "type": [
               "string",
-              "number",
               "null"
-            ]
+            ],
+            "format": "date-time"
           },
           "diff": {
             "$ref": "#/components/schemas/RepoDiff"
@@ -2350,7 +2350,8 @@
             "type": "string"
           },
           "date": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [
@@ -2650,15 +2651,17 @@
           },
           "createdAt": {
             "type": [
-              "number",
+              "string",
               "null"
-            ]
+            ],
+            "format": "date-time"
           },
           "lastActivityAt": {
             "type": [
-              "number",
+              "string",
               "null"
-            ]
+            ],
+            "format": "date-time"
           },
           "activeProvider": {
             "anyOf": [
@@ -2862,16 +2865,18 @@
             "type": "string"
           },
           "createdAt": {
-            "type": "number"
+            "type": "string",
+            "format": "date-time"
           },
           "done": {
             "type": "boolean"
           },
           "doneAt": {
             "type": [
-              "number",
+              "string",
               "null"
-            ]
+            ],
+            "format": "date-time"
           }
         },
         "required": [
@@ -2973,10 +2978,10 @@
           },
           "expiresAt": {
             "type": [
-              "number",
               "string",
               "null"
-            ]
+            ],
+            "format": "date-time"
           }
         },
         "required": [

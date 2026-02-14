@@ -4,7 +4,7 @@ import { runAsCommand, runAsCommandOutput } from "./runAs.js";
 import storage from "./storage/index.js";
 import { getSessionRuntime } from "./runtimeStore.js";
 import { createWorktreeClient } from "./clientFactory.js";
-import { createMessageId } from "./helpers.js";
+import { createMessageId, toIsoDateTime } from "./helpers.js";
 import { copyClaudeThreadDirectory } from "./services/claudeThreadDirectory.js";
 
 const MAIN_WORKTREE_SENTINEL = "main";
@@ -500,7 +500,7 @@ export async function getWorktreeCommits(session, worktreeId, limit = 20) {
   const output = await runSessionCommandOutput(
     session,
     "git",
-    ["log", `--max-count=${limit}`, "--format=%H|%s|%ci"],
+    ["log", `--max-count=${limit}`, "--format=%H|%s|%cI"],
     { cwd: worktree.path }
   );
 
@@ -510,7 +510,7 @@ export async function getWorktreeCommits(session, worktreeId, limit = 20) {
     .filter(Boolean)
     .map((line) => {
       const [sha, message, date] = line.split("|");
-      return { sha, message, date };
+      return { sha, message, date: toIsoDateTime(date) };
     });
 }
 
@@ -606,8 +606,8 @@ export async function listWorktrees(session) {
       typeof wt.denyGitCredentialsAccess === "boolean"
         ? wt.denyGitCredentialsAccess
         : true,
-    createdAt: wt.createdAt,
-    lastActivityAt: wt.lastActivityAt,
+    createdAt: toIsoDateTime(wt.createdAt),
+    lastActivityAt: toIsoDateTime(wt.lastActivityAt),
     color: wt.color,
   }));
 }

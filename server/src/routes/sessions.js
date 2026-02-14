@@ -1,6 +1,10 @@
 import { Router } from "express";
 import storage from "../storage/index.js";
-import { createMessageId, classifySessionCreationError } from "../helpers.js";
+import {
+  createMessageId,
+  classifySessionCreationError,
+  toIsoDateTime,
+} from "../helpers.js";
 import { debugApiWsLog } from "../middleware/debug.js";
 import {
   handoffTokens,
@@ -42,8 +46,8 @@ export default function sessionRoutes(deps) {
           sessionId: session.sessionId,
           repoUrl: session.repoUrl || "",
           name: session.name || "",
-          createdAt: session.createdAt || null,
-          lastActivityAt: session.lastActivityAt || null,
+          createdAt: toIsoDateTime(session.createdAt),
+          lastActivityAt: toIsoDateTime(session.lastActivityAt),
           activeProvider: session.activeProvider || null,
           providers:
             Array.isArray(session.providers) && session.providers.length
@@ -53,8 +57,8 @@ export default function sessionRoutes(deps) {
                 : [],
         }));
         payload.sort((a, b) => {
-          const aTime = a.lastActivityAt || a.createdAt || 0;
-          const bTime = b.lastActivityAt || b.createdAt || 0;
+          const aTime = Date.parse(a.lastActivityAt || a.createdAt || "") || 0;
+          const bTime = Date.parse(b.lastActivityAt || b.createdAt || "") || 0;
           return bTime - aTime;
         });
         res.json({ sessions: payload });
@@ -76,7 +80,10 @@ export default function sessionRoutes(deps) {
       return;
     }
     const record = createHandoffToken(session);
-    res.json({ handoffToken: record.token, expiresAt: record.expiresAt });
+    res.json({
+      handoffToken: record.token,
+      expiresAt: toIsoDateTime(record.expiresAt),
+    });
   });
 
   router.post("/sessions/handoff/consume", async (req, res) => {
@@ -239,7 +246,13 @@ export default function sessionRoutes(deps) {
       lastActivityAt: Date.now(),
     };
     await storage.saveSession(session.sessionId, updated);
-    res.json({ ok: true, item });
+    res.json({
+      ok: true,
+      item: {
+        ...item,
+        createdAt: toIsoDateTime(item.createdAt),
+      },
+    });
   });
 
   router.get("/sessions/:sessionId/backlog-items", async (req, res) => {
@@ -250,7 +263,12 @@ export default function sessionRoutes(deps) {
     }
     await touchSession(session);
     const backlog = Array.isArray(session.backlog) ? session.backlog : [];
-    res.json({ items: backlog });
+    const serializedItems = backlog.map((item) => ({
+      ...item,
+      createdAt: toIsoDateTime(item?.createdAt),
+      doneAt: toIsoDateTime(item?.doneAt),
+    }));
+    res.json({ items: serializedItems });
   });
 
   router.patch("/sessions/:sessionId/backlog-items/:itemId", async (req, res) => {
@@ -289,7 +307,14 @@ export default function sessionRoutes(deps) {
       lastActivityAt: Date.now(),
     };
     await storage.saveSession(session.sessionId, updatedSession);
-    res.json({ ok: true, item: updatedItem });
+    res.json({
+      ok: true,
+      item: {
+        ...updatedItem,
+        createdAt: toIsoDateTime(updatedItem.createdAt),
+        doneAt: toIsoDateTime(updatedItem.doneAt),
+      },
+    });
   });
 
   router.post("/sessions", async (req, res) => {

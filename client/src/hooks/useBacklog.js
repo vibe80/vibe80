@@ -1,5 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+const toIsoDateTime = (value) => {
+  if (value == null || value === "") {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+};
+
+const normalizeBacklogItem = (item) => {
+  if (!item || typeof item !== "object") {
+    return item;
+  }
+  return {
+    ...item,
+    createdAt: toIsoDateTime(item.createdAt),
+    doneAt: toIsoDateTime(item.doneAt),
+  };
+};
+
 export default function useBacklog({
   attachmentSessionId,
   apiFetch,
@@ -29,7 +48,11 @@ export default function useBacklog({
     }
     try {
       const stored = JSON.parse(localStorage.getItem(backlogKey) || "[]");
-      setBacklog(Array.isArray(stored) ? stored : []);
+      setBacklog(
+        Array.isArray(stored)
+          ? stored.map(normalizeBacklogItem).filter(Boolean)
+          : []
+      );
     } catch {
       setBacklog([]);
     }
@@ -166,7 +189,7 @@ export default function useBacklog({
           throw new Error(payload?.error || t("Unable to update backlog."));
         }
         const payload = await response.json().catch(() => ({}));
-        const updatedItem = payload?.item;
+        const updatedItem = normalizeBacklogItem(payload?.item);
         updateBacklogMessages((items) =>
           items.map((item) =>
             item?.id === itemId
@@ -189,7 +212,7 @@ export default function useBacklog({
     const entry = {
       id: `backlog-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       text: trimmed,
-      createdAt: Date.now(),
+      createdAt: new Date().toISOString(),
       attachments: draftAttachments,
     };
     setBacklog((current) => [entry, ...current]);
