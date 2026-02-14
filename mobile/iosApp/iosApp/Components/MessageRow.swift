@@ -97,8 +97,13 @@ struct MessageRow: View {
 
                     // Use AttributedString for Markdown support in iOS 15+
                     if !displayText.isEmpty {
-                        Text(LocalizedStringKey(displayText))
-                            .textSelection(.enabled)
+                        if isUser {
+                            Text(verbatim: displayText)
+                                .textSelection(.enabled)
+                        } else {
+                            Text(LocalizedStringKey(displayText))
+                                .textSelection(.enabled)
+                        }
                     }
                 }
             }
