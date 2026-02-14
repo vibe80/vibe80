@@ -366,10 +366,28 @@ class SessionRepository(
                     }
                 }
                 if (message.worktreeId == Worktree.MAIN_WORKTREE_ID) {
-                    _messages.value = message.messages
+                    if (message.messages.isNotEmpty() || _messages.value.isEmpty()) {
+                        _messages.value = message.messages
+                    } else {
+                        AppLogger.debug(
+                            LogSource.APP,
+                            "Ignoring empty main sync payload to preserve local history",
+                            "worktreeId=${message.worktreeId}"
+                        )
+                    }
                 } else {
                     _worktreeMessages.update { current ->
-                        current + (message.worktreeId to message.messages)
+                        val existing = current[message.worktreeId]
+                        if (message.messages.isNotEmpty() || existing == null) {
+                            current + (message.worktreeId to message.messages)
+                        } else {
+                            AppLogger.debug(
+                                LogSource.APP,
+                                "Ignoring empty worktree sync payload to preserve local history",
+                                "worktreeId=${message.worktreeId}"
+                            )
+                            current
+                        }
                     }
                 }
             }
