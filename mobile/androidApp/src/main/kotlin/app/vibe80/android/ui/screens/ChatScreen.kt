@@ -580,6 +580,12 @@ fun ChatScreen(
                                 modifier = Modifier.weight(1f),
                                 placeholder = { Text(stringResource(R.string.composer_message_placeholder)) },
                                 maxLines = 4,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    disabledBorderColor = Color.Transparent,
+                                    errorBorderColor = Color.Transparent
+                                ),
                                 enabled = uiState.connectionState == ConnectionState.CONNECTED &&
                                         (!uiState.processing || codexReady) &&
                                         !uiState.uploadingAttachments
