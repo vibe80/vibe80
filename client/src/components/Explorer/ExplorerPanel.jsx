@@ -146,8 +146,6 @@ export default function ExplorerPanel({
     const hasFiles = event.dataTransfer?.files?.length > 0;
     if (hasFiles) {
       await handleExternalDrop(event, "");
-    } else {
-      await handleInternalDrop(event, "");
     }
     setDragOverPath("");
   };
@@ -156,12 +154,8 @@ export default function ExplorerPanel({
     <div
       className={`explorer-panel ${activePane === "explorer" ? "" : "is-hidden"}`}
       onDragOver={(e) => {
-        if (!attachmentSession?.sessionId) return;
-        const hasFiles = e.dataTransfer?.files?.length > 0;
-        const hasInternal = Boolean(draggingPath);
-        if (hasFiles || hasInternal) {
+        if (attachmentSession?.sessionId && e.dataTransfer?.files?.length) {
           e.preventDefault();
-          setDragOverPath("");
         }
       }}
       onDrop={onDropRoot}
