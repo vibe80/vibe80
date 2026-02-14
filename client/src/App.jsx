@@ -1697,6 +1697,22 @@ function App() {
         }
         return;
       }
+      if (message?.type === "action_result") {
+        if (!showToolResults) {
+          return;
+        }
+        const last = grouped[grouped.length - 1];
+        if (last?.groupType === "toolResult") {
+          last.items.push(message);
+        } else {
+          grouped.push({
+            groupType: "toolResult",
+            id: `tool-result-group-${message.id}`,
+            items: [message],
+          });
+        }
+        return;
+      }
       grouped.push(message);
     });
     return grouped;

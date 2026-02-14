@@ -246,6 +246,7 @@
   "Tool": "Tool",
   "Tool result": "Tool result",
   "Tool: {{tool}}": "Outil: {{tool}}",
+  "User command : {{command}}": "Commande utilisateur : {{command}}",
   "Todo text required.": "Texte de la todo requis.",
   "Unable to change branch.": "Impossible de changer de branche.",
   "Unable to create the attachment session (HTTP {{status}}{{statusText}}){{suffix}}.": "Impossible de creer la session de pieces jointes (HTTP {{status}}{{statusText}}){{suffix}}.",

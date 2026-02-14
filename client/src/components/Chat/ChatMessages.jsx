@@ -237,14 +237,23 @@ export default function ChatMessages({
                   return (
                     <div key={message.id} className="bubble command-execution">
                       {message.items.map((item) => {
-                        const toolTitle = t("Tool: {{tool}}", {
-                          tool:
-                            item.toolResult?.name ||
-                            item.toolResult?.tool ||
-                            "Tool",
-                        });
-                        const output =
-                          item.toolResult?.output || item.text || "";
+                        const isActionResult = item?.type === "action_result";
+                        const actionRequest = item?.action?.request || "";
+                        const actionArg = item?.action?.arg || "";
+                        const commandLabel = `${actionRequest}${actionArg ? ` ${actionArg}` : ""}`.trim();
+                        const toolTitle = isActionResult
+                          ? t("User command : {{command}}", {
+                              command: commandLabel || t("Command"),
+                            })
+                          : t("Tool: {{tool}}", {
+                              tool:
+                                item.toolResult?.name ||
+                                item.toolResult?.tool ||
+                                "Tool",
+                            });
+                        const output = isActionResult
+                          ? item?.action?.output || item.text || ""
+                          : item.toolResult?.output || item.text || "";
                         const isExpandable = Boolean(output);
                         const summaryContent = (
                           <span className="command-execution-title">

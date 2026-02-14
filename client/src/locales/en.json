@@ -22,5 +22,6 @@
   "Claude Code does not natively support forked sessions with directory changes. This feature is experimental.": "Claude Code does not natively support forked sessions with directory changes. This feature is experimental.",
   "binary data": "binary data",
   "Loading untracked files...": "Loading untracked files...",
-  "Unable to load file.": "Unable to load file."
+  "Unable to load file.": "Unable to load file.",
+  "User command : {{command}}": "User command : {{command}}"
 }
