@@ -113,7 +113,10 @@ data class ErrorMessage(
     override val type: String = "error",
     val message: String,
     val provider: String? = null,
-    val details: String? = null
+    val details: String? = null,
+    @SerialName("error_code")
+    val errorCode: String? = null,
+    val recoverable: Boolean? = null
 ) : ServerMessage()
 
 @Serializable

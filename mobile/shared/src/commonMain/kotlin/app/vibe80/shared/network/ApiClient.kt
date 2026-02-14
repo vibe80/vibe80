@@ -88,6 +88,8 @@ class ApiClient(
         }
     }
 
+    suspend fun tryRefreshWorkspaceToken(): Boolean = refreshWorkspaceToken()
+
     private suspend fun executeWithRefresh(
         url: String,
         request: suspend () -> io.ktor.client.statement.HttpResponse
