@@ -4086,7 +4086,7 @@ main.chat {
 
 .command-execution-title {
   display: inline-flex;
-  align-items: center;
+  align-items: start;
   gap: 8px;
   font-size: 11px;
 }
@@ -4094,6 +4094,7 @@ main.chat {
 .command-execution-tool-icon {
   display: inline-flex;
   align-items: center;
+  margin-top: 2px;
   color: var(--accent);
 }
 
