@@ -1,6 +1,9 @@
 package app.vibe80.android.ui.components
 
 import android.graphics.Typeface
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.text.style.ReplacementSpan
 import android.net.Uri
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
@@ -45,10 +48,12 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
+import io.noties.markwon.MarkwonSpansFactory
 import io.noties.markwon.core.MarkwonTheme
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.linkify.LinkifyPlugin
+import org.commonmark.node.Code
 
 @Composable
 fun MessageBubble(
@@ -441,8 +446,11 @@ fun MarkdownText(
     val bodyTypefaceNormal = remember(bodyTypeface) {
         bodyTypeface?.let { Typeface.create(it, 400, false) }
     }
+    val monoTypeface = remember {
+        ResourcesCompat.getFont(context, R.font.space_mono_regular)
+    }
 
-    val markwon = remember(textColor, linkColor, codeBackgroundColor, codeTextSizePx) {
+    val markwon = remember(textColor, linkColor, codeBackgroundColor, codeTextColor, codeTextSizePx, monoTypeface) {
         Markwon.builder(context)
             .usePlugin(StrikethroughPlugin.create())
             .usePlugin(TablePlugin.create(context))
@@ -454,14 +462,24 @@ fun MarkdownText(
                         .codeBackgroundColor(codeBackgroundColor.toArgb())
                         .codeBlockTextColor(codeTextColor.toArgb())
                         .codeBlockBackgroundColor(codeBackgroundColor.toArgb())
-                        .codeTypeface(Typeface.MONOSPACE)
-                        .codeBlockTypeface(Typeface.MONOSPACE)
+                        .codeTypeface(monoTypeface ?: Typeface.MONOSPACE)
+                        .codeBlockTypeface(monoTypeface ?: Typeface.MONOSPACE)
                         .codeTextSize(codeTextSizePx.toInt())
                         .codeBlockTextSize(codeTextSizePx.toInt())
                         .codeBlockMargin(16)
                         .linkColor(linkColor.toArgb())
                         .isLinkUnderlined(true)
                         .headingBreakHeight(0)
+                }
+
+                override fun configureSpansFactory(builder: MarkwonSpansFactory.Builder) {
+                    builder.setFactory(Code::class.java) { _, _ ->
+                        InlineCodeRoundedSpan(
+                            backgroundColor = codeBackgroundColor.toArgb(),
+                            textColor = codeTextColor.toArgb(),
+                            typeface = monoTypeface
+                        )
+                    }
                 }
             })
             .build()
@@ -483,6 +501,61 @@ fun MarkdownText(
             markwon.setMarkdown(textView, markdown)
         }
     )
+}
+
+private class InlineCodeRoundedSpan(
+    private val backgroundColor: Int,
+    private val textColor: Int,
+    private val typeface: Typeface?
+) : ReplacementSpan() {
+    private val cornerRadius = 10f
+    private val verticalPadding = 4f
+
+    override fun getSize(
+        paint: Paint,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        fm: Paint.FontMetricsInt?
+    ): Int {
+        val previousTypeface = paint.typeface
+        typeface?.let { paint.typeface = it }
+        val width = paint.measureText(text, start, end).toInt()
+        paint.typeface = previousTypeface
+        return width
+    }
+
+    override fun draw(
+        canvas: Canvas,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        x: Float,
+        top: Int,
+        y: Int,
+        bottom: Int,
+        paint: Paint
+    ) {
+        val previousColor = paint.color
+        val previousTypeface = paint.typeface
+        val previousStyle = paint.style
+
+        val textWidth = paint.measureText(text, start, end)
+        val rectTop = top.toFloat() + verticalPadding
+        val rectBottom = bottom.toFloat() - verticalPadding
+
+        paint.color = backgroundColor
+        paint.style = Paint.Style.FILL
+        canvas.drawRoundRect(x, rectTop, x + textWidth, rectBottom, cornerRadius, cornerRadius, paint)
+
+        paint.color = textColor
+        typeface?.let { paint.typeface = it }
+        canvas.drawText(text, start, end, x, y.toFloat(), paint)
+
+        paint.color = previousColor
+        paint.typeface = previousTypeface
+        paint.style = previousStyle
+    }
 }
 
 private data class CodeFence(
