@@ -2023,16 +2023,25 @@ function App() {
     const repoDisplay = getTruncatedText(repoUrl, 72);
     const formDisabled = workspaceBusy || sessionRequested;
     const workspaceProvider = (providerKey) => workspaceProviders[providerKey] || {};
-    const showStep1 = workspaceStep === 1;
-    const showStep2 = workspaceStep === 2;
+    const showMonoLoginRequired =
+      deploymentMode === "mono_user" && !workspaceToken;
+    const showStep1 = !showMonoLoginRequired && workspaceStep === 1;
+    const showStep2 = !showMonoLoginRequired && workspaceStep === 2;
     const showStep3 = workspaceStep === 3 && workspaceToken;
     const showStep4 = workspaceStep === 4 && workspaceToken;
-    const headerHint = showStep2
+    const headerHint = showMonoLoginRequired
+      ? t("Please use the console generated URL to login")
+      : showStep2
       ? t("Configure AI providers for this workspace.")
       : showStep3
         ? t("Workspace created hint")
         : null;
-    const infoContent = showStep2
+    const infoContent = showMonoLoginRequired
+      ? {
+          title: t("Login required"),
+          paragraphs: [t("Please use the console generated URL to login")],
+        }
+      : showStep2
       ? {
           title: t("Configure AI providers"),
           paragraphs: [
@@ -2082,6 +2091,7 @@ function App() {
         showStep2={showStep2}
         showStep3={showStep3}
         showStep4={showStep4}
+        showMonoLoginRequired={showMonoLoginRequired}
         headerHint={headerHint}
         workspaceMode={workspaceMode}
         setWorkspaceMode={setWorkspaceMode}

@@ -9,6 +9,7 @@ export default function SessionGate({
   showStep2,
   showStep3,
   showStep4,
+  showMonoLoginRequired,
   headerHint,
   workspaceMode,
   setWorkspaceMode,
@@ -88,7 +89,9 @@ export default function SessionGate({
           <div className="session-header">
             <img className="brand-logo" src={brandLogo} alt="vibe80" />
             <h1>
-              {showStep4
+              {showMonoLoginRequired
+                ? t("Login required")
+                : showStep4
                 ? t("Start a session")
                 : showStep3
                   ? t("Workspace created")
@@ -720,9 +723,22 @@ export default function SessionGate({
                 )}
               </div>
             )}
+            {showMonoLoginRequired && (
+              <div className="session-step">
+                <div className="session-auth">
+                  <div className="session-auth-title">{t("Login required")}</div>
+                  <div className="session-auth-hint">
+                    {t("Please use the console generated URL to login")}
+                  </div>
+                </div>
+                {workspaceError && (
+                  <div className="attachments-error">{workspaceError}</div>
+                )}
+              </div>
+            )}
           </div>
           <div className="session-footer">
-            {showStep1 ? (
+            {showMonoLoginRequired ? null : showStep1 ? (
               <button
                 type="submit"
                 form="workspace-form"
