@@ -537,7 +537,8 @@ fun ChatScreen(
                         ) {
                             IconButton(
                                 onClick = { showAttachmentMenu = true },
-                                enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && codexReady
+                                enabled = uiState.connectionState == ConnectionState.CONNECTED &&
+                                        (!uiState.processing || codexReady)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
@@ -552,18 +553,16 @@ fun ChatScreen(
                                 placeholder = { Text(stringResource(R.string.composer_message_placeholder)) },
                                 maxLines = 4,
                                 enabled = uiState.connectionState == ConnectionState.CONNECTED &&
-                                        !uiState.processing &&
-                                        !uiState.uploadingAttachments &&
-                                        codexReady
+                                        (!uiState.processing || codexReady) &&
+                                        !uiState.uploadingAttachments
                             )
 
                             FilledIconButton(
                                 onClick = viewModel::sendMessageWithAttachments,
                                 enabled = (uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()) &&
                                         uiState.connectionState == ConnectionState.CONNECTED &&
-                                        !uiState.processing &&
-                                        !uiState.uploadingAttachments &&
-                                        codexReady
+                                        (!uiState.processing || codexReady) &&
+                                        !uiState.uploadingAttachments
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
@@ -599,7 +598,8 @@ fun ChatScreen(
                             Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null)
                         },
                         modifier = Modifier.clickable(
-                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && codexReady
+                            enabled = uiState.connectionState == ConnectionState.CONNECTED &&
+                                    (!uiState.processing || codexReady)
                         ) {
                             showAttachmentMenu = false
                             launchCameraWithPermission()
@@ -612,7 +612,8 @@ fun ChatScreen(
                             Icon(imageVector = Icons.Default.Image, contentDescription = null)
                         },
                         modifier = Modifier.clickable(
-                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && codexReady
+                            enabled = uiState.connectionState == ConnectionState.CONNECTED &&
+                                    (!uiState.processing || codexReady)
                         ) {
                             showAttachmentMenu = false
                             filePickerLauncher.launch(arrayOf("image/*"))
@@ -625,7 +626,8 @@ fun ChatScreen(
                             Icon(imageVector = Icons.Default.AttachFile, contentDescription = null)
                         },
                         modifier = Modifier.clickable(
-                            enabled = uiState.connectionState == ConnectionState.CONNECTED && !uiState.processing && codexReady
+                            enabled = uiState.connectionState == ConnectionState.CONNECTED &&
+                                    (!uiState.processing || codexReady)
                         ) {
                             showAttachmentMenu = false
                             filePickerLauncher.launch(arrayOf("*/*"))
