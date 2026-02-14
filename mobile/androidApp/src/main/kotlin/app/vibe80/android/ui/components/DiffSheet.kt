@@ -10,19 +10,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,12 +26,12 @@ import app.vibe80.shared.models.RepoDiff
 /**
  * Status d'un fichier dans le diff
  */
-enum class FileStatus(val label: String, val icon: ImageVector, val color: Color) {
-    ADDED("A", Icons.Default.Add, Color(0xFF4CAF50)),
-    MODIFIED("M", Icons.Default.Edit, Color(0xFFFFC107)),
-    DELETED("D", Icons.Default.Delete, Color(0xFFF44336)),
-    RENAMED("R", Icons.Default.InsertDriveFile, Color(0xFF2196F3)),
-    UNKNOWN("?", Icons.Default.InsertDriveFile, Color.Gray)
+enum class FileStatus(val label: String, val icon: String, val color: Color) {
+    ADDED("A", FaIcons.Plus, Color(0xFF4CAF50)),
+    MODIFIED("M", FaIcons.Edit, Color(0xFFFFC107)),
+    DELETED("D", FaIcons.Delete, Color(0xFFF44336)),
+    RENAMED("R", FaIcons.File, Color(0xFF2196F3)),
+    UNKNOWN("?", FaIcons.File, Color.Gray)
 }
 
 /**
@@ -245,8 +237,8 @@ private fun EmptyDiffState() {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Default.InsertDriveFile,
+            FaIcon(
+                icon = FaIcons.File,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -398,8 +390,8 @@ private fun DiffFileCard(file: DiffFile) {
                 }
 
                 // Icône expand/collapse
-                Icon(
-                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                FaIcon(
+                    icon = if (expanded) FaIcons.ChevronUp else FaIcons.ChevronDown,
                     contentDescription = stringResource(
                         if (expanded) R.string.action_collapse else R.string.action_expand
                     ),

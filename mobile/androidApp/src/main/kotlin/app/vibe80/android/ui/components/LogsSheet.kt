@@ -7,11 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Api
-import androidx.compose.material.icons.filled.Cable
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,10 +54,7 @@ fun LogsSheetContent(
                 style = MaterialTheme.typography.titleLarge
             )
             IconButton(onClick = { AppLogger.clear() }) {
-                Icon(
-                    imageVector = Icons.Default.Clear,
-                    contentDescription = stringResource(R.string.logs_clear)
-                )
+                FaIcon(FaIcons.XCircle, contentDescription = stringResource(R.string.logs_clear))
             }
         }
 
@@ -83,11 +75,7 @@ fun LogsSheetContent(
                 onClick = { selectedSource = if (selectedSource == LogSource.API) null else LogSource.API },
                 label = { Text(stringResource(R.string.logs_filter_api)) },
                 leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Api,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    FaIcon(FaIcons.Api, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             )
             FilterChip(
@@ -95,11 +83,7 @@ fun LogsSheetContent(
                 onClick = { selectedSource = if (selectedSource == LogSource.WEBSOCKET) null else LogSource.WEBSOCKET },
                 label = { Text(stringResource(R.string.logs_filter_websocket)) },
                 leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Cable,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    FaIcon(FaIcons.WebSocket, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             )
             FilterChip(
@@ -107,11 +91,7 @@ fun LogsSheetContent(
                 onClick = { selectedSource = if (selectedSource == LogSource.APP) null else LogSource.APP },
                 label = { Text(stringResource(R.string.logs_filter_app)) },
                 leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Phone,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    FaIcon(FaIcons.App, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             )
         }
@@ -166,9 +146,9 @@ private fun LogEntryCard(log: LogEntry) {
     }
 
     val sourceIcon = when (log.source) {
-        LogSource.API -> Icons.Default.Api
-        LogSource.WEBSOCKET -> Icons.Default.Cable
-        LogSource.APP -> Icons.Default.Phone
+        LogSource.API -> FaIcons.Api
+        LogSource.WEBSOCKET -> FaIcons.WebSocket
+        LogSource.APP -> FaIcons.App
     }
 
     Card(
@@ -195,8 +175,8 @@ private fun LogEntryCard(log: LogEntry) {
                 )
 
                 // Source icon
-                Icon(
-                    imageVector = sourceIcon,
+                FaIcon(
+                    icon = sourceIcon,
                     contentDescription = log.source.name,
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant

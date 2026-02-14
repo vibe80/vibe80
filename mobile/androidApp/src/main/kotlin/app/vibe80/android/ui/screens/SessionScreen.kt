@@ -20,22 +20,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -61,6 +51,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import app.vibe80.android.R
+import app.vibe80.android.ui.components.FaIcon
+import app.vibe80.android.ui.components.FaIcons
 import app.vibe80.android.viewmodel.AuthMethod
 import app.vibe80.android.viewmodel.EntryScreen
 import app.vibe80.android.viewmodel.LoadingState
@@ -283,7 +275,7 @@ private fun WorkspaceModeSelection(
             onClick = onResumeDesktop,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(imageVector = Icons.Default.CameraAlt, contentDescription = null)
+            FaIcon(FaIcons.Camera, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.workspace_resume_desktop))
         }
@@ -331,8 +323,8 @@ private fun WorkspaceCredentialsScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             trailingIcon = {
                 IconButton(onClick = onToggleSecret) {
-                    Icon(
-                        imageVector = if (showSecret) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    FaIcon(
+                        icon = if (showSecret) FaIcons.EyeSlash else FaIcons.Eye,
                         contentDescription = null
                     )
                 }
@@ -519,17 +511,13 @@ private fun ProviderSection(
                             modifier = Modifier.weight(1f),
                             enabled = !workspaceBusy && onPickAuthJson != null
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.FileOpen,
-                                contentDescription = null,
-                                modifier = Modifier.width(18.dp)
-                            )
+                            FaIcon(FaIcons.FolderOpen, contentDescription = null, modifier = Modifier.width(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.provider_auth_import_auth_json))
                         }
                         if (authValue.isNotBlank()) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
+                            FaIcon(
+                                icon = FaIcons.CheckCircle,
                                 contentDescription = stringResource(R.string.status_loaded),
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -537,8 +525,8 @@ private fun ProviderSection(
                                 onClick = { onUpdateAuthValue("") },
                                 enabled = !workspaceBusy
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Clear,
+                                FaIcon(
+                                    icon = FaIcons.XCircle,
                                     contentDescription = stringResource(R.string.action_delete),
                                     tint = MaterialTheme.colorScheme.error
                                 )
@@ -566,12 +554,8 @@ private fun ProviderSection(
                         },
                         trailingIcon = {
                             IconButton(onClick = onToggleSecrets) {
-                                Icon(
-                                    imageVector = if (showProviderSecrets) {
-                                        Icons.Default.VisibilityOff
-                                    } else {
-                                        Icons.Default.Visibility
-                                    },
+                                FaIcon(
+                                    icon = if (showProviderSecrets) FaIcons.EyeSlash else FaIcons.Eye,
                                     contentDescription = null
                                 )
                             }
@@ -653,7 +637,7 @@ private fun JoinSessionScreen(
             onClick = onReconfigureProviders,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
+            FaIcon(FaIcons.Refresh, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.providers_reconfigure))
         }
@@ -662,7 +646,7 @@ private fun JoinSessionScreen(
             onClick = onLeaveWorkspace,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
+            FaIcon(FaIcons.ArrowLeft, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.workspace_leave))
         }
@@ -828,12 +812,8 @@ private fun StartSessionScreen(
                 },
                 trailingIcon = {
                     IconButton(onClick = onToggleHttpPassword) {
-                        Icon(
-                            imageVector = if (showHttpPassword) {
-                                Icons.Default.VisibilityOff
-                            } else {
-                                Icons.Default.Visibility
-                            },
+                        FaIcon(
+                            icon = if (showHttpPassword) FaIcons.EyeSlash else FaIcons.Eye,
                             contentDescription = null
                         )
                     }

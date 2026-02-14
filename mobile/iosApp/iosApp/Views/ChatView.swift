@@ -86,7 +86,7 @@ struct ChatView: View {
                         showProviderSheet = true
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "cpu")
+                            FaIconView(glyph: .cpu, size: 12)
                             Text(viewModel.activeProvider.name)
                         }
                         .font(.caption)
@@ -101,7 +101,7 @@ struct ChatView: View {
                         showDiffSheet = true
                     } label: {
                         ZStack(alignment: .topTrailing) {
-                            Image(systemName: "doc.text.magnifyingglass")
+                            FaIconView(glyph: .diff, size: 16)
 
                             if viewModel.hasUncommittedChanges {
                                 Circle()
@@ -117,7 +117,7 @@ struct ChatView: View {
                         viewModel.disconnect()
                         appState.clearSession()
                     } label: {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                        FaIconView(glyph: .logout, size: 16)
                     }
                 }
             }

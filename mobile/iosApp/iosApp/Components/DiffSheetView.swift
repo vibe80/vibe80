@@ -23,8 +23,7 @@ struct DiffSheetView: View {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
+                        FaIconView(glyph: .close, size: 16, color: .secondary)
                     }
                 }
             }
@@ -35,9 +34,7 @@ struct DiffSheetView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 48))
-                .foregroundColor(.green)
+            FaIconView(glyph: .checkCircle, size: 48, color: .green)
 
             Text("diff.empty.title")
                 .font(.headline)
@@ -58,8 +55,8 @@ struct DiffSheetView: View {
             // Summary
             Section {
                 HStack {
-                    statBadge(count: files.reduce(0) { $0 + $1.additions }, color: .green, icon: "plus")
-                    statBadge(count: files.reduce(0) { $0 + $1.deletions }, color: .red, icon: "minus")
+                    statBadge(count: files.reduce(0) { $0 + $1.additions }, color: .green, icon: .plus)
+                    statBadge(count: files.reduce(0) { $0 + $1.deletions }, color: .red, icon: .minus)
                     Spacer()
                     Text(String(format: NSLocalizedString("diff.files.count", comment: ""), files.count))
                         .font(.caption)
@@ -76,10 +73,9 @@ struct DiffSheetView: View {
         }
     }
 
-    private func statBadge(count: Int, color: Color, icon: String) -> some View {
+    private func statBadge(count: Int, color: Color, icon: FaGlyph) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.caption2)
+            FaIconView(glyph: icon, size: 10, color: color)
             Text("\(count)")
                 .font(.caption)
                 .fontWeight(.medium)
@@ -98,9 +94,11 @@ struct DiffSheetView: View {
                 toggleFile(file.path)
             } label: {
                 HStack {
-                    Image(systemName: fileStatusIcon(file.status))
-                        .foregroundColor(fileStatusColor(file.status))
-                        .font(.caption)
+                    FaIconView(
+                        glyph: fileStatusIcon(file.status),
+                        size: 12,
+                        color: fileStatusColor(file.status)
+                    )
 
                     Text(file.path)
                         .font(.subheadline)
@@ -119,9 +117,11 @@ struct DiffSheetView: View {
                             .font(.caption)
                             .foregroundColor(.red)
 
-                        Image(systemName: expandedFiles.contains(file.path) ? "chevron.up" : "chevron.down")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        FaIconView(
+                            glyph: expandedFiles.contains(file.path) ? .chevronUp : .chevronDown,
+                            size: 11,
+                            color: .secondary
+                        )
                     }
                 }
             }
@@ -174,13 +174,13 @@ struct DiffSheetView: View {
         }
     }
 
-    private func fileStatusIcon(_ status: String) -> String {
+    private func fileStatusIcon(_ status: String) -> FaGlyph {
         switch status {
-        case "A": return "plus.circle.fill"
-        case "D": return "minus.circle.fill"
-        case "M": return "pencil.circle.fill"
-        case "R": return "arrow.right.circle.fill"
-        default: return "questionmark.circle"
+        case "A": return .plus
+        case "D": return .minus
+        case "M": return .pen
+        case "R": return .arrowRight
+        default: return .circleQuestion
         }
     }
 

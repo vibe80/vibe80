@@ -11,12 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -194,10 +188,7 @@ fun MessageBubble(
                                     )
                                 },
                                 leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Description,
-                                        contentDescription = null
-                                    )
+                                    FaIcon(FaIcons.File, contentDescription = null)
                                 },
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -343,8 +334,8 @@ private fun AttachmentItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Description,
+                FaIcon(
+                    icon = FaIcons.File,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = if (isUser) {
@@ -525,8 +516,8 @@ private fun CollapsibleCodeBlock(
                 .clickable { expanded = !expanded },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Filled.Code,
+            FaIcon(
+                icon = FaIcons.Code,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary
             )
@@ -547,8 +538,8 @@ private fun CollapsibleCodeBlock(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(
-                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            FaIcon(
+                icon = if (expanded) FaIcons.ChevronUp else FaIcons.ChevronDown,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -608,8 +599,8 @@ private fun CollapsibleToolResultBlock(
                 .clickable { expanded = !expanded },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Filled.Code,
+            FaIcon(
+                icon = FaIcons.Code,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary
             )
@@ -628,8 +619,8 @@ private fun CollapsibleToolResultBlock(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(
-                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            FaIcon(
+                icon = if (expanded) FaIcons.ChevronUp else FaIcons.ChevronDown,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )

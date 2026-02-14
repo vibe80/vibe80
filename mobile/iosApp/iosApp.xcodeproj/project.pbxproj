@@ -20,6 +20,8 @@
 		M5_011 /* WorktreeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_111 /* WorktreeViews.swift */; };
 		M5_012 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = M5_113 /* Localizable.strings */; };
 		M5_013 /* SpaceMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = M5_116 /* SpaceMono-Regular.ttf */; };
+		M5_014 /* fa-solid-900.ttf in Resources */ = {isa = PBXBuildFile; fileRef = M5_117 /* fa-solid-900.ttf */; };
+		M5_015 /* fa-regular-400.ttf in Resources */ = {isa = PBXBuildFile; fileRef = M5_118 /* fa-regular-400.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +41,8 @@
 		M5_114 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		M5_115 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		M5_116 /* SpaceMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/SpaceMono-Regular.ttf; sourceTree = "<group>"; };
+		M5_117 /* fa-solid-900.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/fa-solid-900.ttf; sourceTree = "<group>"; };
+		M5_118 /* fa-regular-400.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/fa-regular-400.ttf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +121,8 @@
 			children = (
 				M5_113 /* Localizable.strings */,
 				M5_116 /* SpaceMono-Regular.ttf */,
+				M5_117 /* fa-solid-900.ttf */,
+				M5_118 /* fa-regular-400.ttf */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -182,6 +188,8 @@
 			files = (
 				M5_012 /* Localizable.strings in Resources */,
 				M5_013 /* SpaceMono-Regular.ttf in Resources */,
+				M5_014 /* fa-solid-900.ttf in Resources */,
+				M5_015 /* fa-regular-400.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

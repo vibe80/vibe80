@@ -24,9 +24,7 @@ struct WorktreeTabsView: View {
 
                 // Add button
                 Button(action: onCreate) {
-                    Image(systemName: "plus")
-                        .font(.title3)
-                        .foregroundColor(.blue)
+                    FaIconView(glyph: .plus, size: 16, color: .blue)
                         .frame(width: 36, height: 36)
                         .background(Color.blue.opacity(0.1))
                         .clipShape(Circle())
@@ -81,7 +79,10 @@ struct WorktreeTab: View {
                 Button {
                     onLongPress()
                 } label: {
-                    Label("worktree.options", systemImage: "ellipsis.circle")
+                    HStack {
+                        FaIconView(glyph: .ellipsisVertical, size: 12)
+                        Text("worktree.options")
+                    }
                 }
             }
         }
@@ -95,15 +96,11 @@ struct WorktreeTab: View {
                 .scaleEffect(0.6)
 
         case .error, .mergeConflict:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.caption2)
-                .foregroundColor(.red)
+            FaIconView(glyph: .warning, size: 10, color: .red)
 
         case .completed:
             if worktree.id != "main" {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.caption2)
-                    .foregroundColor(.green)
+                FaIconView(glyph: .checkCircle, size: 10, color: .green)
             }
 
         default:
@@ -141,8 +138,8 @@ struct WorktreeMenuView: View {
 
                 // Info chips
                 HStack {
-                    Chip(text: worktree.branchName, icon: "arrow.triangle.branch")
-                    Chip(text: worktree.provider.name, icon: "cpu")
+                    Chip(text: worktree.branchName, glyph: .codeBranch)
+                    Chip(text: worktree.provider.name, glyph: .cpu)
                 }
 
                 Divider()
@@ -152,8 +149,10 @@ struct WorktreeMenuView: View {
                     Button(role: .destructive) {
                         showCloseConfirm = true
                     } label: {
-                        Label("worktree.close", systemImage: "xmark.circle")
-                            .frame(maxWidth: .infinity)
+                        HStack {
+                            FaIconView(glyph: .close, size: 14)
+                            Text("worktree.close")
+                        }.frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                 }
@@ -168,8 +167,7 @@ struct WorktreeMenuView: View {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
+                        FaIconView(glyph: .close, size: 14, color: .secondary)
                     }
                 }
             }
@@ -347,8 +345,7 @@ struct ProviderSheetView: View {
                         onSelect(provider)
                     } label: {
                         HStack {
-                            Image(systemName: "cpu")
-                                .foregroundColor(.blue)
+                            FaIconView(glyph: .cpu, size: 12, color: .blue)
 
                             Text(provider.name)
                                 .foregroundColor(.primary)
@@ -356,8 +353,7 @@ struct ProviderSheetView: View {
                             Spacer()
 
                             if provider == currentProvider {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.blue)
+                                FaIconView(glyph: .check, size: 12, color: .blue)
                             }
                         }
                     }
@@ -370,8 +366,7 @@ struct ProviderSheetView: View {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
+                        FaIconView(glyph: .close, size: 14, color: .secondary)
                     }
                 }
             }
@@ -383,12 +378,11 @@ struct ProviderSheetView: View {
 
 struct Chip: View {
     let text: String
-    let icon: String
+    let glyph: FaGlyph
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.caption)
+            FaIconView(glyph: glyph, size: 10)
             Text(text)
                 .font(.caption)
         }
