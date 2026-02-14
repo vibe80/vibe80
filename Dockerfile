@@ -19,7 +19,6 @@ WORKDIR /app
 COPY --from=app-build /app /app
 
 RUN chown -R vibe80:vibe80 /app /var/lib/vibe80
-RUN chmod +x /app/start.sh
 
 EXPOSE 5179
 
@@ -27,4 +26,5 @@ ENV VIBE80_SERVER_USER=vibe80
 
 USER vibe80
 
-CMD ["/app/start.sh"]
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "server/src/index.js"]
