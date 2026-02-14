@@ -1,7 +1,10 @@
 import { Router } from "express";
 import storage from "../storage/index.js";
-import { hashRefreshToken } from "../helpers.js";
-import { consumeMonoAuthToken, issueWorkspaceTokens } from "../services/auth.js";
+import {
+  consumeMonoAuthToken,
+  issueWorkspaceTokens,
+  rotateWorkspaceRefreshToken,
+} from "../services/auth.js";
 import {
   workspaceIdPattern,
   createWorkspace,
@@ -181,30 +184,14 @@ export default function workspaceRoutes() {
       return;
     }
     try {
-      const tokenHash = hashRefreshToken(refreshToken);
-      const record = await storage.getWorkspaceRefreshToken(tokenHash);
-      if (!record?.workspaceId) {
-        res.status(401).json({ error: "Invalid refresh token.", code: "invalid_refresh_token" });
+      const rotated = await rotateWorkspaceRefreshToken(refreshToken);
+      if (!rotated?.ok) {
+        res.status(rotated?.status || 401).json(
+          rotated?.payload || { error: "Invalid refresh token.", code: "invalid_refresh_token" }
+        );
         return;
       }
-      const now = Date.now();
-      if (record.kind === "current" && record.expiresAt && record.expiresAt <= now) {
-        await storage.deleteWorkspaceRefreshToken(tokenHash);
-        res.status(401).json({ error: "Refresh token expired.", code: "refresh_token_expired" });
-        return;
-      }
-      if (record.kind === "previous") {
-        if (!record.previousValidUntil || record.previousValidUntil < now) {
-          await storage.deleteWorkspaceRefreshToken(tokenHash);
-          res.status(401).json({
-            error: "Refresh token reused.",
-            code: "refresh_token_reused",
-          });
-          return;
-        }
-      }
-      const tokens = await issueWorkspaceTokens(record.workspaceId);
-      res.json(tokens);
+      res.json(rotated.payload);
     } catch (error) {
       res.status(500).json({ error: "Failed to refresh workspace token." });
     }

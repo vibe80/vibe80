@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const storageMock = vi.hoisted(() => ({
-  getWorkspaceRefreshState: vi.fn(),
   saveWorkspaceRefreshToken: vi.fn(),
+  rotateWorkspaceRefreshToken: vi.fn(),
 }));
 const idSeq = vi.hoisted(() => ({ value: 0 }));
 
@@ -37,10 +37,7 @@ describe("services/auth", () => {
     delete process.env.MONO_AUTH_TOKEN_TTL_MS;
   });
 
-  it("issueWorkspaceTokens crée un refresh token avec previousTokenHash", async () => {
-    storageMock.getWorkspaceRefreshState.mockResolvedValueOnce({
-      currentTokenHash: "prev-hash",
-    });
+  it("issueWorkspaceTokens crée un refresh token indépendant", async () => {
     storageMock.saveWorkspaceRefreshToken.mockResolvedValueOnce();
 
     const { issueWorkspaceTokens } = await loadAuthModule();
@@ -56,23 +53,59 @@ describe("services/auth", () => {
     expect(call[0]).toBe("w123");
     expect(call[1]).toBe("hash-refresh-token");
     expect(call[3]).toBeGreaterThan(0);
-    expect(call[4]).toMatchObject({
-      previousTokenHash: "prev-hash",
-    });
   });
 
-  it("issueWorkspaceTokens sans ancien token n’enregistre pas previousTokenHash", async () => {
-    storageMock.getWorkspaceRefreshState.mockResolvedValueOnce(null);
+  it("issueWorkspaceTokens n’ajoute pas de dépendance inter-token", async () => {
     storageMock.saveWorkspaceRefreshToken.mockResolvedValueOnce();
     const { issueWorkspaceTokens } = await loadAuthModule();
 
     await issueWorkspaceTokens("w456");
 
     const call = storageMock.saveWorkspaceRefreshToken.mock.calls[0];
-    expect(call[4]).toMatchObject({
-      previousTokenHash: null,
-      previousValidUntil: null,
+    expect(call[0]).toBe("w456");
+    expect(call[1]).toBe("hash-refresh-token");
+    expect(call[3]).toBeGreaterThan(0);
+  });
+
+  it("rotateWorkspaceRefreshToken renvoie de nouveaux tokens si rotation valide", async () => {
+    storageMock.rotateWorkspaceRefreshToken.mockResolvedValueOnce({
+      ok: true,
+      workspaceId: "w123",
     });
+    const { rotateWorkspaceRefreshToken } = await loadAuthModule();
+
+    const result = await rotateWorkspaceRefreshToken("refresh-token");
+
+    expect(result.ok).toBe(true);
+    expect(result.payload.workspaceToken).toBe("token-w123");
+    expect(result.payload.refreshToken).toBe("refresh-token");
+    expect(storageMock.rotateWorkspaceRefreshToken).toHaveBeenCalledWith(
+      "hash-refresh-token",
+      "hash-refresh-token",
+      expect.any(Number),
+      expect.any(Number)
+    );
+  });
+
+  it("rotateWorkspaceRefreshToken mappe les erreurs token", async () => {
+    storageMock.rotateWorkspaceRefreshToken.mockResolvedValueOnce({
+      ok: false,
+      code: "refresh_token_reused",
+    });
+    const { rotateWorkspaceRefreshToken } = await loadAuthModule();
+    const reused = await rotateWorkspaceRefreshToken("refresh-token");
+    expect(reused.ok).toBe(false);
+    expect(reused.status).toBe(401);
+    expect(reused.payload.code).toBe("refresh_token_reused");
+
+    storageMock.rotateWorkspaceRefreshToken.mockResolvedValueOnce({
+      ok: false,
+      code: "refresh_token_expired",
+    });
+    const expired = await rotateWorkspaceRefreshToken("refresh-token");
+    expect(expired.ok).toBe(false);
+    expect(expired.status).toBe(401);
+    expect(expired.payload.code).toBe("refresh_token_expired");
   });
 
   it("createMonoAuthToken + consumeMonoAuthToken fonctionne puis invalide le token", async () => {

@@ -1326,6 +1326,11 @@ setInterval(() => {
 setInterval(() => {
   cleanupHandoffTokens();
   cleanupMonoAuthTokens();
+  if (typeof storage.cleanupWorkspaceRefreshTokens === "function") {
+    storage.cleanupWorkspaceRefreshTokens().catch((error) => {
+      console.error("Refresh token cleanup failed:", error?.message || error);
+    });
+  }
 }, 30 * 1000);
 if (Number.isFinite(codexIdleGcIntervalSeconds) && codexIdleGcIntervalSeconds > 0) {
   setInterval(() => {

@@ -5,9 +5,6 @@ import { generateId, hashRefreshToken, generateRefreshToken } from "../helpers.j
 const refreshTokenTtlSeconds =
   Number(process.env.REFRESH_TOKEN_TTL_SECONDS) || 30 * 24 * 60 * 60;
 const refreshTokenTtlMs = refreshTokenTtlSeconds * 1000;
-const refreshRotationGraceSeconds =
-  Number(process.env.REFRESH_TOKEN_ROTATION_GRACE_SECONDS) || 20;
-const refreshRotationGraceMs = Math.max(0, refreshRotationGraceSeconds * 1000);
 const handoffTokenTtlMs =
   Number(process.env.HANDOFF_TOKEN_TTL_MS) || 120 * 1000;
 const monoAuthTokenTtlMs =
@@ -21,27 +18,65 @@ export const issueWorkspaceTokens = async (workspaceId) => {
   const refreshToken = generateRefreshToken();
   const tokenHash = hashRefreshToken(refreshToken);
   const expiresAt = Date.now() + refreshTokenTtlMs;
-  const existingRefreshState = await storage.getWorkspaceRefreshState(workspaceId);
-  const previousTokenHash =
-    typeof existingRefreshState?.currentTokenHash === "string" &&
-    existingRefreshState.currentTokenHash
-      ? existingRefreshState.currentTokenHash
-      : null;
-  const previousValidUntil = previousTokenHash
-    ? Date.now() + refreshRotationGraceMs
-    : null;
   await storage.saveWorkspaceRefreshToken(
     workspaceId,
     tokenHash,
     expiresAt,
-    refreshTokenTtlMs,
-    { previousTokenHash, previousValidUntil }
+    refreshTokenTtlMs
   );
   return {
     workspaceToken,
     refreshToken,
     expiresIn: accessTokenTtlSeconds,
     refreshExpiresIn: refreshTokenTtlSeconds,
+  };
+};
+
+const buildRefreshError = (code) => {
+  if (code === "refresh_token_expired") {
+    return {
+      status: 401,
+      payload: { error: "Refresh token expired.", code },
+    };
+  }
+  if (code === "refresh_token_reused") {
+    return {
+      status: 401,
+      payload: { error: "Refresh token reused.", code },
+    };
+  }
+  return {
+    status: 401,
+    payload: { error: "Invalid refresh token.", code: "invalid_refresh_token" },
+  };
+};
+
+export const rotateWorkspaceRefreshToken = async (refreshToken) => {
+  const currentTokenHash = hashRefreshToken(refreshToken);
+  const nextRefreshToken = generateRefreshToken();
+  const nextTokenHash = hashRefreshToken(nextRefreshToken);
+  const nextExpiresAt = Date.now() + refreshTokenTtlMs;
+  const result = await storage.rotateWorkspaceRefreshToken(
+    currentTokenHash,
+    nextTokenHash,
+    nextExpiresAt,
+    refreshTokenTtlMs
+  );
+  if (!result?.ok || !result.workspaceId) {
+    const error = buildRefreshError(result?.code || "invalid_refresh_token");
+    return {
+      ok: false,
+      ...error,
+    };
+  }
+  return {
+    ok: true,
+    payload: {
+      workspaceToken: createWorkspaceToken(result.workspaceId),
+      refreshToken: nextRefreshToken,
+      expiresIn: accessTokenTtlSeconds,
+      refreshExpiresIn: refreshTokenTtlSeconds,
+    },
   };
 };
 
@@ -119,5 +154,4 @@ export {
   hashRefreshToken,
   refreshTokenTtlMs,
   refreshTokenTtlSeconds,
-  refreshRotationGraceMs,
 };
