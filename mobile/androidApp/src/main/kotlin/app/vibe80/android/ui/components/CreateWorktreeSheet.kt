@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -194,8 +196,8 @@ fun CreateWorktreeSheet(
                                 onClick = { onRequestModels(selectedProvider.name.lowercase()) },
                                 modifier = Modifier.size(24.dp)
                             ) {
-                                FaIcon(
-                                    icon = FaIcons.Refresh,
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
                                     contentDescription = stringResource(R.string.model_refresh),
                                     modifier = Modifier.size(18.dp)
                                 )

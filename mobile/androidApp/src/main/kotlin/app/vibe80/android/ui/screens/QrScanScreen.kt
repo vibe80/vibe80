@@ -14,9 +14,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -39,8 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.res.stringResource
 import app.vibe80.android.R
-import app.vibe80.android.ui.components.FaIcon
-import app.vibe80.android.ui.components.FaIcons
 import app.vibe80.android.viewmodel.SessionViewModel
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -89,7 +91,7 @@ fun QrScanScreen(
                 title = { Text(stringResource(R.string.qr_scan_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        FaIcon(FaIcons.ArrowLeft, contentDescription = stringResource(R.string.action_back))
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -109,7 +111,7 @@ fun QrScanScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        FaIcon(FaIcons.Camera, contentDescription = null)
+                        Icon(Icons.Default.CameraAlt, contentDescription = null)
                         Text(
                             text = stringResource(R.string.qr_camera_permission),
                             style = MaterialTheme.typography.bodyMedium

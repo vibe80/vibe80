@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -128,8 +131,8 @@ private fun WorktreeTab(
 
             // Menu button for non-main worktrees
             if (worktree.id != Worktree.MAIN_WORKTREE_ID) {
-                FaIcon(
-                    icon = FaIcons.EllipsisVertical,
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
                     contentDescription = stringResource(R.string.worktree_menu),
                     modifier = Modifier
                         .size(16.dp)
@@ -255,8 +258,8 @@ fun WorktreeMenuSheet(
                     contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                FaIcon(
-                    icon = FaIcons.Close,
+                Icon(
+                    imageVector = Icons.Default.Close,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )

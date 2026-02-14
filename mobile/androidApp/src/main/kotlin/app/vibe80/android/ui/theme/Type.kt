@@ -15,14 +15,6 @@ val SpaceMono = FontFamily(
     Font(R.font.space_mono_regular, weight = FontWeight.Normal)
 )
 
-val FontAwesomeSolid = FontFamily(
-    Font(R.font.fa_solid_900, weight = FontWeight.Normal)
-)
-
-val FontAwesomeRegular = FontFamily(
-    Font(R.font.fa_regular_400, weight = FontWeight.Normal)
-)
-
 private val BaseTypography = Typography()
 
 val AppTypography = Typography(

@@ -22,6 +22,19 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,9 +54,6 @@ import app.vibe80.android.R
 import app.vibe80.android.ui.components.CreateWorktreeSheet
 import app.vibe80.android.ui.components.DiffSheetContent
 import app.vibe80.android.ui.components.FileSheetContent
-import app.vibe80.android.ui.components.FaIcon
-import app.vibe80.android.ui.components.FaIcons
-import app.vibe80.android.ui.components.FaStyle
 import app.vibe80.android.ui.components.LogsSheetContent
 import app.vibe80.android.ui.components.MessageBubble
 import app.vibe80.android.ui.components.Vibe80FormField
@@ -323,7 +333,10 @@ fun ChatScreen(
                 },
                 actions = {
                     IconButton(onClick = { viewModel.showCreateWorktreeSheet() }) {
-                        FaIcon(FaIcons.Plus, contentDescription = stringResource(R.string.worktree_add))
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.worktree_add)
+                        )
                     }
 
                     // Diff button with badge for modified files
@@ -344,8 +357,8 @@ fun ChatScreen(
                             viewModel.loadDiff()
                             viewModel.showDiffSheet()
                         }) {
-                            FaIcon(
-                                icon = FaIcons.Compare,
+                            Icon(
+                                imageVector = Icons.Default.CompareArrows,
                                 contentDescription = stringResource(R.string.diff_title),
                                 tint = if (uiState.hasUncommittedChanges)
                                     MaterialTheme.colorScheme.primary
@@ -357,12 +370,18 @@ fun ChatScreen(
 
                     // Logs button (debug)
                     IconButton(onClick = viewModel::showLogsSheet) {
-                        FaIcon(FaIcons.Bug, contentDescription = stringResource(R.string.logs_title_simple))
+                        Icon(
+                            imageVector = Icons.Default.BugReport,
+                            contentDescription = stringResource(R.string.logs_title_simple)
+                        )
                     }
 
                     // Refresh worktrees
                     IconButton(onClick = viewModel::refreshWorktrees) {
-                        FaIcon(FaIcons.Refresh, contentDescription = stringResource(R.string.worktree_refresh))
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.worktree_refresh)
+                        )
                     }
 
                     // Disconnect button
@@ -370,7 +389,10 @@ fun ChatScreen(
                         viewModel.disconnect()
                         onDisconnect()
                     }) {
-                        FaIcon(FaIcons.Logout, contentDescription = stringResource(R.string.action_disconnect))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = stringResource(R.string.action_disconnect)
+                        )
                     }
                 }
             )
@@ -565,21 +587,12 @@ fun ChatScreen(
                                         (!uiState.processing || codexReady)
                             ) {
                                 when (activeActionMode) {
-                                    ComposerActionMode.LLM -> FaIcon(
-                                        icon = FaIcons.Plus,
-                                        contentDescription = stringResource(R.string.action_add),
-                                        tint = MaterialTheme.colorScheme.primary
+                                    ComposerActionMode.LLM -> Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = stringResource(R.string.action_add)
                                     )
-                                    ComposerActionMode.SHELL -> FaIcon(
-                                        icon = FaIcons.Terminal,
-                                        contentDescription = stringResource(R.string.composer_action_shell),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    ComposerActionMode.GIT -> FaIcon(
-                                        icon = FaIcons.CodeBranch,
-                                        contentDescription = stringResource(R.string.composer_action_git),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
+                                    ComposerActionMode.SHELL -> Text("$")
+                                    ComposerActionMode.GIT -> Text("Git")
                                 }
                             }
 
@@ -609,7 +622,10 @@ fun ChatScreen(
                                         (!uiState.processing || codexReady) &&
                                         !uiState.uploadingAttachments
                             ) {
-                                FaIcon(FaIcons.Send, contentDescription = stringResource(R.string.action_send))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = stringResource(R.string.action_send)
+                                )
                             }
                         }
                     }
@@ -637,7 +653,7 @@ fun ChatScreen(
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_camera)) },
                         leadingContent = {
-                            FaIcon(FaIcons.Camera, contentDescription = null)
+                            Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null)
                         },
                         modifier = Modifier.clickable(
                             enabled = uiState.connectionState == ConnectionState.CONNECTED &&
@@ -651,7 +667,7 @@ fun ChatScreen(
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_photos)) },
                         leadingContent = {
-                            FaIcon(FaIcons.Image, contentDescription = null)
+                            Icon(imageVector = Icons.Default.Image, contentDescription = null)
                         },
                         modifier = Modifier.clickable(
                             enabled = uiState.connectionState == ConnectionState.CONNECTED &&
@@ -665,7 +681,7 @@ fun ChatScreen(
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_files)) },
                         leadingContent = {
-                            FaIcon(FaIcons.File, contentDescription = null)
+                            Icon(imageVector = Icons.Default.AttachFile, contentDescription = null)
                         },
                         modifier = Modifier.clickable(
                             enabled = uiState.connectionState == ConnectionState.CONNECTED &&
@@ -680,14 +696,8 @@ fun ChatScreen(
                 Text(text = stringResource(R.string.composer_model), style = MaterialTheme.typography.titleSmall)
                 ListItem(
                     headlineContent = { Text(selectedModelDisplay ?: stringResource(R.string.model_default)) },
-                    leadingContent = { FaIcon(FaIcons.Model, contentDescription = null) },
-                    trailingContent = {
-                        FaIcon(
-                            if (modelsExpanded) FaIcons.ArrowUp else FaIcons.ArrowDown,
-                            contentDescription = null,
-                            size = 14.dp
-                        )
-                    },
+                    leadingContent = { Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null) },
+                    trailingContent = { Text(if (modelsExpanded) "▲" else "▼") },
                     modifier = Modifier.clickable { modelsExpanded = !modelsExpanded }
                 )
                 if (modelsExpanded) {
@@ -718,21 +728,12 @@ fun ChatScreen(
                         }
                         Text(label)
                     },
-                    trailingContent = {
-                        FaIcon(
-                            if (actionsExpanded) FaIcons.ArrowUp else FaIcons.ArrowDown,
-                            contentDescription = null,
-                            size = 14.dp
-                        )
-                    },
+                    trailingContent = { Text(if (actionsExpanded) "▲" else "▼") },
                     modifier = Modifier.clickable { actionsExpanded = !actionsExpanded }
                 )
                 if (actionsExpanded) {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_action_llm)) },
-                        leadingContent = {
-                            FaIcon(FaIcons.Message, contentDescription = null, style = FaStyle.Regular)
-                        },
                         trailingContent = { if (activeActionMode == ComposerActionMode.LLM) Text("✓") },
                         modifier = Modifier.clickable {
                             viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.LLM)
@@ -742,7 +743,6 @@ fun ChatScreen(
                     )
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_action_shell)) },
-                        leadingContent = { FaIcon(FaIcons.Terminal, contentDescription = null) },
                         trailingContent = { if (activeActionMode == ComposerActionMode.SHELL) Text("✓") },
                         modifier = Modifier.clickable {
                             viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.SHELL)
@@ -752,7 +752,6 @@ fun ChatScreen(
                     )
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_action_git)) },
-                        leadingContent = { FaIcon(FaIcons.CodeBranch, contentDescription = null) },
                         trailingContent = { if (activeActionMode == ComposerActionMode.GIT) Text("✓") },
                         modifier = Modifier.clickable {
                             viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.GIT)
@@ -883,8 +882,12 @@ private fun AttachmentChip(
             )
         },
         leadingIcon = {
-            FaIcon(
-                icon = if (attachment.mimeType?.startsWith("image/") == true) FaIcons.Image else FaIcons.File,
+            Icon(
+                imageVector = if (attachment.mimeType?.startsWith("image/") == true) {
+                    Icons.Default.Image
+                } else {
+                    Icons.Default.InsertDriveFile
+                },
                 contentDescription = null,
                 modifier = Modifier.size(18.dp)
             )
@@ -894,8 +897,8 @@ private fun AttachmentChip(
                 onClick = onRemove,
                 modifier = Modifier.size(18.dp)
             ) {
-                FaIcon(
-                    icon = FaIcons.Close,
+                Icon(
+                    imageVector = Icons.Default.Close,
                     contentDescription = stringResource(R.string.action_remove),
                     modifier = Modifier.size(14.dp)
                 )

@@ -355,11 +355,8 @@ struct SessionView: View {
 
     private func backButton(action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                FaIconView(glyph: .back, size: 14, color: .vibe80Ink)
-                Text("action.back")
-            }
-            .foregroundColor(.vibe80Ink)
+            Label("action.back", systemImage: "chevron.left")
+                .foregroundColor(.vibe80Ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -399,11 +396,8 @@ private struct Vibe80SecureField: View {
                         .textFieldStyle(.roundedBorder)
                 }
                 Button(action: { isRevealed.toggle() }) {
-                    FaIconView(
-                        glyph: isRevealed ? .eyeSlash : .eye,
-                        size: 14,
-                        color: .vibe80InkMuted
-                    )
+                    Image(systemName: isRevealed ? "eye.slash" : "eye")
+                        .foregroundColor(.vibe80InkMuted)
                 }
             }
         }

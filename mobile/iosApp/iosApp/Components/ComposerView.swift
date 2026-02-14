@@ -36,28 +36,19 @@ struct ComposerView: View {
                         Button {
                             showCameraPicker = true
                         } label: {
-                            HStack {
-                                FaIconView(glyph: .camera, size: 14)
-                                Text("composer.camera")
-                            }
+                            Label("composer.camera", systemImage: "camera")
                         }
 
                         Button {
                             showPhotoPicker = true
                         } label: {
-                            HStack {
-                                FaIconView(glyph: .image, size: 14)
-                                Text("composer.photos")
-                            }
+                            Label("composer.photos", systemImage: "photo")
                         }
 
                         Button {
                             showFileImporter = true
                         } label: {
-                            HStack {
-                                FaIconView(glyph: .file, size: 14)
-                                Text("composer.files")
-                            }
+                            Label("composer.files", systemImage: "doc")
                         }
                     }
 
@@ -72,10 +63,7 @@ struct ComposerView: View {
                                     } label: {
                                         let label = model.displayName ?? model.model
                                         if activeModel == model.model {
-                                            HStack {
-                                                FaIconView(glyph: .check, size: 12)
-                                                Text(label)
-                                            }
+                                            Label(label, systemImage: "checkmark")
                                         } else {
                                             Text(label)
                                         }
@@ -83,10 +71,7 @@ struct ComposerView: View {
                                 }
                             }
                         } label: {
-                            HStack {
-                                FaIconView(glyph: .cpu, size: 14)
-                                Text(activeModel ?? NSLocalizedString("composer.model.unavailable", comment: ""))
-                            }
+                            Label(activeModel ?? NSLocalizedString("composer.model.unavailable", comment: ""), systemImage: "sparkles")
                         }
                     }
 
@@ -96,16 +81,19 @@ struct ComposerView: View {
                         actionModeButton(.git, title: "composer.action.git")
                     }
                 } label: {
-                    HStack {
+                    Group {
                         switch actionMode {
                         case .llm:
-                            FaIconView(glyph: .plus, size: 18, color: .vibe80Accent)
+                            Image(systemName: "plus.circle.fill")
                         case .shell:
-                            FaIconView(glyph: .terminal, size: 18, color: .vibe80Accent)
+                            Text("$")
+                                .font(.headline)
                         case .git:
-                            FaIconView(glyph: .codeBranch, size: 18, color: .vibe80Accent)
+                            Image(systemName: "arrow.triangle.branch")
                         }
                     }
+                    .font(.title3)
+                    .foregroundColor(.vibe80Accent)
                     .frame(width: 28, height: 28)
                 }
 
@@ -119,7 +107,8 @@ struct ComposerView: View {
                     .cornerRadius(16)
 
                 Button(action: sendMessage) {
-                    FaIconView(glyph: isLoading ? .close : .send, size: 20)
+                    Image(systemName: isLoading ? "stop.fill" : "arrow.up.circle.fill")
+                        .font(.title2)
                         .foregroundColor(canSend ? .vibe80Accent : .vibe80InkMuted)
                 }
                 .disabled(!canSend && !isLoading)
@@ -162,21 +151,9 @@ struct ComposerView: View {
             onSelectActionMode(mode)
         } label: {
             if actionMode == mode {
-                HStack {
-                    FaIconView(glyph: .check, size: 12)
-                    Text(title)
-                }
+                Label(title, systemImage: "checkmark")
             } else {
-                HStack {
-                    if mode == .llm {
-                        FaIconView(glyph: .message, size: 12, weight: .regular)
-                    } else if mode == .shell {
-                        FaIconView(glyph: .terminal, size: 12)
-                    } else {
-                        FaIconView(glyph: .codeBranch, size: 12)
-                    }
-                    Text(title)
-                }
+                Text(title)
             }
         }
     }
@@ -210,7 +187,8 @@ struct ComposerView: View {
                     .frame(width: 24, height: 24)
                     .cornerRadius(4)
             } else {
-                FaIconView(glyph: attachment.icon, size: 12)
+                Image(systemName: attachment.icon)
+                    .font(.caption)
             }
 
             Text(attachment.name)
@@ -220,7 +198,8 @@ struct ComposerView: View {
             Button {
                 removeAttachment(attachment)
             } label: {
-                FaIconView(glyph: .close, size: 12)
+                Image(systemName: "xmark.circle.fill")
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
@@ -320,13 +299,13 @@ struct PendingAttachment: Identifiable {
     let thumbnail: UIImage?
     let mimeType: String
 
-    var icon: FaGlyph {
+    var icon: String {
         if mimeType.hasPrefix("image/") {
-            return .image
+            return "photo"
         } else if mimeType == "application/pdf" {
-            return .file
+            return "doc.fill"
         } else {
-            return .file
+            return "doc"
         }
     }
 }

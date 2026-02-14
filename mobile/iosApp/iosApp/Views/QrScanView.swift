@@ -24,7 +24,9 @@ struct QrScanView: View {
                         Button {
                             viewModel.closeQrScan()
                         } label: {
-                            FaIconView(glyph: .back, size: 16, color: .vibe80Ink)
+                            Image(systemName: "chevron.left")
+                                .font(.headline)
+                                .foregroundColor(.vibe80Ink)
                         }
                         Spacer()
                         Text("qr.scan.title")
@@ -65,7 +67,9 @@ struct QrScanView: View {
                 }
             } else {
                 VStack(spacing: 16) {
-                    FaIconView(glyph: .camera, size: 48, color: .vibe80Accent)
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(.vibe80Accent)
                     Text("qr.camera.permission")
                         .multilineTextAlignment(.center)
                         .foregroundColor(.vibe80Ink)

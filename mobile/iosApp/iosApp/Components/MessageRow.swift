@@ -117,10 +117,7 @@ struct MessageRow: View {
             Button {
                 UIPasteboard.general.string = isToolOrCommand ? toolOutput : displayText
             } label: {
-                HStack {
-                    FaIconView(glyph: .file, size: 12)
-                    Text("action.copy")
-                }
+                Label("action.copy", systemImage: "doc.on.doc")
             }
         }
     }
@@ -165,7 +162,8 @@ struct MessageRow: View {
 
     private func attachmentChip(_ attachment: Attachment) -> some View {
         HStack(spacing: 4) {
-            FaIconView(glyph: attachmentIcon(for: attachment), size: 12)
+            Image(systemName: attachmentIcon(for: attachment))
+                .font(.caption)
 
             Text(attachment.name)
                 .font(.caption)
@@ -183,16 +181,16 @@ struct MessageRow: View {
         .cornerRadius(12)
     }
 
-    private func attachmentIcon(for attachment: Attachment) -> FaGlyph {
+    private func attachmentIcon(for attachment: Attachment) -> String {
         let name = attachment.name.lowercased()
         if name.hasSuffix(".png") || name.hasSuffix(".jpg") || name.hasSuffix(".jpeg") || name.hasSuffix(".gif") {
-            return .image
+            return "photo"
         } else if name.hasSuffix(".pdf") {
-            return .file
+            return "doc.fill"
         } else if name.hasSuffix(".swift") || name.hasSuffix(".kt") || name.hasSuffix(".ts") || name.hasSuffix(".js") {
-            return .code
+            return "chevron.left.forwardslash.chevron.right"
         } else {
-            return .file
+            return "doc"
         }
     }
 
@@ -230,7 +228,8 @@ private struct ToolResultPanel: View {
                 expanded.toggle()
             } label: {
                 HStack(alignment: .center, spacing: 8) {
-                    FaIconView(glyph: .code, size: 12, color: .vibe80Accent)
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        .foregroundColor(.vibe80Accent)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
@@ -250,11 +249,8 @@ private struct ToolResultPanel: View {
                     }
 
                     Spacer(minLength: 8)
-                    FaIconView(
-                        glyph: expanded ? .chevronUp : .chevronDown,
-                        size: 12,
-                        color: .secondary
-                    )
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .foregroundColor(.secondary)
                 }
             }
             .buttonStyle(.plain)
