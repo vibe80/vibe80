@@ -47,7 +47,6 @@ export default function ExplorerPanel({
   const [newFileSubmitting, setNewFileSubmitting] = useState(false);
   const [dragOverPath, setDragOverPath] = useState("");
   const [draggingPath, setDraggingPath] = useState("");
-  const [dragOverRoot, setDragOverRoot] = useState(false);
 
   const selectedPath = activeExplorer.selectedPath || "";
   const canRename = Boolean(selectedPath);
@@ -144,7 +143,6 @@ export default function ExplorerPanel({
 
   const onDropRoot = async (event) => {
     event.preventDefault();
-    setDragOverRoot(false);
     const hasFiles = event.dataTransfer?.files?.length > 0;
     if (hasFiles) {
       await handleExternalDrop(event, "");
@@ -154,27 +152,18 @@ export default function ExplorerPanel({
     setDragOverPath("");
   };
 
-  const onDragOverRoot = (e) => {
-    if (!attachmentSession?.sessionId) return;
-    const hasFiles = e.dataTransfer?.files?.length > 0;
-    const hasInternal = Boolean(draggingPath);
-    if (hasFiles || hasInternal) {
-      e.preventDefault();
-      setDragOverRoot(true);
-      setDragOverPath("");
-    }
-  };
-
-  const onDragLeaveRoot = () => {
-    setDragOverRoot(false);
-    setDragOverPath("");
-  };
-
   return (
     <div
       className={`explorer-panel ${activePane === "explorer" ? "" : "is-hidden"}`}
-      onDragOver={onDragOverRoot}
-      onDragLeave={onDragLeaveRoot}
+      onDragOver={(e) => {
+        if (!attachmentSession?.sessionId) return;
+        const hasFiles = e.dataTransfer?.files?.length > 0;
+        const hasInternal = Boolean(draggingPath);
+        if (hasFiles || hasInternal) {
+          e.preventDefault();
+          setDragOverPath("");
+        }
+      }}
       onDrop={onDropRoot}
     >
       <div className="explorer-header">
@@ -237,16 +226,8 @@ export default function ExplorerPanel({
           </div>
 
           <div
-            className={`explorer-tree ${dragOverRoot ? "is-drag-over-root" : ""}`}
-            onDragLeave={(e) => {
-              if (e.target === e.currentTarget) {
-                onDragLeaveRoot();
-              } else {
-                setDragOverPath("");
-              }
-            }}
-            onDragOver={onDragOverRoot}
-            onDrop={onDropRoot}
+            className="explorer-tree"
+            onDragLeave={() => setDragOverPath("")}
           >
             {activeExplorer.loading ? (
               <div className="explorer-empty">{t("Loading...")}</div>

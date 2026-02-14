@@ -1893,11 +1893,6 @@ main.chat {
   overflow: auto;
   flex: 1;
 }
-.explorer-tree.is-drag-over-root {
-  outline: 2px dashed var(--primary, #3b82f6);
-  outline-offset: -4px;
-  background: var(--bg-subtle);
-}
 
 .explorer-tree-entry {
   display: flex;
