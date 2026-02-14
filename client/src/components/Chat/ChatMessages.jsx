@@ -470,6 +470,8 @@ export default function ChatMessages({
                           isWarning ? warningText : rawText,
                           t
                         );
+                      const showAnnotationSource =
+                        annotationMode && message.role === "assistant";
                       const content = (
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
@@ -556,26 +558,30 @@ export default function ChatMessages({
                       );
                       return (
                         <>
-                          {isWarning ? (
-                            <div className="warning-message">
-                              <span className="warning-icon" aria-hidden="true">
-                                <FontAwesomeIcon icon={faTriangleExclamation} />
-                              </span>
-                              <div className="warning-body">{content}</div>
-                            </div>
-                          ) : (
-                            content
-                          )}
-                          {annotationMode && message.role === "assistant" ? (
+                          {showAnnotationSource ? (
                             <div className="annotation-line-source-list">
                               {getAnnotatableLines(cleanedText).map((entry) => (
                                 <div
                                   key={`${message.id}-${entry.lineIndex}`}
                                   className="annotation-line-source-row"
                                 >
-                                  <span className="annotation-line-source-text">
-                                    {entry.lineText}
-                                  </span>
+                                  <div className="annotation-line-source-text">
+                                    <ReactMarkdown
+                                      remarkPlugins={[remarkGfm]}
+                                      components={{
+                                        p: ({ children }) => <span>{children}</span>,
+                                        a: ({ node, ...props }) => (
+                                          <a
+                                            {...props}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                          />
+                                        ),
+                                      }}
+                                    >
+                                      {entry.lineText}
+                                    </ReactMarkdown>
+                                  </div>
                                   <button
                                     type="button"
                                     className="annotation-line-source-button"
@@ -594,7 +600,16 @@ export default function ChatMessages({
                                 </div>
                               ))}
                             </div>
-                          ) : null}
+                          ) : isWarning ? (
+                            <div className="warning-message">
+                              <span className="warning-icon" aria-hidden="true">
+                                <FontAwesomeIcon icon={faTriangleExclamation} />
+                              </span>
+                              <div className="warning-body">{content}</div>
+                            </div>
+                          ) : (
+                            content
+                          )}
                           {filerefs.length ? (
                             <ul className="fileref-list">
                               {filerefs.map((pathRef) => (
