@@ -2429,7 +2429,6 @@ main.chat {
 }
 
 :root[data-theme="dark"] .diff-fallback {
-  background: rgba(255, 255, 255, 0.06);
   color: #e6edf3;
 }
 
@@ -2878,9 +2877,7 @@ main.chat {
 }
 
 .diff-fallback {
-  padding: 12px;
-  background: rgba(20, 19, 17, 0.04);
-  border-radius: 12px;
+  padding: 0px 12px;
   font-family: var(--font-mono);
   font-size: 12px;
   white-space: pre-wrap;
