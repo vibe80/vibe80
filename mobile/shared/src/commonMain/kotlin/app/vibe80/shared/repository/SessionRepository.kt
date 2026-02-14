@@ -972,16 +972,18 @@ class SessionRepository(
     ) {
         val sessionId = _sessionState.value?.sessionId
             ?: return
+        val normalizedContext = context?.lowercase()
+        val isForkContext = normalizedContext == "fork"
         val request = WorktreeCreateApiRequest(
             session = sessionId,
-            provider = provider.name.lowercase(),
-            context = context,
+            provider = if (isForkContext) null else provider.name.lowercase(),
+            context = normalizedContext,
             sourceWorktree = sourceWorktree,
             name = name,
             parentWorktreeId = _activeWorktreeId.value,
             startingBranch = branchName,
-            model = model,
-            reasoningEffort = reasoningEffort,
+            model = if (isForkContext) null else model,
+            reasoningEffort = if (isForkContext) null else reasoningEffort,
             internetAccess = internetAccess,
             denyGitCredentialsAccess = denyGitCredentialsAccess
         )

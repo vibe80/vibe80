@@ -15,6 +15,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class ApiClient(
     private val httpClient: HttpClient,
@@ -407,12 +410,13 @@ class ApiClient(
             internetAccess = request.internetAccess,
             denyGitCredentialsAccess = request.denyGitCredentialsAccess
         )
-        AppLogger.apiRequest("POST", url, json.encodeToString(payload))
+        val payloadJson = buildWorktreeCreatePayload(payload)
+        AppLogger.apiRequest("POST", url, payloadJson.toString())
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
                     contentType(ContentType.Application.Json)
-                    setBody(payload)
+                    setBody(payloadJson)
                     applyAuth(this)
                 }
             }
@@ -475,12 +479,13 @@ class ApiClient(
         request: WorktreeCreateRequest
     ): Result<WorktreeCreateResponse> {
         val url = "$baseUrl/api/sessions/$sessionId/worktrees"
-        AppLogger.apiRequest("POST", url, json.encodeToString(request))
+        val payloadJson = buildWorktreeCreatePayload(request)
+        AppLogger.apiRequest("POST", url, payloadJson.toString())
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.post(url) {
                     contentType(ContentType.Application.Json)
-                    setBody(request.copy())
+                    setBody(payloadJson)
                     applyAuth(this)
                 }
             }
@@ -498,6 +503,21 @@ class ApiClient(
         } catch (e: Exception) {
             AppLogger.apiError("POST", url, e)
             Result.failure(e)
+        }
+    }
+
+    private fun buildWorktreeCreatePayload(request: WorktreeCreateRequest): JsonObject {
+        return buildJsonObject {
+            request.provider?.takeIf { it.isNotBlank() }?.let { put("provider", it) }
+            request.context?.takeIf { it.isNotBlank() }?.let { put("context", it) }
+            request.sourceWorktree?.takeIf { it.isNotBlank() }?.let { put("sourceWorktree", it) }
+            request.parentWorktreeId?.takeIf { it.isNotBlank() }?.let { put("parentWorktreeId", it) }
+            request.name?.takeIf { it.isNotBlank() }?.let { put("name", it) }
+            request.startingBranch?.takeIf { it.isNotBlank() }?.let { put("startingBranch", it) }
+            request.model?.takeIf { it.isNotBlank() }?.let { put("model", it) }
+            request.reasoningEffort?.takeIf { it.isNotBlank() }?.let { put("reasoningEffort", it) }
+            request.internetAccess?.let { put("internetAccess", it) }
+            request.denyGitCredentialsAccess?.let { put("denyGitCredentialsAccess", it) }
         }
     }
 

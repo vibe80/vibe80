@@ -149,7 +149,7 @@ enum class WorktreeStatus {
 
 @Serializable
 data class WorktreeCreateRequest(
-    val provider: String,
+    val provider: String? = null,
     val context: String? = null,
     val sourceWorktree: String? = null,
     val parentWorktreeId: String? = null,
@@ -164,7 +164,7 @@ data class WorktreeCreateRequest(
 @Serializable
 data class WorktreeCreateApiRequest(
     val session: String,
-    val provider: String,
+    val provider: String? = null,
     val context: String? = null,
     val sourceWorktree: String? = null,
     val name: String? = null,
