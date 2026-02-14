@@ -23,5 +23,15 @@
   "binary data": "binary data",
   "Loading untracked files...": "Loading untracked files...",
   "Unable to load file.": "Unable to load file.",
-  "User command : {{command}}": "User command : {{command}}"
+  "User command : {{command}}": "User command : {{command}}",
+  "Toggle annotation mode": "Toggle annotation mode",
+  "Toggle annotation mode (EXPERIMENTAL)": "Toggle annotation mode (EXPERIMENTAL)",
+  "Annotation mode enabled.": "Annotation mode enabled.",
+  "Annotation mode disabled.": "Annotation mode disabled.",
+  "Usage: /annotation on|off": "Usage: /annotation on|off",
+  "Annotate line": "Annotate line",
+  "Annotations": "Annotations",
+  "Only sent with the next message.": "Only sent with the next message.",
+  "No annotations yet.": "No annotations yet.",
+  "Write annotation...": "Write annotation..."
 }
