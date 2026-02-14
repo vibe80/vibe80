@@ -73,7 +73,7 @@ export default function useChatComposer({
       {
         id: "annotation",
         label: "/annotation",
-        description: t("Toggle annotation mode"),
+        description: t("Toggle annotation mode (EXPERIMENTAL)"),
         insert: "/annotation on",
       },
     ],

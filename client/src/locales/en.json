@@ -25,6 +25,7 @@
   "Unable to load file.": "Unable to load file.",
   "User command : {{command}}": "User command : {{command}}",
   "Toggle annotation mode": "Toggle annotation mode",
+  "Toggle annotation mode (EXPERIMENTAL)": "Toggle annotation mode (EXPERIMENTAL)",
   "Annotation mode enabled.": "Annotation mode enabled.",
   "Annotation mode disabled.": "Annotation mode disabled.",
   "Usage: /annotation on|off": "Usage: /annotation on|off",

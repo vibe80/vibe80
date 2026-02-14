@@ -244,6 +244,7 @@
   "Tool: {{tool}}": "Outil: {{tool}}",
   "User command : {{command}}": "Commande utilisateur : {{command}}",
   "Toggle annotation mode": "Activer le mode annotation",
+  "Toggle annotation mode (EXPERIMENTAL)": "Activer le mode annotation (EXPERIMENTAL)",
   "Annotation mode enabled.": "Mode annotation activé.",
   "Annotation mode disabled.": "Mode annotation désactivé.",
   "Usage: /annotation on|off": "Usage : /annotation on|off",
