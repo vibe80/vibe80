@@ -26,15 +26,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -589,10 +594,19 @@ fun ChatScreen(
                                 when (activeActionMode) {
                                     ComposerActionMode.LLM -> Icon(
                                         imageVector = Icons.Default.Add,
-                                        contentDescription = stringResource(R.string.action_add)
+                                        contentDescription = stringResource(R.string.action_add),
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
-                                    ComposerActionMode.SHELL -> Text("$")
-                                    ComposerActionMode.GIT -> Text("Git")
+                                    ComposerActionMode.SHELL -> Icon(
+                                        imageVector = Icons.Default.Terminal,
+                                        contentDescription = stringResource(R.string.composer_action_shell),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    ComposerActionMode.GIT -> Icon(
+                                        imageVector = Icons.Default.AccountTree,
+                                        contentDescription = stringResource(R.string.composer_action_git),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
 
@@ -697,7 +711,12 @@ fun ChatScreen(
                 ListItem(
                     headlineContent = { Text(selectedModelDisplay ?: stringResource(R.string.model_default)) },
                     leadingContent = { Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null) },
-                    trailingContent = { Text(if (modelsExpanded) "▲" else "▼") },
+                    trailingContent = {
+                        Icon(
+                            imageVector = if (modelsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null
+                        )
+                    },
                     modifier = Modifier.clickable { modelsExpanded = !modelsExpanded }
                 )
                 if (modelsExpanded) {
@@ -728,12 +747,25 @@ fun ChatScreen(
                         }
                         Text(label)
                     },
-                    trailingContent = { Text(if (actionsExpanded) "▲" else "▼") },
+                    leadingContent = {
+                        when (activeActionMode) {
+                            ComposerActionMode.LLM -> Icon(Icons.Default.ChatBubbleOutline, contentDescription = null)
+                            ComposerActionMode.SHELL -> Icon(Icons.Default.Terminal, contentDescription = null)
+                            ComposerActionMode.GIT -> Icon(Icons.Default.AccountTree, contentDescription = null)
+                        }
+                    },
+                    trailingContent = {
+                        Icon(
+                            imageVector = if (actionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null
+                        )
+                    },
                     modifier = Modifier.clickable { actionsExpanded = !actionsExpanded }
                 )
                 if (actionsExpanded) {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_action_llm)) },
+                        leadingContent = { Icon(Icons.Default.ChatBubbleOutline, contentDescription = null) },
                         trailingContent = { if (activeActionMode == ComposerActionMode.LLM) Text("✓") },
                         modifier = Modifier.clickable {
                             viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.LLM)
@@ -743,6 +775,7 @@ fun ChatScreen(
                     )
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_action_shell)) },
+                        leadingContent = { Icon(Icons.Default.Terminal, contentDescription = null) },
                         trailingContent = { if (activeActionMode == ComposerActionMode.SHELL) Text("✓") },
                         modifier = Modifier.clickable {
                             viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.SHELL)
@@ -752,6 +785,7 @@ fun ChatScreen(
                     )
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_action_git)) },
+                        leadingContent = { Icon(Icons.Default.AccountTree, contentDescription = null) },
                         trailingContent = { if (activeActionMode == ComposerActionMode.GIT) Text("✓") },
                         modifier = Modifier.clickable {
                             viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.GIT)

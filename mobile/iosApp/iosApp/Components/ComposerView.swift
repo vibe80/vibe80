@@ -84,12 +84,11 @@ struct ComposerView: View {
                     Group {
                         switch actionMode {
                         case .llm:
-                            Image(systemName: "plus.circle.fill")
+                            Image(systemName: "plus")
                         case .shell:
-                            Text("$")
-                                .font(.headline)
+                            Image(systemName: "terminal")
                         case .git:
-                            Image(systemName: "arrow.triangle.branch")
+                            Image(systemName: "point.3.connected")
                         }
                     }
                     .font(.title3)
@@ -150,11 +149,21 @@ struct ComposerView: View {
         Button {
             onSelectActionMode(mode)
         } label: {
-            if actionMode == mode {
-                Label(title, systemImage: "checkmark")
-            } else {
+            HStack {
+                Image(systemName: actionModeSymbol(mode))
                 Text(title)
+                if actionMode == mode {
+                    Image(systemName: "checkmark")
+                }
             }
+        }
+    }
+
+    private func actionModeSymbol(_ mode: ComposerActionMode) -> String {
+        switch mode {
+        case .llm: return "message"
+        case .shell: return "terminal"
+        case .git: return "point.3.connected"
         }
     }
 
