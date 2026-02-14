@@ -1615,12 +1615,9 @@ function App() {
     ensureNotificationPermission,
   });
 
-  const mergeTargetBranch = defaultBranch || currentBranch || "main";
-
   const {
     openCloseConfirm,
     closeCloseConfirm,
-    handleConfirmMerge,
     handleConfirmDelete,
   } = useWorktreeCloseConfirm({
     closeConfirm,
@@ -1628,9 +1625,6 @@ function App() {
     setActiveWorktreeId,
     activeWorktreeIdRef,
     closeWorktree,
-    sendWorktreeMessage,
-    mergeTargetBranch,
-    t,
   });
 
 
@@ -2912,13 +2906,6 @@ function App() {
                 onClick={closeCloseConfirm}
               >
                 {t("Cancel")}
-              </button>
-              <button
-                type="button"
-                className="worktree-close-confirm-merge"
-                onClick={handleConfirmMerge}
-              >
-                {t("Merge into {{branch}}", { branch: mergeTargetBranch })}
               </button>
               <button
                 type="button"

@@ -6,9 +6,6 @@ export default function useWorktreeCloseConfirm({
   setActiveWorktreeId,
   activeWorktreeIdRef,
   closeWorktree,
-  sendWorktreeMessage,
-  mergeTargetBranch,
-  t,
 }) {
   const openCloseConfirm = useCallback(
     (worktreeId) => {
@@ -23,18 +20,6 @@ export default function useWorktreeCloseConfirm({
   const closeCloseConfirm = useCallback(() => {
     setCloseConfirm(null);
   }, [setCloseConfirm]);
-
-  const handleConfirmMerge = useCallback(() => {
-    if (!closeConfirm?.worktreeId) {
-      return;
-    }
-    sendWorktreeMessage(
-      closeConfirm.worktreeId,
-      t("Merge into {{branch}}", { branch: mergeTargetBranch }),
-      []
-    );
-    setCloseConfirm(null);
-  }, [closeConfirm, mergeTargetBranch, sendWorktreeMessage, setCloseConfirm, t]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!closeConfirm?.worktreeId) {
@@ -56,7 +41,6 @@ export default function useWorktreeCloseConfirm({
   return {
     openCloseConfirm,
     closeCloseConfirm,
-    handleConfirmMerge,
     handleConfirmDelete,
   };
 }
