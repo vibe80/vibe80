@@ -41,6 +41,33 @@ object FlexibleTimestampAsLongSerializer : KSerializer<Long> {
     }
 }
 
+object FlexibleNullableTimestampAsLongSerializer : KSerializer<Long?> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("FlexibleNullableTimestampAsLong", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): Long? {
+        val jsonDecoder = decoder as? JsonDecoder
+        if (jsonDecoder == null) {
+            return runCatching { decoder.decodeLong() }.getOrNull()
+        }
+        val element = jsonDecoder.decodeJsonElement() as? JsonPrimitive ?: return null
+        if (element.isString && element.contentOrNull.isNullOrBlank()) return null
+        element.longOrNull?.let { return it }
+        val raw = element.contentOrNull?.trim().orEmpty()
+        if (raw.isEmpty()) return null
+        raw.toLongOrNull()?.let { return it }
+        return runCatching { Instant.parse(raw).toEpochMilliseconds() }.getOrNull()
+    }
+
+    override fun serialize(encoder: Encoder, value: Long?) {
+        if (value == null) {
+            encoder.encodeNull()
+        } else {
+            encoder.encodeLong(value)
+        }
+    }
+}
+
 @Serializable
 data class Worktree(
     val id: String,

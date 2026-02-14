@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.vibe80.android.Vibe80Application
 import app.vibe80.android.data.SessionPreferences
+import app.vibe80.shared.models.FlexibleNullableTimestampAsLongSerializer
 import app.vibe80.shared.models.WorkspaceAuth
 import app.vibe80.shared.models.WorkspaceCreateRequest
 import app.vibe80.shared.models.WorkspaceLoginRequest
@@ -844,6 +845,7 @@ class SessionViewModel(
 private data class HandoffQrPayload(
     val handoffToken: String,
     val baseUrl: String? = null,
+    @Serializable(with = FlexibleNullableTimestampAsLongSerializer::class)
     val expiresAt: Long? = null,
     val type: String? = null
 )

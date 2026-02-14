@@ -61,7 +61,9 @@ data class SessionSummary(
     val sessionId: String,
     val repoUrl: String? = null,
     val name: String? = null,
+    @Serializable(with = FlexibleNullableTimestampAsLongSerializer::class)
     val createdAt: Long? = null,
+    @Serializable(with = FlexibleNullableTimestampAsLongSerializer::class)
     val lastActivityAt: Long? = null,
     val activeProvider: String? = null
 )
