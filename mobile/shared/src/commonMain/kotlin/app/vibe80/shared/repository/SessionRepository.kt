@@ -26,6 +26,7 @@ class SessionRepository(
     private var setActiveWorktreeJob: Job? = null
     private var websocketFailureCount: Int = 0
     private var websocketErrorShownForCurrentOutage: Boolean = false
+    @Volatile private var authRecoveryInProgress: Boolean = false
 
     private val _sessionState = MutableStateFlow<SessionState?>(null)
     val sessionState: StateFlow<SessionState?> = _sessionState.asStateFlow()
@@ -210,6 +211,65 @@ class SessionRepository(
         )
     }
 
+    private fun isWorkspaceAuthError(message: ErrorMessage): Boolean {
+        val code = message.errorCode?.uppercase()
+        if (
+            code == "WORKSPACE_AUTH_REQUIRED" ||
+            code == "WORKSPACE_TOKEN_INVALID" ||
+            code == "WORKSPACE_TOKEN_EXPIRED"
+        ) {
+            return true
+        }
+        return message.message.contains("auth required", ignoreCase = true)
+    }
+
+    private fun recoverFromWorkspaceAuthError(message: ErrorMessage) {
+        if (authRecoveryInProgress) {
+            AppLogger.info(
+                LogSource.APP,
+                "Workspace auth recovery already in progress",
+                "errorCode=${message.errorCode ?: "n/a"}"
+            )
+            return
+        }
+        authRecoveryInProgress = true
+        scope.launch {
+            try {
+                AppLogger.warning(
+                    LogSource.APP,
+                    "Attempting workspace token refresh after WS auth error",
+                    "errorCode=${message.errorCode ?: "legacy"} message=${message.message}"
+                )
+                val refreshed = apiClient.tryRefreshWorkspaceToken()
+                if (refreshed) {
+                    val sessionId = _sessionState.value?.sessionId
+                    if (!sessionId.isNullOrBlank()) {
+                        webSocketManager.disconnect()
+                        webSocketManager.connect(sessionId)
+                        scheduleSyncOnConnected()
+                    }
+                    AppLogger.info(LogSource.APP, "Workspace auth recovery succeeded")
+                } else {
+                    AppLogger.error(
+                        LogSource.APP,
+                        "Workspace auth recovery failed - user reauth required",
+                        "errorCode=${message.errorCode ?: "n/a"}"
+                    )
+                    _workspaceAuthInvalid.tryEmit("Token workspace invalide. Merci de vous reconnecter.")
+                }
+            } catch (e: Exception) {
+                AppLogger.error(
+                    LogSource.APP,
+                    "Workspace auth recovery threw exception",
+                    e.message ?: e.toString()
+                )
+                _workspaceAuthInvalid.tryEmit("Token workspace invalide. Merci de vous reconnecter.")
+            } finally {
+                authRecoveryInProgress = false
+            }
+        }
+    }
+
     private fun handleServerMessage(message: ServerMessage) {
         when (message) {
             is AuthOkMessage -> {
@@ -326,10 +386,19 @@ class SessionRepository(
                 // Generic error from server (e.g., provider failed to start, authentication error)
                 _processing.value = false
                 _currentStreamingMessage.value = null
+                if (isWorkspaceAuthError(message)) {
+                    AppLogger.warning(
+                        LogSource.APP,
+                        "WS auth error event received",
+                        "errorCode=${message.errorCode ?: "legacy"} recoverable=${message.recoverable ?: "n/a"}"
+                    )
+                    recoverFromWorkspaceAuthError(message)
+                    return
+                }
                 AppLogger.error(
                     LogSource.APP,
                     "Generic error event mapped to TURN_ERROR",
-                    "provider=${message.provider ?: "unknown"} message=${message.message} details=${message.details ?: "n/a"}"
+                    "provider=${message.provider ?: "unknown"} errorCode=${message.errorCode ?: "n/a"} message=${message.message} details=${message.details ?: "n/a"}"
                 )
                 _lastError.value = AppError.turnError(
                     message = message.message,
@@ -768,10 +837,28 @@ class SessionRepository(
                     // Ignore stale response if user switched tab while request was in flight.
                     if (_activeWorktreeId.value != worktreeId) return@onSuccess
                     if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
-                        _messages.value = snapshot.messages
+                        if (snapshot.messages.isNotEmpty() || _messages.value.isEmpty()) {
+                            _messages.value = snapshot.messages
+                        } else {
+                            AppLogger.debug(
+                                LogSource.APP,
+                                "Ignoring empty main snapshot from getWorktree to preserve history",
+                                "worktreeId=$worktreeId"
+                            )
+                        }
                     } else {
                         _worktreeMessages.update { current ->
-                            current + (worktreeId to snapshot.messages)
+                            val existing = current[worktreeId]
+                            if (snapshot.messages.isNotEmpty() || existing == null) {
+                                current + (worktreeId to snapshot.messages)
+                            } else {
+                                AppLogger.debug(
+                                    LogSource.APP,
+                                    "Ignoring empty worktree snapshot from getWorktree to preserve history",
+                                    "worktreeId=$worktreeId"
+                                )
+                                current
+                            }
                         }
                         val status = snapshot.status
                         if (status != null) {

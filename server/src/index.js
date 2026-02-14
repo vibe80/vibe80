@@ -121,6 +121,28 @@ const codexIdleGcIntervalSeconds = Number.parseInt(
 const worktreeStatusIntervalMs = 10 * 1000;
 const terminalWss = terminalEnabled ? new WebSocketServer({ noServer: true }) : null;
 
+const wsErrorPayload = ({
+  message,
+  errorCode = null,
+  recoverable = null,
+  details = null,
+}) => {
+  const payload = { type: "error", message };
+  if (errorCode) payload.error_code = errorCode;
+  if (recoverable != null) payload.recoverable = recoverable;
+  if (details) payload.details = details;
+  return payload;
+};
+
+const resolveWorkspaceTokenErrorCode = (error) => {
+  const name = error?.name || "";
+  const message = String(error?.message || "").toLowerCase();
+  if (name === "TokenExpiredError" || message.includes("jwt expired")) {
+    return "WORKSPACE_TOKEN_EXPIRED";
+  }
+  return "WORKSPACE_TOKEN_INVALID";
+};
+
 const deploymentMode = process.env.DEPLOYMENT_MODE;
 if (!deploymentMode) {
   console.error("DEPLOYMENT_MODE is required (mono_user or multi_user).");
@@ -988,7 +1010,15 @@ wss.on("connection", (socket, req) => {
 
     authTimeout = setTimeout(() => {
       if (!authenticated) {
-        socket.send(JSON.stringify({ type: "error", message: "Auth timeout." }));
+        socket.send(
+          JSON.stringify(
+            wsErrorPayload({
+              message: "Auth timeout.",
+              errorCode: "WORKSPACE_AUTH_REQUIRED",
+              recoverable: true,
+            })
+          )
+        );
         socket.close();
       }
     }, 5000);
@@ -1002,7 +1032,15 @@ wss.on("connection", (socket, req) => {
         return;
       }
       if (payload?.type !== "auth") {
-        socket.send(JSON.stringify({ type: "error", message: "Auth required." }));
+        socket.send(
+          JSON.stringify(
+            wsErrorPayload({
+              message: "Auth required.",
+              errorCode: "WORKSPACE_AUTH_REQUIRED",
+              recoverable: true,
+            })
+          )
+        );
         return;
       }
       if (authenticated) {
@@ -1010,14 +1048,30 @@ wss.on("connection", (socket, req) => {
       }
       const token = typeof payload?.token === "string" ? payload.token : "";
       if (!token) {
-        socket.send(JSON.stringify({ type: "error", message: "Missing workspace token." }));
+        socket.send(
+          JSON.stringify(
+            wsErrorPayload({
+              message: "Missing workspace token.",
+              errorCode: "WORKSPACE_TOKEN_MISSING",
+              recoverable: false,
+            })
+          )
+        );
         socket.close();
         return;
       }
       try {
         workspaceId = verifyWorkspaceToken(token);
       } catch (error) {
-        socket.send(JSON.stringify({ type: "error", message: "Invalid workspace token." }));
+        socket.send(
+          JSON.stringify(
+            wsErrorPayload({
+              message: "Invalid workspace token.",
+              errorCode: resolveWorkspaceTokenErrorCode(error),
+              recoverable: true,
+            })
+          )
+        );
         socket.close();
         return;
       }
@@ -1200,19 +1254,43 @@ if (terminalWss) {
       }
       if (!authenticated) {
         if (message.type !== "auth") {
-          socket.send(JSON.stringify({ type: "error", message: "Auth required." }));
+          socket.send(
+            JSON.stringify(
+              wsErrorPayload({
+                message: "Auth required.",
+                errorCode: "WORKSPACE_AUTH_REQUIRED",
+                recoverable: true,
+              })
+            )
+          );
           return;
         }
         const token = typeof message?.token === "string" ? message.token : "";
         if (!token) {
-          socket.send(JSON.stringify({ type: "error", message: "Missing workspace token." }));
+          socket.send(
+            JSON.stringify(
+              wsErrorPayload({
+                message: "Missing workspace token.",
+                errorCode: "WORKSPACE_TOKEN_MISSING",
+                recoverable: false,
+              })
+            )
+          );
           socket.close();
           return;
         }
         try {
           workspaceId = verifyWorkspaceToken(token);
-        } catch {
-          socket.send(JSON.stringify({ type: "error", message: "Invalid workspace token." }));
+        } catch (error) {
+          socket.send(
+            JSON.stringify(
+              wsErrorPayload({
+                message: "Invalid workspace token.",
+                errorCode: resolveWorkspaceTokenErrorCode(error),
+                recoverable: true,
+              })
+            )
+          );
           socket.close();
           return;
         }
@@ -1262,7 +1340,15 @@ if (terminalWss) {
 
     authTimeout = setTimeout(() => {
       if (!authenticated) {
-        socket.send(JSON.stringify({ type: "error", message: "Auth timeout." }));
+        socket.send(
+          JSON.stringify(
+            wsErrorPayload({
+              message: "Auth timeout.",
+              errorCode: "WORKSPACE_AUTH_REQUIRED",
+              recoverable: true,
+            })
+          )
+        );
         socket.close();
       }
     }, 5000);
