@@ -9,7 +9,6 @@ export default function useLocalPreferences({
   showToolResults,
   notificationsEnabled,
   themeMode,
-  composerInputMode,
   repoHistory,
   debugMode,
   setLlmProvider,
@@ -23,7 +22,6 @@ export default function useLocalPreferences({
   TOOL_RESULTS_VISIBLE_KEY,
   NOTIFICATIONS_ENABLED_KEY,
   THEME_MODE_KEY,
-  COMPOSER_INPUT_MODE_KEY,
   REPO_HISTORY_KEY,
   DEBUG_MODE_KEY,
 }) {
@@ -114,14 +112,6 @@ export default function useLocalPreferences({
       // Ignore storage errors (private mode, quota).
     }
   }, [THEME_MODE_KEY, themeMode]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(COMPOSER_INPUT_MODE_KEY, composerInputMode);
-    } catch (error) {
-      // Ignore storage errors (private mode, quota).
-    }
-  }, [COMPOSER_INPUT_MODE_KEY, composerInputMode]);
 
   useEffect(() => {
     try {

@@ -4273,16 +4273,6 @@ main.chat {
   outline: none;
 }
 
-.composer-input.is-single {
-  min-height: var(--composer-control-height);
-  overflow: hidden;
-}
-
-.composer-input.is-multi {
-  min-height: var(--composer-control-height);
-  overflow: auto;
-}
-
 .composer-input:focus {
   border: none;
   box-shadow: none;

@@ -16,8 +16,6 @@ export default function SettingsPanel({
   setNotificationsEnabled,
   themeMode,
   setThemeMode,
-  composerInputMode,
-  setComposerInputMode,
   debugMode,
   setDebugMode,
   gitIdentityName,
@@ -126,22 +124,6 @@ export default function SettingsPanel({
               setThemeMode(event.target.checked ? "dark" : "light")
             }
           />
-        </label>
-        <label className="settings-item">
-          <span className="settings-text">
-            <span className="settings-name">{t("Input style")}</span>
-            <span className="settings-hint">
-              {t("Choose a single or multi-line input.")}
-            </span>
-          </span>
-          <select
-            className="settings-select"
-            value={composerInputMode}
-            onChange={(event) => setComposerInputMode(event.target.value)}
-          >
-            <option value="single">{t("Single line")}</option>
-            <option value="multi">{t("Multi-line")}</option>
-          </select>
         </label>
         <label className="settings-item">
           <span className="settings-text">

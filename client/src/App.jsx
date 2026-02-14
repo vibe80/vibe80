@@ -279,7 +279,6 @@ const CHAT_COMMANDS_VISIBLE_KEY = "chatCommandsVisible";
 const TOOL_RESULTS_VISIBLE_KEY = "toolResultsVisible";
 const NOTIFICATIONS_ENABLED_KEY = "notificationsEnabled";
 const THEME_MODE_KEY = "themeMode";
-const COMPOSER_INPUT_MODE_KEY = "composerInputMode";
 const DEBUG_MODE_KEY = "debugMode";
 const MAX_REPO_HISTORY = 10;
 const SOCKET_PING_INTERVAL_MS = 25000;
@@ -469,17 +468,6 @@ const readThemeMode = () => {
   return "light";
 };
 
-const readComposerInputMode = () => {
-  try {
-    const stored = localStorage.getItem(COMPOSER_INPUT_MODE_KEY);
-    if (stored === "single" || stored === "multi") {
-      return stored;
-    }
-  } catch (error) {
-    // Ignore storage errors (private mode, quota).
-  }
-  return "single";
-};
 
 const readDebugMode = () => {
   try {
@@ -706,9 +694,6 @@ function App() {
     readNotificationsEnabled
   );
   const [themeMode, setThemeMode] = useState(readThemeMode);
-  const [composerInputMode, setComposerInputMode] = useState(
-    readComposerInputMode
-  );
   const toastTimeoutRef = useRef(null);
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -1003,7 +988,6 @@ function App() {
     showToolResults,
     notificationsEnabled,
     themeMode,
-    composerInputMode,
     repoHistory,
     debugMode,
     setLlmProvider,
@@ -1017,7 +1001,6 @@ function App() {
     TOOL_RESULTS_VISIBLE_KEY,
     NOTIFICATIONS_ENABLED_KEY,
     THEME_MODE_KEY,
-    COMPOSER_INPUT_MODE_KEY,
     REPO_HISTORY_KEY,
     DEBUG_MODE_KEY,
   });
@@ -1581,7 +1564,6 @@ function App() {
     input,
     setInput,
     inputRef,
-    composerInputMode,
     handleSendMessageRef,
     attachmentSession,
     apiFetch,
@@ -2586,8 +2568,6 @@ function App() {
                 setNotificationsEnabled={setNotificationsEnabled}
                 themeMode={themeMode}
                 setThemeMode={setThemeMode}
-                composerInputMode={composerInputMode}
-                setComposerInputMode={setComposerInputMode}
                 debugMode={debugMode}
                 setDebugMode={setDebugMode}
                 gitIdentityName={gitIdentityName}
@@ -2636,7 +2616,6 @@ function App() {
             handleInputChange={handleInputChange}
             handleComposerKeyDown={handleComposerKeyDown}
             onPasteAttachments={onPasteAttachments}
-            composerInputMode={composerInputMode}
             canInterrupt={canInterrupt}
             interruptTurn={interruptTurn}
             connected={connected}

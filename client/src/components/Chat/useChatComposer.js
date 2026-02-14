@@ -5,7 +5,6 @@ export default function useChatComposer({
   input,
   setInput,
   inputRef,
-  composerInputMode,
   handleSendMessageRef,
   attachmentSession,
   apiFetch,
@@ -123,9 +122,6 @@ export default function useChatComposer({
 
   const handleComposerKeyDown = useCallback(
     (event) => {
-      if (composerInputMode !== "single") {
-        return;
-      }
       if (commandMenuOpen) {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -185,7 +181,6 @@ export default function useChatComposer({
       }
     },
     [
-      composerInputMode,
       commandMenuOpen,
       filteredCommands,
       commandSelection,

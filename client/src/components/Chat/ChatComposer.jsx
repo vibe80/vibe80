@@ -34,7 +34,6 @@ export default function ChatComposer({
   handleInputChange,
   handleComposerKeyDown,
   onPasteAttachments,
-  composerInputMode,
   canInterrupt,
   interruptTurn,
   connected,
@@ -164,15 +163,13 @@ export default function ChatComposer({
             className="visually-hidden"
           />
           <textarea
-            className={`composer-input ${
-              composerInputMode === "single" ? "is-single" : "is-multi"
-            }`}
+            className="composer-input"
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleComposerKeyDown}
             onPaste={onPasteAttachments}
             placeholder={t("Write your message…")}
-            rows={composerInputMode === "single" ? 1 : 2}
+            rows={1}
             ref={inputRef}
           />
           {modelSelectorVisible ? (
