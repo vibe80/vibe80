@@ -57,6 +57,7 @@ import app.vibe80.android.ui.components.WorktreeMenuSheet
 import app.vibe80.android.ui.components.WorktreeTabs
 import app.vibe80.android.ui.components.formatFormResponse
 import app.vibe80.android.viewmodel.ChatViewModel
+import app.vibe80.android.viewmodel.ComposerActionMode
 import app.vibe80.android.viewmodel.PendingAttachment
 import app.vibe80.shared.models.ErrorType
 import app.vibe80.shared.models.LLMProvider
@@ -167,6 +168,17 @@ fun ChatScreen(
 
     val activeWorktree = uiState.activeWorktree
     val effectiveProvider = activeWorktree?.provider ?: uiState.activeProvider
+    val activeProviderKey = effectiveProvider.name.lowercase()
+    val activeModels = uiState.providerModelState[activeProviderKey]?.models ?: emptyList()
+    val selectedModel = uiState.activeSelectedModel
+        ?: activeModels.firstOrNull { it.isDefault }?.model
+        ?: activeModels.firstOrNull()?.model
+    val activeActionMode = uiState.activeActionMode
+    val canSend = if (activeActionMode == ComposerActionMode.LLM) {
+        uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()
+    } else {
+        uiState.inputText.isNotBlank()
+    }
     val codexReady =
         if (effectiveProvider != LLMProvider.CODEX) {
             true
@@ -194,6 +206,10 @@ fun ChatScreen(
             )
             cameraLauncher.launch(photoUri)
         }
+    }
+
+    LaunchedEffect(uiState.activeWorktreeId, activeProviderKey) {
+        viewModel.loadProviderModels(activeProviderKey)
     }
 
     fun launchCameraWithPermission() {
@@ -536,19 +552,24 @@ fun ChatScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             IconButton(
                                 onClick = { showAttachmentMenu = true },
+                                modifier = Modifier.size(36.dp),
                                 enabled = uiState.connectionState == ConnectionState.CONNECTED &&
                                         (!uiState.processing || codexReady)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = stringResource(R.string.action_add)
-                                )
+                                when (activeActionMode) {
+                                    ComposerActionMode.LLM -> Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = stringResource(R.string.action_add)
+                                    )
+                                    ComposerActionMode.SHELL -> Text("$")
+                                    ComposerActionMode.GIT -> Text("Git")
+                                }
                             }
 
                             OutlinedTextField(
@@ -564,7 +585,8 @@ fun ChatScreen(
 
                             FilledIconButton(
                                 onClick = viewModel::sendMessageWithAttachments,
-                                enabled = (uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()) &&
+                                modifier = Modifier.size(36.dp),
+                                enabled = canSend &&
                                         uiState.connectionState == ConnectionState.CONNECTED &&
                                         (!uiState.processing || codexReady) &&
                                         !uiState.uploadingAttachments
@@ -589,13 +611,13 @@ fun ChatScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.action_add),
-                    style = MaterialTheme.typography.titleMedium
-                )
+                var modelsExpanded by remember { mutableStateOf(false) }
+                var actionsExpanded by remember { mutableStateOf(false) }
+
+                Text(text = stringResource(R.string.action_add), style = MaterialTheme.typography.titleMedium)
 
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.composer_camera)) },
@@ -639,18 +661,74 @@ fun ChatScreen(
                         }
                 )
 
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = stringResource(R.string.composer_model), style = MaterialTheme.typography.titleSmall)
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.composer_model)) },
-                    supportingContent = { Text(stringResource(R.string.composer_model_unavailable)) },
-                    leadingContent = {
-                        Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null)
-                    },
-                    colors = ListItemDefaults.colors(
-                        headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        supportingColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    headlineContent = { Text(selectedModel ?: stringResource(R.string.model_default)) },
+                    leadingContent = { Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null) },
+                    trailingContent = { Text(if (modelsExpanded) "▲" else "▼") },
+                    modifier = Modifier.clickable { modelsExpanded = !modelsExpanded }
                 )
+                if (modelsExpanded) {
+                    activeModels.forEach { model ->
+                        ListItem(
+                            headlineContent = { Text(model.displayName ?: model.model) },
+                            trailingContent = {
+                                if (selectedModel == model.model) {
+                                    Text("✓")
+                                }
+                            },
+                            modifier = Modifier.clickable {
+                                viewModel.setActiveWorktreeModel(model.model)
+                                modelsExpanded = false
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = stringResource(R.string.composer_action_section), style = MaterialTheme.typography.titleSmall)
+                ListItem(
+                    headlineContent = {
+                        val label = when (activeActionMode) {
+                            ComposerActionMode.LLM -> stringResource(R.string.composer_action_llm)
+                            ComposerActionMode.SHELL -> stringResource(R.string.composer_action_shell)
+                            ComposerActionMode.GIT -> stringResource(R.string.composer_action_git)
+                        }
+                        Text(label)
+                    },
+                    trailingContent = { Text(if (actionsExpanded) "▲" else "▼") },
+                    modifier = Modifier.clickable { actionsExpanded = !actionsExpanded }
+                )
+                if (actionsExpanded) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.composer_action_llm)) },
+                        trailingContent = { if (activeActionMode == ComposerActionMode.LLM) Text("✓") },
+                        modifier = Modifier.clickable {
+                            viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.LLM)
+                            actionsExpanded = false
+                            showAttachmentMenu = false
+                        }
+                    )
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.composer_action_shell)) },
+                        trailingContent = { if (activeActionMode == ComposerActionMode.SHELL) Text("✓") },
+                        modifier = Modifier.clickable {
+                            viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.SHELL)
+                            actionsExpanded = false
+                            showAttachmentMenu = false
+                        }
+                    )
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.composer_action_git)) },
+                        trailingContent = { if (activeActionMode == ComposerActionMode.GIT) Text("✓") },
+                        modifier = Modifier.clickable {
+                            viewModel.setComposerActionModeForActiveWorktree(ComposerActionMode.GIT)
+                            actionsExpanded = false
+                            showAttachmentMenu = false
+                        }
+                    )
+                }
             }
         }
     }

@@ -2,6 +2,12 @@ import SwiftUI
 import Combine
 import shared
 
+enum ComposerActionMode: String {
+    case llm
+    case shell
+    case git
+}
+
 /// ViewModel for ChatView - manages chat state and WebSocket communication
 @MainActor
 class ChatViewModel: ObservableObject {
@@ -30,6 +36,9 @@ class ChatViewModel: ObservableObject {
     @Published var worktreeMessages: [String: [ChatMessage]] = [:]
     @Published var worktreeStreamingMessages: [String: String] = [:]
     @Published var worktreeProcessing: [String: Bool] = [:]
+    @Published var providerModels: [String: [ProviderModel]] = [:]
+    @Published var selectedModelByWorktree: [String: String] = [:]
+    @Published var actionModeByWorktree: [String: ComposerActionMode] = [:]
 
     // Computed properties
     var hasUncommittedChanges: Bool {
@@ -67,6 +76,23 @@ class ChatViewModel: ObservableObject {
             return isProcessing
         }
         return worktreeProcessing[activeWorktreeId] ?? false
+    }
+
+    var activeActionMode: ComposerActionMode {
+        actionModeByWorktree[activeWorktreeId] ?? .llm
+    }
+
+    var activeSelectedModel: String? {
+        selectedModelByWorktree[activeWorktreeId]
+    }
+
+    var activeProviderKey: String {
+        let provider = worktrees.first(where: { $0.id == activeWorktreeId })?.provider ?? activeProvider
+        return provider.name.lowercased()
+    }
+
+    var activeModels: [ProviderModel] {
+        providerModels[activeProviderKey] ?? []
     }
 
     // Private
@@ -197,8 +223,28 @@ class ChatViewModel: ObservableObject {
 
     func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
         guard let repository = appState?.sessionRepository else { return }
+
+        if activeActionMode != .llm {
+            guard !text.isEmpty else { return }
+            inputText = ""
+            let request = activeActionMode == .git ? "git" : "run"
+            Coroutines.shared.launch(
+                block: { [activeWorktreeId] in
+                    try await repository.sendActionRequest(
+                        worktreeId: activeWorktreeId,
+                        request: request,
+                        arg: text
+                    )
+                },
+                onError: { error in
+                    print("Error sending action request: \(error)")
+                }
+            )
+            return
+        }
+
+        guard !text.isEmpty else { return }
 
         inputText = ""
 
@@ -260,6 +306,49 @@ class ChatViewModel: ObservableObject {
         )
     }
 
+    func setActionMode(_ mode: ComposerActionMode) {
+        actionModeByWorktree[activeWorktreeId] = mode
+    }
+
+    func loadModelsForActiveWorktree() {
+        guard let repository = appState?.sessionRepository else { return }
+        let provider = activeProviderKey
+        Coroutines.shared.launch(
+            block: {
+                let list = try await repository.loadProviderModels(provider: provider)
+                await MainActor.run {
+                    self.providerModels[provider] = list
+                    if self.selectedModelByWorktree[self.activeWorktreeId] == nil {
+                        let fallback = list.first(where: { $0.isDefault })?.model ?? list.first?.model
+                        if let fallback {
+                            self.selectedModelByWorktree[self.activeWorktreeId] = fallback
+                        }
+                    }
+                }
+            },
+            onError: { error in
+                print("Error loading provider models: \(error)")
+            }
+        )
+    }
+
+    func setActiveModel(_ model: String) {
+        guard let repository = appState?.sessionRepository else { return }
+        selectedModelByWorktree[activeWorktreeId] = model
+        Coroutines.shared.launch(
+            block: { [activeWorktreeId] in
+                try await repository.setModel(
+                    worktreeId: activeWorktreeId,
+                    model: model,
+                    reasoningEffort: nil
+                )
+            },
+            onError: { error in
+                print("Error setting model: \(error)")
+            }
+        )
+    }
+
     // MARK: - Diff
 
     func loadDiff() {
@@ -280,6 +369,7 @@ class ChatViewModel: ObservableObject {
     func selectWorktree(_ worktreeId: String) {
         activeWorktreeId = worktreeId
         appState?.sessionRepository?.setActiveWorktree(worktreeId: worktreeId)
+        loadModelsForActiveWorktree()
     }
 
     func createWorktree(

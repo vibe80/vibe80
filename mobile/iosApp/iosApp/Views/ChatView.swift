@@ -64,7 +64,12 @@ struct ChatView: View {
                 ComposerView(
                     text: $viewModel.inputText,
                     isLoading: viewModel.isProcessing,
-                    onSend: viewModel.sendMessage
+                    actionMode: viewModel.activeActionMode,
+                    activeModel: viewModel.activeSelectedModel,
+                    availableModels: viewModel.activeModels,
+                    onSend: viewModel.sendMessage,
+                    onSelectActionMode: viewModel.setActionMode,
+                    onSelectModel: viewModel.setActiveModel
                 )
             }
             .navigationTitle("app.name")
@@ -166,6 +171,10 @@ struct ChatView: View {
         }
         .onAppear {
             viewModel.connect(sessionId: sessionId)
+            viewModel.loadModelsForActiveWorktree()
+        }
+        .onChange(of: viewModel.activeWorktreeId) { _ in
+            viewModel.loadModelsForActiveWorktree()
         }
     }
 

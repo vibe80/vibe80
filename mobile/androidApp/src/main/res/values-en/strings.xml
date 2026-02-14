@@ -46,6 +46,10 @@
     <string name="composer_model">Model</string>
     <string name="composer_model_unavailable">Coming soon</string>
     <string name="composer_photos">Photos</string>
+    <string name="composer_action_section">Action</string>
+    <string name="composer_action_llm">LLM message</string>
+    <string name="composer_action_shell">Shell command</string>
+    <string name="composer_action_git">Git command</string>
     <string name="diff_additions">Additions</string>
     <string name="diff_deletions">Deletions</string>
     <string name="diff_empty_subtitle">Working tree is clean</string>

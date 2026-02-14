@@ -44,6 +44,10 @@
 "composer.model" = "Modèle";
 "composer.model.unavailable" = "Bientôt disponible";
 "composer.photos" = "Photos";
+"composer.action.section" = "Action";
+"composer.action.llm" = "Message LLM";
+"composer.action.shell" = "Shell command";
+"composer.action.git" = "Git command";
 "diff.additions" = "Ajouts";
 "diff.deletions" = "Suppressions";
 "diff.empty.subtitle" = "Le répertoire de travail est propre";
