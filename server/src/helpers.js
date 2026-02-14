@@ -42,6 +42,27 @@ export const sanitizeFilename = (originalName) =>
 
 export const getSessionTmpDir = (sessionDir) => path.join(sessionDir, "tmp");
 
+export const toIsoDateTime = (value) => {
+  if (value == null || value === "") {
+    return null;
+  }
+  let date = null;
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === "number" && Number.isFinite(value)) {
+    date = new Date(value);
+  } else if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (Number.isFinite(parsed.getTime())) {
+      date = parsed;
+    }
+  }
+  if (!date || !Number.isFinite(date.getTime())) {
+    return null;
+  }
+  return date.toISOString();
+};
+
 export const formatDebugPayload = (payload, maxBody = 2000) => {
   if (payload == null) return null;
   if (Buffer.isBuffer(payload)) {

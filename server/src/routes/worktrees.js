@@ -21,7 +21,7 @@ import {
   getWorktreeMessages,
   getWorktreeDiff,
 } from "../services/session.js";
-import { getSessionTmpDir, createMessageId } from "../helpers.js";
+import { getSessionTmpDir, createMessageId, toIsoDateTime } from "../helpers.js";
 import { getSessionRuntime } from "../runtimeStore.js";
 import {
   listWorktrees,
@@ -340,7 +340,7 @@ export default function worktreeRoutes(deps) {
             : true,
         status: worktree.status,
         color: worktree.color,
-        createdAt: worktree.createdAt,
+        createdAt: toIsoDateTime(worktree.createdAt),
         diff,
       });
     } catch (error) {
