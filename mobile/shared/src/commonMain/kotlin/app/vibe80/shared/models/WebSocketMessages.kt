@@ -382,7 +382,7 @@ data class CommandExecutionDeltaMessage(
 @SerialName("command_execution_completed")
 data class CommandExecutionCompletedMessage(
     override val type: String = "command_execution_completed",
-    val item: ChatMessage,
+    val item: JsonElement? = null,
     val itemId: String,
     val turnId: String,
     val worktreeId: String? = null

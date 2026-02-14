@@ -12,6 +12,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class SessionRepository(
     private val apiClient: ApiClient,
@@ -153,6 +157,38 @@ class SessionRepository(
                 handleServerMessage(message)
             }
         }
+    }
+
+    private fun parseCommandExecutionMessage(
+        itemId: String,
+        item: JsonElement?,
+        fallbackText: String = ""
+    ): ChatMessage {
+        val obj = item as? JsonObject
+        val command = obj?.get("command")?.jsonPrimitive?.contentOrNull
+        val output = obj?.get("aggregatedOutput")?.jsonPrimitive?.contentOrNull ?: fallbackText
+        val statusRaw = obj?.get("status")?.jsonPrimitive?.contentOrNull?.lowercase()
+        val status = when (statusRaw) {
+            "running" -> ExecutionStatus.RUNNING
+            "completed" -> ExecutionStatus.COMPLETED
+            "error", "failed" -> ExecutionStatus.ERROR
+            else -> null
+        }
+        return ChatMessage(
+            id = itemId,
+            role = MessageRole.TOOL_RESULT,
+            text = output,
+            timestamp = System.currentTimeMillis(),
+            command = command,
+            output = output,
+            status = status,
+            toolResult = ToolResult(
+                callId = itemId,
+                name = command ?: "command",
+                output = output,
+                success = status != ExecutionStatus.ERROR
+            )
+        )
     }
 
     private fun handleServerMessage(message: ServerMessage) {
@@ -437,14 +473,15 @@ class SessionRepository(
             }
 
             is CommandExecutionCompletedMessage -> {
+                val commandMessage = parseCommandExecutionMessage(message.itemId, message.item)
                 val worktreeId = message.worktreeId
                 if (worktreeId != null && worktreeId != Worktree.MAIN_WORKTREE_ID) {
                     _worktreeMessages.update { current ->
                         val messages = current[worktreeId] ?: emptyList()
-                        current + (worktreeId to messages + message.item)
+                        current + (worktreeId to messages + commandMessage)
                     }
                 } else {
-                    _messages.update { it + message.item }
+                    _messages.update { it + commandMessage }
                 }
             }
 
