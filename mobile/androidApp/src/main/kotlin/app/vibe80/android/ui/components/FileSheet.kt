@@ -11,10 +11,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import app.vibe80.android.R
+import app.vibe80.android.ui.theme.SpaceMono
 
 @Composable
 fun FileSheetContent(
@@ -68,7 +68,7 @@ fun FileSheetContent(
                 }
                 Text(
                     text = content,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = SpaceMono),
                     modifier = Modifier
                         .verticalScroll(rememberScrollState())
                         .horizontalScroll(rememberScrollState())

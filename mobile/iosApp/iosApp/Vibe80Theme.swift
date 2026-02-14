@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension UIColor {
     convenience init?(hex: String) {
@@ -48,5 +49,12 @@ extension View {
             .background(Color.vibe80Surface)
             .cornerRadius(20)
             .shadow(color: .black.opacity(0.1), radius: 12, y: 6)
+    }
+}
+
+extension Font {
+    static func vibe80SpaceMono(_ textStyle: UIFont.TextStyle) -> Font {
+        let size = UIFont.preferredFont(forTextStyle: textStyle).pointSize
+        return .custom("SpaceMono-Regular", size: size)
     }
 }

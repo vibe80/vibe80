@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.res.ResourcesCompat
 import app.vibe80.android.R
+import app.vibe80.android.ui.theme.SpaceMono
 import app.vibe80.shared.models.Attachment
 import app.vibe80.shared.models.ChatMessage
 import app.vibe80.shared.models.MessageRole
@@ -560,7 +561,7 @@ private fun CollapsibleCodeBlock(
                 text = code,
                 color = textColor,
                 style = MaterialTheme.typography.bodySmall,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontFamily = SpaceMono,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 240.dp)
@@ -573,7 +574,7 @@ private fun CollapsibleCodeBlock(
                 text = code,
                 color = textColor,
                 style = MaterialTheme.typography.bodySmall,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontFamily = SpaceMono,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
@@ -641,7 +642,7 @@ private fun CollapsibleToolResultBlock(
                 text = content,
                 color = textColor,
                 style = MaterialTheme.typography.bodySmall,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontFamily = SpaceMono,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 240.dp)
@@ -654,7 +655,7 @@ private fun CollapsibleToolResultBlock(
                 text = content,
                 color = textColor,
                 style = MaterialTheme.typography.bodySmall,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontFamily = SpaceMono,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier

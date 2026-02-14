@@ -253,7 +253,7 @@ private struct ToolResultPanel: View {
             if expanded {
                 ScrollView([.horizontal, .vertical], showsIndicators: true) {
                     Text(verbatim: content)
-                        .font(.system(.caption, design: .monospaced))
+                        .font(.vibe80SpaceMono(.caption1))
                         .foregroundColor(.vibe80Ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
@@ -264,7 +264,7 @@ private struct ToolResultPanel: View {
                 .cornerRadius(10)
             } else {
                 Text(verbatim: content)
-                    .font(.system(.caption, design: .monospaced))
+                    .font(.vibe80SpaceMono(.caption1))
                     .foregroundColor(.vibe80Ink)
                     .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)

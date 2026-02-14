@@ -134,7 +134,7 @@ struct DiffSheetView: View {
                             diffLine(line)
                         }
                     }
-                    .font(.system(.caption, design: .monospaced))
+                    .font(.vibe80SpaceMono(.caption1))
                 }
                 .background(Color(.systemGray6))
                 .cornerRadius(8)

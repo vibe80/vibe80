@@ -11,6 +11,10 @@ val SpaceGrotesk = FontFamily(
     Font(R.font.space_grotesk_wght, weight = FontWeight.Bold)
 )
 
+val SpaceMono = FontFamily(
+    Font(R.font.space_mono_regular, weight = FontWeight.Normal)
+)
+
 private val BaseTypography = Typography()
 
 val AppTypography = Typography(

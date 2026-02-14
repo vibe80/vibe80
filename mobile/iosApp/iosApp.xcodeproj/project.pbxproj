@@ -19,6 +19,7 @@
 		M5_010 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_110 /* DiffSheetView.swift */; };
 		M5_011 /* WorktreeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_111 /* WorktreeViews.swift */; };
 		M5_012 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = M5_113 /* Localizable.strings */; };
+		M5_013 /* SpaceMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = M5_116 /* SpaceMono-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +38,7 @@
 		M5_112 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		M5_114 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		M5_115 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
+		M5_116 /* SpaceMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/SpaceMono-Regular.ttf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +116,7 @@
 			isa = PBXGroup;
 			children = (
 				M5_113 /* Localizable.strings */,
+				M5_116 /* SpaceMono-Regular.ttf */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -178,6 +181,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				M5_012 /* Localizable.strings in Resources */,
+				M5_013 /* SpaceMono-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

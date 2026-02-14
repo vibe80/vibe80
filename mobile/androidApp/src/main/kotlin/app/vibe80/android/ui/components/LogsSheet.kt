@@ -17,12 +17,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import app.vibe80.android.R
+import app.vibe80.android.ui.theme.SpaceMono
 import app.vibe80.shared.logging.AppLogger
 import app.vibe80.shared.logging.LogEntry
 import app.vibe80.shared.logging.LogLevel
@@ -190,7 +190,7 @@ private fun LogEntryCard(log: LogEntry) {
                 Text(
                     text = formatTimestamp(log.timestamp),
                     style = MaterialTheme.typography.labelSmall,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = SpaceMono,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
@@ -225,7 +225,7 @@ private fun LogEntryCard(log: LogEntry) {
                 Text(
                     text = log.message,
                     style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = SpaceMono,
                     fontSize = 11.sp
                 )
             }
@@ -241,7 +241,7 @@ private fun LogEntryCard(log: LogEntry) {
                         Text(
                             text = details,
                             style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = SpaceMono,
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier

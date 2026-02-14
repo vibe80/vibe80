@@ -24,11 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.vibe80.android.R
+import app.vibe80.android.ui.theme.SpaceMono
 import app.vibe80.shared.models.RepoDiff
 
 /**
@@ -365,14 +365,14 @@ private fun DiffFileCard(file: DiffFile) {
                     Text(
                         text = file.path,
                         style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = SpaceMono
                     )
                     if (file.oldPath != null && file.oldPath != file.path) {
                         Text(
                             text = "← ${file.oldPath}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = SpaceMono
                         )
                     }
                 }
@@ -468,7 +468,7 @@ private fun DiffLineRow(line: DiffLine) {
             Text(
                 text = (line.oldLineNumber?.toString() ?: "").padStart(4),
                 style = MaterialTheme.typography.bodySmall,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = SpaceMono,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.width(36.dp)
@@ -476,7 +476,7 @@ private fun DiffLineRow(line: DiffLine) {
             Text(
                 text = (line.newLineNumber?.toString() ?: "").padStart(4),
                 style = MaterialTheme.typography.bodySmall,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = SpaceMono,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.width(36.dp)
@@ -489,7 +489,7 @@ private fun DiffLineRow(line: DiffLine) {
         Text(
             text = line.content,
             style = MaterialTheme.typography.bodySmall,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = SpaceMono,
             fontSize = 11.sp,
             color = textColor,
             modifier = Modifier.padding(start = 8.dp)
