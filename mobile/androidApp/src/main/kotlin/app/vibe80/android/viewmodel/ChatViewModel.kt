@@ -453,9 +453,10 @@ class ChatViewModel(
                     ComposerActionMode.GIT -> "git"
                     else -> "run"
                 }
+                val worktreeId = _uiState.value.activeWorktreeId
                 if (text.isNotBlank()) {
                     sessionRepository.sendActionRequest(
-                        worktreeId = _uiState.value.activeWorktreeId,
+                        worktreeId = worktreeId,
                         request = request,
                         arg = text
                     )
@@ -464,7 +465,8 @@ class ChatViewModel(
                     it.copy(
                         inputText = "",
                         pendingAttachments = emptyList(),
-                        uploadingAttachments = false
+                        uploadingAttachments = false,
+                        actionModeByWorktree = it.actionModeByWorktree + (worktreeId to ComposerActionMode.LLM)
                     )
                 }
                 return@launch

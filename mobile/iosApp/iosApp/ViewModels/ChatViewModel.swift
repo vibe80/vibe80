@@ -227,12 +227,14 @@ class ChatViewModel: ObservableObject {
 
         if activeActionMode != .llm {
             guard !text.isEmpty else { return }
+            let worktreeId = activeWorktreeId
             inputText = ""
+            actionModeByWorktree[worktreeId] = .llm
             let request = activeActionMode == .git ? "git" : "run"
             Coroutines.shared.launch(
-                block: { [activeWorktreeId] in
+                block: { [worktreeId] in
                     try await repository.sendActionRequest(
-                        worktreeId: activeWorktreeId,
+                        worktreeId: worktreeId,
                         request: request,
                         arg: text
                     )
