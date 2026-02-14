@@ -46,14 +46,17 @@ class MessageNotifier(private val context: Context) {
     fun notifyMessage(title: String, body: String, sessionId: String?, worktreeId: String?) {
         if (body.isBlank() || !canNotify()) return
 
+        val notificationKey = listOf(title, body, sessionId.orEmpty(), worktreeId.orEmpty()).joinToString("|")
+        val notificationId = notificationKey.hashCode()
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            action = "app.vibe80.NOTIFICATION_OPEN.$notificationId"
             putExtra(EXTRA_SESSION_ID, sessionId)
             putExtra(EXTRA_WORKTREE_ID, worktreeId)
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            0,
+            notificationId,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -67,7 +70,7 @@ class MessageNotifier(private val context: Context) {
             .setAutoCancel(true)
             .build()
 
-        NotificationManagerCompat.from(context).notify(body.hashCode(), notification)
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 
     companion object {
