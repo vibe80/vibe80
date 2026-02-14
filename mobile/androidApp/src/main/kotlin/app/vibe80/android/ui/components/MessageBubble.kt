@@ -470,6 +470,7 @@ fun MarkdownText(
                 setTextColor(textColor.toArgb())
                 setLinkTextColor(linkColor.toArgb())
                 movementMethod = LinkMovementMethod.getInstance()
+                setTextIsSelectable(true)
                 textSize = 14f
                 bodyTypefaceNormal?.let { typeface = it }
             }
