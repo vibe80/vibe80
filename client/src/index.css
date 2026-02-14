@@ -1143,7 +1143,7 @@ main.chat {
 
 .chat-history-grid.has-annotations {
   grid-template-columns: minmax(0, 1fr) minmax(0, var(--chat-max-width))
-    minmax(260px, 320px);
+    minmax(0, 1fr);
   column-gap: 24px;
 }
 
@@ -1203,6 +1203,8 @@ main.chat {
 
 .chat-annotation-rail {
   grid-column: 3;
+  justify-self: start;
+  width: min(100%, 320px);
   align-self: start;
   position: sticky;
   top: 12px;
