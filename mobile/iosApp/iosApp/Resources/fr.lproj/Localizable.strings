@@ -9,6 +9,7 @@
 "action.delete" = "Supprimer";
 "action.disconnect" = "Déconnexion";
 "action.expand" = "Développer";
+"action.refresh" = "Rafraîchir";
 "action.remove" = "Retirer";
 "action.restart" = "Recommencer";
 "action.resume" = "Reprendre";
@@ -93,6 +94,7 @@
 "provider.auth.api_key" = "API key";
 "provider.auth.api_key_label" = "Clé API";
 "provider.auth.auth_json_b64" = "auth_json_b64";
+"provider.auth.auth_json_file" = "auth.json file";
 "provider.auth.auth_json_label" = "auth.json";
 "provider.auth.import_auth_json" = "Importer auth.json";
 "provider.auth.setup_token" = "setup_token";
@@ -136,6 +138,7 @@
 "workspace.credentials.title" = "Identifiants workspace";
 "workspace.id" = "Workspace ID";
 "workspace.join" = "Rejoindre un workspace existant";
+"workspace.leave" = "Quitter le workspace";
 "workspace.resume.desktop" = "Reprendre une session desktop";
 "workspace.secret" = "Workspace secret";
 "worktree.add" = "Ajouter un worktree";
@@ -155,6 +158,7 @@
 "worktree.name.placeholder.example" = "ex: refactor-auth";
 "worktree.new.title" = "Nouveau Worktree";
 "worktree.options" = "Options";
+"worktree.refresh" = "Rafraîchir les worktrees";
 "worktree.source_branch.label" = "Branche source";
 "worktree.title" = "Worktree : %s";
 "worktrees.title" = "Worktrees";

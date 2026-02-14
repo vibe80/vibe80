@@ -11,6 +11,7 @@
     <string name="action_delete">Delete</string>
     <string name="action_disconnect">Disconnect</string>
     <string name="action_expand">Expand</string>
+    <string name="action_refresh">Refresh</string>
     <string name="action_remove">Remove</string>
     <string name="action_restart">Restart</string>
     <string name="action_resume">Resume</string>
@@ -95,6 +96,7 @@
     <string name="provider_auth_api_key">API key</string>
     <string name="provider_auth_api_key_label">API key</string>
     <string name="provider_auth_auth_json_b64">auth_json_b64</string>
+    <string name="provider_auth_auth_json_file">auth.json file</string>
     <string name="provider_auth_auth_json_label">auth.json</string>
     <string name="provider_auth_import_auth_json">Import auth.json</string>
     <string name="provider_auth_setup_token">setup_token</string>
@@ -138,6 +140,7 @@
     <string name="workspace_credentials_title">Workspace credentials</string>
     <string name="workspace_id">Workspace ID</string>
     <string name="workspace_join">Join an existing workspace</string>
+    <string name="workspace_leave">Leave workspace</string>
     <string name="workspace_resume_desktop">Resume a desktop session</string>
     <string name="workspace_secret">Workspace secret</string>
     <string name="worktree_add">Add worktree</string>
@@ -157,6 +160,7 @@
     <string name="worktree_name_placeholder_example">e.g. refactor-auth</string>
     <string name="worktree_new_title">New Worktree</string>
     <string name="worktree_options">Options</string>
+    <string name="worktree_refresh">Refresh worktrees</string>
     <string name="worktree_source_branch_label">Source branch</string>
     <string name="worktree_title">Worktree: %s</string>
     <string name="worktrees_title">Worktrees</string>
