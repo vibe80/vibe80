@@ -29,8 +29,6 @@ export default function ExplorerPanel({
   startExplorerRename,
   createExplorerFile,
   deleteExplorerSelection,
-  uploadExplorerFiles,
-  moveExplorerNode,
   getLanguageForPath,
   themeMode,
 }) {
@@ -45,8 +43,6 @@ export default function ExplorerPanel({
   const [newFileDialogOpen, setNewFileDialogOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileSubmitting, setNewFileSubmitting] = useState(false);
-  const [dragOverPath, setDragOverPath] = useState("");
-  const [draggingPath, setDraggingPath] = useState("");
 
   const selectedPath = activeExplorer.selectedPath || "";
   const canRename = Boolean(selectedPath);
@@ -97,68 +93,9 @@ export default function ExplorerPanel({
     return repoName || "";
   }, [isInWorktree, activeWorktree?.branchName, activeWorktree?.name, repoName]);
 
-  const handleExternalDrop = async (event, targetDir) => {
-    event.preventDefault();
-    if (!attachmentSession?.sessionId) return;
-    const files = event.dataTransfer?.files;
-    if (!files || files.length === 0) return;
-    setDragOverPath("");
-    await uploadExplorerFiles(tabId, targetDir || "", files);
-  };
-
-  const handleInternalDrop = async (event, targetDir) => {
-    const fromPath = event.dataTransfer?.getData("application/vibe80-path");
-    if (!fromPath) return;
-    if (fromPath === targetDir || targetDir.startsWith(`${fromPath}/`)) {
-      return;
-    }
-    setDragOverPath("");
-    await moveExplorerNode(tabId, fromPath, targetDir || "");
-  };
-
-  const onDropDir = async (event, dirPath) => {
-    event.preventDefault();
-    const hasFiles = event.dataTransfer?.files?.length > 0;
-    if (hasFiles) {
-      await handleExternalDrop(event, dirPath);
-    } else {
-      await handleInternalDrop(event, dirPath);
-    }
-  };
-
-  const onDragOverDir = (event, dirPath) => {
-    event.preventDefault();
-    setDragOverPath(dirPath);
-  };
-
-  const onDragLeaveDir = () => {
-    setDragOverPath("");
-  };
-
-  const onDragStartNode = (event, nodePath) => {
-    setDraggingPath(nodePath);
-    event.dataTransfer.setData("application/vibe80-path", nodePath);
-    event.dataTransfer.effectAllowed = "move";
-  };
-
-  const onDropRoot = async (event) => {
-    event.preventDefault();
-    const hasFiles = event.dataTransfer?.files?.length > 0;
-    if (hasFiles) {
-      await handleExternalDrop(event, "");
-    }
-    setDragOverPath("");
-  };
-
   return (
     <div
       className={`explorer-panel ${activePane === "explorer" ? "" : "is-hidden"}`}
-      onDragOver={(e) => {
-        if (attachmentSession?.sessionId && e.dataTransfer?.files?.length) {
-          e.preventDefault();
-        }
-      }}
-      onDrop={onDropRoot}
     >
       <div className="explorer-header">
         <div>
@@ -219,10 +156,7 @@ export default function ExplorerPanel({
             </button>
           </div>
 
-          <div
-            className="explorer-tree"
-            onDragLeave={() => setDragOverPath("")}
-          >
+          <div className="explorer-tree">
             {activeExplorer.loading ? (
               <div className="explorer-empty">{t("Loading...")}</div>
             ) : activeExplorer.error ? (
@@ -239,15 +173,7 @@ export default function ExplorerPanel({
                   activeExplorer.renamingPath || null,
                   activeExplorer.renameDraft || "",
                   explorerStatusByPath,
-                  explorerDirStatus,
-                  {
-                    dragOverPath,
-                    draggingPath,
-                    onDragOverDir,
-                    onDragLeaveDir,
-                    onDropDir,
-                    onDragStartNode,
-                  }
+                  explorerDirStatus
                 )}
                 {activeExplorer.treeTruncated && (
                   <div className="explorer-truncated">

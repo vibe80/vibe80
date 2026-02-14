@@ -35,8 +35,6 @@ import {
   updateWorktreeStatus,
   appendWorktreeMessage,
 } from "../worktreeManager.js";
-import multer from "multer";
-import { sanitizeFilename } from "../helpers.js";
 
 export default function worktreeRoutes(deps) {
   const {
@@ -47,10 +45,6 @@ export default function worktreeRoutes(deps) {
     attachClientEventsForWorktree,
     attachClaudeEventsForWorktree,
   } = deps;
-  const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { files: 20, fileSize: 50 * 1024 * 1024 },
-  });
 
   const router = Router();
   const DEFAULT_WAKEUP_TIMEOUT_MS = 15000;
@@ -770,63 +764,6 @@ export default function worktreeRoutes(deps) {
       res.status(500).json({ error: "Failed to delete path." });
     }
   });
-
-  router.post(
-    "/sessions/:sessionId/worktrees/:worktreeId/file/upload",
-    upload.array("files"),
-    async (req, res) => {
-      const sessionId = req.params.sessionId;
-      const session = await getSession(sessionId, req.workspaceId);
-      if (!session) {
-        res.status(400).json({ error: "Invalid session." });
-        return;
-      }
-      await touchSession(session);
-      const { rootPath } = await resolveWorktreeRoot(session, req.params.worktreeId);
-      if (!rootPath) {
-        res.status(404).json({ error: "Worktree not found." });
-        return;
-      }
-      const targetDirRaw = typeof req.query?.path === "string" ? req.query.path : "";
-      const targetDir = targetDirRaw || "";
-      const resolvedDir = resolveRelativePath(rootPath, targetDir || ".");
-      if (!resolvedDir) {
-        res.status(400).json({ error: "Invalid target path." });
-        return;
-      }
-      const files = req.files || [];
-      if (!files.length) {
-        res.status(400).json({ error: "No files uploaded." });
-        return;
-      }
-      try {
-        await runSessionCommand(session, "/bin/mkdir", ["-p", resolvedDir.absPath], {
-          cwd: rootPath,
-        });
-        const uploaded = [];
-        for (const file of files) {
-          const safeName = sanitizeFilename(file.originalname || "file");
-          const targetPath = path.join(resolvedDir.absPath, safeName);
-          await runSessionCommand(session, "/usr/bin/tee", [targetPath], {
-            input: file.buffer,
-          });
-          uploaded.push({
-            name: safeName,
-            path: path.join(resolvedDir.relative, safeName),
-            size: file.size,
-          });
-        }
-        res.json({ files: uploaded });
-      } catch (error) {
-        console.error("Failed to upload files:", {
-          sessionId,
-          worktreeId: req.params.worktreeId,
-          error: error?.message || error,
-        });
-        res.status(500).json({ error: "Failed to upload files." });
-      }
-    }
-  );
 
   router.get("/sessions/:sessionId/worktrees/:worktreeId/status", async (req, res) => {
     const sessionId = req.params.sessionId;
