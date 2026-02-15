@@ -438,13 +438,14 @@ export default function useWorkspaceAuth({
           retryHeaders.set("Authorization", `Bearer ${latestToken}`);
           return fetch(input, { ...init, headers: retryHeaders });
         }
+        handleLeaveWorkspace();
         return response;
       }
       const retryHeaders = new Headers(init.headers || {});
       retryHeaders.set("Authorization", `Bearer ${refreshedToken}`);
       return fetch(input, { ...init, headers: retryHeaders });
     },
-    [workspaceToken, refreshWorkspaceToken]
+    [workspaceToken, refreshWorkspaceToken, handleLeaveWorkspace]
   );
 
   useEffect(() => {
