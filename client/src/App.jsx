@@ -441,7 +441,7 @@ const readToolResultsVisible = () => {
   } catch (error) {
     // Ignore storage errors (private mode, quota).
   }
-  return false;
+  return true;
 };
 
 const readNotificationsEnabled = () => {
@@ -1812,9 +1812,6 @@ function App() {
         return;
       }
       if (message?.type === "action_result") {
-        if (!showToolResults) {
-          return;
-        }
         const last = grouped[grouped.length - 1];
         if (last?.groupType === "toolResult") {
           last.items.push(message);
