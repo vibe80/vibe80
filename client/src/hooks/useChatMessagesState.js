@@ -12,6 +12,7 @@ export default function useChatMessagesState({
   const applyMessages = useCallback(
     (items = []) => {
       const normalized = items.map((item, index) => ({
+        ...item,
         id: item.id || `history-${index}`,
         role: item.role,
         text: item.text,
