@@ -139,7 +139,7 @@ fun MessageBubble(
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Card(
-            modifier = Modifier.widthIn(max = 320.dp),
+            modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = if (isUser) {
                     MaterialTheme.colorScheme.primaryContainer
