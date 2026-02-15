@@ -3594,7 +3594,7 @@ main.chat {
 :root[data-theme="dark"] .bubble code,
 :root[data-theme="dark"] .bubble pre,
 :root[data-theme="dark"] .chat-meta-hash {
-  background: #ffffff0a;
+  background: #222;
 }
 
 :root[data-theme="dark"] .session-workspace-option {
