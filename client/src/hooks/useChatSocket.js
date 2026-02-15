@@ -783,27 +783,40 @@ export default function useChatSocket({
             }
             setWorktrees((current) => {
               const next = new Map(current);
-              const wt = next.get(wtId);
-              if (wt) {
-                next.set(wtId, {
-                  ...wt,
-                  messages: [
-                    ...wt.messages,
-                    {
-                      id: payload.id,
-                      role: "assistant",
-                      type: "action_result",
-                      text: payload.text || "",
-                      action: {
-                        request: payload.request,
-                        arg: payload.arg,
-                        status: payload.status,
-                        output: payload.output,
-                      },
-                    },
-                  ],
-                });
+              const wt = next.get(wtId) || {
+                id: wtId,
+                name: wtId,
+                branchName: "",
+                provider: "codex",
+                status: "processing",
+                messages: [],
+                models: [],
+                modelLoading: false,
+                modelError: "",
+                activity: "",
+                currentTurnId: null,
+              };
+              if (wt.messages.some((message) => message?.id === payload.id)) {
+                return current;
               }
+              next.set(wtId, {
+                ...wt,
+                messages: [
+                  ...wt.messages,
+                  {
+                    id: payload.id,
+                    role: "assistant",
+                    type: "action_result",
+                    text: payload.text || "",
+                    action: {
+                      request: payload.request,
+                      arg: payload.arg,
+                      status: payload.status,
+                      output: payload.output,
+                    },
+                  },
+                ],
+              });
               return next;
             });
           if (payload.request === "run" || payload.request === "git") {
