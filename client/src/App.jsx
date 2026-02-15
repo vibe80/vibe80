@@ -441,7 +441,7 @@ const readToolResultsVisible = () => {
   } catch (error) {
     // Ignore storage errors (private mode, quota).
   }
-  return true;
+  return false;
 };
 
 const readNotificationsEnabled = () => {
