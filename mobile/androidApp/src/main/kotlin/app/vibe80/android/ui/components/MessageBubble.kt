@@ -7,6 +7,7 @@ import android.text.style.ReplacementSpan
 import android.net.Uri
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -30,15 +31,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.res.ResourcesCompat
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import app.vibe80.android.R
 import app.vibe80.android.ui.theme.SpaceMono
 import app.vibe80.shared.models.Attachment
@@ -69,6 +75,9 @@ fun MessageBubble(
     yesNoSubmitted: Boolean = false,
     onYesNoSubmit: (() -> Unit)? = null
 ) {
+    var previewImageUrl by remember { mutableStateOf<String?>(null) }
+    var previewImageName by remember { mutableStateOf("") }
+
     val isUser = message?.role == MessageRole.USER
     val rawText = streamingText ?: message?.text ?: ""
     val displayText = remember(rawText) { stripAttachmentSuffix(rawText) }
@@ -279,13 +288,25 @@ fun MessageBubble(
                                 attachment = attachment,
                                 isUser = isUser,
                                 sessionId = sessionId,
-                                workspaceToken = workspaceToken
+                                workspaceToken = workspaceToken,
+                                onImageClick = { imageUrl, imageName ->
+                                    previewImageUrl = imageUrl
+                                    previewImageName = imageName
+                                }
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    previewImageUrl?.let { imageUrl ->
+        ImagePreviewDialog(
+            imageUrl = imageUrl,
+            imageName = previewImageName,
+            onDismiss = { previewImageUrl = null }
+        )
     }
 }
 
@@ -294,11 +315,13 @@ private fun AttachmentItem(
     attachment: Attachment,
     isUser: Boolean,
     sessionId: String?,
-    workspaceToken: String?
+    workspaceToken: String?,
+    onImageClick: (url: String, imageName: String) -> Unit
 ) {
     val resolvedPath = remember(attachment.path, sessionId, workspaceToken) {
         resolveAttachmentPath(attachment.path, sessionId, workspaceToken)
     }
+    val previewUrl = resolvedPath ?: attachment.path
     val isImage = attachment.mimeType?.startsWith("image/") == true ||
             attachment.name.lowercase().let {
                 it.endsWith(".png") || it.endsWith(".jpg") ||
@@ -320,6 +343,7 @@ private fun AttachmentItem(
                 .heightIn(max = 200.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surface)
+                .clickable { onImageClick(previewUrl, attachment.name) }
         )
         Text(
             text = attachment.name,
@@ -376,6 +400,65 @@ private fun AttachmentItem(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImagePreviewDialog(
+    imageUrl: String,
+    imageName: String,
+    onDismiss: () -> Unit
+) {
+    var scale by remember { mutableStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f)),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = imageName,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            scale = (scale * zoom).coerceIn(1f, 5f)
+                            offset = if (scale > 1f) {
+                                offset + pan
+                            } else {
+                                Offset.Zero
+                            }
+                        }
+                    }
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                    }
+            )
+
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+            ) {
+                Text("✕", color = Color.White)
             }
         }
     }

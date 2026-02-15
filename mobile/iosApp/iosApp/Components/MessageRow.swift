@@ -3,8 +3,12 @@ import shared
 
 struct MessageRow: View {
     let message: ChatMessage?
+    var sessionId: String? = nil
+    var workspaceToken: String? = nil
+    var baseUrl: String? = nil
     var streamingText: String? = nil
     var isStreaming: Bool = false
+    @State private var previewImage: AttachmentPreviewImage? = nil
 
     private var displayText: String {
         if let message = message,
@@ -77,6 +81,12 @@ struct MessageRow: View {
             if !isUser {
                 Spacer(minLength: 60)
             }
+        }
+        .fullScreenCover(item: $previewImage) { preview in
+            ZoomableAttachmentImageView(
+                imageUrl: preview.url,
+                imageName: preview.name
+            )
         }
     }
 
@@ -154,9 +164,52 @@ struct MessageRow: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(attachments, id: \.path) { attachment in
-                    attachmentChip(attachment)
+                    if isImageAttachment(attachment),
+                       let imageUrl = resolveAttachmentUrl(for: attachment) {
+                        Button {
+                            previewImage = AttachmentPreviewImage(url: imageUrl, name: attachment.name)
+                        } label: {
+                            imageAttachmentThumbnail(attachment, imageUrl: imageUrl)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        attachmentChip(attachment)
+                    }
                 }
             }
+        }
+    }
+
+    private func imageAttachmentThumbnail(_ attachment: Attachment, imageUrl: URL) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            AsyncImage(url: imageUrl) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 220, maxHeight: 160)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                case .failure:
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.vibe80BackgroundStrong)
+                        .frame(width: 160, height: 100)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .foregroundColor(.secondary)
+                        )
+                default:
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.vibe80BackgroundStrong)
+                        .frame(width: 160, height: 100)
+                        .overlay(ProgressView())
+                }
+            }
+
+            Text(attachment.name)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
         }
     }
 
@@ -194,6 +247,47 @@ struct MessageRow: View {
         }
     }
 
+    private func isImageAttachment(_ attachment: Attachment) -> Bool {
+        if let mimeType = attachment.mimeType, mimeType.hasPrefix("image/") {
+            return true
+        }
+        let name = attachment.name.lowercased()
+        return name.hasSuffix(".png")
+            || name.hasSuffix(".jpg")
+            || name.hasSuffix(".jpeg")
+            || name.hasSuffix(".gif")
+            || name.hasSuffix(".webp")
+    }
+
+    private func resolveAttachmentUrl(for attachment: Attachment) -> URL? {
+        let path = attachment.path
+        if path.hasPrefix("http://") || path.hasPrefix("https://") {
+            return URL(string: path)
+        }
+        guard
+            let baseUrl,
+            let sessionId,
+            !sessionId.isEmpty,
+            var components = URLComponents(string: baseUrl)
+        else {
+            return nil
+        }
+
+        let basePath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        components.path = "/" + ([basePath, "api/attachments/file"]
+            .filter { !$0.isEmpty }
+            .joined(separator: "/"))
+        var queryItems = [
+            URLQueryItem(name: "session", value: sessionId),
+            URLQueryItem(name: "path", value: path)
+        ]
+        if let workspaceToken, !workspaceToken.isEmpty {
+            queryItems.append(URLQueryItem(name: "token", value: workspaceToken))
+        }
+        components.queryItems = queryItems
+        return components.url
+    }
+
     // MARK: - Helpers
 
     private func formatTimestamp(_ timestamp: Int64) -> String {
@@ -210,6 +304,85 @@ struct MessageRow: View {
         } else {
             return String(format: "%.1f MB", kb / 1024)
         }
+    }
+}
+
+private struct AttachmentPreviewImage: Identifiable {
+    let id = UUID()
+    let url: URL
+    let name: String
+}
+
+private struct ZoomableAttachmentImageView: View {
+    let imageUrl: URL
+    let imageName: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.opacity(0.96).ignoresSafeArea()
+
+            AsyncImage(url: imageUrl) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .scaleEffect(scale)
+                        .gesture(
+                            MagnificationGesture()
+                                .onChanged { value in
+                                    scale = (lastScale * value).clamped(to: 1...6)
+                                }
+                                .onEnded { _ in
+                                    lastScale = scale
+                                }
+                        )
+                        .onTapGesture(count: 2) {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                if scale > 1.1 {
+                                    scale = 1
+                                    lastScale = 1
+                                } else {
+                                    scale = 2
+                                    lastScale = 2
+                                }
+                            }
+                        }
+                        .padding(16)
+                case .failure:
+                    VStack(spacing: 8) {
+                        Image(systemName: "photo")
+                            .font(.title)
+                            .foregroundColor(.white.opacity(0.8))
+                        Text(imageName)
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                default:
+                    ProgressView()
+                        .tint(.white)
+                }
+            }
+
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.white.opacity(0.9))
+                    .padding(16)
+            }
+        }
+    }
+}
+
+private extension Comparable {
+    func clamped(to limits: ClosedRange<Self>) -> Self {
+        min(max(self, limits.lowerBound), limits.upperBound)
     }
 }
 

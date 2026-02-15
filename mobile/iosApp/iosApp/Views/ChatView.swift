@@ -34,7 +34,12 @@ struct ChatView: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(viewModel.messages, id: \.id) { message in
-                                MessageRow(message: message)
+                                MessageRow(
+                                    message: message,
+                                    sessionId: sessionId,
+                                    workspaceToken: UserDefaults.standard.string(forKey: "workspaceToken"),
+                                    baseUrl: currentServerUrl
+                                )
                                     .id(message.id)
                             }
 
@@ -42,6 +47,9 @@ struct ChatView: View {
                             if let streamingText = viewModel.currentStreamingMessage {
                                 MessageRow(
                                     message: nil,
+                                    sessionId: sessionId,
+                                    workspaceToken: UserDefaults.standard.string(forKey: "workspaceToken"),
+                                    baseUrl: currentServerUrl,
                                     streamingText: streamingText,
                                     isStreaming: true
                                 )
@@ -232,6 +240,20 @@ struct ChatView: View {
         default:
             return .gray
         }
+    }
+
+    private var currentServerUrl: String {
+        if let envUrl = ProcessInfo.processInfo.environment["VIBE80_SERVER_URL"], !envUrl.isEmpty {
+            return envUrl
+        }
+        if let savedUrl = UserDefaults.standard.string(forKey: "serverUrl"), !savedUrl.isEmpty {
+            return savedUrl
+        }
+        #if DEBUG
+        return "http://localhost:3000"
+        #else
+        return "https://vibe80.example.com"
+        #endif
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
