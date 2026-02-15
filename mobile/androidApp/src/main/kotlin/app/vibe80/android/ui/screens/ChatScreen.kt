@@ -538,8 +538,8 @@ fun ChatScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
                     .imePadding()
+                    .padding(bottom = 0.dp)
                     .onSizeChanged { inputBarSize = it }
             ) {
                 Surface(
