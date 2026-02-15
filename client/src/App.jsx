@@ -2618,13 +2618,7 @@ function App() {
               activePane={activePane}
               handleViewSelect={handleViewSelect}
               handleDiffSelect={handleDiffSelect}
-              debugMode={debugMode}
-              rpcLogsEnabled={rpcLogsEnabled}
               terminalEnabled={terminalEnabled}
-              toolbarExportOpen={toolbarExportOpen}
-              setToolbarExportOpen={setToolbarExportOpen}
-              toolbarExportRef={toolbarExportRef}
-              handleExportChat={handleExportChat}
               hasMessages={hasMessages}
               handleClearChat={handleClearChat}
             />
@@ -2758,8 +2752,6 @@ function App() {
                 setNotificationsEnabled={setNotificationsEnabled}
                 themeMode={themeMode}
                 setThemeMode={setThemeMode}
-                debugMode={debugMode}
-                setDebugMode={setDebugMode}
                 gitIdentityName={gitIdentityName}
                 setGitIdentityName={setGitIdentityName}
                 gitIdentityEmail={gitIdentityEmail}

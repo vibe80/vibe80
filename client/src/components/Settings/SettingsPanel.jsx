@@ -16,8 +16,6 @@ export default function SettingsPanel({
   setNotificationsEnabled,
   themeMode,
   setThemeMode,
-  debugMode,
-  setDebugMode,
   gitIdentityName,
   setGitIdentityName,
   gitIdentityEmail,
@@ -123,20 +121,6 @@ export default function SettingsPanel({
             onChange={(event) =>
               setThemeMode(event.target.checked ? "dark" : "light")
             }
-          />
-        </label>
-        <label className="settings-item">
-          <span className="settings-text">
-            <span className="settings-name">{t("Debug mode")}</span>
-            <span className="settings-hint">
-              {t("Enable access to logs and Markdown/JSON export.")}
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            className="settings-toggle"
-            checked={debugMode}
-            onChange={(event) => setDebugMode(event.target.checked)}
           />
         </label>
       </div>

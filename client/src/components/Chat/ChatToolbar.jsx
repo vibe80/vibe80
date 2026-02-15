@@ -4,8 +4,6 @@ import {
   faBroom,
   faCodeCompare,
   faComments,
-  faDownload,
-  faFileLines,
   faFolderTree,
   faTerminal,
 } from "@fortawesome/free-solid-svg-icons";
@@ -15,13 +13,7 @@ export default function ChatToolbar({
   activePane,
   handleViewSelect,
   handleDiffSelect,
-  debugMode,
-  rpcLogsEnabled,
   terminalEnabled,
-  toolbarExportOpen,
-  setToolbarExportOpen,
-  toolbarExportRef,
-  handleExportChat,
   hasMessages,
   handleClearChat,
 }) {
@@ -93,68 +85,9 @@ export default function ChatToolbar({
           </span>
           <span className="chat-toolbar-label">{t("Terminal")}</span>
         </button>
-        <button
-          type="button"
-          className={`chat-toolbar-button ${activePane === "logs" ? "is-active" : ""}`}
-          onClick={() => handleViewSelect("logs")}
-          aria-pressed={activePane === "logs"}
-          aria-label={t("Logs")}
-          title={t("Logs")}
-          disabled={!debugMode || !rpcLogsEnabled}
-        >
-          <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-            <span className="chat-toolbar-icon" aria-hidden="true">
-              <FontAwesomeIcon icon={faFileLines} />
-            </span>
-          </span>
-          <span className="chat-toolbar-label">{t("Logs")}</span>
-        </button>
       </div>
       <div className="chat-toolbar-divider" />
       <div className="chat-toolbar-group">
-        <div className="chat-toolbar-item" ref={toolbarExportRef}>
-          <button
-            type="button"
-            className={`chat-toolbar-button ${toolbarExportOpen ? "is-open" : ""}`}
-            onClick={() => {
-              if (!hasMessages) {
-                return;
-              }
-              setToolbarExportOpen((current) => !current);
-            }}
-            aria-expanded={toolbarExportOpen}
-            aria-label={t("Export")}
-            title={t("Export")}
-            disabled={!hasMessages}
-          >
-            <span className="chat-toolbar-icon-wrap" aria-hidden="true">
-              <span className="chat-toolbar-icon">
-                <FontAwesomeIcon icon={faDownload} />
-              </span>
-            </span>
-            <span className="chat-toolbar-label">{t("Export")}</span>
-          </button>
-          {toolbarExportOpen && (
-            <div className="chat-toolbar-menu">
-              <button
-                type="button"
-                className="chat-toolbar-menu-item"
-                onClick={() => handleExportChat("markdown")}
-                disabled={!hasMessages}
-              >
-                {t("Markdown")}
-              </button>
-              <button
-                type="button"
-                className="chat-toolbar-menu-item"
-                onClick={() => handleExportChat("json")}
-                disabled={!hasMessages}
-              >
-                {t("JSON")}
-              </button>
-            </div>
-          )}
-        </div>
         <button
           type="button"
           className="chat-toolbar-button is-danger"
