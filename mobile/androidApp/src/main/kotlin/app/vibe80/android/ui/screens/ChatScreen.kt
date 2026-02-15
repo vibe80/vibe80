@@ -534,12 +534,22 @@ fun ChatScreen(
                 }
             }
 
+            // Only add nav-bar padding for button-style navigation (3-button / 2-button).
+            // Gesture-nav insets are small (typically ≤24 dp) and just add an
+            // unwanted gap on phones with rounded corners.
+            val navBarInsets = WindowInsets.navigationBars
+            val navBarBottomDp = with(density) { navBarInsets.getBottom(density).toDp() }
+            val hasButtonNav = navBarBottomDp > 24.dp
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .imePadding()
-                    .navigationBarsPadding()
+                    .then(
+                        if (hasButtonNav) Modifier.navigationBarsPadding()
+                        else Modifier
+                    )
                     .onSizeChanged { inputBarSize = it }
             ) {
                 Surface(
