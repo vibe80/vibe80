@@ -342,13 +342,7 @@ export default function useChatSocket({
             const existingIndex = next.findIndex(
               (item) => item?.id === payload.id
             );
-            if (
-              existingIndex !== -1 &&
-              next[existingIndex]?.type === "action_result"
-            ) {
-              return next;
-            }
-            next.push({
+            const nextMessage = {
               id: payload.id,
               role: "assistant",
               type: "action_result",
@@ -359,7 +353,15 @@ export default function useChatSocket({
                 status: payload.status,
                 output: payload.output,
               },
-            });
+            };
+            if (existingIndex === -1) {
+              next.push(nextMessage);
+            } else {
+              next[existingIndex] = {
+                ...next[existingIndex],
+                ...nextMessage,
+              };
+            }
             return next;
           });
           if (payload.request === "run" || payload.request === "git") {
