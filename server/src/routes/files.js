@@ -13,8 +13,8 @@ import {
 export default function fileRoutes() {
   const router = Router();
 
-  router.get("/attachments/file", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/attachments/file", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -48,8 +48,8 @@ export default function fileRoutes() {
     }
   });
 
-  router.get("/attachments", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/attachments", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -82,10 +82,10 @@ export default function fileRoutes() {
   });
 
   router.post(
-    "/attachments/upload",
+    "/sessions/:sessionId/attachments/upload",
     upload.array("files"),
     async (req, res) => {
-      const sessionId = req.query.session;
+      const sessionId = req.params.sessionId;
       const session = await getSession(sessionId, req.workspaceId);
       if (!session) {
         res.status(400).json({ error: "Invalid session." });

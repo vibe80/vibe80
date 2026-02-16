@@ -534,7 +534,7 @@ class ApiClient(
      * List attachments for a session
      */
     suspend fun listAttachments(sessionId: String): Result<AttachmentListResponse> {
-        val url = "$baseUrl/api/attachments"
+        val url = "$baseUrl/api/sessions/$sessionId/attachments"
         AppLogger.apiRequest("GET", "$url?session=$sessionId")
         return try {
             val response = executeWithRefresh(url) {

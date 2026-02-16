@@ -25,7 +25,8 @@
               }
             }
           }
-        }
+        },
+        "parameters": []
       }
     },
     "/api/sessions/{sessionId}/health": {
@@ -168,7 +169,8 @@
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
-        }
+        },
+        "parameters": []
       },
       "get": {
         "summary": "List sessions",
@@ -186,17 +188,14 @@
           "500": {
             "$ref": "#/components/responses/ServerError"
           }
-        }
+        },
+        "parameters": []
       }
     },
     "/api/branches": {
       "get": {
         "summary": "List branches",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionQuery"
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "Branch info",
@@ -218,9 +217,6 @@
       "get": {
         "summary": "List models",
         "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionQuery"
-          },
           {
             "$ref": "#/components/parameters/ProviderQuery"
           }
@@ -571,105 +567,6 @@
         }
       }
     },
-    "/api/attachments": {
-      "get": {
-        "summary": "List attachments",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionQuery"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Attachment list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AttachmentListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          }
-        }
-      }
-    },
-    "/api/attachments/file": {
-      "get": {
-        "summary": "Download attachment",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionQuery"
-          },
-          {
-            "$ref": "#/components/parameters/AttachmentPath"
-          },
-          {
-            "$ref": "#/components/parameters/AttachmentName"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Attachment file"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/attachments/upload": {
-      "post": {
-        "summary": "Upload attachments",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionQuery"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "files": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "binary"
-                    }
-                  }
-                },
-                "required": [
-                  "files"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Uploaded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AttachmentUploadResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          }
-        }
-      }
-    },
     "/api/workspaces": {
       "post": {
         "summary": "Create workspace",
@@ -701,7 +598,8 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "security": []
+        "security": [],
+        "parameters": []
       }
     },
     "/api/workspaces/login": {
@@ -735,7 +633,8 @@
             "$ref": "#/components/responses/Forbidden"
           }
         },
-        "security": []
+        "security": [],
+        "parameters": []
       }
     },
     "/api/workspaces/refresh": {
@@ -772,7 +671,8 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "security": []
+        "security": [],
+        "parameters": []
       }
     },
     "/api/workspaces/{workspaceId}": {
@@ -1216,7 +1116,8 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
-        }
+        },
+        "parameters": []
       }
     },
     "/api/sessions/handoff/consume": {
@@ -1249,7 +1150,8 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
-        }
+        },
+        "parameters": []
       }
     },
     "/api/sessions/{sessionId}/worktrees/{worktreeId}/wakeup": {
@@ -1480,6 +1382,105 @@
           },
           "500": {
             "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/attachments": {
+      "get": {
+        "summary": "List attachments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/attachments/file": {
+      "get": {
+        "summary": "Download attachment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          },
+          {
+            "$ref": "#/components/parameters/AttachmentPath"
+          },
+          {
+            "$ref": "#/components/parameters/AttachmentName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment file"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/attachments/upload": {
+      "post": {
+        "summary": "Upload attachments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                },
+                "required": [
+                  "files"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
