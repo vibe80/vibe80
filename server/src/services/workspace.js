@@ -21,6 +21,7 @@ const rootHelperPath = process.env.VIBE80_ROOT_HELPER || "/usr/local/bin/vibe80-
 const sudoPath = process.env.VIBE80_SUDO_PATH || "sudo";
 const workspaceUidMin = Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
 const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
+const workspaceUserExistsCache = new Map();
 
 export const workspaceIdPattern = isMonoUser ? /^default$/ : /^w[0-9a-f]{24}$/;
 
@@ -448,9 +449,13 @@ export const ensureWorkspaceUserExists = async (workspaceId) => {
   if (isMonoUser) {
     return;
   }
+  if (workspaceUserExistsCache.get(workspaceId)) {
+    return;
+  }
   const ids = await getWorkspaceUserIds(workspaceId);
   try {
     await runCommandOutput("getent", ["passwd", workspaceId]);
+    workspaceUserExistsCache.set(workspaceId, true);
     return;
   } catch {
     // continue
@@ -474,6 +479,7 @@ export const ensureWorkspaceUserExists = async (workspaceId) => {
     uid: ids.uid,
     gid: ids.gid,
   });
+  workspaceUserExistsCache.set(workspaceId, true);
 };
 
 const allocateWorkspaceIds = async () => {
