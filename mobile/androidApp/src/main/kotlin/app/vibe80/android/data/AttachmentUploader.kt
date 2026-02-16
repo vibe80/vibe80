@@ -49,7 +49,7 @@ class AttachmentUploader(
             }
 
             val request = Request.Builder()
-                .url("$baseUrl/api/attachments/upload?session=$sessionId")
+                .url("$baseUrl/api/v1/sessions/$sessionId/attachments/upload")
                 .apply {
                     if (!workspaceToken.isNullOrBlank()) {
                         header("Authorization", "Bearer $workspaceToken")

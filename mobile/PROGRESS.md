@@ -31,10 +31,10 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 
 #### 1.3 Client REST API
 - [x] Configuration Ktor Client (shared)
-- [x] Endpoint `POST /api/session` - création session
-- [x] Endpoint `GET /api/session/:id` - état session
-- [x] Endpoint `GET /api/branches` - liste branches
-- [x] Endpoint `GET /api/models` - liste modèles
+- [x] Endpoint `POST /api/v1/session` - création session
+- [x] Endpoint `GET /api/v1/session/:id` - état session
+- [x] Endpoint `GET /api/v1/branches` - liste branches
+- [x] Endpoint `GET /api/v1/models` - liste modèles
 - [x] Gestion erreurs HTTP communes
 
 #### 1.4 Android App Shell
@@ -155,7 +155,7 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 
 #### 4.2 DiffSheet Simplifié
 - [x] Bottom sheet diff
-- [x] Endpoint `GET /api/worktree/:id/diff`
+- [x] Endpoint `GET /api/v1/worktree/:id/diff`
 - [x] Liste fichiers modifiés avec status (A/M/D)
 - [x] Vue diff unifiée par fichier
 - [x] Coloration simple (+ vert, - rouge)
@@ -598,7 +598,7 @@ mobile/
 - `SessionRepository.kt` - Méthode `fetchBranches()` pour récupérer les branches
 
 **API :**
-- `ApiClient.kt` - Nouvelle méthode `fetchBranches()` pour POST /api/branches/fetch
+- `ApiClient.kt` - Nouvelle méthode `fetchBranches()` pour POST /api/v1/branches/fetch
 
 ### 2026-01-26 - Phase 5 Complétée
 
