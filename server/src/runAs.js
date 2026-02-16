@@ -30,6 +30,19 @@ export const DEFAULT_ALLOW_RW = [
   "/tmp",
 ];
 
+let ensureWorkspaceUserExistsRef = null;
+
+const ensureWorkspaceUserExistsCached = async (workspaceId) => {
+  if (IS_MONO_USER) {
+    return;
+  }
+  if (!ensureWorkspaceUserExistsRef) {
+    const mod = await import("./services/workspace.js");
+    ensureWorkspaceUserExistsRef = mod.ensureWorkspaceUserExists;
+  }
+  await ensureWorkspaceUserExistsRef(workspaceId);
+};
+
 const normalizePaths = (paths = []) => {
   const seen = new Set();
   const result = [];
@@ -278,13 +291,15 @@ export const runAsCommand = (workspaceId, command, args, options = {}) =>
           args,
           options
         );
-        return runCommand(
-          SUDO_PATH,
-          ["-n", RUN_AS_HELPER, ...runArgs],
-          {
-            env: process.env,
-            input: options.input,
-          }
+        return ensureWorkspaceUserExistsCached(workspaceId).then(() =>
+          runCommand(
+            SUDO_PATH,
+            ["-n", RUN_AS_HELPER, ...runArgs],
+            {
+              env: process.env,
+              input: options.input,
+            }
+          )
         ).catch((error) => {
           const details = [
             "run-as failed",
@@ -336,14 +351,16 @@ export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
           args,
           options
         );
-        return runCommandOutput(
-          SUDO_PATH,
-          ["-n", RUN_AS_HELPER, ...runArgs],
-          {
-            env: process.env,
-            input: options.input,
-            binary: options.binary,
-          }
+        return ensureWorkspaceUserExistsCached(workspaceId).then(() =>
+          runCommandOutput(
+            SUDO_PATH,
+            ["-n", RUN_AS_HELPER, ...runArgs],
+            {
+              env: process.env,
+              input: options.input,
+              binary: options.binary,
+            }
+          )
         ).catch((error) => {
           const details = [
             "run-as output failed",
@@ -395,14 +412,16 @@ export const runAsCommandOutputWithStatus = (workspaceId, command, args, options
           args,
           options
         );
-        return runCommandOutputWithStatus(
-          SUDO_PATH,
-          ["-n", RUN_AS_HELPER, ...runArgs],
-          {
-            env: process.env,
-            input: options.input,
-            binary: options.binary,
-          }
+        return ensureWorkspaceUserExistsCached(workspaceId).then(() =>
+          runCommandOutputWithStatus(
+            SUDO_PATH,
+            ["-n", RUN_AS_HELPER, ...runArgs],
+            {
+              env: process.env,
+              input: options.input,
+              binary: options.binary,
+            }
+          )
         ).catch((error) => {
           const details = [
             "run-as output failed",
