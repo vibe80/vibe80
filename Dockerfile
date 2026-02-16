@@ -1,4 +1,4 @@
-FROM ghcr.io/vibe80/vibe80:latest AS app-build
+FROM ghcr.io/vibe80/vibe80-base:latest AS app-build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY . .
 
 RUN npm run build
 
-FROM ghcr.io/vibe80/vibe80:latest
+FROM ghcr.io/vibe80/vibe80-base:latest
 
 WORKDIR /app
 
