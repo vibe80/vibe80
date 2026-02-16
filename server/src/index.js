@@ -187,12 +187,12 @@ const createLimiter = rateLimit({
 app.use(express.json({ limit: "10mb" }));
 app.use(errorTypesMiddleware);
 app.use(debugMiddleware);
-app.use("/api", apiLimiter);
-app.post("/api/workspaces/login", authLimiter);
-app.post("/api/workspaces/refresh", authLimiter);
-app.post("/api/workspaces", createLimiter);
-app.post("/api/sessions", createLimiter);
-app.use("/api", authMiddleware);
+app.use("/api/v1", apiLimiter);
+app.post("/api/v1/workspaces/login", authLimiter);
+app.post("/api/v1/workspaces/refresh", authLimiter);
+app.post("/api/v1/workspaces", createLimiter);
+app.post("/api/v1/sessions", createLimiter);
+app.use("/api/v1", authMiddleware);
 
 // ---------------------------------------------------------------------------
 // Route mounting
@@ -209,18 +209,18 @@ const routeDeps = {
   debugApiWsLog,
 };
 
-app.use("/api", healthRoutes({
+app.use("/api/v1", healthRoutes({
   getSession,
   touchSession,
   getActiveClient,
   deploymentMode,
   debugApiWsLog,
 }));
-app.use("/api", workspaceRoutes());
-app.use("/api", sessionRoutes(routeDeps));
-app.use("/api", gitRoutes(routeDeps));
-app.use("/api", worktreeRoutes(routeDeps));
-app.use("/api", fileRoutes());
+app.use("/api/v1", workspaceRoutes());
+app.use("/api/v1", sessionRoutes(routeDeps));
+app.use("/api/v1", gitRoutes(routeDeps));
+app.use("/api/v1", worktreeRoutes(routeDeps));
+app.use("/api/v1", fileRoutes());
 
 // Attachment error handler
 app.use((err, req, res, next) => {

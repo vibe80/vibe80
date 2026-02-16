@@ -57,7 +57,7 @@ class ApiClient(
         val token = refreshToken ?: return false
         return refreshMutex.withLock {
             val currentToken = refreshToken ?: return@withLock false
-            val url = "$baseUrl/api/workspaces/refresh"
+            val url = "$baseUrl/api/v1/workspaces/refresh"
             AppLogger.apiRequest("POST", url)
             return@withLock try {
                 val response = httpClient.post(url) {
@@ -137,7 +137,7 @@ class ApiClient(
      * Create a new session by cloning a repository
      */
     suspend fun createSession(request: SessionCreateRequest): Result<SessionCreateResponse> {
-        val url = "$baseUrl/api/sessions"
+        val url = "$baseUrl/api/v1/sessions"
         val requestBody = json.encodeToString(request)
         AppLogger.apiRequest("POST", url, requestBody)
 
@@ -186,7 +186,7 @@ class ApiClient(
      * Get session state including messages and diff
      */
     suspend fun getSession(sessionId: String): Result<SessionGetResponse> {
-        val url = "$baseUrl/api/sessions/$sessionId"
+        val url = "$baseUrl/api/v1/sessions/$sessionId"
         AppLogger.apiRequest("GET", url)
 
         return try {
@@ -226,7 +226,7 @@ class ApiClient(
      * List sessions for the current workspace
      */
     suspend fun listSessions(): Result<SessionListResponse> {
-        val url = "$baseUrl/api/sessions"
+        val url = "$baseUrl/api/v1/sessions"
         AppLogger.apiRequest("GET", url)
         return try {
             val response = executeWithRefresh(url) {
@@ -255,7 +255,7 @@ class ApiClient(
      * Check if session is healthy and ready
      */
     suspend fun checkHealth(sessionId: String): Result<Boolean> {
-        val url = "$baseUrl/api/sessions/$sessionId/health"
+        val url = "$baseUrl/api/v1/sessions/$sessionId/health"
         AppLogger.apiRequest("GET", url)
         return runCatching {
             val response = executeWithRefresh(url) {
@@ -275,7 +275,7 @@ class ApiClient(
      * Get available models for a provider
      */
     suspend fun getModels(sessionId: String, provider: String): Result<ModelsResponse> {
-        val url = "$baseUrl/api/models"
+        val url = "$baseUrl/api/v1/models"
         AppLogger.apiRequest("GET", "$url?session=$sessionId&provider=$provider")
         return try {
             val response = executeWithRefresh(url) {
@@ -306,7 +306,7 @@ class ApiClient(
      * Get worktree state including messages
      */
     suspend fun getWorktree(sessionId: String, worktreeId: String): Result<WorktreeGetResponse> {
-        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId"
+        val url = "$baseUrl/api/v1/sessions/$sessionId/worktrees/$worktreeId"
         AppLogger.apiRequest("GET", url)
         return try {
             val response = executeWithRefresh(url) {
@@ -335,7 +335,7 @@ class ApiClient(
      * Get worktree diff
      */
     suspend fun getWorktreeDiff(sessionId: String, worktreeId: String): Result<WorktreeDiffResponse> {
-        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/diff"
+        val url = "$baseUrl/api/v1/sessions/$sessionId/worktrees/$worktreeId/diff"
         AppLogger.apiRequest("GET", url)
         return try {
             val response = executeWithRefresh(url) {
@@ -364,7 +364,7 @@ class ApiClient(
      * List worktrees for a session
      */
     suspend fun listWorktrees(sessionId: String): Result<WorktreesListResponse> {
-        val url = "$baseUrl/api/sessions/$sessionId/worktrees"
+        val url = "$baseUrl/api/v1/sessions/$sessionId/worktrees"
         AppLogger.apiRequest("GET", url)
         return try {
             val response = executeWithRefresh(url) {
@@ -393,7 +393,7 @@ class ApiClient(
      * Create a worktree via REST API
      */
     suspend fun createWorktree(request: WorktreeCreateApiRequest): Result<WorktreeCreateResponse> {
-        val url = "$baseUrl/api/sessions/${request.session}/worktrees"
+        val url = "$baseUrl/api/v1/sessions/${request.session}/worktrees"
         val payload = WorktreeCreateRequest(
             provider = request.provider,
             context = request.context,
@@ -440,7 +440,7 @@ class ApiClient(
         worktreeId: String,
         path: String
     ): Result<WorktreeFileResponse> {
-        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/file"
+        val url = "$baseUrl/api/v1/sessions/$sessionId/worktrees/$worktreeId/file"
         AppLogger.apiRequest("GET", "$url?path=$path")
         return try {
             val response = executeWithRefresh(url) {
@@ -473,7 +473,7 @@ class ApiClient(
         sessionId: String,
         request: WorktreeCreateRequest
     ): Result<WorktreeCreateResponse> {
-        val url = "$baseUrl/api/sessions/$sessionId/worktrees"
+        val url = "$baseUrl/api/v1/sessions/$sessionId/worktrees"
         AppLogger.apiRequest("POST", url, json.encodeToString(request))
         return try {
             val response = executeWithRefresh(url) {
@@ -504,7 +504,7 @@ class ApiClient(
      * Delete a worktree
      */
     suspend fun deleteWorktree(sessionId: String, worktreeId: String): Result<Unit> {
-        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId"
+        val url = "$baseUrl/api/v1/sessions/$sessionId/worktrees/$worktreeId"
         AppLogger.apiRequest("DELETE", url)
         return try {
             val response = executeWithRefresh(url) {
@@ -534,7 +534,7 @@ class ApiClient(
      * List attachments for a session
      */
     suspend fun listAttachments(sessionId: String): Result<AttachmentListResponse> {
-        val url = "$baseUrl/api/sessions/$sessionId/attachments"
+        val url = "$baseUrl/api/v1/sessions/$sessionId/attachments"
         AppLogger.apiRequest("GET", "$url?session=$sessionId")
         return try {
             val response = executeWithRefresh(url) {
@@ -579,7 +579,7 @@ class ApiClient(
     fun getBaseUrl(): String = baseUrl
 
     suspend fun createWorkspace(request: WorkspaceCreateRequest): Result<WorkspaceCreateResponse> {
-        val url = "$baseUrl/api/workspaces"
+        val url = "$baseUrl/api/v1/workspaces"
         AppLogger.apiRequest("POST", url)
         return try {
             val response = httpClient.post(url) {
@@ -604,7 +604,7 @@ class ApiClient(
     }
 
     suspend fun loginWorkspace(request: WorkspaceLoginRequest): Result<WorkspaceLoginResponse> {
-        val url = "$baseUrl/api/workspaces/login"
+        val url = "$baseUrl/api/v1/workspaces/login"
         AppLogger.apiRequest("POST", url)
         return try {
             val response = httpClient.post(url) {
@@ -629,7 +629,7 @@ class ApiClient(
     }
 
     suspend fun updateWorkspace(workspaceId: String, request: WorkspaceUpdateRequest): Result<WorkspaceUpdateResponse> {
-        val url = "$baseUrl/api/workspaces/$workspaceId"
+        val url = "$baseUrl/api/v1/workspaces/$workspaceId"
         AppLogger.apiRequest("PATCH", url)
         return try {
             val response = executeWithRefresh(url) {
@@ -656,7 +656,7 @@ class ApiClient(
         }
     }
     suspend fun consumeHandoffToken(request: HandoffConsumeRequest): Result<HandoffConsumeResponse> {
-        val url = "$baseUrl/api/sessions/handoff/consume"
+        val url = "$baseUrl/api/v1/sessions/handoff/consume"
         AppLogger.apiRequest("POST", url)
         return try {
             val response = httpClient.post(url) {
