@@ -248,45 +248,6 @@
         }
       }
     },
-    "/api/branches/switch": {
-      "post": {
-        "summary": "Switch branch",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SwitchBranchRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Branch info",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BranchInfo"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
     "/api/sessions/{sessionId}/worktrees": {
       "get": {
         "summary": "List worktrees",
