@@ -317,7 +317,6 @@ export default function worktreeRoutes(deps) {
     }
 
     try {
-      const diff = await getWorktreeDiff(session, worktree.id);
       res.json({
         id: worktree.id,
         name: worktree.name,
@@ -335,7 +334,6 @@ export default function worktreeRoutes(deps) {
         status: worktree.status,
         color: worktree.color,
         createdAt: toIsoDateTime(worktree.createdAt),
-        diff,
       });
     } catch (error) {
       console.error("Failed to get worktree:", {

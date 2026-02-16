@@ -1854,25 +1854,25 @@
         ],
         "additionalProperties": true
       },
-    "HealthResponse": {
-      "type": "object",
-      "properties": {
-        "ok": {
-          "type": "boolean"
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "deploymentMode": {
+            "type": "string"
+          }
         },
-        "ready": {
-          "type": "boolean"
-        },
-        "deploymentMode": {
-          "type": "string"
-        }
+        "required": [
+          "ok",
+          "ready"
+        ],
+        "additionalProperties": true
       },
-      "required": [
-        "ok",
-        "ready"
-      ],
-      "additionalProperties": true
-    },
       "Message": {
         "type": "object",
         "properties": {
@@ -2361,9 +2361,6 @@
             ],
             "format": "date-time"
           },
-          "diff": {
-            "$ref": "#/components/schemas/RepoDiff"
-          },
           "internetAccess": {
             "type": "boolean"
           },
@@ -2383,14 +2380,6 @@
             ]
           }
         },
-        "required": [
-          "id",
-          "name",
-          "branchName",
-          "provider",
-          "status",
-          "diff"
-        ],
         "additionalProperties": true
       },
       "DirectoryTree": {
