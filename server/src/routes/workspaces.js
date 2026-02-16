@@ -289,7 +289,7 @@ export default function workspaceRoutes() {
       res.status(403).json({ error: "Forbidden." });
       return;
     }
-    res.status(501).json({ error: "Workspace deletion policy not implemented yet." });
+    res.status(405).json({ error: "Workspace deletion is currently disabled." });
   });
 
   return router;
