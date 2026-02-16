@@ -446,7 +446,43 @@ export default function worktreeRoutes(deps) {
     }
 
     try {
+      if (worktree.provider === "claude") {
+        await updateWorktreeStatus(session, worktreeId, "processing");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId,
+          status: "processing",
+        });
+      }
       const result = await client.sendTurn(text);
+
+      if (worktree.provider === "claude") {
+        const turnId = result?.turn?.id;
+        const onDone = async (status) => {
+          const newStatus = status === "success" ? "ready" : "error";
+          await updateWorktreeStatus(session, worktreeId, newStatus);
+          broadcastToSession(sessionId, {
+            type: "worktree_status",
+            worktreeId,
+            status: newStatus,
+          });
+        };
+        const onceCompleted = ({ turnId: completedId, status }) => {
+          if (!turnId || !completedId || turnId === completedId) {
+            client.off("turn_error", onceError);
+            onDone(status || "success").catch(() => null);
+          }
+        };
+        const onceError = ({ turnId: errorId }) => {
+          if (!turnId || !errorId || turnId === errorId) {
+            client.off("turn_completed", onceCompleted);
+            onDone("error").catch(() => null);
+          }
+        };
+        client.once("turn_completed", onceCompleted);
+        client.once("turn_error", onceError);
+      }
+
       const messageId = createMessageId();
       await appendWorktreeMessage(session, worktreeId, {
         id: messageId,
