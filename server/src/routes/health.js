@@ -6,7 +6,7 @@ export default function healthRoutes(deps) {
   const router = Router();
 
   router.get("/health", async (req, res) => {
-    res.json({ ok: true, ready: false, threadId: null, deploymentMode });
+    res.json({ ok: true, ready: true, deploymentMode });
   });
 
   return router;

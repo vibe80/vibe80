@@ -1893,35 +1893,25 @@
         ],
         "additionalProperties": true
       },
-      "HealthResponse": {
-        "type": "object",
-        "properties": {
-          "ok": {
-            "type": "boolean"
-          },
-          "ready": {
-            "type": "boolean"
-          },
-          "threadId": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "provider": {
-            "$ref": "#/components/schemas/Provider"
-          },
-          "deploymentMode": {
-            "type": "string"
-          }
+    "HealthResponse": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
         },
-        "required": [
-          "ok",
-          "ready",
-          "threadId"
-        ],
-        "additionalProperties": true
+        "ready": {
+          "type": "boolean"
+        },
+        "deploymentMode": {
+          "type": "string"
+        }
       },
+      "required": [
+        "ok",
+        "ready"
+      ],
+      "additionalProperties": true
+    },
       "Message": {
         "type": "object",
         "properties": {
