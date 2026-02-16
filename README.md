@@ -1,69 +1,45 @@
 # vibe80
 
-Application Node.js + React pour piloter des assistants (Codex app-server ou Claude CLI) sur un depot Git. Le serveur clone le depot, cree des worktrees pour chaque thread, et expose un chat en streaming avec diff/merge/terminal.
+Vibe80 is an open-source, AI-assisted coding platform that orchestrates LLM agents over Git repositories through a real-time web interface. It acts as a bridge between developers and AI coding agents — currently supporting Codex (OpenAI) and Claude Code (Anthropic) — providing a structured environment where these agents can read, write, and modify code within isolated, sandboxed workspaces.
 
-## Fonctionnalites
+## Key Capabilities
 
-- Chat temps reel via WebSocket avec streaming des reponses.
-- Multi-worktrees (branches isolees) avec diff, commits, merge et cherry-pick.
-- Vue des diffs et rendu Markdown dans le client.
-- Terminal web (xterm) connecte au repo de session (desactivable).
-- Upload d'attachments (pieces jointes) pour les agents.
-- Support multi-fournisseurs: Codex et Claude.
+- Real-time AI chat — Stream-based conversation with AI agents that can read, write, and execute code in your repository.
+- Multi-provider support — Switch between Codex (OpenAI) and Claude Code (Anthropic) within the same session, with independent model and reasoning configuration per provider
+- Parallel worktrees — Create multiple isolated git worktrees (branches) within a session, each with its own AI agent, enabling parallel development tracks. Supports forking a worktree to inherit the conversation context
+- Web terminal — Full PTY-based terminal access to the repository environment via xterm.js
+- Mobile companion — Native Android (Jetpack Compose) and iOS (SwiftUI) apps built with Kotlin Multiplatform, with QR-code session handoff.
+- Sandboxing — Landlock LSM, seccomp, and network control restrict what AI agents can access on the filesystem and network
 
-## Prerequis
+## Prerequisites
 
 - Node.js >= 18
 - Git
-- `codex` installe et configure (pour le provider Codex)
-- `claude` CLI installe et configure (optionnel)
+- `codex` installed & configured (optional)
+- `claude code` installed & configured (optional)
 
-## Demarrage rapide (dev)
+At least one of `codex` or `claude code` must be installed before starting.
 
-1. Installer les dependances:
+## Quick start
+
+0. Clone this repo.
+
+1. Install dependencies:
    ```bash
    npm install
+   # Optional global install:
+   # npm install -g .
    ```
 
-2. Lancer frontend + backend:
+2. Run:
    ```bash
-   npm run dev
+   vibe80
    ```
 
-3. Ouvrir l'application:
-   - Frontend: http://localhost:5173
-   - Backend: http://localhost:5179/api/health
+3. A one-shot authentication link is printed to the console — open it to be automatically logged in.
+   - The server starts on http://localhost:5179
 
-## Production
 
-1. Construire le frontend:
-   ```bash
-   npm run build
-   ```
+## Docker installation
 
-2. Lancer le serveur:
-   ```bash
-   npm start
-   ```
-
-Le serveur sert alors le frontend construit depuis `client/dist`.
-
-## Docker
-
-Le Dockerfile installe Node, Codex, Claude CLI et les outils utiles (git, ssh, ripgrep, etc.).
-
-Variables utiles au runtime:
-- `PORT`: port HTTP du serveur (defaut 5179).
-- `TERMINAL_ENABLED`: active/desactive le terminal web (`false`, `0`, `no`, `off` pour desactiver).
-- `GIT_SSH_PRIVATE_KEY`: cle privee SSH pour cloner les repos.
-- `GIT_COMMIT_USER_NAME` / `GIT_COMMIT_USER_EMAIL`: identite Git.
-- `HOME_DIR`: base pour `.codex` et `.claude` (defaut HOME).
-- `SYSTEM_PROMPT`: prompt systeme injecte aux providers.
-- `DEBUG_API_WS_LOG`: active le log des requetes/reponses API et des messages WebSocket (ex: `1`, `true`).
-- `DEBUG_API_WS_LOG_MAX_BODY`: taille max (en caracteres) des bodies logges (defaut 2000).
-
-## Notes de fonctionnement
-
-- Le serveur clone le depot dans un dossier de session temporaire, puis cree des worktrees par thread.
-- Les diffs sont calcules via `git diff` et exposes au client.
-- Les messages sont diffuses en streaming via WebSocket.
+TODO
