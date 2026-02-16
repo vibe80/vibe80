@@ -52,7 +52,11 @@ export default defineConfig({
         target: "ws://localhost:5179",
         ws: true,
       },
-      "/api": "http://localhost:5179",
+      "/api/terminal": {
+        target: "ws://localhost:5179",
+        ws: true,
+      },
+      "/api/v1": "http://localhost:5179",
     },
   },
 });

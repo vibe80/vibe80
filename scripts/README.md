@@ -6,10 +6,10 @@ This directory contains utility scripts for the Vibe80 ecosystem.
 
 End-to-end API script for a worktree:
 
-1. workspace login (`POST /api/workspaces/login`)
-2. worktree wakeup (`POST /api/sessions/:sessionId/worktrees/:worktreeId/wakeup`, fallback `wakup`)
+1. workspace login (`POST /api/v1/workspaces/login`)
+2. worktree wakeup (`POST /api/v1/sessions/:sessionId/worktrees/:worktreeId/wakeup`, fallback `wakup`)
 3. optional attachments upload
-4. send a user message (`POST /api/sessions/:sessionId/worktrees/:worktreeId/messages`)
+4. send a user message (`POST /api/v1/sessions/:sessionId/worktrees/:worktreeId/messages`)
 
 ### Requirements
 

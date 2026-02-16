@@ -25,7 +25,7 @@ export default function useGitIdentity({ t, apiFetch, attachmentSessionId }) {
     setGitIdentityMessage("");
     try {
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(attachmentSessionId)}/git-identity`
+        `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/git-identity`
       );
       if (!response.ok) {
         throw new Error(t("Unable to load Git identity."));
@@ -61,7 +61,7 @@ export default function useGitIdentity({ t, apiFetch, attachmentSessionId }) {
     setGitIdentityMessage("");
     try {
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(attachmentSessionId)}/git-identity`,
+        `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/git-identity`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

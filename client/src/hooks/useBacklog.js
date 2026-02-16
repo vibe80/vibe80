@@ -175,7 +175,7 @@ export default function useBacklog({
       }
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/backlog-items/${encodeURIComponent(itemId)}`,
           {

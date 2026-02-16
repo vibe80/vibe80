@@ -8,14 +8,14 @@
 - Update API docs/specs accordingly
 
 ## Phase 1 - Workspace API + Auth (DONE)
-- POST /api/workspaces
+- POST /api/v1/workspaces
   - Create Linux user w{hash}
   - Create home + workspace root
   - Persist workspaceSecret in home
   - Persist providers/auth config in home
-- PATCH /api/workspaces/{workspaceId}
+- PATCH /api/v1/workspaces/{workspaceId}
   - Update providers/auth config for the workspace
-- POST /api/workspaces/login
+- POST /api/v1/workspaces/login
   - Validate workspaceId + workspaceSecret
   - Issue JWT (24h)
 - Auth middleware
@@ -47,7 +47,7 @@
 
 ## Phase 6 - Client Updates (PENDING)
 - Web client: add workspace login flow, store token, send Authorization header and WS token
-- Remove /api/auth-file and /api/claude-auth-file usage
+- Remove /api/v1/auth-file and /api/v1/claude-auth-file usage
 - Mobile: update auth upload flow to workspace PATCH providers/auth
 
 ## Phase 7 - Policy Decisions (PENDING)

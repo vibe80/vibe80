@@ -94,7 +94,7 @@ is_json() {
 
 echo "[1/4] Login workspace..."
 LOGIN_BODY=$(jq -nc --arg workspaceId "$WORKSPACE_ID" --arg workspaceSecret "$WORKSPACE_SECRET" '{workspaceId:$workspaceId, workspaceSecret:$workspaceSecret}')
-LOGIN_RESP=$(curl -sS -X POST "$BASE_URL/api/workspaces/login" \
+LOGIN_RESP=$(curl -sS -X POST "$BASE_URL/api/v1/workspaces/login" \
   -H "Content-Type: application/json" \
   --data "$LOGIN_BODY" \
   --connect-timeout "$TIMEOUT" --max-time "$TIMEOUT" \
@@ -127,7 +127,7 @@ if [[ -z "$WORKSPACE_TOKEN" ]]; then
 fi
 
 echo "[2/4] Wakeup worktree..."
-WAKE_URL="$BASE_URL/api/sessions/$SESSION_ID/worktrees/$WORKTREE_ID/wakeup"
+WAKE_URL="$BASE_URL/api/v1/sessions/$SESSION_ID/worktrees/$WORKTREE_ID/wakeup"
 WAKE_RESP=$(curl -sS -X POST "$WAKE_URL" \
   -H "Authorization: Bearer $WORKSPACE_TOKEN" \
   --connect-timeout "$TIMEOUT" --max-time "$TIMEOUT" \
@@ -136,7 +136,7 @@ WAKE_BODY=$(echo "$WAKE_RESP" | sed '$d')
 WAKE_CODE=$(echo "$WAKE_RESP" | tail -n1)
 
 if [[ "$WAKE_CODE" == "404" ]]; then
-  WAKE_URL="$BASE_URL/api/sessions/$SESSION_ID/worktrees/$WORKTREE_ID/wakup"
+  WAKE_URL="$BASE_URL/api/v1/sessions/$SESSION_ID/worktrees/$WORKTREE_ID/wakup"
   WAKE_RESP=$(curl -sS -X POST "$WAKE_URL" \
     -H "Authorization: Bearer $WORKSPACE_TOKEN" \
     --connect-timeout "$TIMEOUT" --max-time "$TIMEOUT" \
@@ -154,7 +154,7 @@ fi
 ATTACHMENTS_JSON='[]'
 if [[ ${#FILES[@]} -gt 0 ]]; then
   echo "[3/4] Upload attachments..."
-  UPLOAD_URL="$BASE_URL/api/attachments/upload?session=$SESSION_ID"
+  UPLOAD_URL="$BASE_URL/api/v1/sessions/$SESSION_ID/attachments/upload"
   CURL_ARGS=(-sS -X POST "$UPLOAD_URL" -H "Authorization: Bearer $WORKSPACE_TOKEN" --connect-timeout "$TIMEOUT" --max-time "$TIMEOUT")
   for f in "${FILES[@]}"; do
     CURL_ARGS+=(-F "files=@$f")
@@ -189,7 +189,7 @@ MSG_BODY=$(jq -nc \
   --argjson attachments "$ATTACHMENTS_JSON" \
   '{role:$role, text:$text, attachments:$attachments}')
 
-MSG_URL="$BASE_URL/api/sessions/$SESSION_ID/worktrees/$WORKTREE_ID/messages"
+MSG_URL="$BASE_URL/api/v1/sessions/$SESSION_ID/worktrees/$WORKTREE_ID/messages"
 MSG_RESP=$(api POST "$MSG_URL" "$MSG_BODY" "$WORKSPACE_TOKEN")
 
 echo "Success. /messages response:"

@@ -88,7 +88,7 @@ describe("routes/workspaces", () => {
     });
   });
 
-  it("POST /api/workspaces/login mono_auth_token renvoie 403 hors mono_user", async () => {
+  it("POST /api/v1/workspaces/login mono_auth_token renvoie 403 hors mono_user", async () => {
     process.env.DEPLOYMENT_MODE = "multi_user";
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
@@ -103,7 +103,7 @@ describe("routes/workspaces", () => {
     });
   });
 
-  it("POST /api/workspaces renvoie 403 en mode mono_user", async () => {
+  it("POST /api/v1/workspaces renvoie 403 en mode mono_user", async () => {
     process.env.DEPLOYMENT_MODE = "mono_user";
     const handler = await createRouteHandler("/workspaces", "post");
     const res = createMockRes();
@@ -123,7 +123,7 @@ describe("routes/workspaces", () => {
     expect(createWorkspaceMock).not.toHaveBeenCalled();
   });
 
-  it("POST /api/workspaces/login credentials renvoie 403 en mode mono_user", async () => {
+  it("POST /api/v1/workspaces/login credentials renvoie 403 en mode mono_user", async () => {
     process.env.DEPLOYMENT_MODE = "mono_user";
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
@@ -144,7 +144,7 @@ describe("routes/workspaces", () => {
     expect(verifyWorkspaceSecretMock).not.toHaveBeenCalled();
   });
 
-  it("POST /api/workspaces/login mono_auth_token renvoie 400 si token manquant", async () => {
+  it("POST /api/v1/workspaces/login mono_auth_token renvoie 400 si token manquant", async () => {
     process.env.DEPLOYMENT_MODE = "mono_user";
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
@@ -156,7 +156,7 @@ describe("routes/workspaces", () => {
     });
   });
 
-  it("POST /api/workspaces/login mono_auth_token renvoie 401 si token invalide", async () => {
+  it("POST /api/v1/workspaces/login mono_auth_token renvoie 401 si token invalide", async () => {
     process.env.DEPLOYMENT_MODE = "mono_user";
     consumeMonoAuthTokenMock.mockReturnValueOnce({
       ok: false,
@@ -175,7 +175,7 @@ describe("routes/workspaces", () => {
     });
   });
 
-  it("POST /api/workspaces/login mono_auth_token renvoie 401 si workspace non résolu", async () => {
+  it("POST /api/v1/workspaces/login mono_auth_token renvoie 401 si workspace non résolu", async () => {
     process.env.DEPLOYMENT_MODE = "mono_user";
     consumeMonoAuthTokenMock.mockReturnValueOnce({
       ok: true,
@@ -200,7 +200,7 @@ describe("routes/workspaces", () => {
     );
   });
 
-  it("POST /api/workspaces/login mono_auth_token renvoie 200 en succès", async () => {
+  it("POST /api/v1/workspaces/login mono_auth_token renvoie 200 en succès", async () => {
     process.env.DEPLOYMENT_MODE = "mono_user";
     consumeMonoAuthTokenMock.mockReturnValueOnce({
       ok: true,
@@ -257,7 +257,7 @@ describe("routes/workspaces", () => {
     return res;
   };
 
-  it("POST /api/workspaces/login renvoie 401 si credentials manquants", async () => {
+  it("POST /api/v1/workspaces/login renvoie 401 si credentials manquants", async () => {
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
     await handler({ body: {} }, res);
@@ -265,7 +265,7 @@ describe("routes/workspaces", () => {
     expect(res.body.error).toBe("Invalid workspace credentials.");
   });
 
-  it("POST /api/workspaces/login renvoie 401 si secret invalide", async () => {
+  it("POST /api/v1/workspaces/login renvoie 401 si secret invalide", async () => {
     verifyWorkspaceSecretMock.mockResolvedValueOnce(false);
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
@@ -287,7 +287,7 @@ describe("routes/workspaces", () => {
     );
   });
 
-  it("POST /api/workspaces/login renvoie 200 si credentials valides", async () => {
+  it("POST /api/v1/workspaces/login renvoie 200 si credentials valides", async () => {
     verifyWorkspaceSecretMock.mockResolvedValueOnce(true);
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
@@ -314,7 +314,7 @@ describe("routes/workspaces", () => {
     );
   });
 
-  it("POST /api/workspaces/refresh renvoie 400 si refreshToken manquant", async () => {
+  it("POST /api/v1/workspaces/refresh renvoie 400 si refreshToken manquant", async () => {
     const handler = await createRouteHandler("/workspaces/refresh", "post");
     const res = createMockRes();
     await handler({ body: {} }, res);
@@ -323,7 +323,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "refreshToken is required." });
   });
 
-  it("POST /api/workspaces/refresh renvoie 401 si refresh token invalide", async () => {
+  it("POST /api/v1/workspaces/refresh renvoie 401 si refresh token invalide", async () => {
     rotateWorkspaceRefreshTokenMock.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -343,7 +343,7 @@ describe("routes/workspaces", () => {
     });
   });
 
-  it("POST /api/workspaces/refresh renvoie 401 si refresh token expiré", async () => {
+  it("POST /api/v1/workspaces/refresh renvoie 401 si refresh token expiré", async () => {
     rotateWorkspaceRefreshTokenMock.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -364,7 +364,7 @@ describe("routes/workspaces", () => {
     expect(rotateWorkspaceRefreshTokenMock).toHaveBeenCalledWith("expired-refresh-token");
   });
 
-  it("POST /api/workspaces/refresh renvoie 401 si refresh token réutilisé", async () => {
+  it("POST /api/v1/workspaces/refresh renvoie 401 si refresh token réutilisé", async () => {
     rotateWorkspaceRefreshTokenMock.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -385,7 +385,7 @@ describe("routes/workspaces", () => {
     expect(rotateWorkspaceRefreshTokenMock).toHaveBeenCalledWith("reused-refresh-token");
   });
 
-  it("POST /api/workspaces/refresh renvoie 200 si refresh token valide", async () => {
+  it("POST /api/v1/workspaces/refresh renvoie 200 si refresh token valide", async () => {
     rotateWorkspaceRefreshTokenMock.mockResolvedValueOnce({
       ok: true,
       payload: {
@@ -407,7 +407,7 @@ describe("routes/workspaces", () => {
     expect(rotateWorkspaceRefreshTokenMock).toHaveBeenCalledWith("valid-refresh-token");
   });
 
-  it("POST /api/workspaces/refresh renvoie 500 en cas d’erreur interne", async () => {
+  it("POST /api/v1/workspaces/refresh renvoie 500 en cas d’erreur interne", async () => {
     rotateWorkspaceRefreshTokenMock.mockRejectedValueOnce(new Error("storage down"));
     const handler = await createRouteHandler("/workspaces/refresh", "post");
     const res = createMockRes();
@@ -417,7 +417,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Failed to refresh workspace token." });
   });
 
-  it("GET /api/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
+  it("GET /api/v1/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "get");
     const res = createMockRes();
     await handler({ params: { workspaceId: "invalid-id" } }, res);
@@ -426,7 +426,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Invalid workspaceId." });
   });
 
-  it("GET /api/workspaces/:workspaceId renvoie 403 si workspaceId ne correspond pas au token", async () => {
+  it("GET /api/v1/workspaces/:workspaceId renvoie 403 si workspaceId ne correspond pas au token", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "get");
     const res = createMockRes();
     await handler(
@@ -441,7 +441,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Forbidden." });
   });
 
-  it("GET /api/workspaces/:workspaceId renvoie 200 si accès autorisé", async () => {
+  it("GET /api/v1/workspaces/:workspaceId renvoie 200 si accès autorisé", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "get");
     const res = createMockRes();
     await handler(
@@ -463,7 +463,7 @@ describe("routes/workspaces", () => {
     expect(sanitizeProvidersForResponseMock).toHaveBeenCalled();
   });
 
-  it("GET /api/workspaces/:workspaceId renvoie 400 si la lecture échoue", async () => {
+  it("GET /api/v1/workspaces/:workspaceId renvoie 400 si la lecture échoue", async () => {
     readWorkspaceConfigMock.mockRejectedValueOnce(new Error("Workspace not found."));
     const handler = await createRouteHandler("/workspaces/:workspaceId", "get");
     const res = createMockRes();
@@ -479,7 +479,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Workspace not found." });
   });
 
-  it("PATCH /api/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
+  it("PATCH /api/v1/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "patch");
     const res = createMockRes();
     await handler({ params: { workspaceId: "invalid-id" }, body: {} }, res);
@@ -488,7 +488,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Invalid workspaceId." });
   });
 
-  it("PATCH /api/workspaces/:workspaceId renvoie 403 si accès interdit", async () => {
+  it("PATCH /api/v1/workspaces/:workspaceId renvoie 403 si accès interdit", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "patch");
     const res = createMockRes();
     await handler(
@@ -504,7 +504,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Forbidden." });
   });
 
-  it("PATCH /api/workspaces/:workspaceId renvoie 403 si provider actif en session", async () => {
+  it("PATCH /api/v1/workspaces/:workspaceId renvoie 403 si provider actif en session", async () => {
     mergeProvidersForUpdateMock.mockReturnValueOnce({
       codex: { enabled: false },
     });
@@ -534,7 +534,7 @@ describe("routes/workspaces", () => {
     expect(updateWorkspaceMock).not.toHaveBeenCalled();
   });
 
-  it("PATCH /api/workspaces/:workspaceId renvoie 200 en succès", async () => {
+  it("PATCH /api/v1/workspaces/:workspaceId renvoie 200 en succès", async () => {
     mergeProvidersForUpdateMock.mockReturnValueOnce({
       codex: { enabled: true },
     });
@@ -566,7 +566,7 @@ describe("routes/workspaces", () => {
     });
   });
 
-  it("PATCH /api/workspaces/:workspaceId renvoie 400 si update échoue", async () => {
+  it("PATCH /api/v1/workspaces/:workspaceId renvoie 400 si update échoue", async () => {
     updateWorkspaceMock.mockRejectedValueOnce(new Error("Failed to update workspace."));
     const handler = await createRouteHandler("/workspaces/:workspaceId", "patch");
     const res = createMockRes();
@@ -583,7 +583,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Failed to update workspace." });
   });
 
-  it("DELETE /api/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
+  it("DELETE /api/v1/workspaces/:workspaceId renvoie 400 si workspaceId invalide", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "delete");
     const res = createMockRes();
     await handler({ params: { workspaceId: "invalid-id" } }, res);
@@ -592,7 +592,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Invalid workspaceId." });
   });
 
-  it("DELETE /api/workspaces/:workspaceId renvoie 403 si accès interdit", async () => {
+  it("DELETE /api/v1/workspaces/:workspaceId renvoie 403 si accès interdit", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "delete");
     const res = createMockRes();
     await handler(
@@ -607,7 +607,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Forbidden." });
   });
 
-  it("DELETE /api/workspaces/:workspaceId renvoie 405 (désactivé)", async () => {
+  it("DELETE /api/v1/workspaces/:workspaceId renvoie 405 (désactivé)", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "delete");
     const res = createMockRes();
     await handler(

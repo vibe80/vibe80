@@ -72,13 +72,13 @@ Mettre en place l’infrastructure de test serveur + premiers tests sur les flux
 
 ### 5) Vague intégration API (routes critiques)
 **Cibles minimales**
-- `POST /api/workspaces/login`
+- `POST /api/v1/workspaces/login`
   - credentials valides → 200
   - invalides → 401
-- `POST /api/workspaces/refresh`
+- `POST /api/v1/workspaces/refresh`
   - refresh valide → 200
   - refresh invalide/expiré → 401
-- `GET /api/workspaces/:workspaceId`
+- `GET /api/v1/workspaces/:workspaceId`
   - accès autorisé/interdit
 
 **DoD**

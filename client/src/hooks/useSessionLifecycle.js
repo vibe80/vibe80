@@ -43,7 +43,7 @@ export default function useSessionLifecycle({
         setSessionRequested(true);
         setAttachmentsError("");
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(sessionId)}`
+          `/api/v1/sessions/${encodeURIComponent(sessionId)}`
         );
         if (!response.ok) {
           throw new Error(t("Session not found."));
@@ -90,7 +90,7 @@ export default function useSessionLifecycle({
         if (repoAuth) {
           payload.auth = repoAuth;
         }
-        const response = await apiFetch("/api/sessions", {
+        const response = await apiFetch("/api/v1/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -207,7 +207,7 @@ export default function useSessionLifecycle({
         setSessionRequested(true);
         setAttachmentsError("");
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(sessionId)}`
+          `/api/v1/sessions/${encodeURIComponent(sessionId)}`
         );
         if (!response.ok) {
           throw new Error(t("Session not found."));

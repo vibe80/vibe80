@@ -31,7 +31,7 @@ export default function useChatClear({
       if (attachmentSessionId) {
         try {
           await apiFetch(
-            `/api/sessions/${encodeURIComponent(attachmentSessionId)}/clear`,
+            `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/clear`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -58,7 +58,7 @@ export default function useChatClear({
     if (attachmentSessionId) {
       try {
         await apiFetch(
-          `/api/sessions/${encodeURIComponent(attachmentSessionId)}/clear`,
+          `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/clear`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

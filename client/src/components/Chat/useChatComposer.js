@@ -245,9 +245,9 @@ export default function useChatComposer({
         const formData = new FormData();
         files.forEach((file) => formData.append("files", file));
         const response = await apiFetch(
-          `/api/attachments/upload?session=${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSession.sessionId
-          )}`,
+          )}/attachments/upload`,
           {
             method: "POST",
             body: formData,

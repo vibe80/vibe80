@@ -126,7 +126,7 @@ export default function useRepoStatus({
         if (!shouldBrowseFirst) {
           try {
             const fileResponse = await apiFetch(
-              `/api/sessions/${encodeURIComponent(
+              `/api/v1/sessions/${encodeURIComponent(
                 attachmentSessionId
               )}/worktrees/${encodeURIComponent(worktreeId)}/file?path=${encodeURIComponent(
                 currentPath
@@ -150,7 +150,7 @@ export default function useRepoStatus({
 
         try {
           const browseResponse = await apiFetch(
-            `/api/sessions/${encodeURIComponent(
+            `/api/v1/sessions/${encodeURIComponent(
               attachmentSessionId
             )}/worktrees/${encodeURIComponent(worktreeId)}/browse?path=${encodeURIComponent(
               currentPath
@@ -200,7 +200,7 @@ export default function useRepoStatus({
     }
     try {
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(attachmentSessionId)}/last-commit`
+        `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/last-commit`
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -224,7 +224,7 @@ export default function useRepoStatus({
       }
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(worktreeId)}/commits?limit=1`
         );
@@ -257,7 +257,7 @@ export default function useRepoStatus({
       }
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(worktreeId)}/diff`
         );
@@ -295,7 +295,7 @@ export default function useRepoStatus({
     }
     try {
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(attachmentSessionId)}/diff`
+        `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/diff`
       );
       if (!response.ok) {
         return;

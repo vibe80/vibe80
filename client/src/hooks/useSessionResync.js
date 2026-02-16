@@ -20,7 +20,7 @@ export default function useSessionResync({
     }
     try {
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(attachmentSessionId)}`
+        `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}`
       );
       if (!response.ok) {
         return;

@@ -84,7 +84,7 @@ export default function useChatCommands({
         void (async () => {
           try {
             const response = await apiFetch(
-              `/api/sessions/${encodeURIComponent(attachmentSessionId)}/backlog-items`
+              `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/backlog-items`
             );
             if (!response.ok) {
               const payload = await response.json().catch(() => null);
@@ -157,7 +157,7 @@ export default function useChatCommands({
         void (async () => {
           try {
             const response = await apiFetch(
-              `/api/sessions/${encodeURIComponent(attachmentSessionId)}/backlog-items`,
+              `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/backlog-items`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

@@ -45,7 +45,7 @@ export default function useWorktrees({
     }
     try {
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(
+        `/api/v1/sessions/${encodeURIComponent(
           attachmentSessionId
         )}/worktrees/main/messages`
       );
@@ -78,7 +78,7 @@ export default function useWorktrees({
       }
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(worktreeId)}`
         );
@@ -87,7 +87,7 @@ export default function useWorktrees({
         }
         const payload = await response.json().catch(() => ({}));
         const messagesResponse = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(worktreeId)}/messages`
         );
@@ -208,7 +208,7 @@ export default function useWorktrees({
     }
     try {
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(attachmentSessionId)}/worktrees`
+        `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/worktrees`
       );
       if (!response.ok) {
         return;
@@ -253,7 +253,7 @@ export default function useWorktrees({
       }
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(attachmentSessionId)}/worktrees`,
+          `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/worktrees`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -338,7 +338,7 @@ export default function useWorktrees({
       if (!attachmentSessionId) return;
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(worktreeId)}`,
           { method: "DELETE" }
@@ -358,7 +358,7 @@ export default function useWorktrees({
       if (!attachmentSessionId) return;
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(worktreeId)}`,
           {

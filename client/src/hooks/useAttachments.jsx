@@ -19,8 +19,10 @@ export default function useAttachments({
       if (!attachmentSessionId) {
         return "";
       }
-      const url = new URL("/api/attachments/file", window.location.origin);
-      url.searchParams.set("session", attachmentSessionId);
+      const url = new URL(
+        `/api/v1/sessions/${encodeURIComponent(attachmentSessionId)}/attachments/file`,
+        window.location.origin
+      );
       if (workspaceToken) {
         url.searchParams.set("token", workspaceToken);
       }

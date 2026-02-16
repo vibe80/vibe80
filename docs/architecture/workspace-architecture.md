@@ -73,8 +73,8 @@
   - Attachments: `.../sessions/<session_id>/attachments/`
 
 ## Auth Model (Option B)
-- POST /api/workspaces returns workspaceSecret (non-expiring)
-- POST /api/workspaces/login exchanges secret for JWT workspaceToken
+- POST /api/v1/workspaces returns workspaceSecret (non-expiring)
+- POST /api/v1/workspaces/login exchanges secret for JWT workspaceToken
 - Token TTL: 24 hours
 - JWT claims: sub, exp, iat, iss, aud, jti
 - REST and WS use only workspaceToken
@@ -83,11 +83,11 @@
 
 ## API Notes (Concept)
 - Workspace endpoints
-  - POST /api/workspaces (providers + auth)
-  - DELETE /api/workspaces/{id} (policy TBD)
-  - POST /api/workspaces/login (get short token)
+  - POST /api/v1/workspaces (providers + auth)
+  - DELETE /api/v1/workspaces/{id} (policy TBD)
+  - POST /api/v1/workspaces/login (get short token)
 - Session endpoints
-  - POST /api/sessions (repoUrl only; inherits providers)
+  - POST /api/v1/sessions (repoUrl only; inherits providers)
   - Session data includes workspaceId server-side
 - Worktree endpoints
   - Remain session-scoped; no cross-session access

@@ -74,12 +74,12 @@
 
 ## API Changes (Spec Only)
 - New endpoints:
-  - `POST /api/workspaces` (providers + auth)
-  - `POST /api/workspaces/login` (exchange secret for token)
-  - `DELETE /api/workspaces/{workspaceId}` (policy TBD)
-  - `PATCH /api/workspaces/{workspaceId}` (update providers/auth)
-- `POST /api/session` no longer accepts provider(s)
-  - Remove `POST /api/auth-file` and `POST /api/claude-auth-file` (workspace manages creds)
+  - `POST /api/v1/workspaces` (providers + auth)
+  - `POST /api/v1/workspaces/login` (exchange secret for token)
+  - `DELETE /api/v1/workspaces/{workspaceId}` (policy TBD)
+  - `PATCH /api/v1/workspaces/{workspaceId}` (update providers/auth)
+- `POST /api/v1/session` no longer accepts provider(s)
+  - Remove `POST /api/v1/auth-file` and `POST /api/v1/claude-auth-file` (workspace manages creds)
 
 ## Notes
 - No implementation in Phase 0

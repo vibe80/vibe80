@@ -31,7 +31,7 @@ export default function useRepoBranchesModels({
     setBranchError("");
     try {
       const response = await apiFetch(
-        `/api/branches?session=${encodeURIComponent(attachmentSessionId)}`
+        `/api/v1/branches?session=${encodeURIComponent(attachmentSessionId)}`
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -65,7 +65,7 @@ export default function useRepoBranchesModels({
       }));
       try {
         const response = await apiFetch(
-          `/api/models?session=${encodeURIComponent(
+          `/api/v1/models?session=${encodeURIComponent(
             attachmentSessionId
           )}&provider=${encodeURIComponent(provider)}`
         );

@@ -623,7 +623,7 @@ export default function useWorkspaceAuth({
     setWorkspaceError("");
     try {
       const response = await apiFetch(
-        `/api/workspaces/${encodeURIComponent(activeWorkspaceId)}`
+        `/api/v1/workspaces/${encodeURIComponent(activeWorkspaceId)}`
       );
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
@@ -752,7 +752,7 @@ export default function useWorkspaceAuth({
           throw new Error(t("Workspace ID required."));
         }
         const updateResponse = await apiFetch(
-          `/api/workspaces/${encodeURIComponent(activeWorkspaceId)}`,
+          `/api/v1/workspaces/${encodeURIComponent(activeWorkspaceId)}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -856,7 +856,7 @@ export default function useWorkspaceAuth({
       setWorkspaceSessionDeletingId(sessionId);
       setWorkspaceSessionsError("");
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(sessionId)}`,
+        `/api/v1/sessions/${encodeURIComponent(sessionId)}`,
         { method: "DELETE" }
       );
       if (!response.ok) {

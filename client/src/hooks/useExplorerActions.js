@@ -147,7 +147,7 @@ export default function useExplorerActions({
         return [];
       }
       const response = await apiFetch(
-        `/api/sessions/${encodeURIComponent(
+        `/api/v1/sessions/${encodeURIComponent(
           attachmentSessionId
         )}/worktrees/${encodeURIComponent(tabId)}/browse${dirPath ? `?path=${encodeURIComponent(dirPath)}` : ""}`
       );
@@ -280,7 +280,7 @@ export default function useExplorerActions({
       updateExplorerState(tabId, { statusLoading: true, statusError: "" });
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(tabId)}/status`
         );
@@ -366,7 +366,7 @@ export default function useExplorerActions({
 
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(
             tabId
@@ -651,7 +651,7 @@ export default function useExplorerActions({
       });
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(tabId)}/file`,
           {
@@ -864,7 +864,7 @@ export default function useExplorerActions({
 
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(tabId)}/file/rename`,
           {
@@ -949,7 +949,7 @@ export default function useExplorerActions({
 
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(tabId)}/file`,
           {
@@ -1008,7 +1008,7 @@ export default function useExplorerActions({
 
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(tabId)}/folder`,
           {
@@ -1064,7 +1064,7 @@ export default function useExplorerActions({
       updateExplorerState(tabId, { deletingPath: selectedPath });
       try {
         const response = await apiFetch(
-          `/api/sessions/${encodeURIComponent(
+          `/api/v1/sessions/${encodeURIComponent(
             attachmentSessionId
           )}/worktrees/${encodeURIComponent(tabId)}/file/delete`,
           {

@@ -22,7 +22,7 @@ export default function useSessionHandoff({ t, apiFetch, attachmentSessionId }) 
     setHandoffLoading(true);
     setHandoffError("");
     try {
-      const response = await apiFetch("/api/sessions/handoff", {
+      const response = await apiFetch("/api/v1/sessions/handoff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: attachmentSessionId }),
