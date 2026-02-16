@@ -607,7 +607,7 @@ describe("routes/workspaces", () => {
     expect(res.body).toEqual({ error: "Forbidden." });
   });
 
-  it("DELETE /api/workspaces/:workspaceId renvoie 501 (non implémenté)", async () => {
+  it("DELETE /api/workspaces/:workspaceId renvoie 405 (désactivé)", async () => {
     const handler = await createRouteHandler("/workspaces/:workspaceId", "delete");
     const res = createMockRes();
     await handler(
@@ -618,9 +618,9 @@ describe("routes/workspaces", () => {
       res
     );
 
-    expect(res.statusCode).toBe(501);
+    expect(res.statusCode).toBe(405);
     expect(res.body).toEqual({
-      error: "Workspace deletion policy not implemented yet.",
+      error: "Workspace deletion is currently disabled.",
     });
   });
 });
