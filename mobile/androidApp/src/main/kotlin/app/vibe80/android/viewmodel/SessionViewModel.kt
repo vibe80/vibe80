@@ -2,7 +2,6 @@ package app.vibe80.android.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.vibe80.android.Vibe80Application
 import app.vibe80.android.data.SessionPreferences
 import app.vibe80.shared.models.FlexibleNullableTimestampAsLongSerializer
 import app.vibe80.shared.models.WorkspaceAuth
@@ -652,19 +651,6 @@ class SessionViewModel(
                     it.copy(
                         handoffBusy = false,
                         handoffError = "QR code invalide."
-                    )
-                }
-                return@launch
-            }
-
-            val baseUrl = parsed.baseUrl?.trim()?.trimEnd('/')
-            if (!baseUrl.isNullOrBlank() &&
-                baseUrl != Vibe80Application.BASE_URL.trimEnd('/')
-            ) {
-                _uiState.update {
-                    it.copy(
-                        handoffBusy = false,
-                        handoffError = "Ce QR code ne correspond pas a cet environnement."
                     )
                 }
                 return@launch
