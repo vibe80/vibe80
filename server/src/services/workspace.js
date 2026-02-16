@@ -691,6 +691,8 @@ const writeWorkspaceProviderAuth = async (workspaceId, providers) => {
 
   const claudeConfig = providers?.claude;
   if (claudeConfig?.enabled && claudeConfig.auth) {
+    await runAsCommand(workspaceId, "/bin/rm", ["-f", authPaths.claudeAuthPath]);
+    await runAsCommand(workspaceId, "/bin/rm", ["-f", authPaths.claudeCredentialsPath]);
     if (claudeConfig.auth.type === "api_key") {
       const payload = JSON.stringify({ primaryApiKey: claudeConfig.auth.value }, null, 2);
       await writeWorkspaceFile(workspaceId, authPaths.claudeAuthPath, payload, 0o600);
