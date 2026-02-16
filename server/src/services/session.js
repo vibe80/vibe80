@@ -863,7 +863,7 @@ fs.mkdirSync(uploadTempDir, { recursive: true, mode: 0o700 });
 export const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
-      const sessionId = req.query.session;
+      const sessionId = req.params?.sessionId || req.query.session;
       getSession(sessionId, req.workspaceId)
         .then((session) => {
           if (!session) {
@@ -875,7 +875,7 @@ export const upload = multer({
         .catch((error) => cb(error));
     },
     filename: (req, file, cb) => {
-      const sessionId = req.query.session;
+      const sessionId = req.params?.sessionId || req.query.session;
       getSession(sessionId, req.workspaceId)
         .then(async (session) => {
           if (!session) {
