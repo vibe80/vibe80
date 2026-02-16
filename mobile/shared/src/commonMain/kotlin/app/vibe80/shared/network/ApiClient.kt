@@ -275,12 +275,11 @@ class ApiClient(
      * Get available models for a provider
      */
     suspend fun getModels(sessionId: String, provider: String): Result<ModelsResponse> {
-        val url = "$baseUrl/api/v1/models"
-        AppLogger.apiRequest("GET", "$url?session=$sessionId&provider=$provider")
+        val url = "$baseUrl/api/v1/sessions/$sessionId/models"
+        AppLogger.apiRequest("GET", "$url?provider=$provider")
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
-                    parameter("session", sessionId)
                     parameter("provider", provider)
                     applyAuth(this)
                 }
@@ -290,14 +289,14 @@ class ApiClient(
             } else {
                 ""
             }
-            AppLogger.apiResponse("GET", "$url?session=$sessionId&provider=$provider", response.status.value, responseBody)
+            AppLogger.apiResponse("GET", "$url?provider=$provider", response.status.value, responseBody)
             if (response.status.isSuccess()) {
                 Result.success(response.body())
             } else {
                 Result.failure(buildApiException(response, url, responseBody))
             }
         } catch (e: Exception) {
-            AppLogger.apiError("GET", "$url?session=$sessionId&provider=$provider", e)
+            AppLogger.apiError("GET", "$url?provider=$provider", e)
             Result.failure(e)
         }
     }

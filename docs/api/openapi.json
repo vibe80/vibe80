@@ -192,10 +192,14 @@
         "parameters": []
       }
     },
-    "/api/v1/branches": {
+    "/api/v1/sessions/{sessionId}/branches": {
       "get": {
         "summary": "List branches",
-        "parameters": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Branch info",
@@ -213,10 +217,13 @@
         }
       }
     },
-    "/api/v1/models": {
+    "/api/v1/sessions/{sessionId}/models": {
       "get": {
         "summary": "List models",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          },
           {
             "$ref": "#/components/parameters/ProviderQuery"
           }

@@ -33,8 +33,8 @@ Application mobile native Android/iOS avec support futur WearOS, reproduisant le
 - [x] Configuration Ktor Client (shared)
 - [x] Endpoint `POST /api/v1/session` - création session
 - [x] Endpoint `GET /api/v1/session/:id` - état session
-- [x] Endpoint `GET /api/v1/branches` - liste branches
-- [x] Endpoint `GET /api/v1/models` - liste modèles
+- [x] Endpoint `GET /api/v1/sessions/:id/branches` - liste branches
+- [x] Endpoint `GET /api/v1/sessions/:id/models` - liste modèles
 - [x] Gestion erreurs HTTP communes
 
 #### 1.4 Android App Shell
@@ -598,7 +598,7 @@ mobile/
 - `SessionRepository.kt` - Méthode `fetchBranches()` pour récupérer les branches
 
 **API :**
-- `ApiClient.kt` - Nouvelle méthode `fetchBranches()` pour POST /api/v1/branches/fetch
+- `ApiClient.kt` - Nouvelle méthode `fetchBranches()` pour POST /api/v1/sessions/:id/branches/fetch
 
 ### 2026-01-26 - Phase 5 Complétée
 

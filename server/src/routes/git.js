@@ -109,8 +109,8 @@ export default function gitRoutes(deps) {
     res.json(repoDiff);
   });
 
-  router.get("/branches", async (req, res) => {
-    const sessionId = req.query.session;
+  router.get("/sessions/:sessionId/branches", async (req, res) => {
+    const sessionId = req.params.sessionId;
     const session = await getSession(sessionId, req.workspaceId);
     if (!session) {
       res.status(400).json({ error: "Invalid session." });
@@ -129,8 +129,8 @@ export default function gitRoutes(deps) {
     }
   });
 
-  router.get("/models", async (req, res) => {
-    const session = await getSession(req.query?.session, req.workspaceId);
+  router.get("/sessions/:sessionId/models", async (req, res) => {
+    const session = await getSession(req.params.sessionId, req.workspaceId);
     const provider = req.query?.provider;
     if (!session) {
       res.status(404).json({ error: "Session not found." });
