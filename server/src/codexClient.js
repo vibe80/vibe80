@@ -8,10 +8,6 @@ import { buildSandboxArgs, getWorkspaceHome } from "./runAs.js";
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
 const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
-const STOP_TIMEOUT_MS = (() => {
-  const value = Number.parseInt(process.env.CODEX_STOP_TIMEOUT_MS ?? "", 10);
-  return Number.isFinite(value) && value > 0 ? value : 15_000;
-})();
 
 export class CodexAppServerClient extends EventEmitter {
   constructor({
@@ -178,7 +174,7 @@ export class CodexAppServerClient extends EventEmitter {
     }
   }
 
-  async stop({ force = false, timeoutMs = STOP_TIMEOUT_MS, reason = null } = {}) {
+  async stop({ force = false, timeoutMs = 5000, reason = null } = {}) {
     if (!this.proc) {
       return;
     }

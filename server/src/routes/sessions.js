@@ -35,7 +35,13 @@ import {
 const terminalEnabled = /^(1|true|yes|on)$/i.test(process.env.TERMINAL_ENABLED || "1");
 
 export default function sessionRoutes(deps) {
-  const { getOrCreateClient, attachClientEvents, attachClaudeEvents } = deps;
+  const {
+    getOrCreateClient,
+    attachClientEvents,
+    attachClaudeEvents,
+    getActiveClient,
+    deploymentMode,
+  } = deps;
 
   const router = Router();
   const resolveEnabledProviders = async (workspaceId) => {
@@ -172,6 +178,23 @@ export default function sessionRoutes(deps) {
     } catch (error) {
       res.status(500).json({ error: "Failed to delete session." });
     }
+  });
+
+  router.get("/sessions/:sessionId/health", async (req, res) => {
+    const session = await getSession(req.params.sessionId, req.workspaceId);
+    if (!session) {
+      res.status(404).json({ error: "Session not found." });
+      return;
+    }
+    await touchSession(session);
+    const activeClient = getActiveClient(session);
+    res.json({
+      ok: true,
+      ready: activeClient?.ready || false,
+      threadId: activeClient?.threadId || null,
+      provider: session.activeProvider || "codex",
+      deploymentMode,
+    });
   });
 
   router.get("/sessions/:sessionId/last-commit", async (req, res) => {

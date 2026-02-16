@@ -233,13 +233,7 @@ export default function ChatMessages({
                               </span>
                             )}
                             <span className="command-execution-title">
-                              <span
-                                className="command-execution-tool-icon"
-                                aria-hidden="true"
-                              >
-                                <FontAwesomeIcon icon={faCode} />
-                              </span>
-                              <span>{commandTitle}</span>
+                              {commandTitle}
                             </span>
                           </>
                         );

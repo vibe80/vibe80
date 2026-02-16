@@ -14,11 +14,6 @@
     "/api/health": {
       "get": {
         "summary": "Health check",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionQuery"
-          }
-        ],
         "responses": {
           "200": {
             "description": "Health response",
@@ -29,6 +24,31 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/health": {
+      "get": {
+        "summary": "Health check for a session",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session health response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }

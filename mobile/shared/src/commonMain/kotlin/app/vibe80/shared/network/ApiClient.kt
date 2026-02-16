@@ -255,20 +255,19 @@ class ApiClient(
      * Check if session is healthy and ready
      */
     suspend fun checkHealth(sessionId: String): Result<Boolean> {
-        val url = "$baseUrl/api/health"
-        AppLogger.apiRequest("GET", "$url?session=$sessionId")
+        val url = "$baseUrl/api/sessions/$sessionId/health"
+        AppLogger.apiRequest("GET", url)
         return runCatching {
             val response = executeWithRefresh(url) {
                 httpClient.get(url) {
-                    parameter("session", sessionId)
                     applyAuth(this)
                 }
             }
             val status = response.status.value
-            AppLogger.apiResponse("GET", "$url?session=$sessionId", status)
+            AppLogger.apiResponse("GET", url, status)
             response.status.value in 200..299
         }.onFailure { e ->
-            AppLogger.apiError("GET", "$url?session=$sessionId", e)
+            AppLogger.apiError("GET", url, e)
         }
     }
 
