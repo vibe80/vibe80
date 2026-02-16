@@ -529,34 +529,6 @@ class ApiClient(
         }
     }
 
-    /**
-     * Abort a merge in progress
-     */
-    suspend fun abortMerge(sessionId: String, worktreeId: String): Result<Unit> {
-        val url = "$baseUrl/api/sessions/$sessionId/worktrees/$worktreeId/abort-merge"
-        AppLogger.apiRequest("POST", url)
-        return try {
-            val response = executeWithRefresh(url) {
-                httpClient.post(url) {
-                    applyAuth(this)
-                }
-            }
-            val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
-            } else {
-                ""
-            }
-            AppLogger.apiResponse("POST", url, response.status.value, responseBody)
-            if (response.status.isSuccess()) {
-                Result.success(Unit)
-            } else {
-                Result.failure(buildApiException(response, url, responseBody))
-            }
-        } catch (e: Exception) {
-            AppLogger.apiError("POST", url, e)
-            Result.failure(e)
-        }
-    }
 
     /**
      * List attachments for a session

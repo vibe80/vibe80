@@ -571,129 +571,6 @@
         }
       }
     },
-    "/api/sessions/{sessionId}/worktrees/{worktreeId}/merge": {
-      "post": {
-        "summary": "Merge worktree into target worktree",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/WorktreeId"
-          },
-          {
-            "$ref": "#/components/parameters/SessionId"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MergeWorktreeRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Merge result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MergeWorktreeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/api/sessions/{sessionId}/worktrees/{worktreeId}/abort-merge": {
-      "post": {
-        "summary": "Abort merge",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/WorktreeId"
-          },
-          {
-            "$ref": "#/components/parameters/SessionId"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SessionOnlyRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Aborted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/api/sessions/{sessionId}/worktrees/{worktreeId}/cherry-pick": {
-      "post": {
-        "summary": "Cherry-pick commit",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/WorktreeId"
-          },
-          {
-            "$ref": "#/components/parameters/SessionId"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CherryPickRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Cherry-pick result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MergeWorktreeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
     "/api/attachments": {
       "get": {
         "summary": "List attachments",
@@ -2598,22 +2475,6 @@
         ],
         "additionalProperties": false
       },
-      "MergeWorktreeRequest": {
-        "type": "object",
-        "properties": {
-          "session": {
-            "type": "string"
-          },
-          "targetWorktreeId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "session",
-          "targetWorktreeId"
-        ],
-        "additionalProperties": false
-      },
       "SessionOnlyRequest": {
         "type": "object",
         "properties": {
@@ -2623,40 +2484,6 @@
         },
         "required": [
           "session"
-        ],
-        "additionalProperties": false
-      },
-      "CherryPickRequest": {
-        "type": "object",
-        "properties": {
-          "session": {
-            "type": "string"
-          },
-          "commitSha": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "session",
-          "commitSha"
-        ],
-        "additionalProperties": false
-      },
-      "MergeWorktreeResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "conflicts": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "success"
         ],
         "additionalProperties": false
       },
