@@ -10,7 +10,7 @@ const terminalWsUrl = (sessionId, worktreeId) => {
   if (worktreeId) {
     params.set("worktreeId", worktreeId);
   }
-  return `/api/terminal/ws?${params.toString()}`;
+  return `/terminal-ws?${params.toString()}`;
 };
 
 export default function useTerminalSession({

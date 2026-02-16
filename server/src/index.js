@@ -1631,7 +1631,7 @@ server.on("upgrade", (req, socket, head) => {
     });
     return;
   }
-  if (url.pathname === "/terminal" || url.pathname === "/api/terminal/ws") {
+  if (url.pathname === "/terminal-ws") {
     if (!terminalEnabled || !terminalWss) {
       socket.destroy();
       return;
