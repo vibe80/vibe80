@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "vibe80 REST API",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Spec (workspace auth, providers at workspace level)"
   },
   "servers": [
@@ -1393,6 +1393,238 @@
           }
         }
       }
+    },
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/wakeup": {
+      "post": {
+        "summary": "Wake up a worktree provider",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorktreeWakeupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Worktree is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorktreeWakeupResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/wakup": {
+      "post": {
+        "summary": "Wake up a worktree provider (backward compatible alias)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorktreeWakeupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Worktree is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorktreeWakeupResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/folder": {
+      "post": {
+        "summary": "Create folder inside a worktree",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FolderCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Folder created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/file/rename": {
+      "post": {
+        "summary": "Rename or move a file or folder inside a worktree",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileRenameRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Path renamed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileRenameResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/worktrees/{worktreeId}/file/delete": {
+      "post": {
+        "summary": "Delete a file or folder inside a worktree",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorktreeId"
+          },
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileDeleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Path deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDeleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1570,6 +1802,36 @@
       },
       "ServerError": {
         "description": "Server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "GatewayTimeout": {
+        "description": "Request timed out.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal server error.",
         "content": {
           "application/json": {
             "schema": {
@@ -3081,6 +3343,142 @@
             "type": "string"
           }
         }
+      },
+      "WorktreeWakeupRequest": {
+        "type": "object",
+        "properties": {
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000,
+            "description": "Optional timeout in milliseconds (default 15000)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorktreeWakeupResponse": {
+        "type": "object",
+        "properties": {
+          "worktreeId": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/Provider"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready"
+            ]
+          },
+          "threadId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "worktreeId",
+          "provider",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "FolderCreateRequest": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "FolderCreateResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "FileRenameRequest": {
+        "type": "object",
+        "properties": {
+          "fromPath": {
+            "type": "string"
+          },
+          "toPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fromPath",
+          "toPath"
+        ],
+        "additionalProperties": false
+      },
+      "FileRenameResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "fromPath": {
+            "type": "string"
+          },
+          "toPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "fromPath",
+          "toPath"
+        ],
+        "additionalProperties": false
+      },
+      "FileDeleteRequest": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "FileDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "path"
+        ],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
