@@ -48,11 +48,6 @@ RUN apt-get update \
 
 RUN npm install -g @openai/codex
 
-# Install Claude code
-RUN curl -fsSL https://claude.ai/install.sh | bash
-# Make Claude command available to all users
-RUN bash -c 'mv $(readlink /root/.local/bin/claude) /usr/bin/claude'
-
 COPY --from=helper-builder /out/vibe80-root /usr/local/bin/vibe80-root
 COPY --from=helper-builder /out/vibe80-run-as /usr/local/bin/vibe80-run-as
 COPY docker/vibe80.sudoers /etc/sudoers.d/vibe80
