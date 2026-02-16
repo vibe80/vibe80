@@ -292,7 +292,7 @@ export default function useWorkspaceAuth({
           return null;
         }
 
-        const response = await fetch("/api/workspaces/refresh", {
+        const response = await fetch("/api/v1/v1/workspaces/refresh", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refreshToken: refreshTokenForCall }),
@@ -452,7 +452,7 @@ export default function useWorkspaceAuth({
     let cancelled = false;
     const fetchHealth = async () => {
       try {
-        const response = await fetch("/api/health");
+        const response = await fetch("/api/v1/v1/health");
         if (!response.ok) {
           return;
         }
@@ -478,7 +478,7 @@ export default function useWorkspaceAuth({
     let cancelled = false;
     const consumeMonoAuthToken = async () => {
       try {
-        const response = await fetch("/api/workspaces/login", {
+        const response = await fetch("/api/v1/v1/workspaces/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -590,7 +590,7 @@ export default function useWorkspaceAuth({
     setWorkspaceSessionsLoading(true);
     setWorkspaceSessionsError("");
     try {
-      const response = await apiFetch("/api/sessions");
+      const response = await apiFetch("/api/v1/v1/sessions");
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error || t("Unable to load sessions."));
@@ -671,7 +671,7 @@ export default function useWorkspaceAuth({
         if (!workspaceIdValue || !secretValue) {
           throw new Error(t("Workspace ID and secret are required."));
         }
-        const response = await apiFetch("/api/workspaces/login", {
+        const response = await apiFetch("/api/v1/v1/workspaces/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -771,7 +771,7 @@ export default function useWorkspaceAuth({
         showToast?.(t("AI providers updated."), "success");
         return;
       }
-      const createResponse = await apiFetch("/api/workspaces", {
+      const createResponse = await apiFetch("/api/v1/v1/workspaces", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ providers: providersPayload }),
@@ -784,7 +784,7 @@ export default function useWorkspaceAuth({
       setWorkspaceCreated(created);
       setWorkspaceId(created.workspaceId);
       setWorkspaceIdInput(created.workspaceId);
-      const loginResponse = await apiFetch("/api/workspaces/login", {
+      const loginResponse = await apiFetch("/api/v1/v1/workspaces/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

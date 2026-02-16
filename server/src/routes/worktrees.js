@@ -317,7 +317,6 @@ export default function worktreeRoutes(deps) {
     }
 
     try {
-      const diff = await getWorktreeDiff(session, worktree.id);
       res.json({
         id: worktree.id,
         name: worktree.name,
@@ -335,7 +334,6 @@ export default function worktreeRoutes(deps) {
         status: worktree.status,
         color: worktree.color,
         createdAt: toIsoDateTime(worktree.createdAt),
-        diff,
       });
     } catch (error) {
       console.error("Failed to get worktree:", {
@@ -446,7 +444,43 @@ export default function worktreeRoutes(deps) {
     }
 
     try {
+      if (worktree.provider === "claude") {
+        await updateWorktreeStatus(session, worktreeId, "processing");
+        broadcastToSession(sessionId, {
+          type: "worktree_status",
+          worktreeId,
+          status: "processing",
+        });
+      }
       const result = await client.sendTurn(text);
+
+      if (worktree.provider === "claude") {
+        const turnId = result?.turn?.id;
+        const onDone = async (status) => {
+          const newStatus = status === "success" ? "ready" : "error";
+          await updateWorktreeStatus(session, worktreeId, newStatus);
+          broadcastToSession(sessionId, {
+            type: "worktree_status",
+            worktreeId,
+            status: newStatus,
+          });
+        };
+        const onceCompleted = ({ turnId: completedId, status }) => {
+          if (!turnId || !completedId || turnId === completedId) {
+            client.off("turn_error", onceError);
+            onDone(status || "success").catch(() => null);
+          }
+        };
+        const onceError = ({ turnId: errorId }) => {
+          if (!turnId || !errorId || turnId === errorId) {
+            client.off("turn_completed", onceCompleted);
+            onDone("error").catch(() => null);
+          }
+        };
+        client.once("turn_completed", onceCompleted);
+        client.once("turn_error", onceError);
+      }
+
       const messageId = createMessageId();
       await appendWorktreeMessage(session, worktreeId, {
         id: messageId,
@@ -527,7 +561,6 @@ export default function worktreeRoutes(deps) {
   };
 
   router.post("/sessions/:sessionId/worktrees/:worktreeId/wakeup", handleWorktreeWakeup);
-  router.post("/sessions/:sessionId/worktrees/:worktreeId/wakup", handleWorktreeWakeup);
 
   router.get("/sessions/:sessionId/worktrees/:worktreeId/browse", async (req, res) => {
     const sessionId = req.params.sessionId;
@@ -953,102 +986,6 @@ export default function worktreeRoutes(deps) {
         error: error?.message || error,
       });
       res.status(500).json({ error: "Failed to get worktree commits." });
-    }
-  });
-
-  router.post("/sessions/:sessionId/worktrees/:worktreeId/merge", async (req, res) => {
-    const sessionId = req.params.sessionId;
-    const session = await getSession(sessionId, req.workspaceId);
-    if (!session) {
-      res.status(400).json({ error: "Invalid session." });
-      return;
-    }
-    await touchSession(session);
-
-    const targetWorktreeId = req.body?.targetWorktreeId;
-    if (!targetWorktreeId) {
-      res.status(400).json({ error: "Target worktree ID is required." });
-      return;
-    }
-
-    try {
-      const result = await mergeWorktree(session, req.params.worktreeId, targetWorktreeId);
-      if (result.success) {
-        const diff = await getWorktreeDiff(session, targetWorktreeId);
-        broadcastToSession(sessionId, {
-          type: "worktree_diff",
-          worktreeId: targetWorktreeId,
-          ...diff,
-        });
-      }
-      res.json(result);
-    } catch (error) {
-      console.error("Failed to merge worktree:", {
-        sessionId,
-        sourceWorktreeId: req.params.worktreeId,
-        targetWorktreeId,
-        error: error?.message || error,
-      });
-      res.status(500).json({ error: "Failed to merge worktree." });
-    }
-  });
-
-  router.post("/sessions/:sessionId/worktrees/:worktreeId/abort-merge", async (req, res) => {
-    const sessionId = req.params.sessionId;
-    const session = await getSession(sessionId, req.workspaceId);
-    if (!session) {
-      res.status(400).json({ error: "Invalid session." });
-      return;
-    }
-    await touchSession(session);
-
-    try {
-      await abortMerge(session, req.params.worktreeId);
-      res.json({ ok: true });
-    } catch (error) {
-      console.error("Failed to abort merge:", {
-        sessionId,
-        worktreeId: req.params.worktreeId,
-        error: error?.message || error,
-      });
-      res.status(500).json({ error: "Failed to abort merge." });
-    }
-  });
-
-  router.post("/sessions/:sessionId/worktrees/:worktreeId/cherry-pick", async (req, res) => {
-    const sessionId = req.params.sessionId;
-    const session = await getSession(sessionId, req.workspaceId);
-    if (!session) {
-      res.status(400).json({ error: "Invalid session." });
-      return;
-    }
-    await touchSession(session);
-
-    const commitSha = req.body?.commitSha;
-    if (!commitSha) {
-      res.status(400).json({ error: "Commit SHA is required." });
-      return;
-    }
-
-    try {
-      const result = await cherryPickCommit(session, commitSha, req.params.worktreeId);
-      if (result.success) {
-        const diff = await getWorktreeDiff(session, req.params.worktreeId);
-        broadcastToSession(sessionId, {
-          type: "worktree_diff",
-          worktreeId: req.params.worktreeId,
-          ...diff,
-        });
-      }
-      res.json(result);
-    } catch (error) {
-      console.error("Failed to cherry-pick:", {
-        sessionId,
-        worktreeId: req.params.worktreeId,
-        commitSha,
-        error: error?.message || error,
-      });
-      res.status(500).json({ error: "Failed to cherry-pick commit." });
     }
   });
 

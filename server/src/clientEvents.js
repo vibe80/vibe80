@@ -428,7 +428,6 @@ export function attachClaudeEvents(context, deps) {
     broadcastToSession,
     appendMessage,
     broadcastDiff,
-    updateWorktreeStatus,
     updateWorktreeThreadId,
     appendRpcLog,
     storage,
@@ -450,7 +449,6 @@ export function attachClaudeEvents(context, deps) {
         if (threadId) {
           await updateWorktreeThreadId(session, worktreeId, threadId);
         }
-        await updateWorktreeStatus(session, worktreeId, "ready");
         broadcastToSession(sessionId, {
           type: "worktree_ready",
           worktreeId,
@@ -463,12 +461,6 @@ export function attachClaudeEvents(context, deps) {
           await storage.saveSession(sessionId, updated);
           await updateWorktreeThreadId(session, "main", threadId);
         }
-        await updateWorktreeStatus(session, "main", "ready");
-        broadcastToSession(sessionId, {
-          type: "worktree_status",
-          worktreeId: "main",
-          status: "ready",
-        });
         broadcastToSession(sessionId, { type: "ready", threadId, provider });
       }
     })();
@@ -479,22 +471,6 @@ export function attachClaudeEvents(context, deps) {
       const session = await getSession(sessionId);
       if (!session) return;
       if (!isWorktree && session.activeProvider !== provider) return;
-
-      if (isWorktree) {
-        await updateWorktreeStatus(session, worktreeId, "processing");
-        broadcastToSession(sessionId, {
-          type: "worktree_status",
-          worktreeId,
-          status: "processing",
-        });
-      } else {
-        await updateWorktreeStatus(session, "main", "processing");
-        broadcastToSession(sessionId, {
-          type: "worktree_status",
-          worktreeId: "main",
-          status: "processing",
-        });
-      }
 
       const payload = {
         type: "turn_started",
@@ -589,21 +565,6 @@ export function attachClaudeEvents(context, deps) {
       if (!session) return;
       if (!isWorktree && session.activeProvider !== provider) return;
 
-      if (isWorktree) {
-        await updateWorktreeStatus(session, worktreeId, "ready");
-        broadcastToSession(sessionId, {
-          type: "worktree_status",
-          worktreeId,
-          status: "ready",
-        });
-      } else {
-        await updateWorktreeStatus(session, "main", "ready");
-        broadcastToSession(sessionId, {
-          type: "worktree_status",
-          worktreeId: "main",
-          status: "ready",
-        });
-      }
       const payload = {
         type: "turn_completed",
         turnId,
