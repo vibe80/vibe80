@@ -1,4 +1,4 @@
-FROM git.lab.adho.app/mont5piques/vibe80-base:latest AS app-build
+FROM ghcr.io/vibe80/vibe80:latest AS app-build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY . .
 
 RUN npm run build
 
-FROM git.lab.adho.app/mont5piques/vibe80-base:latest
+FROM ghcr.io/vibe80/vibe80:latest
 
 WORKDIR /app
 
