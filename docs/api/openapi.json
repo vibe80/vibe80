@@ -1204,56 +1204,6 @@
         }
       }
     },
-    "/api/sessions/{sessionId}/worktrees/{worktreeId}/wakup": {
-      "post": {
-        "summary": "Wake up a worktree provider (backward compatible alias)",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/WorktreeId"
-          },
-          {
-            "$ref": "#/components/parameters/SessionId"
-          }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WorktreeWakeupRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Worktree is ready",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorktreeWakeupResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          },
-          "504": {
-            "$ref": "#/components/responses/GatewayTimeout"
-          }
-        }
-      }
-    },
     "/api/sessions/{sessionId}/worktrees/{worktreeId}/folder": {
       "post": {
         "summary": "Create folder inside a worktree",

@@ -561,7 +561,6 @@ export default function worktreeRoutes(deps) {
   };
 
   router.post("/sessions/:sessionId/worktrees/:worktreeId/wakeup", handleWorktreeWakeup);
-  router.post("/sessions/:sessionId/worktrees/:worktreeId/wakup", handleWorktreeWakeup);
 
   router.get("/sessions/:sessionId/worktrees/:worktreeId/browse", async (req, res) => {
     const sessionId = req.params.sessionId;
