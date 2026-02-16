@@ -172,37 +172,13 @@ export default function useRepoBranchesModels({
       if (!attachmentSessionId || processing) {
         return;
       }
-      setBranchLoading(true);
-      setBranchError("");
-      try {
-        const response = await apiFetch("/api/branches/switch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            session: attachmentSessionId,
-            branch,
-          }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload.error || t("Unable to change branch."));
-        }
-        setBranches(Array.isArray(payload.branches) ? payload.branches : []);
-        setCurrentBranch(payload.current || "");
-        await loadRepoLastCommit?.();
-        if (setBranchMenuOpen) {
-          setBranchMenuOpen(false);
-        }
-      } catch (error) {
-        setBranchError(error.message || t("Unable to change branch."));
-      } finally {
-        setBranchLoading(false);
+      setBranchError(t("Branch switching is no longer supported."));
+      if (setBranchMenuOpen) {
+        setBranchMenuOpen(false);
       }
     },
     [
       attachmentSessionId,
-      apiFetch,
-      loadRepoLastCommit,
       processing,
       setBranchMenuOpen,
       t,
