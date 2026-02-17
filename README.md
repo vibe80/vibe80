@@ -43,3 +43,10 @@ At least one of `codex` or `claude code` must be installed before starting.
 ## Docker installation
 
 TODO
+
+## License
+
+This project is licensed under the **Apache License 2.0**.
+
+- Full license text: [LICENSE](LICENSE)
+- Attribution notices: [NOTICE](NOTICE)
