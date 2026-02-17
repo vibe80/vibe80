@@ -1,6 +1,11 @@
-FROM xxx
+FROM vibe80/vibe80:latest
+
+USER root
 
 # Install Claude code
 RUN curl -fsSL https://claude.ai/install.sh | bash
 # Make Claude command available to all users
+
 RUN bash -c 'mv $(readlink /root/.local/bin/claude) /usr/bin/claude'
+
+USER vibe80
