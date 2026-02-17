@@ -266,8 +266,8 @@ export default function ExplorerPanel({
             <>
               <div className="explorer-editor-input">
                 <Editor
-                  key={activeFilePath}
-                  value={activeFile?.draftContent || ""}
+                  path={activeFilePath}
+                  defaultValue={activeFile?.draftContent || ""}
                   onChange={(value) =>
                     updateExplorerDraft(tabId, activeFilePath, value || "")
                   }
