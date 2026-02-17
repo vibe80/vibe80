@@ -23,7 +23,7 @@ jobs:
             base_image:
               - 'tools/**'
               - 'docker/**'
-              - 'Dockerfile.base'
+              - 'docker/Dockerfile.base'
             android:
               - 'mobile/**'
 
@@ -54,7 +54,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.base
+          file: ./docker/Dockerfile.base
           push: true
           tags: ghcr.io/vibe80/vibe80-base:latest
 
@@ -73,7 +73,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.base
+          file: ./docker/Dockerfile.base
           push: true
           tags: ghcr.io/vibe80/vibe80-base:latest
 
@@ -118,7 +118,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          file: ./docker/Dockerfile
           push: true
           cache-from: type=registry,ref=ghcr.io/vibe80/vibe80:latest
           tags: |
