@@ -12,6 +12,11 @@ services:
       SQLITE_PATH: /var/lib/vibe80/data.sqlite
       WORKSPACE_ROOT_DIRECTORY: "/workspaces"
     volumes:
-      - /data/vibecoder/home:/home
-      - /data/vibecoder/workspaces:/workspaces
-      - /data/vibecoder/data:/var/lib/vibe80
+      - vibe80_home:/home
+      - vibe80_workspaces:/workspaces
+      - vibe80_data:/var/lib/vibe80
+
+volumes:
+  vibe80_home:
+  vibe80_workspaces:
+  vibe80_data:
