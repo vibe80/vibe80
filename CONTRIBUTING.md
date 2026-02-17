@@ -79,4 +79,6 @@ Use private disclosure (email maintainers directly), and allow time for a fix be
 
 ## License
 
-By contributing, you agree that your contributions are provided under the repository’s license.
+This project is licensed under **Apache License 2.0**.
+
+By contributing, you agree that your contributions are provided under **Apache-2.0**.
