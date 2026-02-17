@@ -474,11 +474,16 @@ export const ensureWorkspaceUserExists = async (workspaceId) => {
     const homeDir = getWorkspacePaths(workspaceId).homeDir;
     await ensureWorkspaceUser(workspaceId, homeDir, ids);
   }
+  const workspaceRecord = await storage.getWorkspace(workspaceId);
+  if (workspaceRecord?.providers) {
+    await writeWorkspaceProviderAuth(workspaceId, workspaceRecord.providers);
+  }
   await storage.saveWorkspaceUserIds(workspaceId, ids);
   await appendAuditLog(workspaceId, "workspace_user_recreated", {
     uid: ids.uid,
     gid: ids.gid,
   });
+  await appendAuditLog(workspaceId, "workspace_auth_reconciled_after_recreate");
   workspaceUserExistsCache.set(workspaceId, true);
 };
 
