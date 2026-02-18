@@ -75,6 +75,8 @@ export class CodexAppServerClient extends EventEmitter {
     this.starting = true;
     const codexArgs = [
       "codex",
+      "--enable",
+      "sqlite",
       "app-server"
     ];
     const useLandlock = this.internetAccess;
