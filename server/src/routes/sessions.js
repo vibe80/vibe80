@@ -1,4 +1,5 @@
 import { Router } from "express";
+import os from "os";
 import storage from "../storage/index.js";
 import {
   createMessageId,
@@ -33,6 +34,7 @@ import {
 } from "../worktreeManager.js";
 
 const terminalEnabled = /^(1|true|yes|on)$/i.test(process.env.TERMINAL_ENABLED || "1");
+const instanceHostname = process.env.HOSTNAME || os.hostname();
 
 export default function sessionRoutes(deps) {
   const {
@@ -194,6 +196,7 @@ export default function sessionRoutes(deps) {
       threadId: activeClient?.threadId || null,
       provider: session.activeProvider || "codex",
       deploymentMode,
+      instance: instanceHostname,
     });
   });
 
