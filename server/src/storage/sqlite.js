@@ -70,10 +70,7 @@ const all = (db, sql, params = []) =>
   });
 
 export const createSqliteStorage = () => {
-  const dbPath = process.env.SQLITE_PATH;
-  if (!dbPath) {
-    throw new Error("SQLITE_PATH is required when STORAGE_BACKEND=sqlite.");
-  }
+  const dbPath = process.env.SQLITE_PATH || "/var/lib/vibe80/base.sqlite";
   const resolvedPath = path.resolve(dbPath);
   const dir = path.dirname(resolvedPath);
   fs.mkdirSync(dir, { recursive: true, mode: 0o750 });

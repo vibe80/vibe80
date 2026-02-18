@@ -143,11 +143,7 @@ const resolveWorkspaceTokenErrorCode = (error) => {
   return "WORKSPACE_TOKEN_INVALID";
 };
 
-const deploymentMode = process.env.DEPLOYMENT_MODE;
-if (!deploymentMode) {
-  console.error("DEPLOYMENT_MODE is required (mono_user or multi_user).");
-  process.exit(1);
-}
+const deploymentMode = process.env.DEPLOYMENT_MODE || "mono_user";
 if (deploymentMode !== "mono_user" && deploymentMode !== "multi_user") {
   console.error(`Invalid DEPLOYMENT_MODE: ${deploymentMode}. Use mono_user or multi_user.`);
   process.exit(1);
