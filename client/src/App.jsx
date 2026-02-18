@@ -2006,6 +2006,7 @@ function App() {
     setWorktreeLastCommitById,
     setCurrentTurnId,
     setActivity,
+    setDefaultDenyGitCredentialsAccess,
   });
 
   useEffect(() => {

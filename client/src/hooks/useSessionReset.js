@@ -16,6 +16,7 @@ export default function useSessionReset({
   setWorktreeLastCommitById,
   setCurrentTurnId,
   setActivity,
+  setDefaultDenyGitCredentialsAccess,
 }) {
   const handleLeaveSession = useCallback(() => {
     setAttachmentSession(null);
@@ -33,6 +34,9 @@ export default function useSessionReset({
     setWorktreeLastCommitById(new Map());
     setCurrentTurnId(null);
     setActivity("");
+    if (typeof setDefaultDenyGitCredentialsAccess === "function") {
+      setDefaultDenyGitCredentialsAccess(false);
+    }
     const url = new URL(window.location.href);
     url.searchParams.delete("session");
     window.history.replaceState({}, "", url);
@@ -51,6 +55,7 @@ export default function useSessionReset({
     setRpcLogs,
     setRpcLogsEnabled,
     setSessionRequested,
+    setDefaultDenyGitCredentialsAccess,
     setWorktreeLastCommitById,
   ]);
 
