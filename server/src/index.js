@@ -1484,7 +1484,7 @@ server.listen(port, async () => {
         console.error("Failed to write mono auth URL file:", error?.message || error);
       }
     }
-    console.log("Mono auth URL generated.");
+    console.log(`Mono auth URL: ${monoAuthUrl}`);
   }
 });
 
