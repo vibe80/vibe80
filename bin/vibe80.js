@@ -7,7 +7,6 @@ const path = require("path");
 const os = require("os");
 
 const rootDir = path.resolve(__dirname, "..");
-const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 const homeDir = process.env.HOME || os.homedir();
 const monoAuthUrlFile = path.join(
   os.tmpdir(),
@@ -22,8 +21,8 @@ const defaultEnv = {
 const deploymentMode = process.env.DEPLOYMENT_MODE || defaultEnv.DEPLOYMENT_MODE;
 const serverPort = process.env.PORT || "5179";
 
-const spawnProcess = (args, label, extraEnv = {}) => {
-  const child = spawn(npmCmd, args, {
+const spawnProcess = (cmd, args, label, extraEnv = {}) => {
+  const child = spawn(cmd, args, {
     cwd: rootDir,
     env: {
       ...defaultEnv,
@@ -130,7 +129,8 @@ const shutdown = (code = 0) => {
 const startServer = () => {
   unlinkMonoAuthUrlFile();
   server = spawnProcess(
-    ["--workspace", "server", "run", "start"],
+    process.execPath,
+    ["server/src/index.js"],
     "server",
     { VIBE80_MONO_AUTH_URL_FILE: monoAuthUrlFile }
   );
