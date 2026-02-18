@@ -1,22 +1,12 @@
 services:
   vibe80:
-    image: ghcr.io/vibe80/vibe80:latest
-    container_name: vibe80
-    restart: unless-stopped
+    image: vibe80/vibe80
     ports:
       - "5179:5179"
     environment:
-      DEPLOYMENT_MODE: multi_user
-      JWT_KEY_PATH: /var/lib/vibe80/jwt.key
-      STORAGE_BACKEND: "sqlite"
-      SQLITE_PATH: /var/lib/vibe80/data.sqlite
-      WORKSPACE_ROOT_DIRECTORY: "/workspaces"
+      DEPLOYMENT_MODE: mono_user
     volumes:
-      - vibe80_home:/home
-      - vibe80_workspaces:/workspaces
-      - vibe80_data:/var/lib/vibe80
+      - vibe80data:/var/lib/vibe80
 
 volumes:
-  vibe80_home:
-  vibe80_workspaces:
-  vibe80_data:
+  vibe80data:
