@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
 import app.vibe80.android.R
+import app.vibe80.android.Vibe80Application
 import app.vibe80.android.ui.components.CreateWorktreeSheet
 import app.vibe80.android.ui.components.DiffSheetContent
 import app.vibe80.android.ui.components.FileSheetContent
@@ -372,12 +373,14 @@ fun ChatScreen(
                         }
                     }
 
-                    // Logs button (debug)
-                    IconButton(onClick = viewModel::showLogsSheet) {
-                        Icon(
-                            imageVector = Icons.Default.BugReport,
-                            contentDescription = stringResource(R.string.logs_title_simple)
-                        )
+                    if (Vibe80Application.SHOW_LOGS_BUTTON) {
+                        // Logs button (debug)
+                        IconButton(onClick = viewModel::showLogsSheet) {
+                            Icon(
+                                imageVector = Icons.Default.BugReport,
+                                contentDescription = stringResource(R.string.logs_title_simple)
+                            )
+                        }
                     }
 
                     // Disconnect button
@@ -810,7 +813,7 @@ fun ChatScreen(
     }
 
     // Logs Sheet
-    if (uiState.showLogsSheet) {
+    if (Vibe80Application.SHOW_LOGS_BUTTON && uiState.showLogsSheet) {
         ModalBottomSheet(
             onDismissRequest = viewModel::hideLogsSheet,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
