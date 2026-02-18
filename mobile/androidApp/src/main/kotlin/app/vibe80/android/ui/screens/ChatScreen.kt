@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
@@ -378,14 +377,6 @@ fun ChatScreen(
                         Icon(
                             imageVector = Icons.Default.BugReport,
                             contentDescription = stringResource(R.string.logs_title_simple)
-                        )
-                    }
-
-                    // Refresh worktrees
-                    IconButton(onClick = viewModel::refreshWorktrees) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.worktree_refresh)
                         )
                     }
 
