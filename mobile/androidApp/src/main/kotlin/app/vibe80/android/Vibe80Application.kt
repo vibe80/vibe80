@@ -117,6 +117,6 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
     }
 
     companion object {
-        const val BASE_URL = "https://vibe80.lab.adho.app"
+        const val BASE_URL = "https://app.vibe80.io"
     }
 }
