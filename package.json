@@ -27,7 +27,8 @@
     "dev:server": "npm --workspace server run dev",
     "dev:client": "npm --workspace client run dev",
     "build": "npm --workspace client run build",
-    "start": "npm --workspace server run start"
+    "start": "npm --workspace server run start",
+    "prepack": "npm --workspace client run build"
   },
   "dependencies": {
     "concurrently": "^8.2.2"

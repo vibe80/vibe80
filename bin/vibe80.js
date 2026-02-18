@@ -40,21 +40,6 @@ const spawnProcess = (args, label, extraEnv = {}) => {
   return child;
 };
 
-const runBuild = () =>
-  new Promise((resolve, reject) => {
-    const build = spawnProcess(
-      ["--workspace", "client", "run", "build"],
-      "client build"
-    );
-    build.on("exit", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`Client build failed with exit code ${code}`));
-      }
-    });
-  });
-
 let server = null;
 
 let shuttingDown = false;
@@ -165,12 +150,7 @@ const startServer = () => {
   });
 };
 
-runBuild()
-  .then(() => startServer())
-  .catch((error) => {
-    console.error(`[vibe80] ${error.message || error}`);
-    shutdown(1);
-  });
+startServer();
 
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
