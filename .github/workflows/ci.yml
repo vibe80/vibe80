@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -132,6 +132,12 @@ jobs:
         with:
           name: vibe80-android-release-${{ github.ref_name }}
           path: mobile/androidApp/build/outputs/apk/release/*.apk
+      - name: Publish APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: mobile/androidApp/build/outputs/apk/release/*.apk
+          generate_release_notes: true
 
   build_image:
     runs-on: ubuntu-latest
