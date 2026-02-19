@@ -20,29 +20,54 @@ Vibe80 is an open-source, AI-assisted coding platform that orchestrates LLM agen
 
 At least one of `codex` or `claude code` must be installed before starting.
 
-## Quick start
 
-0. Clone this repo.
+## Quick Start (local)
 
-1. Install dependencies:
-   ```bash
-   npm install
-   # Optional global install:
-   # npm install -g .
-   ```
+```bash
+npm install -g @vibe80/vibe80
 
-2. Run:
-   ```bash
-   vibe80
-   ```
+# Run with Codex support
+vibe80 --codex
 
-3. A one-shot authentication link is printed to the console — open it to be automatically logged in.
-   - The server starts on http://localhost:5179
+# Run with Claude support
+vibe80 --claude
+```
 
+The server starts on `http://localhost:5179` and prints a one-shot authentication link at startup.
 
-## Docker installation
+## Docker
 
-TODO
+### Docker with Codex
+
+```bash
+docker run \
+  -e DEPLOYMENT_MODE=mono_user \
+  -e VIBE80_MONO_ENABLE_CODEX=true \
+  -v vibe80home:/home/vibe80 \
+  -p 5179:5179 \
+  vibe80/vibe80
+```
+
+### Docker with Claude
+
+```bash
+docker run --rm -it \
+  -e DEPLOYMENT_MODE=mono_user \
+  -e VIBE80_MONO_ENABLE_CLAUDE=true \
+  -v vibe80home:/home/vibe80 \
+  -v $(realpath $(which claude)):/usr/bin/claude \
+  -p 5179:5179 \
+  vibe80/vibe80
+```
+
+## Mobile apps
+
+- Android APK: https://github.com/vibe80/vibe80/releases
+- iOS app: coming soon
+
+## Documentation
+
+Full documentation: https://vibe80.io/docs
 
 ## License
 
