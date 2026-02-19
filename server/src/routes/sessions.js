@@ -33,7 +33,6 @@ import {
   clearWorktreeMessages,
 } from "../worktreeManager.js";
 
-const terminalEnabled = /^(1|true|yes|on)$/i.test(process.env.TERMINAL_ENABLED || "1");
 const instanceHostname = process.env.HOSTNAME || os.hostname();
 
 export default function sessionRoutes(deps) {
@@ -43,6 +42,7 @@ export default function sessionRoutes(deps) {
     attachClaudeEvents,
     getActiveClient,
     deploymentMode,
+    terminalEnabled,
   } = deps;
 
   const router = Router();

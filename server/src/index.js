@@ -4,7 +4,6 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
-import * as pty from "node-pty";
 import rateLimit from "express-rate-limit";
 import storage from "./storage/index.js";
 import {
@@ -102,9 +101,23 @@ if (trustProxySetting !== undefined) {
     }
   }
 }
-const terminalEnabled = !/^(0|false|no|off)$/i.test(
+const terminalRequested = !/^(0|false|no|off)$/i.test(
   process.env.TERMINAL_ENABLED || ""
 );
+let pty = null;
+let terminalAvailable = false;
+if (terminalRequested) {
+  try {
+    const ptyModule = await import("node-pty");
+    pty = ptyModule;
+    terminalAvailable = true;
+  } catch (error) {
+    console.warn(
+      `[warn] Terminal disabled: node-pty is unavailable (${error?.message || error}).`
+    );
+  }
+}
+const terminalEnabled = terminalRequested && terminalAvailable;
 const allowRunSlashCommand = !/^(0|false|no|off)$/i.test(
   process.env.ALLOW_RUN_SLASH_COMMAND || ""
 );
@@ -205,6 +218,7 @@ const routeDeps = {
   attachClaudeEventsForWorktree,
   deploymentMode,
   debugApiWsLog,
+  terminalEnabled,
 };
 
 app.use("/api/v1", healthRoutes({
