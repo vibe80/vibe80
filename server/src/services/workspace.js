@@ -16,6 +16,8 @@ const isMonoUser = deploymentMode === "mono_user";
 const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
 const workspaceRootBase = process.env.WORKSPACE_ROOT_DIRECTORY || "/workspaces";
 const workspaceRootName = "vibe80_workspace";
+const monoUserWorkspaceDir =
+  process.env.MONO_USER_WORKSPACE_DIR || path.join(os.homedir(), workspaceRootName);
 const workspaceSessionsDirName = "sessions";
 const rootHelperPath = process.env.VIBE80_ROOT_HELPER || "/usr/local/bin/vibe80-root";
 const sudoPath = process.env.VIBE80_SUDO_PATH || "sudo";
@@ -37,7 +39,7 @@ const runRootCommand = (args, options = {}) => {
 export const getWorkspacePaths = (workspaceId) => {
   const home = isMonoUser ? os.homedir() : path.join(workspaceHomeBase, workspaceId);
   const root = isMonoUser
-    ? path.join(home, workspaceRootName)
+    ? monoUserWorkspaceDir
     : path.join(workspaceRootBase, workspaceId);
   const sessionsDir = path.join(root, workspaceSessionsDirName);
   return {

@@ -8,6 +8,8 @@ const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
 const DEPLOYMENT_MODE = process.env.DEPLOYMENT_MODE;
 const IS_MONO_USER = DEPLOYMENT_MODE === "mono_user";
 const WORKSPACE_ROOT_DIRECTORY = process.env.WORKSPACE_ROOT_DIRECTORY || "/workspaces";
+const MONO_USER_WORKSPACE_DIR =
+  process.env.MONO_USER_WORKSPACE_DIR || path.join(os.homedir(), "vibe80_workspace");
 const ALLOWED_ENV_KEYS = new Set([
   "GIT_SSH_COMMAND",
   "GIT_CONFIG_GLOBAL",
@@ -151,7 +153,7 @@ export const getWorkspaceHome = (workspaceId) => {
 
 export const getWorkspaceRoot = (workspaceId) =>
   (IS_MONO_USER
-    ? path.join(os.homedir(), "vibe80_workspace")
+    ? MONO_USER_WORKSPACE_DIR
     : path.join(WORKSPACE_ROOT_DIRECTORY, workspaceId));
 
 const validateCwd = (workspaceId, cwd) => {
