@@ -9,6 +9,8 @@ val androidKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
 val androidKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
 val androidKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
 val androidKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+val androidVersionNameFromEnv = System.getenv("ANDROID_VERSION_NAME")?.trim()?.removePrefix("v")
+val androidVersionCodeFromEnv = System.getenv("ANDROID_VERSION_CODE")?.trim()?.toIntOrNull()
 val hasReleaseSigningEnv =
     !androidKeystorePath.isNullOrBlank() &&
     !androidKeystorePassword.isNullOrBlank() &&
@@ -23,8 +25,8 @@ android {
         applicationId = "app.vibe80.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = androidVersionCodeFromEnv ?: 1
+        versionName = androidVersionNameFromEnv ?: "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

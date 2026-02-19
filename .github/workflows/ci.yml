@@ -116,6 +116,18 @@ jobs:
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
           chmod 600 release.keystore
+      - name: Compute Android version from tag
+        id: android_version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          if ! [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag format for Android versioning: $GITHUB_REF_NAME (expected vMAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG"
+          VERSION_CODE=$((10#$MAJOR * 10000 + 10#$MINOR * 100 + 10#$PATCH))
+          echo "version_name=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
       - name: Build signed release APK
         working-directory: mobile
         env:
@@ -123,6 +135,8 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_NAME: ${{ steps.android_version.outputs.version_name }}
+          ANDROID_VERSION_CODE: ${{ steps.android_version.outputs.version_code }}
         run: |
           yes | sdkmanager --licenses || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
