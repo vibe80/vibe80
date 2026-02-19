@@ -23,3 +23,7 @@
 
 # Keep shared module models
 -keep class app.vibe80.shared.models.** { *; }
+
+# R8 release: optional JVM-only classes referenced by some libs (safe to ignore on Android)
+-dontwarn java.lang.management.**
+-dontwarn org.slf4j.impl.StaticLoggerBinder
