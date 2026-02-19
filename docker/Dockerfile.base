@@ -52,7 +52,7 @@ COPY --from=helper-builder /out/vibe80-root /usr/local/bin/vibe80-root
 COPY --from=helper-builder /out/vibe80-run-as /usr/local/bin/vibe80-run-as
 COPY docker/vibe80.sudoers /etc/sudoers.d/vibe80
 
-RUN useradd -m -d /var/lib/vibe80 -s /bin/bash vibe80 \
+RUN useradd -m -d /home/vibe80 -s /bin/bash vibe80 \
     && mkdir -p /var/lib/vibe80 \
     && mkdir -p /home/vibe80 \
     && chown -R vibe80:vibe80 /var/lib/vibe80 /home/vibe80 \
