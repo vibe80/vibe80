@@ -60,6 +60,8 @@ docker run --rm -it \
   vibe80/vibe80
 ```
 
+> Unlike Codex (Apache-2.0), Claude Code is proprietary and cannot be distributed in the image. That is why the host Claude binary is mounted into the container.
+
 ## Mobile apps
 
 - Android APK: https://github.com/vibe80/vibe80/releases
