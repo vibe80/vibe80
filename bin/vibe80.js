@@ -19,6 +19,9 @@ const defaultEnv = {
 };
 const deploymentMode = process.env.DEPLOYMENT_MODE || defaultEnv.DEPLOYMENT_MODE;
 const serverPort = process.env.PORT || "5179";
+const cliArgs = process.argv.slice(2);
+const enableCodexFromCli = cliArgs.includes("--codex");
+const enableClaudeFromCli = cliArgs.includes("--claude");
 
 const spawnProcess = (cmd, args, label, extraEnv = {}) => {
   const child = spawn(cmd, args, {
@@ -127,11 +130,21 @@ const shutdown = (code = 0) => {
 
 const startServer = () => {
   unlinkMonoAuthUrlFile();
+  const monoProviderEnv = {};
+  if (enableCodexFromCli) {
+    monoProviderEnv.VIBE80_MONO_ENABLE_CODEX = "true";
+  }
+  if (enableClaudeFromCli) {
+    monoProviderEnv.VIBE80_MONO_ENABLE_CLAUDE = "true";
+  }
   server = spawnProcess(
     process.execPath,
     ["server/src/index.js"],
     "server",
-    { VIBE80_MONO_AUTH_URL_FILE: monoAuthUrlFile }
+    {
+      VIBE80_MONO_AUTH_URL_FILE: monoAuthUrlFile,
+      ...monoProviderEnv,
+    }
   );
   void maybeOpenMonoAuthUrl();
 

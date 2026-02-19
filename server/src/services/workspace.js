@@ -765,14 +765,12 @@ export const ensureDefaultMonoWorkspace = async () => {
     return;
   }
   const workspaceId = "default";
+  const enabledProviders = getMonoEnabledProvidersFromEnv();
   await ensureWorkspaceDirs(workspaceId);
   const ids = await getWorkspaceUserIds(workspaceId);
   const existing = await storage.getWorkspace(workspaceId);
   if (!existing) {
-    const providers = {
-      codex: { enabled: true, auth: null },
-      claude: { enabled: true, auth: null },
-    };
+    const providers = applyMonoEnabledProviders({}, enabledProviders);
     await persistWorkspaceRecord({
       workspaceId,
       providers,
@@ -781,11 +779,68 @@ export const ensureDefaultMonoWorkspace = async () => {
       existing: null,
     });
     await appendAuditLog(workspaceId, "workspace_created");
+    return;
   }
+  const providers = applyMonoEnabledProviders(existing.providers || {}, enabledProviders);
+  await persistWorkspaceRecord({
+    workspaceId,
+    providers,
+    ids,
+    existing,
+  });
+  await appendAuditLog(workspaceId, "workspace_providers_activation_updated", {
+    codexEnabled: providers.codex?.enabled ?? false,
+    claudeEnabled: providers.claude?.enabled ?? false,
+  });
 };
 
 const readEnvValue = (name) =>
   typeof process.env[name] === "string" ? process.env[name].trim() : "";
+
+const parseMonoEnableEnv = (name) => {
+  const raw = process.env[name];
+  if (typeof raw !== "string") {
+    return false;
+  }
+  const value = raw.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(value)) {
+    return true;
+  }
+  if (["0", "false", "no", "off", ""].includes(value)) {
+    return false;
+  }
+  throw new Error(
+    `Invalid ${name} value \"${raw}\". Use one of: true/false, 1/0, yes/no, on/off.`
+  );
+};
+
+const getMonoEnabledProvidersFromEnv = () => {
+  const codexEnabled = parseMonoEnableEnv("VIBE80_MONO_ENABLE_CODEX");
+  const claudeEnabled = parseMonoEnableEnv("VIBE80_MONO_ENABLE_CLAUDE");
+  if (!codexEnabled && !claudeEnabled) {
+    throw new Error(
+      "In mono_user mode, enable at least one provider via --codex/--claude or VIBE80_MONO_ENABLE_CODEX/VIBE80_MONO_ENABLE_CLAUDE."
+    );
+  }
+  return { codexEnabled, claudeEnabled };
+};
+
+const applyMonoEnabledProviders = (providers = {}, enabledConfig) => {
+  const { codexEnabled, claudeEnabled } = enabledConfig;
+  const codexPrev = providers?.codex && typeof providers.codex === "object" ? providers.codex : {};
+  const claudePrev = providers?.claude && typeof providers.claude === "object" ? providers.claude : {};
+  return {
+    ...providers,
+    codex: {
+      enabled: Boolean(codexEnabled),
+      auth: codexPrev.auth || null,
+    },
+    claude: {
+      enabled: Boolean(claudeEnabled),
+      auth: claudePrev.auth || null,
+    },
+  };
+};
 
 const buildMonoUserProviderOverridesFromEnv = () => {
   const codexApiKey = readEnvValue("CODEX_API_KEY");
@@ -814,7 +869,6 @@ const buildMonoUserProviderOverridesFromEnv = () => {
         const decoded = decodeBase64(codexAuthJsonB64);
         validateCodexAuthJson(decoded);
         overrides.codex = {
-          enabled: true,
           auth: { type: "auth_json_b64", value: codexAuthJsonB64 },
         };
       } catch {
@@ -825,7 +879,6 @@ const buildMonoUserProviderOverridesFromEnv = () => {
     }
   } else if (codexApiKey) {
     overrides.codex = {
-      enabled: true,
       auth: { type: "api_key", value: codexApiKey },
     };
   }
@@ -842,13 +895,11 @@ const buildMonoUserProviderOverridesFromEnv = () => {
       );
     } else {
       overrides.claude = {
-        enabled: true,
         auth: { type: "setup_token", value: claudeSetupToken },
       };
     }
   } else if (claudeApiKey) {
     overrides.claude = {
-      enabled: true,
       auth: { type: "api_key", value: claudeApiKey },
     };
   }
@@ -869,7 +920,25 @@ export const applyMonoUserProviderOverridesFromEnv = async () => {
   if (!existing) {
     return;
   }
-  const mergedProviders = mergeProvidersForUpdate(existing.providers || {}, overrides);
+  const activationConfig = getMonoEnabledProvidersFromEnv();
+  const mergedProviders = mergeProvidersForUpdate(existing.providers || {}, {
+    ...(overrides.codex
+      ? {
+          codex: {
+            enabled: activationConfig.codexEnabled,
+            auth: overrides.codex.auth,
+          },
+        }
+      : {}),
+    ...(overrides.claude
+      ? {
+          claude: {
+            enabled: activationConfig.claudeEnabled,
+            auth: overrides.claude.auth,
+          },
+        }
+      : {}),
+  });
   const ids = await getWorkspaceUserIds(workspaceId);
   await writeWorkspaceProviderAuth(workspaceId, mergedProviders);
   await persistWorkspaceRecord({
@@ -891,13 +960,18 @@ export const createWorkspace = async (providers) => {
   if (isMonoUser) {
     const workspaceId = "default";
     await ensureWorkspaceDirs(workspaceId);
+    const enabledProviders = getMonoEnabledProvidersFromEnv();
     const secret = "default";
     const ids = await getWorkspaceUserIds(workspaceId);
     const existing = await storage.getWorkspace(workspaceId);
-    await writeWorkspaceProviderAuth(workspaceId, providers);
+    const providersWithActivation = applyMonoEnabledProviders(
+      providers || existing?.providers || {},
+      enabledProviders
+    );
+    await writeWorkspaceProviderAuth(workspaceId, providersWithActivation);
     await persistWorkspaceRecord({
       workspaceId,
-      providers,
+      providers: providersWithActivation,
       ids,
       workspaceSecretHash: hashWorkspaceSecret(secret),
       existing,
