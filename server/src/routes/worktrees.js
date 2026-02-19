@@ -430,9 +430,20 @@ export default function worktreeRoutes(deps) {
 
     const isMainWorktree = worktreeId === "main";
     const runtime = getSessionRuntime(sessionId);
-    const client = isMainWorktree
+    let client = isMainWorktree
       ? getActiveClient(session)
       : runtime?.worktreeClients?.get(worktreeId);
+    if (isMainWorktree && !client) {
+      const provider = session.activeProvider === "claude" ? "claude" : "codex";
+      client = await getOrCreateClient(session, provider);
+      if (!client.listenerCount("ready")) {
+        if (provider === "claude") {
+          attachClaudeEvents(sessionId, client, provider);
+        } else {
+          attachClientEvents(sessionId, client, provider);
+        }
+      }
+    }
     if (!client?.ready) {
       const label = isMainWorktree
         ? worktree.provider === "claude"

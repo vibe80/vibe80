@@ -662,9 +662,20 @@ wss.on("connection", (socket, req) => {
           return;
         }
         const isMainWorktree = worktreeId === "main";
-        const client = isMainWorktree
+        let client = isMainWorktree
           ? getActiveClient(session)
           : runtime.worktreeClients.get(worktreeId);
+        if (isMainWorktree && !client) {
+          const provider = session.activeProvider === "claude" ? "claude" : "codex";
+          client = await getOrCreateClient(session, provider);
+          if (!client.listenerCount("ready")) {
+            if (provider === "claude") {
+              attachClaudeEvents(sessionId, client, provider);
+            } else {
+              attachClientEvents(sessionId, client, provider);
+            }
+          }
+        }
         if (!client?.ready) {
           const label = isMainWorktree
             ? getProviderLabel(session)
@@ -1143,6 +1154,20 @@ wss.on("connection", (socket, req) => {
             broadcastToSession(sessionId, {
               type: "error",
               message: "Codex app-server failed to start.",
+            });
+          });
+        }
+      } else if (session.activeProvider === "claude") {
+        const client = await getOrCreateClient(session, "claude");
+        if (!client.listenerCount("ready")) {
+          attachClaudeEvents(sessionId, client, "claude");
+        }
+        if (!client.ready && !client.activeProcess) {
+          client.start().catch((error) => {
+            console.error("Failed to restart Claude CLI:", error);
+            broadcastToSession(sessionId, {
+              type: "error",
+              message: "Claude CLI failed to start.",
             });
           });
         }
