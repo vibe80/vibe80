@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import sqlite3 from "sqlite3";
 
@@ -70,7 +71,8 @@ const all = (db, sql, params = []) =>
   });
 
 export const createSqliteStorage = () => {
-  const dbPath = process.env.SQLITE_PATH || "/var/lib/vibe80/base.sqlite";
+  const homeDir = process.env.HOME || os.homedir();
+  const dbPath = process.env.SQLITE_PATH || path.join(homeDir, "base.sqlite");
   const resolvedPath = path.resolve(dbPath);
   const dir = path.dirname(resolvedPath);
   fs.mkdirSync(dir, { recursive: true, mode: 0o750 });

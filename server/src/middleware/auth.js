@@ -1,9 +1,11 @@
 import crypto from "crypto";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import jwt from "jsonwebtoken";
 
-const jwtKeyPath = process.env.JWT_KEY_PATH || "/var/lib/vibe80/jwt.key";
+const homeDir = process.env.HOME || os.homedir();
+const jwtKeyPath = process.env.JWT_KEY_PATH || path.join(homeDir, "jwt.key");
 const jwtIssuer = process.env.JWT_ISSUER || "vibe80";
 const jwtAudience = process.env.JWT_AUDIENCE || "workspace";
 const accessTokenTtlSeconds =
