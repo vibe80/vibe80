@@ -5,6 +5,16 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+val androidKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val androidKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val androidKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+val androidKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+val hasReleaseSigningEnv =
+    !androidKeystorePath.isNullOrBlank() &&
+    !androidKeystorePassword.isNullOrBlank() &&
+    !androidKeyAlias.isNullOrBlank() &&
+    !androidKeyPassword.isNullOrBlank()
+
 android {
     namespace = "app.vibe80.android"
     compileSdk = 35
@@ -22,10 +32,29 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigningEnv) {
+                storeFile = file(androidKeystorePath!!)
+                storePassword = androidKeystorePassword
+                keyAlias = androidKeyAlias
+                keyPassword = androidKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            if (hasReleaseSigningEnv) {
+                signingConfig = signingConfigs.getByName("release")
+            } else if (gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }) {
+                throw GradleException(
+                    "Release signing is not configured. Missing one or more env vars: " +
+                        "ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
+                )
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
