@@ -5,8 +5,13 @@ services:
       - "5179:5179"
     environment:
       DEPLOYMENT_MODE: mono_user
+      VIBE80_MONO_ENABLE_CLAUDE: "true"
+      CLAUDE_API_KEY: "__TO__REPLACE__"
+      VIBE80_MONO_ENABLE_CODEX: "true"
+      CODEX_API_KEY: "__TO__REPLACE__"
     volumes:
-      - vibe80data:/var/lib/vibe80
+      - vibe80home:/home/vibe80
+      - /path/to/claude:/usr/bin/claude
 
 volumes:
-  vibe80data:
+  vibe80home:
