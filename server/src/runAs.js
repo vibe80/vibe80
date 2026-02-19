@@ -159,9 +159,15 @@ export const getWorkspaceRoot = (workspaceId) =>
 const validateCwd = (workspaceId, cwd) => {
   const resolved = path.resolve(cwd);
   const homeDir = getWorkspaceHome(workspaceId);
+  const workspaceRootDir = getWorkspaceRoot(workspaceId);
+  const inHome =
+    resolved === homeDir || resolved.startsWith(homeDir + path.sep);
+  const inWorkspaceRoot =
+    resolved === workspaceRootDir ||
+    resolved.startsWith(workspaceRootDir + path.sep);
   if (
-    resolved !== homeDir &&
-    !resolved.startsWith(homeDir + path.sep)
+    !inHome &&
+    !(IS_MONO_USER && inWorkspaceRoot)
   ) {
     throw new Error("cwd outside workspace");
   }
