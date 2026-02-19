@@ -48,7 +48,7 @@ export class ClaudeCliClient extends EventEmitter {
     this.tmpDir = tmpDir || null;
     this.sessionId = sessionId || null;
     this.worktreeId = worktreeId || "main";
-    this.ready = false;
+    this.ready = true;
     this.threadId = threadId || null;
     this.pendingForkFromThreadId = forkFromThreadId || null;
     this.modelInfo = null;
@@ -77,7 +77,6 @@ export class ClaudeCliClient extends EventEmitter {
       return;
     }
     this.activeProcess = null;
-    this.ready = false;
     const exitPromise = new Promise((resolve) => {
       proc.once("exit", resolve);
       proc.once("close", resolve);
@@ -223,6 +222,7 @@ export class ClaudeCliClient extends EventEmitter {
       cwd: isMonoUser ? this.cwd : undefined,
     });
     this.activeProcess = proc;
+    this.ready = false;
 
     proc.stdout.setEncoding("utf8");
     proc.stdout.on("data", (chunk) => {
@@ -264,6 +264,7 @@ export class ClaudeCliClient extends EventEmitter {
       if (this.activeProcess === proc) {
         this.activeProcess = null;
       }
+      this.ready = true;
       this.#flushLogBuffer("OUT", "stdoutLogBuffer");
       this.#flushLogBuffer("ERR", "stderrLogBuffer");
       this.providerLogger?.close?.();
