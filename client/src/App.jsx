@@ -2218,6 +2218,7 @@ function App() {
               "For subscription plans, use auth.json from the Codex CLI login (ChatGPT) or a long-lived token from `claude setup-token` (Claude)."
             ),
           ],
+          setupLink: true,
         }
       : showStep3
         ? {

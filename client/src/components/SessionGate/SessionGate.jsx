@@ -844,6 +844,18 @@ export default function SessionGate({
             {infoContent.paragraphs?.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
+            {infoContent.setupLink ? (
+              <p>
+                <a
+                  className="session-info-link"
+                  href="https://vibe80.io/docs/workspace-session-setup"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t("Click here to learn more.")}
+                </a>
+              </p>
+            ) : null}
             {infoContent.securityLink ? (
               <p>
                 {t(
@@ -851,7 +863,7 @@ export default function SessionGate({
                 )}
                 <a
                   className="session-info-link"
-                  href="https://vibe80.ai/security"
+                  href="https://vibe80.io/docs/sandboxing"
                   target="_blank"
                   rel="noreferrer"
                 >
