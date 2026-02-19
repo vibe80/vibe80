@@ -192,16 +192,25 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Compute tags
         id: vars
-        run: echo "short_sha=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "short_sha=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          TAGS="ghcr.io/vibe80/vibe80:${GITHUB_SHA::8}\nghcr.io/vibe80/vibe80:latest"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            TAGS="${TAGS}\nghcr.io/vibe80/vibe80:${GITHUB_REF_NAME}"
+          else
+            echo "version_tag=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ghcr_tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo -e "$TAGS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: ./docker/Dockerfile
           push: true
           cache-from: type=registry,ref=ghcr.io/vibe80/vibe80:latest
-          tags: |
-            ghcr.io/vibe80/vibe80:${{ steps.vars.outputs.short_sha }}
-            ghcr.io/vibe80/vibe80:latest
+          tags: ${{ steps.vars.outputs.ghcr_tags }}
 
   mirror_image_dockerhub:
     runs-on: ubuntu-latest
@@ -220,7 +229,13 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Compute tags
         id: vars
-        run: echo "short_sha=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "short_sha=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_tag=" >> "$GITHUB_OUTPUT"
+          fi
       - name: Mirror short SHA tag to Docker Hub
         run: |
           docker buildx imagetools create \
@@ -231,3 +246,9 @@ jobs:
           docker buildx imagetools create \
             -t docker.io/vibe80/vibe80:latest \
             ghcr.io/vibe80/vibe80:latest
+      - name: Mirror version tag to Docker Hub
+        if: steps.vars.outputs.version_tag != ''
+        run: |
+          docker buildx imagetools create \
+            -t docker.io/vibe80/vibe80:${{ steps.vars.outputs.version_tag }} \
+            ghcr.io/vibe80/vibe80:${{ steps.vars.outputs.version_tag }}
