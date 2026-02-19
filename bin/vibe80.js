@@ -14,9 +14,8 @@ const monoAuthUrlFile = path.join(
 );
 const defaultEnv = {
   DEPLOYMENT_MODE: "mono_user",
-  JWT_KEY_PATH: path.join(homeDir, ".vibe80", "jwt.key"),
+  VIBE80_DATA_DIRECTORY: path.join(homeDir, ".vibe80"),
   STORAGE_BACKEND: "sqlite",
-  SQLITE_PATH: path.join(homeDir, ".vibe80", "data.sqlite"),
 };
 const deploymentMode = process.env.DEPLOYMENT_MODE || defaultEnv.DEPLOYMENT_MODE;
 const serverPort = process.env.PORT || "5179";

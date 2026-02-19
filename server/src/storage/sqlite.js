@@ -72,7 +72,12 @@ const all = (db, sql, params = []) =>
 
 export const createSqliteStorage = () => {
   const homeDir = process.env.HOME || os.homedir();
-  const dbPath = process.env.SQLITE_PATH || path.join(homeDir, "base.sqlite");
+  const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
+  const defaultDataDirectory = isMonoUser
+    ? path.join(homeDir, ".vibe80")
+    : "/var/lib/vibe80";
+  const dataDirectory = process.env.VIBE80_DATA_DIRECTORY || defaultDataDirectory;
+  const dbPath = process.env.SQLITE_PATH || path.join(dataDirectory, "base.sqlite");
   const resolvedPath = path.resolve(dbPath);
   const dir = path.dirname(resolvedPath);
   fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
