@@ -45,6 +45,7 @@ import {
 } from "./services/auth.js";
 import {
   ensureDefaultMonoWorkspace,
+  applyMonoUserProviderOverridesFromEnv,
   isMonoUser,
   getWorkspacePaths,
   getWorkspaceSshPaths,
@@ -154,6 +155,7 @@ const sudoPath = process.env.VIBE80_SUDO_PATH || "sudo";
 
 await storage.init();
 await ensureDefaultMonoWorkspace();
+await applyMonoUserProviderOverridesFromEnv();
 
 // ---------------------------------------------------------------------------
 // Middleware pipeline

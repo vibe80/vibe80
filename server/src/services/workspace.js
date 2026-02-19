@@ -782,6 +782,105 @@ export const ensureDefaultMonoWorkspace = async () => {
   }
 };
 
+const readEnvValue = (name) =>
+  typeof process.env[name] === "string" ? process.env[name].trim() : "";
+
+const buildMonoUserProviderOverridesFromEnv = () => {
+  const codexApiKey = readEnvValue("CODEX_API_KEY");
+  const codexAuthJsonB64Raw = process.env.CODEX_AUTH_JSON_B64;
+  const hasCodexAuthJsonB64 = typeof codexAuthJsonB64Raw === "string";
+  const codexAuthJsonB64 = hasCodexAuthJsonB64 ? codexAuthJsonB64Raw.trim() : "";
+  const claudeApiKey = readEnvValue("CLAUDE_API_KEY");
+  const claudeSetupTokenRaw = process.env.CLAUDE_SETUP_TOKEN;
+  const hasClaudeSetupToken = typeof claudeSetupTokenRaw === "string";
+  const claudeSetupToken = hasClaudeSetupToken ? claudeSetupTokenRaw.trim() : "";
+
+  const overrides = {};
+
+  if (codexApiKey && hasCodexAuthJsonB64) {
+    console.warn(
+      "[warn] Both CODEX_API_KEY and CODEX_AUTH_JSON_B64 are set; using CODEX_AUTH_JSON_B64."
+    );
+  }
+  if (hasCodexAuthJsonB64) {
+    if (!codexAuthJsonB64) {
+      console.warn(
+        "[warn] Invalid CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
+      );
+    } else {
+      try {
+        const decoded = decodeBase64(codexAuthJsonB64);
+        validateCodexAuthJson(decoded);
+        overrides.codex = {
+          enabled: true,
+          auth: { type: "auth_json_b64", value: codexAuthJsonB64 },
+        };
+      } catch {
+        console.warn(
+          "[warn] Invalid CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
+        );
+      }
+    }
+  } else if (codexApiKey) {
+    overrides.codex = {
+      enabled: true,
+      auth: { type: "api_key", value: codexApiKey },
+    };
+  }
+
+  if (claudeApiKey && hasClaudeSetupToken) {
+    console.warn(
+      "[warn] Both CLAUDE_API_KEY and CLAUDE_SETUP_TOKEN are set; using CLAUDE_SETUP_TOKEN."
+    );
+  }
+  if (hasClaudeSetupToken) {
+    if (!claudeSetupToken) {
+      console.warn(
+        "[warn] Invalid CLAUDE_SETUP_TOKEN detected; ignoring claude preprovisioning."
+      );
+    } else {
+      overrides.claude = {
+        enabled: true,
+        auth: { type: "setup_token", value: claudeSetupToken },
+      };
+    }
+  } else if (claudeApiKey) {
+    overrides.claude = {
+      enabled: true,
+      auth: { type: "api_key", value: claudeApiKey },
+    };
+  }
+
+  return overrides;
+};
+
+export const applyMonoUserProviderOverridesFromEnv = async () => {
+  if (!isMonoUser) {
+    return;
+  }
+  const overrides = buildMonoUserProviderOverridesFromEnv();
+  if (Object.keys(overrides).length === 0) {
+    return;
+  }
+  const workspaceId = "default";
+  const existing = await storage.getWorkspace(workspaceId);
+  if (!existing) {
+    return;
+  }
+  const mergedProviders = mergeProvidersForUpdate(existing.providers || {}, overrides);
+  const ids = await getWorkspaceUserIds(workspaceId);
+  await writeWorkspaceProviderAuth(workspaceId, mergedProviders);
+  await persistWorkspaceRecord({
+    workspaceId,
+    providers: mergedProviders,
+    ids,
+    existing,
+  });
+  await appendAuditLog(workspaceId, "workspace_providers_preprovisioned_from_env", {
+    providers: Object.keys(overrides),
+  });
+};
+
 export const createWorkspace = async (providers) => {
   const validationError = validateProvidersConfig(providers);
   if (validationError) {
