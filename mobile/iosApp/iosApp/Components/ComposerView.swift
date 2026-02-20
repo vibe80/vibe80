@@ -154,7 +154,7 @@ struct ComposerView: View {
         }
     }
 
-    private func actionModeButton(_ mode: ComposerActionMode, title: String) -> some View {
+    private func actionModeButton(_ mode: ComposerActionMode, title: LocalizedStringKey) -> some View {
         Button {
             onSelectActionMode(mode)
         } label: {

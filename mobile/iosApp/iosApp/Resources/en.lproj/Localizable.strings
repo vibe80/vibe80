@@ -15,6 +15,8 @@
 "action.resume" = "Resume";
 "action.resume.progress" = "Resuming...";
 "action.send" = "Send";
+"action.yes" = "Yes";
+"action.no" = "No";
 "app.name" = "Vibe80";
 "attachment.default_name" = "attachment";
 "auth.http" = "HTTP";
@@ -71,9 +73,14 @@
 "error.title" = "Error";
 "error.turn" = "Error processing request";
 "error.unknown" = "An unexpected error occurred";
+"error.provider_switch" = "Failed to switch provider";
+"error.upload" = "Failed to upload";
 "error.upload_attachment" = "Failed to upload file";
 "error.websocket" = "WebSocket connection error";
+"error.worktree" = "Worktree error";
+"file.binary" = "Binary file";
 "file.binary_unavailable" = "Binary file cannot be displayed.";
+"file.loading" = "Loading file...";
 "file.title" = "File";
 "file.truncated" = "Display truncated.";
 "loading" = "Loading...";
@@ -128,6 +135,7 @@
 "session.start.new" = "Start a new session";
 "session.start.title" = "Start a session";
 "session.title" = "New Session";
+"sessions.loading" = "Loading sessions...";
 "sessions.recent" = "Recent sessions";
 "status.connected" = "Connected";
 "status.disconnected" = "Disconnected";
