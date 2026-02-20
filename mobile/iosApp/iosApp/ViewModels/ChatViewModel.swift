@@ -120,16 +120,16 @@ class ChatViewModel: ObservableObject {
 
     // Flow subscriptions
     private var messagesWrapper: FlowWrapper<NSArray>?
-    private var streamingMessageWrapper: FlowWrapper<NSString?>?
+    private var streamingMessageWrapper: FlowWrapper<NSString>?
     private var processingWrapper: FlowWrapper<KotlinBoolean>?
     private var connectionStateWrapper: FlowWrapper<ConnectionState>?
-    private var sessionStateWrapper: FlowWrapper<SessionState?>?
-    private var repoDiffWrapper: FlowWrapper<RepoDiff?>?
+    private var sessionStateWrapper: FlowWrapper<SessionState>?
+    private var repoDiffWrapper: FlowWrapper<RepoDiff>?
     private var worktreesWrapper: FlowWrapper<NSDictionary>?
     private var worktreeMessagesWrapper: FlowWrapper<NSDictionary>?
     private var worktreeStreamingWrapper: FlowWrapper<NSDictionary>?
     private var worktreeProcessingWrapper: FlowWrapper<NSDictionary>?
-    private var errorWrapper: FlowWrapper<AppError?>?
+    private var errorWrapper: FlowWrapper<AppError>?
     private var fileCall: SuspendWrapper<AnyObject>?
     private var sessionListCall: SuspendWrapper<AnyObject>?
 
@@ -184,7 +184,8 @@ class ChatViewModel: ObservableObject {
 
         // Subscribe to session state for provider
         sessionStateWrapper = FlowWrapper(flow: repository.sessionState)
-        sessionStateWrapper?.subscribe { [weak self] state in
+        sessionStateWrapper?.subscribe { [weak self] rawState in
+            let state = rawState as? SessionState
             if let activeProvider = state?.activeProvider {
                 self?.activeProvider = activeProvider
             }
@@ -192,8 +193,8 @@ class ChatViewModel: ObservableObject {
 
         // Subscribe to repo diff
         repoDiffWrapper = FlowWrapper(flow: repository.repoDiff)
-        repoDiffWrapper?.subscribe { [weak self] diff in
-            self?.repoDiff = diff
+        repoDiffWrapper?.subscribe { [weak self] rawDiff in
+            self?.repoDiff = rawDiff as? RepoDiff
         }
 
         // Subscribe to worktrees
@@ -230,7 +231,8 @@ class ChatViewModel: ObservableObject {
 
         // Subscribe to errors (P2.1)
         errorWrapper = FlowWrapper(flow: repository.lastError)
-        errorWrapper?.subscribe { [weak self] error in
+        errorWrapper?.subscribe { [weak self] rawError in
+            let error = rawError as? AppError
             // Skip TURN_ERROR — logged but not shown to user (matching Android)
             if let error, error.type == .turnError {
                 return
