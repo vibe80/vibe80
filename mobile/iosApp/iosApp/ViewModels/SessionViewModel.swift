@@ -486,7 +486,7 @@ class SessionViewModel: ObservableObject {
 
         Task { [weak self] in
             do {
-                let listResponse = try await repository.listSessionsOrThrow()
+                let listResponse = try await repository.listSessionsOrEmpty()
                 guard let self = self else { return }
                 self.workspaceSessions = listResponse.sessions
                 self.sessionsLoading = false

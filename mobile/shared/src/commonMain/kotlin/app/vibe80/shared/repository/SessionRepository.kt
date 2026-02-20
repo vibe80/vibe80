@@ -812,6 +812,21 @@ class SessionRepository(
         return listSessions().getOrElse { throw it }
     }
 
+    /**
+     * iOS-safe helper: never throws to Swift bridge.
+     * Returns an empty list when API call fails.
+     */
+    suspend fun listSessionsOrEmpty(): SessionListResponse {
+        return listSessions().getOrElse { error ->
+            AppLogger.error(
+                LogSource.APP,
+                "listSessionsOrEmpty failed",
+                error.message ?: error.toString()
+            )
+            SessionListResponse()
+        }
+    }
+
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
         AppLogger.info(LogSource.APP, "SessionRepository.sendMessage called", "text='$text', attachments=${attachments.size}, connectionState=${connectionState.value}")
 
