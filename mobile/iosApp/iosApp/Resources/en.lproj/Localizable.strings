@@ -165,6 +165,13 @@
 "worktree.done" = "done";
 "worktree.menu" = "Menu";
 "worktree.merge_to_main" = "Merge into main";
+"worktree.status.creating" = "Creating";
+"worktree.status.processing" = "Processing";
+"worktree.status.merging" = "Merging";
+"worktree.status.merge_conflict" = "Merge conflict";
+"worktree.status.error" = "Error";
+"worktree.status.completed" = "Completed";
+"worktree.status.main" = "Main worktree";
 "worktree.name.count" = "%d/32 characters";
 "worktree.name.label" = "Name";
 "worktree.name.optional_label" = "Name (optional)";
