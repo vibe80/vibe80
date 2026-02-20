@@ -58,6 +58,7 @@ class ChatViewModel: ObservableObject {
 
     // Upload progress (P2.6)
     @Published var uploadingAttachments = false
+    @Published var pendingAttachments: [PendingAttachment] = []
 
     // Computed properties
     var hasUncommittedChanges: Bool {
@@ -117,6 +118,7 @@ class ChatViewModel: ObservableObject {
     // Private
     private var sessionId: String?
     private weak var appState: AppState?
+    private var attachmentUploader: AttachmentUploader?
 
     // Flow subscriptions
     private var messagesWrapper: FlowWrapper<NSArray>?
@@ -159,6 +161,9 @@ class ChatViewModel: ObservableObject {
 
     func setup(appState: AppState) {
         self.appState = appState
+        if let baseUrl = appState.dependencies?.apiClient?.getBaseUrl() {
+            attachmentUploader = AttachmentUploader(baseUrl: baseUrl)
+        }
         subscribeToFlows()
     }
 
@@ -341,14 +346,28 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - Messages
 
+    func addPendingAttachment(_ attachment: PendingAttachment) {
+        pendingAttachments.append(attachment)
+    }
+
+    func removePendingAttachment(_ attachment: PendingAttachment) {
+        pendingAttachments.removeAll { $0.id == attachment.id }
+    }
+
+    private func clearPendingAttachments() {
+        pendingAttachments.removeAll()
+    }
+
     func sendMessage() {
-        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let repository = appState?.sessionRepository else { return }
+        guard !trimmedText.isEmpty || !pendingAttachments.isEmpty else { return }
+
+        inputText = ""
 
         if activeActionMode != .llm {
-            guard !text.isEmpty else { return }
+            guard !trimmedText.isEmpty else { return }
             let worktreeId = activeWorktreeId
-            inputText = ""
             actionModeByWorktree[worktreeId] = .llm
             let request = activeActionMode == .git ? "git" : "run"
             Task {
@@ -356,7 +375,7 @@ class ChatViewModel: ObservableObject {
                     try await repository.sendActionRequest(
                         worktreeId: worktreeId,
                         request: request,
-                        arg: text
+                        arg: trimmedText
                     )
                 } catch {
                     repository.reportError(
@@ -371,18 +390,19 @@ class ChatViewModel: ObservableObject {
             return
         }
 
-        guard !text.isEmpty else { return }
-
-        inputText = ""
+        if !pendingAttachments.isEmpty {
+            sendMessageWithAttachments(text: trimmedText, repository: repository)
+            return
+        }
 
         Task {
             do {
                 if activeWorktreeId == "main" {
-                    try await repository.sendMessage(text: text, attachments: [])
+                    try await repository.sendMessage(text: trimmedText, attachments: [])
                 } else {
                     try await repository.sendWorktreeMessage(
                         worktreeId: activeWorktreeId,
-                        text: text,
+                        text: trimmedText,
                         attachments: []
                     )
                 }
@@ -398,37 +418,90 @@ class ChatViewModel: ObservableObject {
         }
     }
 
-    func sendMessageWithAttachments(_ attachments: [Attachment]) {
-        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let repository = appState?.sessionRepository else { return }
+    private func sendMessageWithAttachments(text: String, repository: SessionRepository) {
+        guard !pendingAttachments.isEmpty else { return }
+        guard let sessionId else {
+            repository.reportError(
+                error: AppError.companion.upload(
+                    message: "Session non disponible",
+                    details: nil,
+                    canRetry: true
+                )
+            )
+            return
+        }
+        guard let uploader = attachmentUploader else {
+            repository.reportError(
+                error: AppError.companion.upload(
+                    message: "Impossible d'uploader les pièces jointes pour le moment.",
+                    details: nil,
+                    canRetry: true
+                )
+            )
+            return
+        }
 
-        inputText = ""
+        let attachmentsToUpload = pendingAttachments
+        clearPendingAttachments()
         uploadingAttachments = true
 
-        let currentWorktreeId = activeWorktreeId
         Task { [weak self] in
+            guard let self = self else { return }
             do {
-                if currentWorktreeId == "main" {
-                    try await repository.sendMessage(text: text, attachments: attachments)
+                let uploadedAttachments = try await uploader.uploadAttachments(
+                    sessionId: sessionId,
+                    attachments: attachmentsToUpload
+                )
+                let suffix = self.buildAttachmentsSuffix(paths: uploadedAttachments.map { $0.path })
+                let textWithSuffix = text + suffix
+                if self.activeWorktreeId == "main" {
+                    try await repository.sendMessage(text: textWithSuffix, attachments: uploadedAttachments)
                 } else {
                     try await repository.sendWorktreeMessage(
-                        worktreeId: currentWorktreeId,
-                        text: text,
-                        attachments: attachments
+                        worktreeId: self.activeWorktreeId,
+                        text: textWithSuffix,
+                        attachments: uploadedAttachments
                     )
                 }
-                self?.uploadingAttachments = false
+                self.uploadingAttachments = false
             } catch {
-                self?.uploadingAttachments = false
+                self.uploadingAttachments = false
                 repository.reportError(
                     error: AppError.companion.upload(
-                        message: self?.errorMessage(error) ?? String(describing: error),
+                        message: self.errorMessage(error),
                         details: nil,
                         canRetry: true
                     )
                 )
             }
         }
+    }
+
+    private func buildAttachmentsSuffix(paths: [String]) -> String {
+        guard !paths.isEmpty else { return "" }
+        let joined = paths.map { "\"\(escapeJson($0))\"" }.joined(separator: ", ")
+        return ";; attachments: [\(joined)]"
+    }
+
+    private func escapeJson(_ value: String) -> String {
+        var result = ""
+        value.forEach { ch in
+            switch ch {
+            case "\\":
+                result.append("\\\\")
+            case "\"":
+                result.append("\\\"")
+            case "\n":
+                result.append("\\n")
+            case "\r":
+                result.append("\\r")
+            case "\t":
+                result.append("\\t")
+            default:
+                result.append(ch)
+            }
+        }
+        return result
     }
 
     // MARK: - Provider
