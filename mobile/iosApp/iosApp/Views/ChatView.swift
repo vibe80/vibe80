@@ -308,9 +308,9 @@ struct ChatView: View {
             return savedUrl
         }
         #if DEBUG
-        return "http://localhost:3000"
+        return "https://app.vibe80.io"
         #else
-        return "https://vibe80.example.com"
+        return "https://app.vibe80.io"
         #endif
     }
 
