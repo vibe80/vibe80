@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-import shared
+import Shared
 
 struct ChatView: View {
     let sessionId: String

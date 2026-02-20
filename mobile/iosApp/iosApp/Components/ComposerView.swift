@@ -1,7 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
-import shared
+import Shared
 
 struct ComposerView: View {
     @Binding var text: String
