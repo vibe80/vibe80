@@ -4,6 +4,7 @@ import Shared
 
 @MainActor
 class SessionViewModel: ObservableObject {
+    static let debugErrorsFlagKey = "vibe80_debug_errors"
     @Published var entryScreen: EntryScreen = .workspaceMode
     @Published var workspaceMode: WorkspaceMode = .existing
     @Published var providerConfigMode: ProviderConfigMode = .create
@@ -52,6 +53,36 @@ class SessionViewModel: ObservableObject {
             return kotlinError.message ?? String(describing: kotlinError)
         }
         return (error as NSError).localizedDescription
+    }
+
+    private func debugErrorDetails(_ context: String, _ error: Error) -> String {
+        let base = errorMessage(error)
+        #if DEBUG
+        guard isDebugErrorsEnabled else { return base }
+        let typeInfo = String(describing: type(of: error))
+        if let kotlinError = error as? KotlinThrowable {
+            let cause = kotlinError.cause?.message ?? "nil"
+            let details = "[\(context)] type=\(typeInfo), message=\(kotlinError.message ?? "nil"), cause=\(cause)"
+            print("❌ \(details)")
+            return "\(base) [\(typeInfo)]"
+        }
+        let details = "[\(context)] type=\(typeInfo), message=\(base)"
+        print("❌ \(details)")
+        return "\(base) [\(typeInfo)]"
+        #else
+        return base
+        #endif
+    }
+
+    private var isDebugErrorsEnabled: Bool {
+        #if DEBUG
+        if let env = ProcessInfo.processInfo.environment["VIBE80_DEBUG_ERRORS"]?.lowercased() {
+            return env == "1" || env == "true" || env == "yes"
+        }
+        return UserDefaults.standard.bool(forKey: Self.debugErrorsFlagKey)
+        #else
+        return false
+        #endif
     }
 
     private func requireValue<T>(_ value: Any?, as type: T.Type, context: String) throws -> T {
@@ -245,7 +276,7 @@ class SessionViewModel: ObservableObject {
                     self.entryScreen = .workspaceCreated
                 } catch {
                     self?.workspaceBusy = false
-                    self?.workspaceError = self?.errorMessage(error)
+                    self?.workspaceError = self?.debugErrorDetails("createWorkspace", error)
                 }
             }
         } else {
@@ -264,7 +295,7 @@ class SessionViewModel: ObservableObject {
                     self?.entryScreen = .joinSession
                 } catch {
                     self?.workspaceBusy = false
-                    self?.workspaceError = self?.errorMessage(error)
+                    self?.workspaceError = self?.debugErrorDetails("updateWorkspace", error)
                 }
             }
         }
@@ -315,7 +346,7 @@ class SessionViewModel: ObservableObject {
                 }
             } catch {
                 self?.workspaceBusy = false
-                self?.workspaceError = self?.errorMessage(error)
+                self?.workspaceError = self?.debugErrorDetails("loginWorkspace", error)
             }
         }
     }
@@ -426,7 +457,7 @@ class SessionViewModel: ObservableObject {
                 self.loadingState = .none
                 appState.setSession(sessionId: resolvedState.sessionId)
             } catch {
-                self?.sessionError = self?.errorMessage(error)
+                self?.sessionError = self?.debugErrorDetails("createSession", error)
                 self?.isLoading = false
                 self?.loadingState = .none
             }
