@@ -19,6 +19,9 @@
 		M5_011 /* WorktreeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_111 /* WorktreeViews.swift */; };
 		M5_012 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = M5_113 /* Localizable.strings */; };
 		M5_013 /* SpaceMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = M5_116 /* SpaceMono-Regular.ttf */; };
+		M5_014 /* Vibe80Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_117 /* Vibe80Theme.swift */; };
+		M5_015 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_118 /* ImagePicker.swift */; };
+		M5_016 /* QrScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_119 /* QrScanView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +40,9 @@
 		M5_114 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		M5_115 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		M5_116 /* SpaceMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/SpaceMono-Regular.ttf; sourceTree = "<group>"; };
+		M5_117 /* Vibe80Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vibe80Theme.swift; sourceTree = "<group>"; };
+		M5_118 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		M5_119 /* QrScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QrScanView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +69,7 @@
 			children = (
 				M5_101 /* Vibe80App.swift */,
 				M5_102 /* ContentView.swift */,
+				M5_117 /* Vibe80Theme.swift */,
 				M5_112 /* Info.plist */,
 				M5_306 /* Resources */,
 				M5_303 /* Views */,
@@ -85,6 +92,7 @@
 			children = (
 				M5_103 /* SessionView.swift */,
 				M5_104 /* ChatView.swift */,
+				M5_119 /* QrScanView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -105,6 +113,7 @@
 				M5_108 /* ComposerView.swift */,
 				M5_110 /* DiffSheetView.swift */,
 				M5_111 /* WorktreeViews.swift */,
+				M5_118 /* ImagePicker.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -125,6 +134,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = M5_500 /* Build configuration list for PBXNativeTarget "iosApp" */;
 			buildPhases = (
+				M5_403 /* Build Shared KMP Framework */,
 				M5_401 /* Sources */,
 				M5_200 /* Frameworks */,
 				M5_402 /* Resources */,
@@ -184,6 +194,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		M5_403 /* Build Shared KMP Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Shared KMP Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$SRCROOT/../\"\n\nif [ \"$CONFIGURATION\" = \"Debug\" ]; then\n    BUILD_TYPE=\"Debug\"\nelse\n    BUILD_TYPE=\"Release\"\nfi\n\nif [ \"$PLATFORM_NAME\" = \"iphonesimulator\" ]; then\n    if [ \"$NATIVE_ARCH\" = \"arm64\" ] || [ \"$ARCHS\" = \"arm64\" ]; then\n        TARGET=\"iosSimulatorArm64\"\n    else\n        TARGET=\"iosX64\"\n    fi\nelse\n    TARGET=\"iosArm64\"\nfi\n\n./gradlew :shared:link${BUILD_TYPE}Framework${TARGET} --no-daemon\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		M5_401 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -191,12 +223,15 @@
 			files = (
 				M5_001 /* Vibe80App.swift in Sources */,
 				M5_002 /* ContentView.swift in Sources */,
+				M5_014 /* Vibe80Theme.swift in Sources */,
 				M5_003 /* SessionView.swift in Sources */,
 				M5_004 /* ChatView.swift in Sources */,
+				M5_016 /* QrScanView.swift in Sources */,
 				M5_005 /* SessionViewModel.swift in Sources */,
 				M5_006 /* ChatViewModel.swift in Sources */,
 				M5_007 /* MessageRow.swift in Sources */,
 				M5_008 /* ComposerView.swift in Sources */,
+				M5_015 /* ImagePicker.swift in Sources */,
 				M5_010 /* DiffSheetView.swift in Sources */,
 				M5_011 /* WorktreeViews.swift in Sources */,
 			);
@@ -339,6 +374,12 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/debugFramework",
+					"$(SRCROOT)/../shared/build/bin/iosX64/debugFramework",
+					"$(SRCROOT)/../shared/build/bin/iosArm64/debugFramework",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -351,6 +392,11 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.6.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Shared,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = app.vibe80.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -368,6 +414,12 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/releaseFramework",
+					"$(SRCROOT)/../shared/build/bin/iosX64/releaseFramework",
+					"$(SRCROOT)/../shared/build/bin/iosArm64/releaseFramework",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -380,6 +432,11 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.6.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Shared,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = app.vibe80.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
