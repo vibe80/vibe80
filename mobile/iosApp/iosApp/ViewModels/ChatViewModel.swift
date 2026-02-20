@@ -150,6 +150,22 @@ class ChatViewModel: ObservableObject {
         )
     }
 
+    private func requireValue<T>(_ value: Any?, as type: T.Type, context: String) throws -> T {
+        if let typed = value as? T {
+            return typed
+        }
+        throw NSError(
+            domain: "Vibe80",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Réponse invalide (\(context))"]
+        )
+    }
+
+    private func toKotlinBoolean(_ value: Bool?) -> KotlinBoolean? {
+        guard let value else { return nil }
+        return KotlinBoolean(bool: value)
+    }
+
     // MARK: - Initialization
 
     func setup(appState: AppState) {
@@ -288,15 +304,21 @@ class ChatViewModel: ObservableObject {
         let worktreeId = activeWorktreeId
         Task { [weak self] in
             do {
-                let fileResponse = try await repository.getWorktreeFile(
+                guard let self = self else { return }
+                let fileResponseAny = try await repository.getWorktreeFile(
                     sessionId: sessionId,
                     worktreeId: worktreeId,
                     path: path
                 )
-                self?.fileSheetContent = fileResponse.content
-                self?.fileSheetBinary = fileResponse.binary
-                self?.fileSheetTruncated = fileResponse.truncated
-                self?.fileSheetLoading = false
+                let fileResponse = try self.requireValue(
+                    fileResponseAny,
+                    as: WorktreeFileResponse.self,
+                    context: "getWorktreeFile"
+                )
+                self.fileSheetContent = fileResponse.content
+                self.fileSheetBinary = fileResponse.binary
+                self.fileSheetTruncated = fileResponse.truncated
+                self.fileSheetLoading = false
             } catch {
                 self?.fileSheetError = self?.errorMessage(error)
                 self?.fileSheetLoading = false
@@ -399,13 +421,14 @@ class ChatViewModel: ObservableObject {
         inputText = ""
         uploadingAttachments = true
 
+        let currentWorktreeId = activeWorktreeId
         Task { [weak self] in
             do {
-                if activeWorktreeId == "main" {
+                if currentWorktreeId == "main" {
                     try await repository.sendMessage(text: text, attachments: attachments)
                 } else {
                     try await repository.sendWorktreeMessage(
-                        worktreeId: activeWorktreeId,
+                        worktreeId: currentWorktreeId,
                         text: text,
                         attachments: attachments
                     )
@@ -447,7 +470,12 @@ class ChatViewModel: ObservableObject {
         let provider = activeProviderKey
         Task {
             do {
-                let list = try await repository.loadProviderModels(provider: provider)
+                let listAny = try await repository.loadProviderModels(provider: provider)
+                let list = try requireValue(
+                    listAny,
+                    as: [ProviderModel].self,
+                    context: "loadProviderModels"
+                )
                 self.providerModels[provider] = list
                 if self.selectedModelByWorktree[self.activeWorktreeId] == nil {
                     let fallback = list.first(where: { $0.isDefault })?.model ?? list.first?.model
@@ -522,8 +550,8 @@ class ChatViewModel: ObservableObject {
                     reasoningEffort: reasoningEffort,
                     context: context,
                     sourceWorktree: sourceWorktree,
-                    internetAccess: internetAccess,
-                    denyGitCredentialsAccess: denyGitCredentialsAccess
+                    internetAccess: toKotlinBoolean(internetAccess),
+                    denyGitCredentialsAccess: toKotlinBoolean(denyGitCredentialsAccess)
                 )
             } catch {
                 repository.reportError(
