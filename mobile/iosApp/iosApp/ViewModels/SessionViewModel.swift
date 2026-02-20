@@ -110,7 +110,11 @@ class SessionViewModel: ObservableObject {
     func updateProviderAuthType(_ provider: String, authType: ProviderAuthType) {
         var updated = workspaceProviders
         var current = updated[provider] ?? ProviderAuthState()
-        current.authType = authType
+        if provider == "codex", authType == .setupToken {
+            current.authType = .apiKey
+        } else {
+            current.authType = authType
+        }
         updated[provider] = current
         workspaceProviders = updated
     }
