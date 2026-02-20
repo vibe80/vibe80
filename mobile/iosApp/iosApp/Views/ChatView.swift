@@ -38,9 +38,32 @@ struct ChatView: View {
                                     message: message,
                                     sessionId: sessionId,
                                     workspaceToken: UserDefaults.standard.string(forKey: "workspaceToken"),
-                                    baseUrl: currentServerUrl
+                                    baseUrl: currentServerUrl,
+                                    onChoiceSelected: { option in
+                                        viewModel.inputText = option
+                                        viewModel.sendMessage()
+                                    },
+                                    onFileRefSelected: { path in
+                                        viewModel.openFileRef(path)
+                                    },
+                                    onFormSubmit: { formData, fields in
+                                        let response = formatFormResponse(formData, fields: fields)
+                                        viewModel.inputText = response
+                                        viewModel.sendMessage()
+                                        if let msgId = message.id as String? {
+                                            viewModel.markFormSubmitted(msgId)
+                                        }
+                                    },
+                                    onYesNoSubmit: { answer in
+                                        if let msgId = message.id as String? {
+                                            viewModel.markYesNoSubmitted(msgId)
+                                        }
+                                    },
+                                    formsSubmitted: viewModel.submittedFormMessageIds.contains(message.id),
+                                    yesNoSubmitted: viewModel.submittedYesNoMessageIds.contains(message.id)
                                 )
-                                    .id(message.id)
+                                .id(message.id)
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
                             }
 
                             // Streaming message
@@ -60,6 +83,7 @@ struct ChatView: View {
                             if viewModel.isProcessing && viewModel.currentStreamingMessage == nil {
                                 ProcessingIndicator()
                                     .id("processing")
+                                    .transition(.opacity)
                             }
                         }
                         .padding()
@@ -86,6 +110,7 @@ struct ChatView: View {
                 ComposerView(
                     text: $viewModel.inputText,
                     isLoading: viewModel.isProcessing,
+                    isUploading: viewModel.uploadingAttachments,
                     actionMode: viewModel.activeActionMode,
                     activeModel: viewModel.activeSelectedModel,
                     availableModels: viewModel.activeModels,
@@ -193,8 +218,33 @@ struct ChatView: View {
                     .presentationDetents([.height(250)])
                 }
             }
+            // File sheet (P2.2)
+            .sheet(isPresented: $viewModel.showFileSheet) {
+                FileSheetView(
+                    path: viewModel.fileSheetPath,
+                    content: viewModel.fileSheetContent,
+                    isLoading: viewModel.fileSheetLoading,
+                    error: viewModel.fileSheetError,
+                    isBinary: viewModel.fileSheetBinary,
+                    isTruncated: viewModel.fileSheetTruncated
+                )
+                .presentationDetents([.large])
+            }
+            // Error banner overlay (P2.1)
+            .overlay(alignment: .bottom) {
+                if let error = viewModel.currentError {
+                    ErrorBannerView(error: error) {
+                        viewModel.dismissError()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 80)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.3), value: viewModel.currentError != nil)
+                }
+            }
         }
         .onAppear {
+            viewModel.setup(appState: appState)
             viewModel.connect(sessionId: sessionId)
             viewModel.loadModelsForActiveWorktree()
         }
@@ -224,6 +274,7 @@ struct ChatView: View {
             Circle()
                 .fill(connectionColor)
                 .frame(width: 8, height: 8)
+                .animation(.easeInOut, value: viewModel.connectionState)
         }
     }
 

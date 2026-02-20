@@ -191,10 +191,25 @@ struct SessionView: View {
                 .buttonStyle(.bordered)
                 .tint(.vibe80AccentDark)
 
+                // Workspace sessions list (P2.4)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("sessions.recent")
                         .font(.headline)
-                    if viewModel.hasSavedSession {
+
+                    if viewModel.sessionsLoading {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("sessions.loading")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    } else if !viewModel.workspaceSessions.isEmpty {
+                        ForEach(viewModel.workspaceSessions, id: \.sessionId) { session in
+                            sessionCard(session)
+                        }
+                    } else if viewModel.hasSavedSession {
+                        // Fallback to saved session if API list is empty
                         VStack(alignment: .leading, spacing: 12) {
                             Text(viewModel.savedSessionRepoUrl.isEmpty ? "session.saved.placeholder" : viewModel.savedSessionRepoUrl)
                                 .font(.subheadline)
@@ -219,6 +234,12 @@ struct SessionView: View {
                         Text("session.saved.empty")
                             .foregroundColor(.vibe80InkMuted)
                     }
+
+                    if let error = viewModel.sessionsError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
 
                 if let error = viewModel.sessionError {
@@ -228,6 +249,58 @@ struct SessionView: View {
             }
             .padding(24)
         }
+        .onAppear {
+            viewModel.loadWorkspaceSessions(appState: appState)
+        }
+    }
+
+    private func sessionCard(_ session: SessionSummary) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(session.repoUrl ?? session.sessionId)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.vibe80Ink)
+                .lineLimit(1)
+
+            HStack(spacing: 12) {
+                if let lastActivity = session.lastActivityAt {
+                    Text(formatSessionDate(lastActivity))
+                        .font(.caption)
+                        .foregroundColor(.vibe80InkMuted)
+                }
+
+                if let provider = session.activeProvider {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cpu")
+                            .font(.caption2)
+                        Text(provider)
+                            .font(.caption)
+                    }
+                    .foregroundColor(.vibe80InkMuted)
+                }
+
+                Spacer()
+
+                Button(viewModel.loadingState == .resuming ? "action.resume.progress" : "action.resume") {
+                    viewModel.resumeWorkspaceSession(
+                        sessionId: session.sessionId,
+                        repoUrl: session.repoUrl,
+                        appState: appState
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.vibe80Accent)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading)
+            }
+        }
+        .vibe80CardStyle()
+    }
+
+    private func formatSessionDate(_ timestamp: Int64) -> String {
+        let date = Date(timeIntervalSince1970: Double(timestamp) / 1000)
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 
     private var startSession: some View {

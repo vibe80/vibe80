@@ -36,10 +36,16 @@ class SessionViewModel: ObservableObject {
     @Published var savedSessionId: String?
     @Published var savedSessionRepoUrl: String = ""
 
+    // Multi-session support (P2.4)
+    @Published var workspaceSessions: [SessionSummary] = []
+    @Published var sessionsLoading: Bool = false
+    @Published var sessionsError: String?
+
     private var createSessionCall: SuspendWrapper<SessionState>?
     private var reconnectSessionCall: SuspendWrapper<SessionState>?
     private var workspaceCall: SuspendWrapper<AnyObject>?
     private var handoffCall: SuspendWrapper<HandoffConsumeResponse>?
+    private var sessionsCall: SuspendWrapper<AnyObject>?
 
     init() {
         loadSavedWorkspace()
@@ -456,6 +462,77 @@ class SessionViewModel: ObservableObject {
                 self?.isLoading = false
                 self?.loadingState = .none
                 self?.clearSavedSession()
+            }
+        )
+    }
+
+    // MARK: - Multi-session (P2.4)
+
+    func loadWorkspaceSessions(appState: AppState) {
+        guard let repository = appState.sessionRepository else { return }
+
+        sessionsLoading = true
+        sessionsError = nil
+
+        sessionsCall?.cancel()
+        sessionsCall = SuspendWrapper<AnyObject>()
+
+        sessionsCall?.execute(
+            suspendBlock: {
+                try await repository.listSessions() as AnyObject
+            },
+            onSuccess: { [weak self] response in
+                guard let self,
+                      let listResponse = response as? SessionListResponse else { return }
+                self.workspaceSessions = listResponse.sessions
+                self.sessionsLoading = false
+            },
+            onError: { [weak self] error in
+                self?.sessionsError = error.localizedDescription
+                self?.sessionsLoading = false
+            }
+        )
+    }
+
+    func resumeWorkspaceSession(sessionId: String, repoUrl: String?, appState: AppState) {
+        guard let repository = appState.sessionRepository else {
+            sessionError = "Module partagé non initialisé"
+            return
+        }
+
+        if let token = workspaceToken {
+            repository.setWorkspaceToken(token: token)
+            repository.setRefreshToken(token: workspaceRefreshToken)
+        }
+
+        isLoading = true
+        loadingState = .resuming
+        sessionError = nil
+
+        // Save as last session
+        let defaults = UserDefaults.standard
+        defaults.set(sessionId, forKey: "lastSessionId")
+        defaults.set(repoUrl ?? "", forKey: "lastRepoUrl")
+        savedSessionId = sessionId
+        savedSessionRepoUrl = repoUrl ?? ""
+        hasSavedSession = true
+
+        reconnectSessionCall?.cancel()
+        reconnectSessionCall = SuspendWrapper<SessionState>()
+
+        reconnectSessionCall?.execute(
+            suspendBlock: {
+                try await repository.reconnectSession(sessionId: sessionId)
+            },
+            onSuccess: { [weak self] _ in
+                self?.isLoading = false
+                self?.loadingState = .none
+                appState.setSession(sessionId: sessionId)
+            },
+            onError: { [weak self] error in
+                self?.sessionError = error.localizedDescription
+                self?.isLoading = false
+                self?.loadingState = .none
             }
         )
     }

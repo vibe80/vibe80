@@ -6,6 +6,7 @@ import Shared
 struct ComposerView: View {
     @Binding var text: String
     let isLoading: Bool
+    var isUploading: Bool = false
     let actionMode: ComposerActionMode
     let activeModel: String?
     let availableModels: [ProviderModel]
@@ -25,6 +26,14 @@ struct ComposerView: View {
     var body: some View {
         VStack(spacing: 0) {
             Divider()
+
+            if isUploading {
+                ProgressView()
+                    .progressViewStyle(.linear)
+                    .tint(.vibe80Accent)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+            }
 
             if !pendingAttachments.isEmpty {
                 attachmentsPreview
@@ -110,7 +119,7 @@ struct ComposerView: View {
                         .font(.title2)
                         .foregroundColor(canSend ? .vibe80Accent : .vibe80InkMuted)
                 }
-                .disabled(!canSend && !isLoading)
+                .disabled((!canSend && !isLoading) || isUploading)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 4)
