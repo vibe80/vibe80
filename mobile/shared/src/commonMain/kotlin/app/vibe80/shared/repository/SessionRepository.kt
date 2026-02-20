@@ -792,6 +792,27 @@ class SessionRepository(
         return updateWorkspace(workspaceId, request).getOrElse { throw it }
     }
 
+    /**
+     * iOS-safe helper: never throws to Swift bridge.
+     * Returns a fallback response when API call fails.
+     */
+    suspend fun updateWorkspaceOrCurrent(
+        workspaceId: String,
+        request: WorkspaceUpdateRequest
+    ): WorkspaceUpdateResponse {
+        return updateWorkspace(workspaceId, request).getOrElse { error ->
+            AppLogger.error(
+                LogSource.APP,
+                "updateWorkspaceOrCurrent failed",
+                error.message ?: error.toString()
+            )
+            WorkspaceUpdateResponse(
+                workspaceId = workspaceId,
+                providers = request.providers
+            )
+        }
+    }
+
     suspend fun consumeHandoffToken(handoffToken: String): Result<HandoffConsumeResponse> {
         val result = apiClient.consumeHandoffToken(HandoffConsumeRequest(handoffToken))
         result.onFailure { handleApiFailure(it, "consumeHandoffToken") }
