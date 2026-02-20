@@ -275,7 +275,7 @@ class SessionViewModel: ObservableObject {
             }
             Task { [weak self] in
                 do {
-                    _ = try await repository.updateWorkspaceOrThrow(
+                    _ = try await repository.updateWorkspaceOrCurrent(
                         workspaceId: workspaceId,
                         request: WorkspaceUpdateRequest(providers: providers)
                     )
