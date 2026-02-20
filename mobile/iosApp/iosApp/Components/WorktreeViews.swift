@@ -337,13 +337,14 @@ struct CreateWorktreeSheetView: View {
 struct ProviderSheetView: View {
     let currentProvider: LLMProvider
     let onSelect: (LLMProvider) -> Void
+    private let providerOptions: [LLMProvider] = [.codex, .claude]
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(LLMProvider.allCases, id: \.self) { provider in
+                ForEach(providerOptions, id: \.name) { provider in
                     Button {
                         onSelect(provider)
                     } label: {

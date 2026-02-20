@@ -11,7 +11,7 @@ struct ChatView: View {
     @State private var showDiffSheet = false
     @State private var showProviderSheet = false
     @State private var showCreateWorktreeSheet = false
-    @State private var showWorktreeMenu: String? = nil
+    @State private var showWorktreeMenu: IdentifiableString? = nil
     @State private var isComposerFocused = false
     @State private var keyboardHeight: CGFloat = 0
 
@@ -25,7 +25,7 @@ struct ChatView: View {
                         activeWorktreeId: viewModel.activeWorktreeId,
                         onSelect: viewModel.selectWorktree,
                         onCreate: { showCreateWorktreeSheet = true },
-                        onMenu: { showWorktreeMenu = $0 }
+                        onMenu: { showWorktreeMenu = IdentifiableString($0) }
                     )
                 }
 
@@ -207,11 +207,11 @@ struct ChatView: View {
                 .presentationDetents([.medium])
             }
             .sheet(item: $showWorktreeMenu) { worktreeId in
-                if let worktree = viewModel.worktrees.first(where: { $0.id == worktreeId }) {
+                if let worktree = viewModel.worktrees.first(where: { $0.id == worktreeId.value }) {
                     WorktreeMenuView(
                         worktree: worktree,
                         onClose: {
-                            viewModel.closeWorktree(worktreeId)
+                            viewModel.closeWorktree(worktreeId.value)
                             showWorktreeMenu = nil
                         }
                     )
@@ -347,10 +347,13 @@ struct ProcessingIndicator: View {
     }
 }
 
-// MARK: - String Extension for Sheet Item
+struct IdentifiableString: Identifiable {
+    let value: String
+    var id: String { value }
 
-extension String: Identifiable {
-    public var id: String { self }
+    init(_ value: String) {
+        self.value = value
+    }
 }
 
 // MARK: - Preview

@@ -21,7 +21,7 @@ struct MessageRow: View {
 
     private var rawText: String {
         if let message = message,
-           (message.role == .tool_result || message.role == .commandExecution) {
+           (message.role == .toolResult || message.role == .commandExecution) {
             return ""
         }
         return streamingText ?? message?.text ?? ""
@@ -33,7 +33,7 @@ struct MessageRow: View {
 
     private var isToolOrCommand: Bool {
         guard let role = message?.role else { return false }
-        return role == .tool_result || role == .commandExecution
+        return role == .toolResult || role == .commandExecution
     }
 
     private var toolName: String {
@@ -271,7 +271,7 @@ struct MessageRow: View {
 
     private var streamingIndicator: some View {
         Circle()
-            .fill(.vibe80Accent)
+            .fill(Color.vibe80Accent)
             .frame(width: 8, height: 8)
             .opacity(0.8)
             .modifier(PulseAnimation())
