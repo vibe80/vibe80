@@ -32,60 +32,7 @@ struct ChatView: View {
                 // Messages list
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(viewModel.messages, id: \.id) { message in
-                                MessageRow(
-                                    message: message,
-                                    sessionId: sessionId,
-                                    workspaceToken: UserDefaults.standard.string(forKey: "workspaceToken"),
-                                    baseUrl: currentServerUrl,
-                                    onChoiceSelected: { option in
-                                        viewModel.inputText = option
-                                        viewModel.sendMessage()
-                                    },
-                                    onFileRefSelected: { path in
-                                        viewModel.openFileRef(path)
-                                    },
-                                    onFormSubmit: { formData, fields in
-                                        let response = formatFormResponse(formData, fields: fields)
-                                        viewModel.inputText = response
-                                        viewModel.sendMessage()
-                                        if let msgId = message.id as String? {
-                                            viewModel.markFormSubmitted(msgId)
-                                        }
-                                    },
-                                    onYesNoSubmit: { answer in
-                                        if let msgId = message.id as String? {
-                                            viewModel.markYesNoSubmitted(msgId)
-                                        }
-                                    },
-                                    formsSubmitted: viewModel.submittedFormMessageIds.contains(message.id),
-                                    yesNoSubmitted: viewModel.submittedYesNoMessageIds.contains(message.id)
-                                )
-                                .id(message.id)
-                                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                            }
-
-                            // Streaming message
-                            if let streamingText = viewModel.currentStreamingMessage {
-                                MessageRow(
-                                    message: nil,
-                                    sessionId: sessionId,
-                                    workspaceToken: UserDefaults.standard.string(forKey: "workspaceToken"),
-                                    baseUrl: currentServerUrl,
-                                    streamingText: streamingText,
-                                    isStreaming: true
-                                )
-                                .id("streaming")
-                            }
-
-                            // Processing indicator
-                            if viewModel.isProcessing && viewModel.currentStreamingMessage == nil {
-                                ProcessingIndicator()
-                                    .id("processing")
-                                    .transition(.opacity)
-                            }
-                        }
+                        messageListContent
                         .padding()
                     }
                     .onChange(of: viewModel.messages.count) { _ in
@@ -265,6 +212,66 @@ struct ChatView: View {
                 keyboardHeight = 0
             }
         }
+    }
+
+    private var workspaceToken: String? {
+        UserDefaults.standard.string(forKey: "workspaceToken")
+    }
+
+    @ViewBuilder
+    private var messageListContent: some View {
+        LazyVStack(spacing: 12) {
+            ForEach(viewModel.messages, id: \.id) { message in
+                messageRow(message)
+            }
+
+            if let streamingText = viewModel.currentStreamingMessage {
+                MessageRow(
+                    message: nil,
+                    sessionId: sessionId,
+                    workspaceToken: workspaceToken,
+                    baseUrl: currentServerUrl,
+                    streamingText: streamingText,
+                    isStreaming: true
+                )
+                .id("streaming")
+            }
+
+            if viewModel.isProcessing && viewModel.currentStreamingMessage == nil {
+                ProcessingIndicator()
+                    .id("processing")
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private func messageRow(_ message: ChatMessage) -> some View {
+        MessageRow(
+            message: message,
+            sessionId: sessionId,
+            workspaceToken: workspaceToken,
+            baseUrl: currentServerUrl,
+            onChoiceSelected: { option in
+                viewModel.inputText = option
+                viewModel.sendMessage()
+            },
+            onFileRefSelected: { path in
+                viewModel.openFileRef(path)
+            },
+            onFormSubmit: { formData, fields in
+                let response = formatFormResponse(formData, fields: fields)
+                viewModel.inputText = response
+                viewModel.sendMessage()
+                viewModel.markFormSubmitted(message.id)
+            },
+            onYesNoSubmit: { _ in
+                viewModel.markYesNoSubmitted(message.id)
+            },
+            formsSubmitted: viewModel.submittedFormMessageIds.contains(message.id),
+            yesNoSubmitted: viewModel.submittedYesNoMessageIds.contains(message.id)
+        )
+        .id(message.id)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 
     // MARK: - Connection Indicator
