@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import Shared
 
 struct SessionView: View {
     @EnvironmentObject var appState: AppState
