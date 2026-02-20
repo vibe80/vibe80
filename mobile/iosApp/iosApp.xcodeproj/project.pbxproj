@@ -15,7 +15,6 @@
 		M5_006 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_106 /* ChatViewModel.swift */; };
 		M5_007 /* MessageRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_107 /* MessageRow.swift */; };
 		M5_008 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_108 /* ComposerView.swift */; };
-		M5_009 /* BranchesSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_109 /* BranchesSheetView.swift */; };
 		M5_010 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_110 /* DiffSheetView.swift */; };
 		M5_011 /* WorktreeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_111 /* WorktreeViews.swift */; };
 		M5_012 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = M5_113 /* Localizable.strings */; };
@@ -32,7 +31,6 @@
 		M5_106 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		M5_107 /* MessageRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRow.swift; sourceTree = "<group>"; };
 		M5_108 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
-		M5_109 /* BranchesSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BranchesSheetView.swift; sourceTree = "<group>"; };
 		M5_110 /* DiffSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffSheetView.swift; sourceTree = "<group>"; };
 		M5_111 /* WorktreeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorktreeViews.swift; sourceTree = "<group>"; };
 		M5_112 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -105,7 +103,6 @@
 			children = (
 				M5_107 /* MessageRow.swift */,
 				M5_108 /* ComposerView.swift */,
-				M5_109 /* BranchesSheetView.swift */,
 				M5_110 /* DiffSheetView.swift */,
 				M5_111 /* WorktreeViews.swift */,
 			);
@@ -200,7 +197,6 @@
 				M5_006 /* ChatViewModel.swift in Sources */,
 				M5_007 /* MessageRow.swift in Sources */,
 				M5_008 /* ComposerView.swift in Sources */,
-				M5_009 /* BranchesSheetView.swift in Sources */,
 				M5_010 /* DiffSheetView.swift in Sources */,
 				M5_011 /* WorktreeViews.swift in Sources */,
 			);
