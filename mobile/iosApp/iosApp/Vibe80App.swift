@@ -5,6 +5,10 @@ import Shared
 struct Vibe80App: App {
     @StateObject private var appState = AppState()
 
+    init() {
+        NotificationManager.shared.requestAuthorization()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

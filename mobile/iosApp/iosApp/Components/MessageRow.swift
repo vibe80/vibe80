@@ -8,14 +8,27 @@ struct MessageRow: View {
     var baseUrl: String? = nil
     var streamingText: String? = nil
     var isStreaming: Bool = false
+
+    // Vibe80 block callbacks (P2.2)
+    var onChoiceSelected: ((String) -> Void)? = nil
+    var onFileRefSelected: ((String) -> Void)? = nil
+    var onFormSubmit: (([String: String], [Vibe80FormField]) -> Void)? = nil
+    var onYesNoSubmit: ((String) -> Void)? = nil
+    var formsSubmitted: Bool = false
+    var yesNoSubmitted: Bool = false
+
     @State private var previewImage: AttachmentPreviewImage? = nil
 
-    private var displayText: String {
+    private var rawText: String {
         if let message = message,
            (message.role == .tool_result || message.role == .commandExecution) {
             return ""
         }
         return streamingText ?? message?.text ?? ""
+    }
+
+    private var displayText: String {
+        stripAttachmentSuffix(rawText)
     }
 
     private var isToolOrCommand: Bool {
@@ -55,6 +68,40 @@ struct MessageRow: View {
         message?.role == .user
     }
 
+    private var isAssistant: Bool {
+        message?.role == .assistant || isStreaming
+    }
+
+    // Vibe80 block parsing (only for non-streaming assistant messages)
+    private var shouldParseBlocks: Bool {
+        isAssistant && !isStreaming && !displayText.isEmpty
+    }
+
+    private var choicesBlocks: [Vibe80ChoicesBlock] {
+        shouldParseBlocks ? parseVibe80Choices(displayText) : []
+    }
+
+    private var yesNoBlocks: [Vibe80YesNoBlock] {
+        shouldParseBlocks ? parseVibe80YesNo(displayText) : []
+    }
+
+    private var formBlocks: [Vibe80FormBlock] {
+        shouldParseBlocks ? parseVibe80Forms(displayText) : []
+    }
+
+    private var fileRefs: [String] {
+        shouldParseBlocks ? parseVibe80FileRefs(displayText) : []
+    }
+
+    private var taskLabel: String? {
+        shouldParseBlocks ? parseVibe80Task(displayText) : nil
+    }
+
+    private var cleanedText: String {
+        if !shouldParseBlocks { return displayText }
+        return cleanVibe80Blocks(displayText, formsSubmitted: formsSubmitted, yesNoSubmitted: yesNoSubmitted)
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             if isUser {
@@ -62,8 +109,54 @@ struct MessageRow: View {
             }
 
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
+                // Task label
+                if let taskLabel {
+                    HStack(spacing: 4) {
+                        Image(systemName: "gearshape.2")
+                            .font(.caption2)
+                        Text(taskLabel)
+                            .font(.caption2.weight(.medium))
+                    }
+                    .foregroundColor(.vibe80InkMuted)
+                    .padding(.bottom, 2)
+                }
+
                 // Message bubble
                 messageBubble
+
+                // File ref chips
+                if !fileRefs.isEmpty {
+                    fileRefChips
+                }
+
+                // Vibe80 interactive blocks
+                if shouldParseBlocks {
+                    // Choices
+                    ForEach(choicesBlocks.indices, id: \.self) { index in
+                        Vibe80ChoicesView(block: choicesBlocks[index]) { option in
+                            onChoiceSelected?(option)
+                        }
+                    }
+
+                    // YesNo (only if not submitted)
+                    if !yesNoSubmitted {
+                        ForEach(yesNoBlocks.indices, id: \.self) { index in
+                            Vibe80YesNoView(block: yesNoBlocks[index]) { answer in
+                                onChoiceSelected?(answer)
+                                onYesNoSubmit?(answer)
+                            }
+                        }
+                    }
+
+                    // Forms (only if not submitted)
+                    if !formsSubmitted {
+                        ForEach(formBlocks.indices, id: \.self) { index in
+                            Vibe80FormView(block: formBlocks[index]) { formData, fields in
+                                onFormSubmit?(formData, fields)
+                            }
+                        }
+                    }
+                }
 
                 // Attachments
                 if let attachments = message?.attachments, !attachments.isEmpty {
@@ -100,19 +193,19 @@ struct MessageRow: View {
                     content: toolOutput
                 )
             } else {
-                HStack(alignment: .top, spacing: 0) {
-                    if isStreaming {
-                        streamingIndicator
-                    }
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top, spacing: 0) {
+                        if isStreaming {
+                            streamingIndicator
+                        }
 
-                    // Use AttributedString for Markdown support in iOS 15+
-                    if !displayText.isEmpty {
-                        if isUser {
-                            Text(verbatim: displayText)
-                                .textSelection(.enabled)
-                        } else {
-                            Text(LocalizedStringKey(displayText))
-                                .textSelection(.enabled)
+                        if !cleanedText.isEmpty {
+                            if isUser {
+                                Text(verbatim: cleanedText)
+                                    .textSelection(.enabled)
+                            } else {
+                                MarkdownTextView(markdown: cleanedText)
+                            }
                         }
                     }
                 }
@@ -128,6 +221,34 @@ struct MessageRow: View {
                 UIPasteboard.general.string = isToolOrCommand ? toolOutput : displayText
             } label: {
                 Label("action.copy", systemImage: "doc.on.doc")
+            }
+        }
+    }
+
+    private var fileRefChips: some View {
+        FlowLayout(spacing: 6) {
+            ForEach(fileRefs, id: \.self) { path in
+                Button {
+                    onFileRefSelected?(path)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.text")
+                            .font(.caption2)
+                        Text(path)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.vibe80SurfaceElevated)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.vibe80Accent.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -303,6 +424,50 @@ struct MessageRow: View {
             return String(format: "%.1f KB", kb)
         } else {
             return String(format: "%.1f MB", kb / 1024)
+        }
+    }
+}
+
+// MARK: - Flow Layout (for file ref chips)
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth && x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+
+        return CGSize(width: maxWidth, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x: CGFloat = bounds.minX
+        var y: CGFloat = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX && x > bounds.minX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: .unspecified)
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }

@@ -74,6 +74,7 @@ struct WorktreeTab: View {
                 RoundedRectangle(cornerRadius: 18)
                     .stroke(isActive ? Color.blue : Color.clear, lineWidth: 1.5)
             )
+            .animation(.easeInOut(duration: 0.2), value: isActive)
         }
         .buttonStyle(.plain)
         .contextMenu {

@@ -40,6 +40,25 @@ class ChatViewModel: ObservableObject {
     @Published var selectedModelByWorktree: [String: String] = [:]
     @Published var actionModeByWorktree: [String: ComposerActionMode] = [:]
 
+    // Error handling (P2.1)
+    @Published var currentError: AppError?
+
+    // Vibe80 block submission tracking (P2.2)
+    @Published var submittedFormMessageIds: Set<String> = []
+    @Published var submittedYesNoMessageIds: Set<String> = []
+
+    // File sheet state (P2.2)
+    @Published var showFileSheet = false
+    @Published var fileSheetPath: String = ""
+    @Published var fileSheetContent: String = ""
+    @Published var fileSheetLoading = false
+    @Published var fileSheetError: String?
+    @Published var fileSheetBinary = false
+    @Published var fileSheetTruncated = false
+
+    // Upload progress (P2.6)
+    @Published var uploadingAttachments = false
+
     // Computed properties
     var hasUncommittedChanges: Bool {
         guard let diff = repoDiff else { return false }
@@ -110,6 +129,9 @@ class ChatViewModel: ObservableObject {
     private var worktreeMessagesWrapper: FlowWrapper<NSDictionary>?
     private var worktreeStreamingWrapper: FlowWrapper<NSDictionary>?
     private var worktreeProcessingWrapper: FlowWrapper<NSDictionary>?
+    private var errorWrapper: FlowWrapper<AppError?>?
+    private var fileCall: SuspendWrapper<AnyObject>?
+    private var sessionListCall: SuspendWrapper<AnyObject>?
 
     // MARK: - Initialization
 
@@ -124,7 +146,22 @@ class ChatViewModel: ObservableObject {
         // Subscribe to messages
         messagesWrapper = FlowWrapper(flow: repository.messages)
         messagesWrapper?.subscribe { [weak self] messages in
-            self?.messages = (messages as? [ChatMessage]) ?? []
+            let newMessages = (messages as? [ChatMessage]) ?? []
+            let oldCount = self?.messages.count ?? 0
+            self?.messages = newMessages
+
+            // Notify for new assistant messages when backgrounded (P2.5)
+            if newMessages.count > oldCount {
+                let newOnes = newMessages.suffix(newMessages.count - oldCount)
+                for msg in newOnes where msg.role == .assistant {
+                    NotificationManager.shared.notifyMessage(
+                        title: "Vibe80",
+                        body: msg.text,
+                        sessionId: self?.sessionId,
+                        worktreeId: self?.activeWorktreeId
+                    )
+                }
+            }
         }
 
         // Subscribe to streaming message
@@ -190,14 +227,79 @@ class ChatViewModel: ObservableObject {
                 self?.worktreeProcessing = dict
             }
         }
+
+        // Subscribe to errors (P2.1)
+        errorWrapper = FlowWrapper(flow: repository.lastError)
+        errorWrapper?.subscribe { [weak self] error in
+            // Skip TURN_ERROR — logged but not shown to user (matching Android)
+            if let error, error.type == .turnError {
+                return
+            }
+            self?.currentError = error
+        }
+    }
+
+    // MARK: - Error Handling (P2.1)
+
+    func dismissError() {
+        currentError = nil
+        appState?.sessionRepository?.clearError()
+    }
+
+    // MARK: - Vibe80 Block Tracking (P2.2)
+
+    func markFormSubmitted(_ messageId: String) {
+        submittedFormMessageIds.insert(messageId)
+    }
+
+    func markYesNoSubmitted(_ messageId: String) {
+        submittedYesNoMessageIds.insert(messageId)
+    }
+
+    func openFileRef(_ path: String) {
+        guard let repository = appState?.sessionRepository,
+              let sessionId else { return }
+
+        fileSheetPath = path
+        fileSheetContent = ""
+        fileSheetError = nil
+        fileSheetBinary = false
+        fileSheetTruncated = false
+        fileSheetLoading = true
+        showFileSheet = true
+
+        let worktreeId = activeWorktreeId
+        fileCall?.cancel()
+        fileCall = SuspendWrapper<AnyObject>()
+        fileCall?.execute(
+            suspendBlock: {
+                try await repository.getWorktreeFile(
+                    sessionId: sessionId,
+                    worktreeId: worktreeId,
+                    path: path
+                ) as AnyObject
+            },
+            onSuccess: { [weak self] response in
+                guard let self, let fileResponse = response as? WorktreeFileResponse else { return }
+                self.fileSheetContent = fileResponse.content
+                self.fileSheetBinary = fileResponse.binary
+                self.fileSheetTruncated = fileResponse.truncated
+                self.fileSheetLoading = false
+            },
+            onError: { [weak self] error in
+                self?.fileSheetError = error.localizedDescription
+                self?.fileSheetLoading = false
+            }
+        )
     }
 
     // MARK: - Connection
 
     func connect(sessionId: String) {
         self.sessionId = sessionId
-        // WebSocket connection is handled by SessionRepository.createSession/reconnectSession
-        // Just load initial data
+        // Reset submission tracking for new sessions
+        submittedFormMessageIds.removeAll()
+        submittedYesNoMessageIds.removeAll()
         loadDiff()
     }
 
@@ -217,6 +319,7 @@ class ChatViewModel: ObservableObject {
         worktreeMessagesWrapper?.close()
         worktreeStreamingWrapper?.close()
         worktreeProcessingWrapper?.close()
+        errorWrapper?.close()
     }
 
     // MARK: - Messages
@@ -240,7 +343,9 @@ class ChatViewModel: ObservableObject {
                     )
                 },
                 onError: { error in
-                    print("Error sending action request: \(error)")
+                    repository.reportError(error: AppError.companion.sendMessage(
+                        message: error.localizedDescription, details: nil
+                    ))
                 }
             )
             return
@@ -250,7 +355,6 @@ class ChatViewModel: ObservableObject {
 
         inputText = ""
 
-        // Send via repository (which handles local message addition and WebSocket)
         Coroutines.shared.launch(
             block: { [activeWorktreeId] in
                 if activeWorktreeId == "main" {
@@ -264,7 +368,9 @@ class ChatViewModel: ObservableObject {
                 }
             },
             onError: { error in
-                print("Error sending message: \(error)")
+                repository.reportError(error: AppError.companion.sendMessage(
+                    message: error.localizedDescription, details: nil
+                ))
             }
         )
     }
@@ -274,6 +380,7 @@ class ChatViewModel: ObservableObject {
         guard let repository = appState?.sessionRepository else { return }
 
         inputText = ""
+        uploadingAttachments = true
 
         Coroutines.shared.launch(
             block: { [activeWorktreeId] in
@@ -286,9 +393,15 @@ class ChatViewModel: ObservableObject {
                         attachments: attachments
                     )
                 }
+                await MainActor.run {
+                    self.uploadingAttachments = false
+                }
             },
-            onError: { error in
-                print("Error sending message with attachments: \(error)")
+            onError: { [weak self] error in
+                self?.uploadingAttachments = false
+                repository.reportError(error: AppError.companion.upload(
+                    message: error.localizedDescription, details: nil
+                ))
             }
         )
     }
@@ -303,7 +416,9 @@ class ChatViewModel: ObservableObject {
                 try await repository.switchProvider(provider: provider)
             },
             onError: { error in
-                print("Error switching provider: \(error)")
+                repository.reportError(error: AppError.companion.network(
+                    message: error.localizedDescription, details: nil
+                ))
             }
         )
     }
@@ -329,7 +444,9 @@ class ChatViewModel: ObservableObject {
                 }
             },
             onError: { error in
-                print("Error loading provider models: \(error)")
+                repository.reportError(error: AppError.companion.network(
+                    message: error.localizedDescription, details: nil
+                ))
             }
         )
     }
@@ -346,7 +463,9 @@ class ChatViewModel: ObservableObject {
                 )
             },
             onError: { error in
-                print("Error setting model: \(error)")
+                repository.reportError(error: AppError.companion.network(
+                    message: error.localizedDescription, details: nil
+                ))
             }
         )
     }
@@ -360,8 +479,8 @@ class ChatViewModel: ObservableObject {
             block: {
                 try await repository.loadDiff()
             },
-            onError: { error in
-                print("Error loading diff: \(error)")
+            onError: { _ in
+                // Diff loading errors are non-critical, don't report
             }
         )
     }
@@ -402,7 +521,9 @@ class ChatViewModel: ObservableObject {
                 )
             },
             onError: { error in
-                print("Error creating worktree: \(error)")
+                repository.reportError(error: AppError.companion.worktree(
+                    message: error.localizedDescription, details: nil
+                ))
             }
         )
     }
@@ -411,7 +532,6 @@ class ChatViewModel: ObservableObject {
         guard worktreeId != "main" else { return }
         guard let repository = appState?.sessionRepository else { return }
 
-        // Switch to main if closing active worktree
         if activeWorktreeId == worktreeId {
             activeWorktreeId = "main"
         }
@@ -421,7 +541,9 @@ class ChatViewModel: ObservableObject {
                 try await repository.closeWorktree(worktreeId: worktreeId)
             },
             onError: { error in
-                print("Error closing worktree: \(error)")
+                repository.reportError(error: AppError.companion.worktree(
+                    message: error.localizedDescription, details: nil
+                ))
             }
         )
     }
