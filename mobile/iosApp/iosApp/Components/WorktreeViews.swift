@@ -439,6 +439,9 @@ extension Color {
 #Preview("Create Worktree") {
     CreateWorktreeSheetView(
         currentProvider: .codex,
-        onCreate: { _, _, _ in }
+        worktrees: [
+            Worktree(id: "main", name: "main", branchName: "main", provider: .codex, status: .ready, color: "#4CAF50", parentId: nil, createdAt: 0),
+        ],
+        onCreate: { _, _, _, _, _, _, _, _, _ in }
     )
 }
