@@ -402,13 +402,13 @@ class SessionViewModel: ObservableObject {
 
         Task { [weak self] in
             do {
+                guard let self = self else { return }
                 let state = try await repository.createSession(
-                    repoUrl: repoUrl,
+                    repoUrl: self.repoUrl,
                     sshKey: sshKeyParam,
                     httpUser: httpUserParam,
                     httpPassword: httpPasswordParam
                 )
-                guard let self = self else { return }
                 let resolvedState = try self.requireValue(
                     state,
                     as: SessionState.self,

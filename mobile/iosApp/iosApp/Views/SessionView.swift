@@ -297,8 +297,8 @@ struct SessionView: View {
         .vibe80CardStyle()
     }
 
-    private func formatSessionDate(_ timestamp: Int64) -> String {
-        let date = Date(timeIntervalSince1970: Double(timestamp) / 1000)
+    private func formatSessionDate(_ timestamp: KotlinLong) -> String {
+        let date = Date(timeIntervalSince1970: Double(timestamp.int64Value) / 1000)
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
