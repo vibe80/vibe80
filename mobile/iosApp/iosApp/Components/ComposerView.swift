@@ -14,9 +14,11 @@ struct ComposerView: View {
     let onSelectActionMode: (ComposerActionMode) -> Void
     let onSelectModel: (String) -> Void
     let onFocusChanged: (Bool) -> Void
+    let pendingAttachments: [PendingAttachment]
+    let onAddAttachment: (PendingAttachment) -> Void
+    let onRemoveAttachment: (PendingAttachment) -> Void
 
     @State private var selectedItems: [PhotosPickerItem] = []
-    @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showPhotoPicker = false
     @State private var showFileImporter = false
     @State private var showCameraPicker = false
@@ -235,7 +237,6 @@ struct ComposerView: View {
 
         guard canSend else { return }
 
-        pendingAttachments.removeAll()
         selectedItems.removeAll()
 
         onSend()
@@ -257,9 +258,12 @@ struct ComposerView: View {
                     )
 
                     await MainActor.run {
-                        pendingAttachments.append(attachment)
+                        onAddAttachment(attachment)
                     }
                 }
+            }
+            await MainActor.run {
+                selectedItems.removeAll()
             }
         }
     }
@@ -282,7 +286,7 @@ struct ComposerView: View {
                         mimeType: mimeType
                     )
                     await MainActor.run {
-                        pendingAttachments.append(attachment)
+                        onAddAttachment(attachment)
                     }
                 }
             }
@@ -302,29 +306,11 @@ struct ComposerView: View {
             thumbnail: thumbnail,
             mimeType: "image/jpeg"
         )
-        pendingAttachments.append(attachment)
+        onAddAttachment(attachment)
     }
 
     private func removeAttachment(_ attachment: PendingAttachment) {
-        pendingAttachments.removeAll { $0.id == attachment.id }
-    }
-}
-
-struct PendingAttachment: Identifiable {
-    let id: UUID
-    let name: String
-    let data: Data
-    let thumbnail: UIImage?
-    let mimeType: String
-
-    var icon: String {
-        if mimeType.hasPrefix("image/") {
-            return "photo"
-        } else if mimeType == "application/pdf" {
-            return "doc.fill"
-        } else {
-            return "doc"
-        }
+        onRemoveAttachment(attachment)
     }
 }
 
@@ -340,7 +326,10 @@ struct PendingAttachment: Identifiable {
             onSend: {},
             onSelectActionMode: { _ in },
             onSelectModel: { _ in },
-            onFocusChanged: { _ in }
+            onFocusChanged: { _ in },
+            pendingAttachments: [],
+            onAddAttachment: { _ in },
+            onRemoveAttachment: { _ in }
         )
     }
 }
