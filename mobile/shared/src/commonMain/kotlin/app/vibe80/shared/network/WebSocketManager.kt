@@ -5,6 +5,7 @@ import app.vibe80.shared.models.*
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.*
 import io.ktor.websocket.*
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
