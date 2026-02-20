@@ -123,8 +123,18 @@ struct SessionView: View {
                 }
                 vibe80Header(title: "providers.config.title")
 
-                providerCard(provider: "codex", title: "provider.codex", supportsAuthJson: true)
-                providerCard(provider: "claude", title: "provider.claude", supportsAuthJson: false)
+                providerCard(
+                    provider: "codex",
+                    title: "provider.codex",
+                    supportsAuthJson: true,
+                    supportsSetupToken: false
+                )
+                providerCard(
+                    provider: "claude",
+                    title: "provider.claude",
+                    supportsAuthJson: false,
+                    supportsSetupToken: true
+                )
 
                 if let error = viewModel.workspaceError {
                     Text(error)
@@ -356,7 +366,12 @@ struct SessionView: View {
         }
     }
 
-    private func providerCard(provider: String, title: LocalizedStringKey, supportsAuthJson: Bool) -> some View {
+    private func providerCard(
+        provider: String,
+        title: LocalizedStringKey,
+        supportsAuthJson: Bool,
+        supportsSetupToken: Bool
+    ) -> some View {
         let state = viewModel.workspaceProviders[provider] ?? ProviderAuthState()
 
         return VStack(alignment: .leading, spacing: 12) {
@@ -375,7 +390,9 @@ struct SessionView: View {
                     if supportsAuthJson {
                         Text("provider.auth.auth_json_b64").tag(ProviderAuthType.authJsonB64)
                     }
-                    Text("provider.auth.setup_token").tag(ProviderAuthType.setupToken)
+                    if supportsSetupToken {
+                        Text("provider.auth.setup_token").tag(ProviderAuthType.setupToken)
+                    }
                 }
                 .pickerStyle(.segmented)
 
