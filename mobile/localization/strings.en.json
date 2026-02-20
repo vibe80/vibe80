@@ -64,6 +64,8 @@
   "provider.auth.auth_json_file": "auth.json file",
   "provider.auth.auth_json_label": "auth.json",
   "provider.auth.import_auth_json": "Import auth.json",
+  "provider.auth.auth_json_selected": "auth.json selected",
+  "provider.auth.auth_json_not_selected": "No auth.json selected",
   "provider.auth.setup_token": "setup_token",
   "provider.auth.setup_token_label": "Setup token",
   "provider.claude": "Claude",
