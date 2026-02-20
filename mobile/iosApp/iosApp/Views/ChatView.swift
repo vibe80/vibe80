@@ -259,7 +259,7 @@ struct ChatView: View {
                 viewModel.openFileRef(path)
             },
             onFormSubmit: { formData, fields in
-                let response = formatFormResponse(formData, fields: fields)
+                let response = formatFormResponse(formData, fields)
                 viewModel.inputText = response
                 viewModel.sendMessage()
                 viewModel.markFormSubmitted(message.id)
