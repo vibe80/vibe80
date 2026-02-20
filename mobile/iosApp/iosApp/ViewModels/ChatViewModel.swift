@@ -133,6 +133,23 @@ class ChatViewModel: ObservableObject {
     private var fileCall: SuspendWrapper<AnyObject>?
     private var sessionListCall: SuspendWrapper<AnyObject>?
 
+    private func errorMessage(_ error: Error) -> String {
+        if let kotlinError = error as? KotlinThrowable {
+            return kotlinError.message ?? String(describing: kotlinError)
+        }
+        return (error as NSError).localizedDescription
+    }
+
+    private func reportNetworkError(_ repository: SessionRepository, error: Error) {
+        repository.reportError(
+            error: AppError.companion.network(
+                message: errorMessage(error),
+                details: nil,
+                canRetry: true
+            )
+        )
+    }
+
     // MARK: - Initialization
 
     func setup(appState: AppState) {
@@ -173,19 +190,18 @@ class ChatViewModel: ObservableObject {
         // Subscribe to processing state
         processingWrapper = FlowWrapper(flow: repository.processing)
         processingWrapper?.subscribe { [weak self] processing in
-            self?.isProcessing = processing.boolValue
+            self?.isProcessing = processing?.boolValue ?? false
         }
 
         // Subscribe to connection state
         connectionStateWrapper = FlowWrapper(flow: repository.connectionState)
         connectionStateWrapper?.subscribe { [weak self] state in
-            self?.connectionState = state
+            self?.connectionState = state ?? .disconnected
         }
 
         // Subscribe to session state for provider
         sessionStateWrapper = FlowWrapper(flow: repository.sessionState)
-        sessionStateWrapper?.subscribe { [weak self] rawState in
-            let state = rawState as? SessionState
+        sessionStateWrapper?.subscribe { [weak self] state in
             if let activeProvider = state?.activeProvider {
                 self?.activeProvider = activeProvider
             }
@@ -193,8 +209,8 @@ class ChatViewModel: ObservableObject {
 
         // Subscribe to repo diff
         repoDiffWrapper = FlowWrapper(flow: repository.repoDiff)
-        repoDiffWrapper?.subscribe { [weak self] rawDiff in
-            self?.repoDiff = rawDiff as? RepoDiff
+        repoDiffWrapper?.subscribe { [weak self] diff in
+            self?.repoDiff = diff
         }
 
         // Subscribe to worktrees
@@ -231,8 +247,7 @@ class ChatViewModel: ObservableObject {
 
         // Subscribe to errors (P2.1)
         errorWrapper = FlowWrapper(flow: repository.lastError)
-        errorWrapper?.subscribe { [weak self] rawError in
-            let error = rawError as? AppError
+        errorWrapper?.subscribe { [weak self] error in
             // Skip TURN_ERROR — logged but not shown to user (matching Android)
             if let error, error.type == .turnError {
                 return
@@ -271,28 +286,22 @@ class ChatViewModel: ObservableObject {
         showFileSheet = true
 
         let worktreeId = activeWorktreeId
-        fileCall?.cancel()
-        fileCall = SuspendWrapper<AnyObject>()
-        fileCall?.execute(
-            suspendBlock: {
-                try await repository.getWorktreeFile(
+        Task { [weak self] in
+            do {
+                let fileResponse = try await repository.getWorktreeFile(
                     sessionId: sessionId,
                     worktreeId: worktreeId,
                     path: path
-                ) as AnyObject
-            },
-            onSuccess: { [weak self] response in
-                guard let self, let fileResponse = response as? WorktreeFileResponse else { return }
-                self.fileSheetContent = fileResponse.content
-                self.fileSheetBinary = fileResponse.binary
-                self.fileSheetTruncated = fileResponse.truncated
-                self.fileSheetLoading = false
-            },
-            onError: { [weak self] error in
-                self?.fileSheetError = error.localizedDescription
+                )
+                self?.fileSheetContent = fileResponse.content
+                self?.fileSheetBinary = fileResponse.binary
+                self?.fileSheetTruncated = fileResponse.truncated
+                self?.fileSheetLoading = false
+            } catch {
+                self?.fileSheetError = self?.errorMessage(error)
                 self?.fileSheetLoading = false
             }
-        )
+        }
     }
 
     // MARK: - Connection
@@ -336,20 +345,23 @@ class ChatViewModel: ObservableObject {
             inputText = ""
             actionModeByWorktree[worktreeId] = .llm
             let request = activeActionMode == .git ? "git" : "run"
-            Coroutines.shared.launch(
-                block: { [worktreeId] in
+            Task {
+                do {
                     try await repository.sendActionRequest(
                         worktreeId: worktreeId,
                         request: request,
                         arg: text
                     )
-                },
-                onError: { error in
-                    repository.reportError(error: AppError.companion.sendMessage(
-                        message: error.localizedDescription, details: nil
-                    ))
+                } catch {
+                    repository.reportError(
+                        error: AppError.companion.sendMessage(
+                            message: errorMessage(error),
+                            details: nil,
+                            canRetry: true
+                        )
+                    )
                 }
-            )
+            }
             return
         }
 
@@ -357,8 +369,8 @@ class ChatViewModel: ObservableObject {
 
         inputText = ""
 
-        Coroutines.shared.launch(
-            block: { [activeWorktreeId] in
+        Task {
+            do {
                 if activeWorktreeId == "main" {
                     try await repository.sendMessage(text: text, attachments: [])
                 } else {
@@ -368,13 +380,16 @@ class ChatViewModel: ObservableObject {
                         attachments: []
                     )
                 }
-            },
-            onError: { error in
-                repository.reportError(error: AppError.companion.sendMessage(
-                    message: error.localizedDescription, details: nil
-                ))
+            } catch {
+                repository.reportError(
+                    error: AppError.companion.sendMessage(
+                        message: errorMessage(error),
+                        details: nil,
+                        canRetry: true
+                    )
+                )
             }
-        )
+        }
     }
 
     func sendMessageWithAttachments(_ attachments: [Attachment]) {
@@ -384,8 +399,8 @@ class ChatViewModel: ObservableObject {
         inputText = ""
         uploadingAttachments = true
 
-        Coroutines.shared.launch(
-            block: { [activeWorktreeId] in
+        Task { [weak self] in
+            do {
                 if activeWorktreeId == "main" {
                     try await repository.sendMessage(text: text, attachments: attachments)
                 } else {
@@ -395,17 +410,18 @@ class ChatViewModel: ObservableObject {
                         attachments: attachments
                     )
                 }
-                await MainActor.run {
-                    self.uploadingAttachments = false
-                }
-            },
-            onError: { [weak self] error in
                 self?.uploadingAttachments = false
-                repository.reportError(error: AppError.companion.upload(
-                    message: error.localizedDescription, details: nil
-                ))
+            } catch {
+                self?.uploadingAttachments = false
+                repository.reportError(
+                    error: AppError.companion.upload(
+                        message: self?.errorMessage(error) ?? String(describing: error),
+                        details: nil,
+                        canRetry: true
+                    )
+                )
             }
-        )
+        }
     }
 
     // MARK: - Provider
@@ -413,16 +429,13 @@ class ChatViewModel: ObservableObject {
     func switchProvider(_ provider: LLMProvider) {
         guard let repository = appState?.sessionRepository else { return }
 
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            do {
                 try await repository.switchProvider(provider: provider)
-            },
-            onError: { error in
-                repository.reportError(error: AppError.companion.network(
-                    message: error.localizedDescription, details: nil
-                ))
+            } catch {
+                reportNetworkError(repository, error: error)
             }
-        )
+        }
     }
 
     func setActionMode(_ mode: ComposerActionMode) {
@@ -432,44 +445,36 @@ class ChatViewModel: ObservableObject {
     func loadModelsForActiveWorktree() {
         guard let repository = appState?.sessionRepository else { return }
         let provider = activeProviderKey
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            do {
                 let list = try await repository.loadProviderModels(provider: provider)
-                await MainActor.run {
-                    self.providerModels[provider] = list
-                    if self.selectedModelByWorktree[self.activeWorktreeId] == nil {
-                        let fallback = list.first(where: { $0.isDefault })?.model ?? list.first?.model
-                        if let fallback {
-                            self.selectedModelByWorktree[self.activeWorktreeId] = fallback
-                        }
+                self.providerModels[provider] = list
+                if self.selectedModelByWorktree[self.activeWorktreeId] == nil {
+                    let fallback = list.first(where: { $0.isDefault })?.model ?? list.first?.model
+                    if let fallback {
+                        self.selectedModelByWorktree[self.activeWorktreeId] = fallback
                     }
                 }
-            },
-            onError: { error in
-                repository.reportError(error: AppError.companion.network(
-                    message: error.localizedDescription, details: nil
-                ))
+            } catch {
+                reportNetworkError(repository, error: error)
             }
-        )
+        }
     }
 
     func setActiveModel(_ model: String) {
         guard let repository = appState?.sessionRepository else { return }
         selectedModelByWorktree[activeWorktreeId] = model
-        Coroutines.shared.launch(
-            block: { [activeWorktreeId] in
+        Task {
+            do {
                 try await repository.setModel(
                     worktreeId: activeWorktreeId,
                     model: model,
                     reasoningEffort: nil
                 )
-            },
-            onError: { error in
-                repository.reportError(error: AppError.companion.network(
-                    message: error.localizedDescription, details: nil
-                ))
+            } catch {
+                reportNetworkError(repository, error: error)
             }
-        )
+        }
     }
 
     // MARK: - Diff
@@ -477,14 +482,13 @@ class ChatViewModel: ObservableObject {
     func loadDiff() {
         guard let repository = appState?.sessionRepository else { return }
 
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            do {
                 try await repository.loadDiff()
-            },
-            onError: { _ in
+            } catch {
                 // Diff loading errors are non-critical, don't report
             }
-        )
+        }
     }
 
     // MARK: - Worktrees
@@ -508,8 +512,8 @@ class ChatViewModel: ObservableObject {
     ) {
         guard let repository = appState?.sessionRepository else { return }
 
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            do {
                 try await repository.createWorktree(
                     name: name,
                     provider: provider,
@@ -521,13 +525,16 @@ class ChatViewModel: ObservableObject {
                     internetAccess: internetAccess,
                     denyGitCredentialsAccess: denyGitCredentialsAccess
                 )
-            },
-            onError: { error in
-                repository.reportError(error: AppError.companion.worktree(
-                    message: error.localizedDescription, details: nil
-                ))
+            } catch {
+                repository.reportError(
+                    error: AppError.companion.network(
+                        message: errorMessage(error),
+                        details: nil,
+                        canRetry: true
+                    )
+                )
             }
-        )
+        }
     }
 
     func closeWorktree(_ worktreeId: String) {
@@ -538,16 +545,19 @@ class ChatViewModel: ObservableObject {
             activeWorktreeId = "main"
         }
 
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            do {
                 try await repository.closeWorktree(worktreeId: worktreeId)
-            },
-            onError: { error in
-                repository.reportError(error: AppError.companion.worktree(
-                    message: error.localizedDescription, details: nil
-                ))
+            } catch {
+                repository.reportError(
+                    error: AppError.companion.network(
+                        message: errorMessage(error),
+                        details: nil,
+                        canRetry: true
+                    )
+                )
             }
-        )
+        }
     }
 
     // MARK: - Cleanup
@@ -566,7 +576,11 @@ extension ChatMessage {
             role: .user,
             text: "Bonjour, peux-tu m'aider ?",
             attachments: [],
-            timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+            timestamp: Int64(Date().timeIntervalSince1970 * 1000),
+            command: nil,
+            output: nil,
+            status: nil,
+            toolResult: nil
         )
     }
 
@@ -576,7 +590,11 @@ extension ChatMessage {
             role: .assistant,
             text: "Bien sûr ! Comment puis-je vous aider aujourd'hui ?",
             attachments: [],
-            timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+            timestamp: Int64(Date().timeIntervalSince1970 * 1000),
+            command: nil,
+            output: nil,
+            status: nil,
+            toolResult: nil
         )
     }
 }
