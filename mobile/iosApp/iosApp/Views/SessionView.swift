@@ -373,6 +373,15 @@ struct SessionView: View {
         supportsSetupToken: Bool
     ) -> some View {
         let state = viewModel.workspaceProviders[provider] ?? ProviderAuthState()
+        let effectiveAuthType: ProviderAuthType = {
+            if !supportsSetupToken && state.authType == .setupToken {
+                return .apiKey
+            }
+            if !supportsAuthJson && state.authType == .authJsonB64 {
+                return .apiKey
+            }
+            return state.authType
+        }()
 
         return VStack(alignment: .leading, spacing: 12) {
             Toggle(title, isOn: Binding(
@@ -383,7 +392,7 @@ struct SessionView: View {
 
             if state.enabled {
                 Picker("Auth", selection: Binding(
-                    get: { state.authType },
+                    get: { effectiveAuthType },
                     set: { viewModel.updateProviderAuthType(provider, authType: $0) }
                 )) {
                     Text("provider.auth.api_key").tag(ProviderAuthType.apiKey)
@@ -396,7 +405,7 @@ struct SessionView: View {
                 }
                 .pickerStyle(.segmented)
 
-                if state.authType == .authJsonB64 && supportsAuthJson {
+                if effectiveAuthType == .authJsonB64 && supportsAuthJson {
                     Button("provider.auth.import_auth_json") {
                         showAuthJsonPicker = true
                     }
@@ -411,7 +420,7 @@ struct SessionView: View {
                     )
                 } else {
                     Vibe80SecureField(
-                        title: state.authType == .setupToken
+                        title: effectiveAuthType == .setupToken
                             ? "provider.auth.setup_token_label"
                             : "provider.auth.api_key_label",
                         text: Binding(
