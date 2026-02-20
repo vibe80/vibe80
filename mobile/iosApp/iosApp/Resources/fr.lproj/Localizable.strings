@@ -15,6 +15,8 @@
 "action.resume" = "Reprendre";
 "action.resume.progress" = "Reprise...";
 "action.send" = "Envoyer";
+"action.yes" = "Oui";
+"action.no" = "Non";
 "app.name" = "Vibe80";
 "attachment.default_name" = "pièce_jointe";
 "auth.http" = "HTTP";
@@ -71,9 +73,14 @@
 "error.title" = "Erreur";
 "error.turn" = "Erreur lors du traitement";
 "error.unknown" = "Une erreur inattendue s'est produite";
+"error.provider_switch" = "Échec du changement de provider";
+"error.upload" = "Échec de l'upload";
 "error.upload_attachment" = "Échec de l'upload du fichier";
 "error.websocket" = "Erreur de connexion WebSocket";
+"error.worktree" = "Erreur worktree";
+"file.binary" = "Fichier binaire";
 "file.binary_unavailable" = "Fichier binaire non affichable.";
+"file.loading" = "Chargement du fichier...";
 "file.title" = "Fichier";
 "file.truncated" = "Affichage tronqué.";
 "loading" = "Chargement...";
@@ -128,6 +135,7 @@
 "session.start.new" = "Démarrer une nouvelle session";
 "session.start.title" = "Démarrer une session";
 "session.title" = "Nouvelle session";
+"sessions.loading" = "Chargement des sessions...";
 "sessions.recent" = "Sessions récentes";
 "status.connected" = "Connecté";
 "status.disconnected" = "Déconnecté";
