@@ -356,7 +356,7 @@ struct SessionView: View {
         }
     }
 
-    private func providerCard(provider: String, title: String, supportsAuthJson: Bool) -> some View {
+    private func providerCard(provider: String, title: LocalizedStringKey, supportsAuthJson: Bool) -> some View {
         let state = viewModel.workspaceProviders[provider] ?? ProviderAuthState()
 
         return VStack(alignment: .leading, spacing: 12) {
@@ -409,7 +409,7 @@ struct SessionView: View {
         .vibe80CardStyle()
     }
 
-    private func vibe80Header(title: String, subtitle: String? = nil) -> some View {
+    private func vibe80Header(title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("app.name")
                 .font(.title)
