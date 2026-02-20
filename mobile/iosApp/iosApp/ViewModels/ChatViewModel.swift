@@ -150,17 +150,6 @@ class ChatViewModel: ObservableObject {
         )
     }
 
-    private func requireValue<T>(_ value: Any?, as type: T.Type, context: String) throws -> T {
-        if let typed = value as? T {
-            return typed
-        }
-        throw NSError(
-            domain: "Vibe80",
-            code: -1,
-            userInfo: [NSLocalizedDescriptionKey: "Réponse invalide (\(context))"]
-        )
-    }
-
     private func toKotlinBoolean(_ value: Bool?) -> KotlinBoolean? {
         guard let value else { return nil }
         return KotlinBoolean(bool: value)
@@ -305,15 +294,10 @@ class ChatViewModel: ObservableObject {
         Task { [weak self] in
             do {
                 guard let self = self else { return }
-                let fileResponseAny = try await repository.getWorktreeFile(
+                let fileResponse = try await repository.getWorktreeFileOrThrow(
                     sessionId: sessionId,
                     worktreeId: worktreeId,
                     path: path
-                )
-                let fileResponse = try self.requireValue(
-                    fileResponseAny,
-                    as: WorktreeFileResponse.self,
-                    context: "getWorktreeFile"
                 )
                 self.fileSheetContent = fileResponse.content
                 self.fileSheetBinary = fileResponse.binary
@@ -470,12 +454,7 @@ class ChatViewModel: ObservableObject {
         let provider = activeProviderKey
         Task {
             do {
-                let listAny = try await repository.loadProviderModels(provider: provider)
-                let list = try requireValue(
-                    listAny,
-                    as: [ProviderModel].self,
-                    context: "loadProviderModels"
-                )
+                let list = try await repository.loadProviderModelsOrThrow(provider: provider)
                 self.providerModels[provider] = list
                 if self.selectedModelByWorktree[self.activeWorktreeId] == nil {
                     let fallback = list.first(where: { $0.isDefault })?.model ?? list.first?.model

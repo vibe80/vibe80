@@ -750,10 +750,23 @@ class SessionRepository(
         }
     }
 
+    suspend fun createSessionOrThrow(
+        repoUrl: String,
+        sshKey: String? = null,
+        httpUser: String? = null,
+        httpPassword: String? = null
+    ): SessionState {
+        return createSession(repoUrl, sshKey, httpUser, httpPassword).getOrElse { throw it }
+    }
+
     suspend fun createWorkspace(request: WorkspaceCreateRequest): Result<WorkspaceCreateResponse> {
         val result = apiClient.createWorkspace(request)
         result.onFailure { handleApiFailure(it, "createWorkspace") }
         return result
+    }
+
+    suspend fun createWorkspaceOrThrow(request: WorkspaceCreateRequest): WorkspaceCreateResponse {
+        return createWorkspace(request).getOrElse { throw it }
     }
 
     suspend fun loginWorkspace(request: WorkspaceLoginRequest): Result<WorkspaceLoginResponse> {
@@ -762,10 +775,21 @@ class SessionRepository(
         return result
     }
 
+    suspend fun loginWorkspaceOrThrow(request: WorkspaceLoginRequest): WorkspaceLoginResponse {
+        return loginWorkspace(request).getOrElse { throw it }
+    }
+
     suspend fun updateWorkspace(workspaceId: String, request: WorkspaceUpdateRequest): Result<WorkspaceUpdateResponse> {
         val result = apiClient.updateWorkspace(workspaceId, request)
         result.onFailure { handleApiFailure(it, "updateWorkspace") }
         return result
+    }
+
+    suspend fun updateWorkspaceOrThrow(
+        workspaceId: String,
+        request: WorkspaceUpdateRequest
+    ): WorkspaceUpdateResponse {
+        return updateWorkspace(workspaceId, request).getOrElse { throw it }
     }
 
     suspend fun consumeHandoffToken(handoffToken: String): Result<HandoffConsumeResponse> {
@@ -774,10 +798,18 @@ class SessionRepository(
         return result
     }
 
+    suspend fun consumeHandoffTokenOrThrow(handoffToken: String): HandoffConsumeResponse {
+        return consumeHandoffToken(handoffToken).getOrElse { throw it }
+    }
+
     suspend fun listSessions(): Result<SessionListResponse> {
         val result = apiClient.listSessions()
         result.onFailure { handleApiFailure(it, "listSessions") }
         return result
+    }
+
+    suspend fun listSessionsOrThrow(): SessionListResponse {
+        return listSessions().getOrElse { throw it }
     }
 
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
@@ -856,11 +888,23 @@ class SessionRepository(
         return result
     }
 
+    suspend fun getWorktreeFileOrThrow(
+        sessionId: String,
+        worktreeId: String,
+        path: String
+    ): WorktreeFileResponse {
+        return getWorktreeFile(sessionId, worktreeId, path).getOrElse { throw it }
+    }
+
     /**
      * Reconnect to an existing session
      */
     suspend fun reconnectSession(sessionId: String): Result<SessionState> {
         return reconnectSession(sessionId, null)
+    }
+
+    suspend fun reconnectSessionOrThrow(sessionId: String): SessionState {
+        return reconnectSession(sessionId).getOrElse { throw it }
     }
 
     suspend fun reconnectSession(sessionId: String, repoUrlOverride: String?): Result<SessionState> {
@@ -903,6 +947,10 @@ class SessionRepository(
 
             state
         }
+    }
+
+    suspend fun reconnectSessionOrThrow(sessionId: String, repoUrlOverride: String?): SessionState {
+        return reconnectSession(sessionId, repoUrlOverride).getOrElse { throw it }
     }
 
     // ========== Worktree Management ==========
@@ -1022,6 +1070,10 @@ class SessionRepository(
         }
         result.onFailure { handleApiFailure(it, "loadProviderModels") }
         return result
+    }
+
+    suspend fun loadProviderModelsOrThrow(provider: String): List<ProviderModel> {
+        return loadProviderModels(provider).getOrElse { throw it }
     }
 
     suspend fun sendWorktreeMessage(
