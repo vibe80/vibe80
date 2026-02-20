@@ -7,6 +7,7 @@ import app.vibe80.shared.network.ApiClient
 import app.vibe80.shared.network.ApiResponseException
 import app.vibe80.shared.network.ConnectionState
 import app.vibe80.shared.network.WebSocketManager
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
