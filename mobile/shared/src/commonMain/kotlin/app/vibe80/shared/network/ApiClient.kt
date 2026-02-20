@@ -6,7 +6,6 @@ import app.vibe80.shared.models.*
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.*
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
@@ -66,7 +65,7 @@ class ApiClient(
                     setBody(WorkspaceRefreshRequest(refreshToken = currentToken))
                 }
                 val responseBody = if (!response.status.isSuccess()) {
-                    try { response.bodyAsText() } catch (_: Exception) { "" }
+                    readBodyTextUtf8(response)
                 } else {
                     ""
                 }
@@ -107,6 +106,14 @@ class ApiClient(
         AppLogger.info(LogSource.API, "Retrying request after token refresh", "url=$url")
         return request()
     }
+
+    private suspend fun readBodyTextUtf8(response: io.ktor.client.statement.HttpResponse): String {
+        return try {
+            response.body<ByteArray>().decodeToString()
+        } catch (_: Exception) {
+            ""
+        }
+    }
     private fun parseErrorPayload(bodyText: String): ApiErrorPayload? {
         if (bodyText.isBlank()) return null
         return try {
@@ -122,7 +129,7 @@ class ApiClient(
         responseBodyOverride: String? = null
     ): ApiResponseException {
         val responseBody = responseBodyOverride
-            ?: runCatching { response.bodyAsText() }.getOrDefault("")
+            ?: readBodyTextUtf8(response)
         val payload = parseErrorPayload(responseBody)
         return ApiResponseException(
             statusCode = response.status.value,
@@ -151,7 +158,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -197,7 +204,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -236,7 +243,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -286,7 +293,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -315,7 +322,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -344,7 +351,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -373,7 +380,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -416,7 +423,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -450,7 +457,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -484,7 +491,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -513,7 +520,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -544,7 +551,7 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -587,7 +594,7 @@ class ApiClient(
                 setBody(request)
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -612,7 +619,7 @@ class ApiClient(
                 setBody(request)
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
@@ -640,13 +647,23 @@ class ApiClient(
                 }
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
             AppLogger.apiResponse("PATCH", url, response.status.value, responseBody)
             if (response.status.isSuccess()) {
-                Result.success(response.body())
+                val successBody = readBodyTextUtf8(response)
+                val parsed = runCatching {
+                    if (successBody.isBlank()) {
+                        WorkspaceUpdateResponse(workspaceId = workspaceId, providers = request.providers)
+                    } else {
+                        errorJson.decodeFromString(WorkspaceUpdateResponse.serializer(), successBody)
+                    }
+                }.getOrElse {
+                    WorkspaceUpdateResponse(workspaceId = workspaceId, providers = request.providers)
+                }
+                Result.success(parsed)
             } else {
                 Result.failure(buildApiException(response, url, responseBody))
             }
@@ -664,7 +681,7 @@ class ApiClient(
                 setBody(request)
             }
             val responseBody = if (!response.status.isSuccess()) {
-                try { response.bodyAsText() } catch (_: Exception) { "" }
+                readBodyTextUtf8(response)
             } else {
                 ""
             }
