@@ -85,17 +85,6 @@ class SessionViewModel: ObservableObject {
         #endif
     }
 
-    private func requireValue<T>(_ value: Any?, as type: T.Type, context: String) throws -> T {
-        if let typed = value as? T {
-            return typed
-        }
-        throw NSError(
-            domain: "Vibe80",
-            code: -1,
-            userInfo: [NSLocalizedDescriptionKey: "Réponse invalide (\(context))"]
-        )
-    }
-
     init() {
         loadSavedWorkspace()
         loadSavedSession()
@@ -254,13 +243,8 @@ class SessionViewModel: ObservableObject {
             Task { [weak self] in
                 do {
                     guard let self = self else { return }
-                    let createdAny = try await repository.createWorkspace(
+                    let created = try await repository.createWorkspaceOrThrow(
                         request: WorkspaceCreateRequest(providers: providers)
-                    )
-                    let created = try self.requireValue(
-                        createdAny,
-                        as: WorkspaceCreateResponse.self,
-                        context: "createWorkspace"
                     )
                     self.workspaceCreatedId = created.workspaceId
                     self.workspaceCreatedSecret = created.workspaceSecret
@@ -287,7 +271,7 @@ class SessionViewModel: ObservableObject {
             }
             Task { [weak self] in
                 do {
-                    _ = try await repository.updateWorkspace(
+                    _ = try await repository.updateWorkspaceOrThrow(
                         workspaceId: workspaceId,
                         request: WorkspaceUpdateRequest(providers: providers)
                     )
@@ -316,22 +300,17 @@ class SessionViewModel: ObservableObject {
         workspaceError = nil
 
         Task { [weak self] in
-                do {
-                    let loginAny = try await repository.loginWorkspace(
-                        request: WorkspaceLoginRequest(
-                            workspaceId: workspaceId,
-                            workspaceSecret: workspaceSecret
-                        )
+            do {
+                let loginResponse = try await repository.loginWorkspaceOrThrow(
+                    request: WorkspaceLoginRequest(
+                        workspaceId: workspaceId,
+                        workspaceSecret: workspaceSecret
                     )
-                    guard let self = self else { return }
-                    let loginResponse = try self.requireValue(
-                        loginAny,
-                        as: WorkspaceLoginResponse.self,
-                        context: "loginWorkspace"
-                    )
-                    repository.setWorkspaceToken(token: loginResponse.workspaceToken)
-                    repository.setRefreshToken(token: loginResponse.refreshToken)
-                    self.saveWorkspace(
+                )
+                guard let self = self else { return }
+                repository.setWorkspaceToken(token: loginResponse.workspaceToken)
+                repository.setRefreshToken(token: loginResponse.refreshToken)
+                self.saveWorkspace(
                     workspaceId: workspaceId,
                     workspaceSecret: workspaceSecret,
                     workspaceToken: loginResponse.workspaceToken,
@@ -434,28 +413,23 @@ class SessionViewModel: ObservableObject {
         Task { [weak self] in
             do {
                 guard let self = self else { return }
-                let state = try await repository.createSession(
+                let state = try await repository.createSessionOrThrow(
                     repoUrl: self.repoUrl,
                     sshKey: sshKeyParam,
                     httpUser: httpUserParam,
                     httpPassword: httpPasswordParam
                 )
-                let resolvedState = try self.requireValue(
-                    state,
-                    as: SessionState.self,
-                    context: "createSession"
-                )
                 let defaults = UserDefaults.standard
-                defaults.set(resolvedState.sessionId, forKey: "lastSessionId")
+                defaults.set(state.sessionId, forKey: "lastSessionId")
                 defaults.set(self.repoUrl, forKey: "lastRepoUrl")
-                defaults.set(resolvedState.activeProvider.name, forKey: "lastProvider")
+                defaults.set(state.activeProvider.name, forKey: "lastProvider")
                 defaults.set("", forKey: "lastBaseUrl")
-                self.savedSessionId = resolvedState.sessionId
+                self.savedSessionId = state.sessionId
                 self.savedSessionRepoUrl = self.repoUrl
                 self.hasSavedSession = true
                 self.isLoading = false
                 self.loadingState = .none
-                appState.setSession(sessionId: resolvedState.sessionId)
+                appState.setSession(sessionId: state.sessionId)
             } catch {
                 self?.sessionError = self?.debugErrorDetails("createSession", error)
                 self?.isLoading = false
@@ -485,7 +459,7 @@ class SessionViewModel: ObservableObject {
 
         Task { [weak self] in
             do {
-                _ = try await repository.reconnectSession(sessionId: sessionId)
+                _ = try await repository.reconnectSessionOrThrow(sessionId: sessionId)
                 self?.isLoading = false
                 self?.loadingState = .none
                 appState.setSession(sessionId: sessionId)
@@ -507,19 +481,14 @@ class SessionViewModel: ObservableObject {
         sessionsError = nil
 
         Task { [weak self] in
-                do {
-                    let listAny = try await repository.listSessions()
-                    guard let self = self else { return }
-                    let listResponse = try self.requireValue(
-                        listAny,
-                        as: SessionListResponse.self,
-                        context: "listSessions"
-                    )
-                    self.workspaceSessions = listResponse.sessions
-                    self.sessionsLoading = false
-                } catch {
-                    self?.sessionsError = self?.errorMessage(error)
-                    self?.sessionsLoading = false
+            do {
+                let listResponse = try await repository.listSessionsOrThrow()
+                guard let self = self else { return }
+                self.workspaceSessions = listResponse.sessions
+                self.sessionsLoading = false
+            } catch {
+                self?.sessionsError = self?.errorMessage(error)
+                self?.sessionsLoading = false
             }
         }
     }
@@ -549,7 +518,7 @@ class SessionViewModel: ObservableObject {
 
         Task { [weak self] in
             do {
-                _ = try await repository.reconnectSession(sessionId: sessionId)
+                _ = try await repository.reconnectSessionOrThrow(sessionId: sessionId)
                 self?.isLoading = false
                 self?.loadingState = .none
                 appState.setSession(sessionId: sessionId)
@@ -578,14 +547,9 @@ class SessionViewModel: ObservableObject {
         handoffError = nil
 
         Task { [weak self] in
-                do {
-                let responseAny = try await repository.consumeHandoffToken(handoffToken: parsed.handoffToken)
+            do {
+                let response = try await repository.consumeHandoffTokenOrThrow(handoffToken: parsed.handoffToken)
                 guard let self = self else { return }
-                let response = try self.requireValue(
-                    responseAny,
-                    as: HandoffConsumeResponse.self,
-                    context: "consumeHandoffToken"
-                )
                 repository.setWorkspaceToken(token: response.workspaceToken)
                 repository.setRefreshToken(token: response.refreshToken)
                 self.saveWorkspace(
@@ -599,7 +563,7 @@ class SessionViewModel: ObservableObject {
                 self.workspaceRefreshToken = response.refreshToken
                 self.entryScreen = .joinSession
                 do {
-                    _ = try await repository.reconnectSession(sessionId: response.sessionId)
+                    _ = try await repository.reconnectSessionOrThrow(sessionId: response.sessionId)
                     self.handoffBusy = false
                     appState.setSession(sessionId: response.sessionId)
                 } catch {
