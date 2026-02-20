@@ -411,13 +411,17 @@ struct SessionView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.vibe80AccentDark)
-                    Vibe80TextEditor(
-                        title: "provider.auth.auth_json_label",
-                        text: Binding(
-                            get: { state.authValue },
-                            set: { viewModel.updateProviderAuthValue(provider, authValue: $0) }
-                        )
-                    )
+
+                    HStack(spacing: 8) {
+                        Image(systemName: state.authValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "doc" : "checkmark.circle.fill")
+                            .foregroundColor(state.authValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .vibe80InkMuted : .green)
+                        Text(state.authValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                             ? "provider.auth.auth_json_not_selected"
+                             : "provider.auth.auth_json_selected")
+                            .foregroundColor(.vibe80InkMuted)
+                            .font(.footnote)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Vibe80SecureField(
                         title: effectiveAuthType == .setupToken
