@@ -5,54 +5,82 @@ struct ErrorBannerView: View {
     let error: AppError
     let onDismiss: () -> Void
 
-    private var errorMessage: String {
-        let type = error.type
-        let prefix: String
-        switch type {
+    private var bannerColor: Color {
+        switch error.type {
         case .websocket:
-            prefix = NSLocalizedString("error.websocket", comment: "WebSocket error")
+            return Color.orange
         case .network:
-            prefix = NSLocalizedString("error.network", comment: "Network error")
+            return Color.red
         case .upload:
-            prefix = NSLocalizedString("error.upload", comment: "Upload error")
+            return Color.purple
         case .sendMessage:
-            prefix = NSLocalizedString("error.send_message", comment: "Send error")
-        case .providerSwitch:
-            prefix = NSLocalizedString("error.provider_switch", comment: "Provider error")
-        case .worktree:
-            prefix = NSLocalizedString("error.worktree", comment: "Worktree error")
+            return Color.yellow
+        case .providerSwitch, .worktree:
+            return Color.blue
         default:
-            prefix = NSLocalizedString("error.unknown", comment: "Error")
+            return Color.gray
         }
+    }
+
+    private var iconName: String {
+        switch error.type {
+        case .websocket:
+            return "wifi.exclamationmark"
+        case .network:
+            return "exclamationmark.triangle.fill"
+        case .upload:
+            return "arrow.up.doc.fill"
+        case .sendMessage:
+            return "paperplane"
+        case .providerSwitch:
+            return "cpu"
+        case .worktree:
+            return "folder.badge.minus"
+        default:
+            return "questionmark.circle"
+        }
+    }
+
+    private var errorMessage: String {
+        let prefix = NSLocalizedString("error.\(error.type.name.lowercased())", comment: "Error prefix")
         return "\(prefix): \(error.message)"
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
+        HStack(spacing: 12) {
+            Image(systemName: iconName)
                 .foregroundColor(.white)
                 .font(.subheadline)
 
-            Text(errorMessage)
-                .font(.subheadline)
-                .foregroundColor(.white)
-                .lineLimit(3)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(errorMessage)
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                    .lineLimit(3)
+
+                if let details = error.details, !details.isEmpty {
+                    Text(details)
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.8))
+                        .lineLimit(2)
+                }
+            }
 
             Spacer(minLength: 8)
 
             Button {
                 onDismiss()
             } label: {
-                Image(systemName: "xmark")
+                Image(systemName: "xmark.circle.fill")
                     .font(.caption.weight(.bold))
                     .foregroundColor(.white.opacity(0.8))
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.red.opacity(0.9))
+        .background(bannerColor.opacity(0.95))
         .cornerRadius(12)
-        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+        .shadow(color: bannerColor.opacity(0.4), radius: 6, y: 3)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
     }
