@@ -58,17 +58,20 @@ struct WorktreeTab: View {
                     .frame(width: 8, height: 8)
 
                 // Name
-                Text(worktree.name)
-                    .font(.subheadline)
-                    .fontWeight(isActive ? .semibold : .regular)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(worktree.name)
+                        .font(.subheadline)
+                        .fontWeight(isActive ? .semibold : .regular)
+                        .lineLimit(1)
 
-                // Status indicator
-                statusIndicator
+                    statusBadge
+                }
+
+                Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(isActive ? Color.blue.opacity(0.15) : Color(.systemBackground))
+            .padding(.vertical, 10)
+            .background(isActive ? Color.blue.opacity(0.2) : Color(.systemBackground))
             .cornerRadius(18)
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
@@ -89,27 +92,43 @@ struct WorktreeTab: View {
     }
 
     @ViewBuilder
-    private var statusIndicator: some View {
-        switch worktree.status {
-        case .creating, .processing, .merging:
-            ProgressView()
-                .scaleEffect(0.6)
-
-        case .error, .mergeConflict:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.caption2)
-                .foregroundColor(.red)
-
+    private var statusBadge: some View {
+        let status = worktree.status
+        switch status {
+        case .creating:
+            badge(text: "worktree.status.creating", color: .orange, icon: "hourglass")
+        case .processing:
+            badge(text: "worktree.status.processing", color: .purple, icon: "gearshape")
+        case .merging:
+            badge(text: "worktree.status.merging", color: .teal, icon: "arrow.merge")
+        case .mergeConflict:
+            badge(text: "worktree.status.merge_conflict", color: .red, icon: "exclamationmark.triangle.fill")
+        case .error:
+            badge(text: "worktree.status.error", color: .red, icon: "xmark.octagon.fill")
         case .completed:
             if worktree.id != "main" {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.caption2)
-                    .foregroundColor(.green)
+                badge(text: "worktree.status.completed", color: .green, icon: "checkmark.seal.fill")
+            } else {
+                badge(text: "worktree.status.main", color: .blue, icon: "house.fill")
             }
-
         default:
             EmptyView()
         }
+    }
+
+    private func badge(text: String, color: Color, icon: String) -> some View {
+        Label {
+            Text(text)
+                .font(.caption2)
+        } icon: {
+            Image(systemName: icon)
+                .font(.caption2)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.15))
+        .foregroundColor(color)
+        .cornerRadius(12)
     }
 }
 

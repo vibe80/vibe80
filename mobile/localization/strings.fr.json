@@ -164,5 +164,12 @@
   "worktree.name.count": "%d/32 caractères",
   "worktree.name.optional_label": "Nom (optionnel)",
   "worktree.name.placeholder.example": "ex: refactor-auth",
-  "attachment.default_name": "pièce_jointe"
+  "attachment.default_name": "pièce_jointe",
+  "worktree.status.creating": "Création",
+  "worktree.status.processing": "En traitement",
+  "worktree.status.merging": "Merge en cours",
+  "worktree.status.merge_conflict": "Conflit",
+  "worktree.status.error": "Erreur",
+  "worktree.status.completed": "Terminé",
+  "worktree.status.main": "Worktree principal"
 }
