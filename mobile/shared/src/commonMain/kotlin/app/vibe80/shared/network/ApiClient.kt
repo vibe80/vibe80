@@ -57,6 +57,13 @@ class ApiClient(
         val token = refreshToken ?: return false
         return refreshMutex.withLock {
             val currentToken = refreshToken ?: return@withLock false
+            if (currentToken != token) {
+                AppLogger.info(
+                    LogSource.API,
+                    "Refresh token already rotated by another in-flight refresh"
+                )
+                return@withLock true
+            }
             val url = "$baseUrl/api/v1/workspaces/refresh"
             AppLogger.apiRequest("POST", url)
             return@withLock try {
