@@ -77,8 +77,21 @@ struct ChatView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 0) {
-                        Text("app.name")
-                            .font(.headline)
+                        HStack(spacing: 6) {
+                            Text("app.name")
+                                .font(.headline)
+
+                            Circle()
+                                .fill(connectionColor)
+                                .frame(width: 7, height: 7)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.black.opacity(0.12), lineWidth: 0.5)
+                                )
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                                .animation(.easeInOut, value: viewModel.connectionState)
+                        }
                         if !viewModel.repoName.isEmpty {
                             Text(viewModel.repoName)
                                 .font(.caption)
@@ -86,10 +99,6 @@ struct ChatView: View {
                                 .lineLimit(1)
                         }
                     }
-                }
-
-                ToolbarItem(placement: .navigationBarLeading) {
-                    connectionIndicator
                 }
 
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -284,17 +293,6 @@ struct ChatView: View {
         )
         .id(message.id)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
-    }
-
-    // MARK: - Connection Indicator
-
-    private var connectionIndicator: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(connectionColor)
-                .frame(width: 8, height: 8)
-                .animation(.easeInOut, value: viewModel.connectionState)
-        }
     }
 
     private var connectionColor: Color {
