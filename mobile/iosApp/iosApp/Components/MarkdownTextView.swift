@@ -35,10 +35,9 @@ struct MarkdownTextView: View {
     }
 
     private func markdownText(_ text: String) -> some View {
-        let normalized = preserveLineBreaks(text)
         return Group {
             if let attributed = try? AttributedString(
-                markdown: normalized,
+                markdown: text,
                 options: .init(
                     allowsExtendedAttributes: true,
                     interpretedSyntax: .full,
@@ -48,7 +47,7 @@ struct MarkdownTextView: View {
                 Text(attributed)
                     .textSelection(.enabled)
             } else {
-                Text(normalized)
+                Text(text)
                     .textSelection(.enabled)
             }
         }
@@ -235,46 +234,7 @@ private func parseHeadingLine(_ line: String) -> (level: Int, text: String)? {
 }
 
 private func preserveLineBreaks(_ text: String) -> String {
-    // Keep paragraph/list/blockquote lines as-is, and only convert plain single
-    // newlines to markdown hard breaks ("  \n") for chat readability.
-    let lines = text.components(separatedBy: "\n")
-    guard lines.count > 1 else { return text }
-
-    var result = lines[0]
-    for idx in 1..<lines.count {
-        let previous = lines[idx - 1]
-        let current = lines[idx]
-
-        let separator: String
-        if previous.isEmpty || current.isEmpty || isMarkdownBlockSensitiveLine(previous) || isMarkdownBlockSensitiveLine(current) {
-            separator = "\n"
-        } else {
-            separator = "  \n"
-        }
-
-        result += separator + current
-    }
-    return result
-}
-
-private func isMarkdownBlockSensitiveLine(_ line: String) -> Bool {
-    let trimmed = line.trimmingCharacters(in: .whitespaces)
-    if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("+ ") {
-        return true
-    }
-    if trimmed.hasPrefix(">") || trimmed.hasPrefix("|") {
-        return true
-    }
-    if line.hasPrefix("  ") || line.hasPrefix("\t") {
-        return true
-    }
-    if let regex = try? NSRegularExpression(pattern: #"^\d+[.)]\s+"#) {
-        let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
-        if regex.firstMatch(in: trimmed, options: [], range: range) != nil {
-            return true
-        }
-    }
-    return false
+    return text
 }
 
 private func splitCodeBlocks(_ text: String) -> [TextSegment] {
