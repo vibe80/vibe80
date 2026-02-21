@@ -62,14 +62,14 @@ struct ChatView: View {
                     activeModel: viewModel.activeSelectedModel,
                     availableModels: viewModel.activeModels,
                     onSend: viewModel.sendMessage,
-                    pendingAttachments: viewModel.pendingAttachments,
                     onSelectActionMode: viewModel.setActionMode,
                     onSelectModel: viewModel.setActiveModel,
-                    onAddAttachment: viewModel.addPendingAttachment,
-                    onRemoveAttachment: viewModel.removePendingAttachment,
                     onFocusChanged: { focused in
                         isComposerFocused = focused
-                    }
+                    },
+                    pendingAttachments: viewModel.pendingAttachments,
+                    onAddAttachment: viewModel.addPendingAttachment,
+                    onRemoveAttachment: viewModel.removePendingAttachment
                 )
             }
             .navigationTitle("app.name")
