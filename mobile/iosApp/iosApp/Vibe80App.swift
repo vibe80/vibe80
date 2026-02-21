@@ -43,7 +43,16 @@ class AppState: ObservableObject {
 
         // Get dependencies
         dependencies = SharedDependencies()
+        syncWorkspaceTokensToRepository()
         isInitialized = true
+    }
+
+    private func syncWorkspaceTokensToRepository() {
+        let defaults = UserDefaults.standard
+        let workspaceToken = defaults.string(forKey: "workspaceToken")
+        let workspaceRefreshToken = defaults.string(forKey: "workspaceRefreshToken")
+        dependencies?.sessionRepository.setWorkspaceToken(token: workspaceToken)
+        dependencies?.sessionRepository.setRefreshToken(token: workspaceRefreshToken)
     }
 
     /// Get server URL from configuration
@@ -94,5 +103,6 @@ extension AppState {
         KoinHelper.shared.stop()
         KoinHelper.shared.start(baseUrl: url)
         dependencies = SharedDependencies()
+        syncWorkspaceTokensToRepository()
     }
 }
