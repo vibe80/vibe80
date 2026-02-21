@@ -36,7 +36,7 @@ struct MarkdownTextView: View {
 
     private func markdownText(_ text: String) -> some View {
         let normalized = preserveLineBreaks(text)
-        Group {
+        return Group {
             if let attributed = try? AttributedString(
                 markdown: normalized,
                 options: .init(
