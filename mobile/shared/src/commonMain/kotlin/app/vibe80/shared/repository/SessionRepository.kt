@@ -1135,7 +1135,8 @@ class SessionRepository(
                 branchName = response.branchName ?: "main",
                 provider = resolvedProvider,
                 status = response.status ?: WorktreeStatus.CREATING,
-                color = response.color ?: Worktree.COLORS.first()
+                color = response.color ?: Worktree.COLORS.first(),
+                createdAt = System.currentTimeMillis()
             )
             _worktrees.update { current ->
                 current + (worktree.id to worktree)
