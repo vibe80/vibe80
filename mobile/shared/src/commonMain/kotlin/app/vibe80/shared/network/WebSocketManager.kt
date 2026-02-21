@@ -96,6 +96,7 @@ class WebSocketManager(
             val fullWsUrl = "$wsUrl/ws?session=$currentSessionId"
             AppLogger.wsConnecting(fullWsUrl)
             AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Starting WebSocket connection", "url=$fullWsUrl")
+            val authCompleted = CompletableDeferred<Unit>()
 
             httpClient.webSocket(fullWsUrl) {
                 session = this
@@ -118,6 +119,7 @@ class WebSocketManager(
                 pingJob = launch {
                     AppLogger.debug(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Ping job started")
                     try {
+                        authCompleted.await()
                         while (isActive) {
                             delay(25_000)
                             send(PingMessage())
@@ -132,6 +134,9 @@ class WebSocketManager(
                     AppLogger.debug(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Outgoing message handler started")
                     try {
                         for (message in outgoingMessages) {
+                            if (message !is AuthMessage) {
+                                authCompleted.await()
+                            }
                             // Encode each message type with its specific serializer to avoid sealed class issues
                             val (messageType, jsonString) = when (message) {
                                 is PingMessage -> "ping" to json.encodeToString(PingMessage.serializer(), message)
@@ -162,6 +167,12 @@ class WebSocketManager(
                             when (frame) {
                                 is Frame.Text -> {
                                     val text = frame.readText()
+                                    val type = runCatching {
+                                        json.decodeFromString<JsonObject>(text)["type"]?.jsonPrimitive?.content
+                                    }.getOrNull()
+                                    if (type == "auth_ok" && !authCompleted.isCompleted) {
+                                        authCompleted.complete(Unit)
+                                    }
                                     parseAndEmitMessage(text)
                                 }
                                 is Frame.Close -> {
