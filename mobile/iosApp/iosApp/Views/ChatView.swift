@@ -76,29 +76,33 @@ struct ChatView: View {
             .background(Color.vibe80Background)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    VStack(spacing: 0) {
-                        HStack(spacing: 6) {
-                            Text("app.name")
-                                .font(.headline)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack(spacing: 6) {
+                                Text("app.name")
+                                    .font(.headline)
 
-                            Circle()
-                                .fill(connectionColor)
-                                .frame(width: 7, height: 7)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.black.opacity(0.12), lineWidth: 0.5)
-                                )
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                                .animation(.easeInOut, value: viewModel.connectionState)
+                                Circle()
+                                    .fill(connectionColor)
+                                    .frame(width: 7, height: 7)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.black.opacity(0.12), lineWidth: 0.5)
+                                    )
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                                    .animation(.easeInOut, value: viewModel.connectionState)
+                            }
+                            if !viewModel.repoName.isEmpty {
+                                Text(viewModel.repoName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
-                        if !viewModel.repoName.isEmpty {
-                            Text(viewModel.repoName)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
+                        Spacer(minLength: 0)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
