@@ -164,7 +164,7 @@ class ChatViewModel: ObservableObject {
 
     func setup(appState: AppState) {
         self.appState = appState
-        if let baseUrl = appState.dependencies?.apiClient?.getBaseUrl() {
+        if let baseUrl = appState.dependencies?.apiClient.getBaseUrl() {
             attachmentUploader = AttachmentUploader(baseUrl: baseUrl)
         }
         subscribeToFlows()
