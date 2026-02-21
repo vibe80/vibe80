@@ -91,10 +91,11 @@ class ChatViewModel: ObservableObject {
             )
         }
 
-        return items.sorted { w1, w2 in
-            if w1.id == "main" { return true }
-            if w2.id == "main" { return false }
-            return w1.createdAt < w2.createdAt
+        return items.sorted { a, b in
+            if a.id == "main", b.id != "main" { return true }
+            if b.id == "main", a.id != "main" { return false }
+            if a.createdAt != b.createdAt { return a.createdAt < b.createdAt }
+            return a.id < b.id
         }
     }
 
