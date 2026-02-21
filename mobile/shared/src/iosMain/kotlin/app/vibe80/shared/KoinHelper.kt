@@ -54,6 +54,10 @@ class SharedDependencies : KoinComponent {
     fun workspaceTokenObserver(): WorkspaceTokenObserver {
         return WorkspaceTokenObserver(sessionRepository.workspaceTokenUpdates)
     }
+
+    fun workspaceAuthInvalidObserver(): WorkspaceAuthInvalidObserver {
+        return WorkspaceAuthInvalidObserver(sessionRepository.workspaceAuthInvalid)
+    }
 }
 
 class WorkspaceTokenObserver(
@@ -69,6 +73,28 @@ class WorkspaceTokenObserver(
             .onEach { update ->
                 onUpdate(update.workspaceToken, update.refreshToken)
             }
+            .launchIn(scope!!)
+    }
+
+    fun close() {
+        job?.cancel()
+        scope?.cancel()
+        job = null
+        scope = null
+    }
+}
+
+class WorkspaceAuthInvalidObserver(
+    private val flow: Flow<String>
+) {
+    private var scope: CoroutineScope? = null
+    private var job: Job? = null
+
+    fun subscribe(onInvalid: (message: String) -> Unit) {
+        close()
+        scope = CoroutineScope(Dispatchers.Main)
+        job = flow
+            .onEach { message -> onInvalid(message) }
             .launchIn(scope!!)
     }
 
