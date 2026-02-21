@@ -32,6 +32,7 @@
 		M5_024 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_127 /* NotificationManager.swift */; };
 		M5_025 /* AttachmentUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_128 /* AttachmentUploader.swift */; };
 		M5_026 /* PendingAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_129 /* PendingAttachment.swift */; };
+		M5_027 /* LogsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_130 /* LogsSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -63,6 +64,7 @@
 		M5_127 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		M5_128 /* AttachmentUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentUploader.swift; sourceTree = "<group>"; };
 		M5_129 /* PendingAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingAttachment.swift; sourceTree = "<group>"; };
+		M5_130 /* LogsSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogsSheetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -143,6 +145,7 @@
 				M5_124 /* Vibe80FormView.swift */,
 				M5_125 /* FileSheetView.swift */,
 				M5_126 /* MarkdownTextView.swift */,
+				M5_130 /* LogsSheetView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -290,6 +293,7 @@
 				M5_024 /* NotificationManager.swift in Sources */,
 				M5_025 /* AttachmentUploader.swift in Sources */,
 				M5_026 /* PendingAttachment.swift in Sources */,
+				M5_027 /* LogsSheetView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

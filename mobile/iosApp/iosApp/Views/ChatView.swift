@@ -112,6 +112,14 @@ struct ChatView: View {
                         }
                     }
 
+#if DEBUG
+                    Button {
+                        viewModel.showLogs()
+                    } label: {
+                        Image(systemName: "ladybug")
+                    }
+#endif
+
                     // Disconnect button
                     Button {
                         viewModel.disconnect()
@@ -124,6 +132,13 @@ struct ChatView: View {
             .sheet(isPresented: $showDiffSheet) {
                 DiffSheetView(diff: viewModel.repoDiff)
                     .presentationDetents([.large])
+            }
+            .sheet(isPresented: $viewModel.showLogsSheet) {
+                LogsSheetView(
+                    logs: viewModel.logs,
+                    onClear: viewModel.clearLogs
+                )
+                .presentationDetents([.large])
             }
             .sheet(isPresented: $showProviderSheet) {
                 ProviderSheetView(
