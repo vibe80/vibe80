@@ -1032,8 +1032,16 @@ class SessionRepository(
     // ========== Worktree Management ==========
 
     fun setActiveWorktree(worktreeId: String) {
-        if (_activeWorktreeId.value == worktreeId) return
-        _activeWorktreeId.value = worktreeId
+        val alreadyActive = _activeWorktreeId.value == worktreeId
+        if (!alreadyActive) {
+            _activeWorktreeId.value = worktreeId
+        } else {
+            AppLogger.debug(
+                LogSource.APP,
+                "setActiveWorktree called for already-active worktree; forcing wake/sync",
+                "worktreeId=$worktreeId"
+            )
+        }
         val sessionId = _sessionState.value?.sessionId ?: return
         setActiveWorktreeJob?.cancel()
         setActiveWorktreeJob = scope.launch {
@@ -1136,6 +1144,8 @@ class SessionRepository(
                 current + (worktree.id to emptyList())
             }
             _activeWorktreeId.value = worktree.id
+            // Warm up/sync immediately so the first message gets a live assistant response.
+            setActiveWorktree(worktree.id)
         }
     }
 
