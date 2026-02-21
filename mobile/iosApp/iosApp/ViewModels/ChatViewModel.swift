@@ -59,6 +59,8 @@ class ChatViewModel: ObservableObject {
     // Upload progress (P2.6)
     @Published var uploadingAttachments = false
     @Published var pendingAttachments: [PendingAttachment] = []
+    @Published var showLogsSheet: Bool = false
+    @Published var logs: [LogEntry] = []
 
     // Computed properties
     var hasUncommittedChanges: Bool {
@@ -132,6 +134,7 @@ class ChatViewModel: ObservableObject {
     private var worktreeStreamingWrapper: FlowWrapper<NSDictionary>?
     private var worktreeProcessingWrapper: FlowWrapper<NSDictionary>?
     private var errorWrapper: FlowWrapper<AppError>?
+    private var logsWrapper: FlowWrapper<NSArray>?
     private var fileCall: SuspendWrapper<AnyObject>?
     private var sessionListCall: SuspendWrapper<AnyObject>?
 
@@ -264,6 +267,11 @@ class ChatViewModel: ObservableObject {
             }
             self?.currentError = error
         }
+
+        logsWrapper = FlowWrapper(flow: AppLogger.shared.logs)
+        logsWrapper?.subscribe { [weak self] entries in
+            self?.logs = (entries as? [LogEntry]) ?? []
+        }
     }
 
     // MARK: - Error Handling (P2.1)
@@ -330,6 +338,18 @@ class ChatViewModel: ObservableObject {
         closeAllSubscriptions()
     }
 
+    func showLogs() {
+        showLogsSheet = true
+    }
+
+    func hideLogs() {
+        showLogsSheet = false
+    }
+
+    func clearLogs() {
+        AppLogger.shared.clear()
+    }
+
     private func closeAllSubscriptions() {
         messagesWrapper?.close()
         streamingMessageWrapper?.close()
@@ -342,6 +362,7 @@ class ChatViewModel: ObservableObject {
         worktreeStreamingWrapper?.close()
         worktreeProcessingWrapper?.close()
         errorWrapper?.close()
+        logsWrapper?.close()
     }
 
     // MARK: - Messages
