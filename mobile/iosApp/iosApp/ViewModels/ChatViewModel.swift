@@ -69,7 +69,27 @@ class ChatViewModel: ObservableObject {
     }
 
     var sortedWorktrees: [Worktree] {
-        worktrees.sorted { w1, w2 in
+        var items = worktrees
+
+        // Server worktrees map may not include main.
+        // Keep main visible as first tab whenever worktrees are displayed.
+        if !items.isEmpty, !items.contains(where: { $0.id == "main" }) {
+            items.insert(
+                Worktree(
+                    id: "main",
+                    name: "main",
+                    branchName: "main",
+                    provider: activeProvider,
+                    status: .ready,
+                    color: "#4CAF50",
+                    parentId: nil,
+                    createdAt: 0
+                ),
+                at: 0
+            )
+        }
+
+        return items.sorted { w1, w2 in
             if w1.id == "main" { return true }
             if w2.id == "main" { return false }
             return w1.createdAt < w2.createdAt
