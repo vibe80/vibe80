@@ -35,9 +35,10 @@ struct MarkdownTextView: View {
     }
 
     private func markdownText(_ text: String) -> some View {
+        let normalized = preserveLineBreaks(text)
         Group {
             if let attributed = try? AttributedString(
-                markdown: text,
+                markdown: normalized,
                 options: .init(
                     allowsExtendedAttributes: true,
                     interpretedSyntax: .full,
@@ -47,7 +48,7 @@ struct MarkdownTextView: View {
                 Text(attributed)
                     .textSelection(.enabled)
             } else {
-                Text(text)
+                Text(normalized)
                     .textSelection(.enabled)
             }
         }
@@ -231,6 +232,15 @@ private func parseHeadingLine(_ line: String) -> (level: Int, text: String)? {
     let text = remainder.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !text.isEmpty else { return nil }
     return (level, text)
+}
+
+private func preserveLineBreaks(_ text: String) -> String {
+    // Keep paragraph breaks (\n\n) as-is, and convert single line breaks to markdown hard breaks ("  \n")
+    // so chat messages keep expected visual new lines.
+    let pattern = #"(?<!\n)\n(?!\n)"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+    let range = NSRange(text.startIndex..<text.endIndex, in: text)
+    return regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "  \n")
 }
 
 private func splitCodeBlocks(_ text: String) -> [TextSegment] {
