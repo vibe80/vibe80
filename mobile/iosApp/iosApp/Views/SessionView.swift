@@ -446,10 +446,12 @@ struct SessionView: View {
 
     private func vibe80Header(title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("app.name")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.vibe80Ink)
+            Image("Vibe80Logo")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(height: 28)
+                .accessibilityLabel(Text("app.name"))
             Text(title)
                 .font(.headline)
                 .foregroundColor(.vibe80Ink)
