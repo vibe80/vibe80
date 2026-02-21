@@ -9,7 +9,6 @@ struct ChatView: View {
     @StateObject private var viewModel = ChatViewModel()
 
     @State private var showDiffSheet = false
-    @State private var showProviderSheet = false
     @State private var showCreateWorktreeSheet = false
     @State private var showWorktreeMenu: IdentifiableString? = nil
     @State private var isComposerFocused = false
@@ -81,19 +80,11 @@ struct ChatView: View {
                 }
 
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    // Provider chip
+                    // Add worktree
                     Button {
-                        showProviderSheet = true
+                        showCreateWorktreeSheet = true
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "cpu")
-                            Text(viewModel.activeProvider.name)
-                        }
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.vibe80SurfaceElevated)
-                        .cornerRadius(12)
+                        Image(systemName: "plus.square.on.square")
                     }
 
                     // Diff button with badge
@@ -139,16 +130,6 @@ struct ChatView: View {
                     onClear: viewModel.clearLogs
                 )
                 .presentationDetents([.large])
-            }
-            .sheet(isPresented: $showProviderSheet) {
-                ProviderSheetView(
-                    currentProvider: viewModel.activeProvider,
-                    onSelect: { provider in
-                        viewModel.switchProvider(provider)
-                        showProviderSheet = false
-                    }
-                )
-                .presentationDetents([.height(200)])
             }
             .sheet(isPresented: $showCreateWorktreeSheet) {
                 CreateWorktreeSheetView(
