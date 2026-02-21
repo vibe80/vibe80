@@ -4,6 +4,7 @@ import Shared
 
 struct SessionView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = SessionViewModel()
     @State private var showWorkspaceSecret = false
     @State private var showHttpPassword = false
@@ -446,11 +447,11 @@ struct SessionView: View {
 
     private func vibe80Header(title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Image("Vibe80Logo")
+            Image(colorScheme == .dark ? "Vibe80LogoDark" : "Vibe80LogoLight")
                 .renderingMode(.original)
                 .resizable()
                 .scaledToFit()
-                .frame(height: 28)
+                .frame(width: 120, height: 28, alignment: .leading)
                 .accessibilityLabel(Text("app.name"))
             Text(title)
                 .font(.headline)
