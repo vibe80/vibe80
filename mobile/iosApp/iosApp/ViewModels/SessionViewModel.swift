@@ -504,7 +504,11 @@ class SessionViewModel: ObservableObject {
 
         Task { [weak self] in
             do {
-                _ = try await repository.reconnectSessionOrThrow(sessionId: sessionId)
+                let repoOverride = self?.savedSessionRepoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+                _ = try await repository.reconnectSessionOrThrow(
+                    sessionId: sessionId,
+                    repoUrlOverride: (repoOverride?.isEmpty == false) ? repoOverride : nil
+                )
                 self?.isLoading = false
                 self?.loadingState = .none
                 appState.setSession(sessionId: sessionId)
@@ -558,7 +562,11 @@ class SessionViewModel: ObservableObject {
 
         Task { [weak self] in
             do {
-                _ = try await repository.reconnectSessionOrThrow(sessionId: sessionId)
+                let repoOverride = repoUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+                _ = try await repository.reconnectSessionOrThrow(
+                    sessionId: sessionId,
+                    repoUrlOverride: (repoOverride?.isEmpty == false) ? repoOverride : nil
+                )
                 self?.isLoading = false
                 self?.loadingState = .none
                 appState.setSession(sessionId: sessionId)
