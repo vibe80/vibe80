@@ -96,34 +96,35 @@ struct WorktreeTab: View {
         let status = worktree.status
         switch status {
         case .creating:
-            badge(text: "worktree.status.creating", color: .orange, icon: "hourglass")
+            ProgressView()
+                .scaleEffect(0.7)
+                .frame(width: 12, height: 12)
         case .processing:
-            badge(text: "worktree.status.processing", color: .purple, icon: "gearshape")
+            ProgressView()
+                .scaleEffect(0.7)
+                .tint(.purple)
+                .frame(width: 12, height: 12)
         case .merging:
-            badge(text: "worktree.status.merging", color: .teal, icon: "arrow.merge")
+            ProgressView()
+                .scaleEffect(0.7)
+                .tint(.teal)
+                .frame(width: 12, height: 12)
         case .mergeConflict:
-            badge(text: "worktree.status.merge_conflict", color: .red, icon: "exclamationmark.triangle.fill")
+            compactBadge(text: "!", color: .red)
         case .error:
-            badge(text: "worktree.status.error", color: .red, icon: "xmark.octagon.fill")
+            compactBadge(text: "!", color: .red)
         case .completed:
             if worktree.id != "main" {
-                badge(text: "worktree.status.completed", color: .green, icon: "checkmark.seal.fill")
-            } else {
-                badge(text: "worktree.status.main", color: .blue, icon: "house.fill")
+                compactBadge(text: NSLocalizedString("worktree.done", comment: ""), color: .green)
             }
         default:
             EmptyView()
         }
     }
 
-    private func badge(text: String, color: Color, icon: String) -> some View {
-        Label {
-            Text(text)
-                .font(.caption2)
-        } icon: {
-            Image(systemName: icon)
-                .font(.caption2)
-        }
+    private func compactBadge(text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption2)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(color.opacity(0.15))
