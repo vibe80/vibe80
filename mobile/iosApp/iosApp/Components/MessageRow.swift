@@ -598,7 +598,8 @@ private struct ToolResultPanel: View {
                     Text(verbatim: content)
                         .font(.vibe80SpaceMono(.caption1))
                         .foregroundColor(.vibe80Ink)
-                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                 }
                 .frame(maxHeight: 220)
