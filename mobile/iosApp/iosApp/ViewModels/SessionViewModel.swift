@@ -493,6 +493,10 @@ class SessionViewModel: ObservableObject {
 
     func loadWorkspaceSessions(appState: AppState) {
         guard let repository = appState.sessionRepository else { return }
+        if let token = workspaceToken {
+            repository.setWorkspaceToken(token: token)
+            repository.setRefreshToken(token: workspaceRefreshToken)
+        }
 
         sessionsLoading = true
         sessionsError = nil
