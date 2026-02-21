@@ -482,6 +482,9 @@ private struct Vibe80TextField: View {
                 .foregroundColor(.vibe80InkMuted)
             TextField("", text: $text)
                 .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.asciiCapable)
         }
     }
 }
@@ -500,9 +503,15 @@ private struct Vibe80SecureField: View {
                 if isRevealed {
                     TextField("", text: $text)
                         .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled(true)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.asciiCapable)
                 } else {
                     SecureField("", text: $text)
                         .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled(true)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.asciiCapable)
                 }
                 Button(action: { isRevealed.toggle() }) {
                     Image(systemName: isRevealed ? "eye.slash" : "eye")
@@ -527,6 +536,9 @@ private struct Vibe80TextEditor: View {
                 .padding(8)
                 .background(Color.vibe80SurfaceElevated)
                 .cornerRadius(12)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.asciiCapable)
         }
     }
 }
