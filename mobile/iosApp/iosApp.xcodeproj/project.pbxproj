@@ -34,6 +34,7 @@
 		M5_026 /* PendingAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_129 /* PendingAttachment.swift */; };
 		M5_027 /* LogsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_130 /* LogsSheetView.swift */; };
 		M5_028 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = M5_901 /* MarkdownUI */; };
+		M5_029 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = M5_131 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		M5_128 /* AttachmentUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentUploader.swift; sourceTree = "<group>"; };
 		M5_129 /* PendingAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingAttachment.swift; sourceTree = "<group>"; };
 		M5_130 /* LogsSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogsSheetView.swift; sourceTree = "<group>"; };
+		M5_131 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +93,7 @@
 		M5_301 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
+				M5_131 /* Assets.xcassets */,
 				M5_101 /* Vibe80App.swift */,
 				M5_102 /* ContentView.swift */,
 				M5_117 /* Vibe80Theme.swift */,
@@ -244,6 +247,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				M5_029 /* Assets.xcassets in Resources */,
 				M5_012 /* Localizable.strings in Resources */,
 				M5_013 /* SpaceMono-Regular.ttf in Resources */,
 			);
