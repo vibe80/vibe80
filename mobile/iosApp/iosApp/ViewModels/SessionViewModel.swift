@@ -47,6 +47,7 @@ class SessionViewModel: ObservableObject {
     private var workspaceCall: SuspendWrapper<AnyObject>?
     private var handoffCall: SuspendWrapper<HandoffConsumeResponse>?
     private var sessionsCall: SuspendWrapper<AnyObject>?
+    private var cancellables = Set<AnyCancellable>()
 
     private func errorMessage(_ error: Error) -> String {
         if let kotlinError = error as? KotlinThrowable {
@@ -88,6 +89,22 @@ class SessionViewModel: ObservableObject {
     init() {
         loadSavedWorkspace()
         loadSavedSession()
+        observeWorkspaceTokenUpdates()
+    }
+
+    private func observeWorkspaceTokenUpdates() {
+        NotificationCenter.default.publisher(for: .workspaceTokensDidUpdate)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                if let token = notification.userInfo?["workspaceToken"] as? String {
+                    self.workspaceToken = token
+                }
+                if let refreshToken = notification.userInfo?["workspaceRefreshToken"] as? String {
+                    self.workspaceRefreshToken = refreshToken
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Navigation / State
@@ -414,11 +431,6 @@ class SessionViewModel: ObservableObject {
             return
         }
 
-        if let token = workspaceToken {
-            repository.setWorkspaceToken(token: token)
-            repository.setRefreshToken(token: workspaceRefreshToken)
-        }
-
         isLoading = true
         loadingState = .cloning
         sessionError = nil
@@ -465,11 +477,6 @@ class SessionViewModel: ObservableObject {
             return
         }
 
-        if let token = workspaceToken {
-            repository.setWorkspaceToken(token: token)
-            repository.setRefreshToken(token: workspaceRefreshToken)
-        }
-
         isLoading = true
         loadingState = .resuming
         sessionError = nil
@@ -493,10 +500,6 @@ class SessionViewModel: ObservableObject {
 
     func loadWorkspaceSessions(appState: AppState) {
         guard let repository = appState.sessionRepository else { return }
-        if let token = workspaceToken {
-            repository.setWorkspaceToken(token: token)
-            repository.setRefreshToken(token: workspaceRefreshToken)
-        }
 
         sessionsLoading = true
         sessionsError = nil
@@ -518,11 +521,6 @@ class SessionViewModel: ObservableObject {
         guard let repository = appState.sessionRepository else {
             sessionError = "Module partagé non initialisé"
             return
-        }
-
-        if let token = workspaceToken {
-            repository.setWorkspaceToken(token: token)
-            repository.setRefreshToken(token: workspaceRefreshToken)
         }
 
         isLoading = true
