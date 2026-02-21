@@ -6,6 +6,7 @@ struct ChatView: View {
     let sessionId: String
 
     @EnvironmentObject var appState: AppState
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = ChatViewModel()
 
     @State private var showDiffSheet = false
@@ -78,8 +79,7 @@ struct ChatView: View {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 0) {
                         HStack(spacing: 6) {
-                            Text("app.name")
-                                .font(.headline)
+                            appLogo
 
                             Circle()
                                 .fill(connectionColor)
@@ -307,6 +307,22 @@ struct ChatView: View {
             return .red
         default:
             return .gray
+        }
+    }
+
+    @ViewBuilder
+    private var appLogo: some View {
+        let preferredName = colorScheme == .dark ? "Vibe80LogoDark" : "Vibe80LogoLight"
+        if let image = UIImage(named: preferredName) ?? UIImage(named: "Vibe80Logo") {
+            Image(uiImage: image)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 88, height: 18, alignment: .leading)
+                .accessibilityLabel(Text("app.name"))
+        } else {
+            Text("app.name")
+                .font(.headline)
         }
     }
 
