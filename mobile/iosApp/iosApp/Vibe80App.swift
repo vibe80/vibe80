@@ -25,6 +25,7 @@ class AppState: ObservableObject {
 
     /// Shared dependencies from KMP module
     private(set) var dependencies: SharedDependencies?
+    private var workspaceTokenObserver: WorkspaceTokenObserver?
 
     /// Convenience accessor for SessionRepository
     var sessionRepository: SessionRepository? {
@@ -44,6 +45,7 @@ class AppState: ObservableObject {
         // Get dependencies
         dependencies = SharedDependencies()
         syncWorkspaceTokensToRepository()
+        observeWorkspaceTokenUpdates()
         isInitialized = true
     }
 
@@ -53,6 +55,27 @@ class AppState: ObservableObject {
         let workspaceRefreshToken = defaults.string(forKey: "workspaceRefreshToken")
         dependencies?.sessionRepository.setWorkspaceToken(token: workspaceToken)
         dependencies?.sessionRepository.setRefreshToken(token: workspaceRefreshToken)
+    }
+
+    private func observeWorkspaceTokenUpdates() {
+        workspaceTokenObserver?.close()
+        guard let observer = dependencies?.workspaceTokenObserver() else { return }
+        workspaceTokenObserver = observer
+        observer.subscribe { [weak self] workspaceToken, refreshToken in
+            let defaults = UserDefaults.standard
+            defaults.set(workspaceToken, forKey: "workspaceToken")
+            defaults.set(refreshToken, forKey: "workspaceRefreshToken")
+            self?.dependencies?.sessionRepository.setWorkspaceToken(token: workspaceToken)
+            self?.dependencies?.sessionRepository.setRefreshToken(token: refreshToken)
+            NotificationCenter.default.post(
+                name: .workspaceTokensDidUpdate,
+                object: nil,
+                userInfo: [
+                    "workspaceToken": workspaceToken,
+                    "workspaceRefreshToken": refreshToken
+                ]
+            )
+        }
     }
 
     /// Get server URL from configuration
@@ -88,6 +111,7 @@ class AppState: ObservableObject {
     }
 
     deinit {
+        workspaceTokenObserver?.close()
         KoinHelper.shared.stop()
     }
 }
@@ -104,5 +128,10 @@ extension AppState {
         KoinHelper.shared.start(baseUrl: url)
         dependencies = SharedDependencies()
         syncWorkspaceTokensToRepository()
+        observeWorkspaceTokenUpdates()
     }
+}
+
+extension Notification.Name {
+    static let workspaceTokensDidUpdate = Notification.Name("workspaceTokensDidUpdate")
 }
