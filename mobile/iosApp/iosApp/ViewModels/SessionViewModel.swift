@@ -105,6 +105,27 @@ class SessionViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .workspaceAuthInvalid)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                let message = notification.userInfo?["message"] as? String
+                self.clearWorkspace()
+                self.clearSavedSession()
+                self.workspaceSessions = []
+                self.sessionsLoading = false
+                self.workspaceBusy = false
+                self.handoffBusy = false
+                self.isLoading = false
+                self.loadingState = .none
+                self.workspaceError = message
+                self.sessionError = nil
+                self.sessionsError = nil
+                self.handoffError = nil
+                self.entryScreen = .workspaceMode
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Navigation / State
