@@ -100,9 +100,19 @@ data class ChatUiState(
 
     /** Sorted list of worktrees (main first, then by creation) */
     val sortedWorktrees: List<Worktree>
-        get() = worktrees.values.sortedWith(
-            compareBy({ it.id != Worktree.MAIN_WORKTREE_ID }, { it.createdAt })
-        )
+        get() {
+            val base = worktrees.values.toMutableList()
+            if (base.isNotEmpty() && base.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
+                base.add(Worktree.createMain(activeProvider))
+            }
+            return base.sortedWith(
+                compareBy<Worktree>(
+                    { it.id != Worktree.MAIN_WORKTREE_ID },
+                    { it.createdAt },
+                    { it.id }
+                )
+            )
+        }
 }
 
 private data class SessionSnapshot(

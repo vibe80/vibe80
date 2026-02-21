@@ -284,12 +284,7 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    val baseWorktrees = uiState.sortedWorktrees
-                    val worktreesForTabs = if (baseWorktrees.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
-                        listOf(Worktree.createMain(uiState.activeProvider)) + baseWorktrees
-                    } else {
-                        baseWorktrees
-                    }
+                    val worktreesForTabs = uiState.sortedWorktrees
                     val activeWorktreeName = worktreesForTabs.firstOrNull { it.id == uiState.activeWorktreeId }?.name
                         ?: Worktree.MAIN_WORKTREE_ID
                     val showWorktreeTabs = worktreesForTabs.size > 1
@@ -420,14 +415,7 @@ fun ChatScreen(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Worktree tabs
-                val worktreesForTabs = run {
-                    val baseList = uiState.sortedWorktrees
-                    if (baseList.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
-                        listOf(Worktree.createMain(uiState.activeProvider)) + baseList
-                    } else {
-                        baseList
-                    }
-                }
+                val worktreesForTabs = uiState.sortedWorktrees
                 if (worktreesForTabs.size > 1) {
                     WorktreeTabs(
                         worktrees = worktreesForTabs,
