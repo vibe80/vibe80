@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
 import Shared
 
 struct SessionView: View {
@@ -447,12 +448,7 @@ struct SessionView: View {
 
     private func vibe80Header(title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Image(colorScheme == .dark ? "Vibe80LogoDark" : "Vibe80LogoLight")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 120, height: 28, alignment: .leading)
-                .accessibilityLabel(Text("app.name"))
+            sessionGateLogo
             Text(title)
                 .font(.headline)
                 .foregroundColor(.vibe80Ink)
@@ -463,6 +459,24 @@ struct SessionView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var sessionGateLogo: some View {
+        let preferredName = colorScheme == .dark ? "Vibe80LogoDark" : "Vibe80LogoLight"
+        if let image = UIImage(named: preferredName) ?? UIImage(named: "Vibe80Logo") {
+            Image(uiImage: image)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 140, height: 32, alignment: .leading)
+                .accessibilityLabel(Text("app.name"))
+        } else {
+            Text("app.name")
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(.vibe80Ink)
+        }
     }
 
     private func backButton(action: @escaping () -> Void) -> some View {
