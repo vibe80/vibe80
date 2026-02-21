@@ -34,10 +34,10 @@ struct ChatView: View {
                         messageListContent
                         .padding()
                     }
-                    .onChange(of: viewModel.messages.count) { _ in
+                    .onChange(of: viewModel.activeWorktreeMessages.count) { _ in
                         scrollToBottom(proxy)
                     }
-                    .onChange(of: viewModel.currentStreamingMessage) { _ in
+                    .onChange(of: viewModel.activeStreamingMessage) { _ in
                         scrollToBottom(proxy)
                     }
                     .onChange(of: isComposerFocused) { focused in
@@ -55,7 +55,7 @@ struct ChatView: View {
                 // Composer
                 ComposerView(
                     text: $viewModel.inputText,
-                    isLoading: viewModel.isProcessing,
+                    isLoading: viewModel.isActiveWorktreeProcessing,
                     isUploading: viewModel.uploadingAttachments,
                     actionMode: viewModel.activeActionMode,
                     activeModel: viewModel.activeSelectedModel,
@@ -220,11 +220,11 @@ struct ChatView: View {
     @ViewBuilder
     private var messageListContent: some View {
         LazyVStack(spacing: 12) {
-            ForEach(viewModel.messages, id: \.id) { message in
+            ForEach(viewModel.activeWorktreeMessages, id: \.id) { message in
                 messageRow(message)
             }
 
-            if let streamingText = viewModel.currentStreamingMessage {
+            if let streamingText = viewModel.activeStreamingMessage {
                 MessageRow(
                     message: nil,
                     sessionId: sessionId,
@@ -236,7 +236,7 @@ struct ChatView: View {
                 .id("streaming")
             }
 
-            if viewModel.isProcessing && viewModel.currentStreamingMessage == nil {
+            if viewModel.isActiveWorktreeProcessing && viewModel.activeStreamingMessage == nil {
                 ProcessingIndicator()
                     .id("processing")
                     .transition(.opacity)
@@ -315,13 +315,13 @@ struct ChatView: View {
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
         let targetId: String? = {
-            if viewModel.isProcessing && viewModel.currentStreamingMessage == nil {
+            if viewModel.isActiveWorktreeProcessing && viewModel.activeStreamingMessage == nil {
                 return "processing"
             }
-            if viewModel.currentStreamingMessage != nil {
+            if viewModel.activeStreamingMessage != nil {
                 return "streaming"
             }
-            return viewModel.messages.last?.id
+            return viewModel.activeWorktreeMessages.last?.id
         }()
 
         guard let targetId else { return }
