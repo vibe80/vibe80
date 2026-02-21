@@ -94,6 +94,25 @@ class ApiClient(
         url: String,
         request: suspend () -> io.ktor.client.statement.HttpResponse
     ): io.ktor.client.statement.HttpResponse {
+        if (workspaceToken.isNullOrBlank()) {
+            val refreshed = refreshWorkspaceToken()
+            if (!refreshed || workspaceToken.isNullOrBlank()) {
+                AppLogger.warning(
+                    LogSource.API,
+                    "Missing workspace token before protected API call",
+                    "url=$url"
+                )
+                throw ApiResponseException(
+                    statusCode = 401,
+                    statusDescription = "Unauthorized",
+                    errorType = "WORKSPACE_TOKEN_MISSING",
+                    errorMessage = "Missing workspace token.",
+                    errorBody = null,
+                    url = url
+                )
+            }
+        }
+
         val response = request()
         if (response.status.value != 401) {
             return response
