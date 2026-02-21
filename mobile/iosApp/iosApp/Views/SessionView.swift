@@ -202,6 +202,11 @@ struct SessionView: View {
                 .buttonStyle(.bordered)
                 .tint(.vibe80AccentDark)
 
+                Button("workspace.leave", role: .destructive) {
+                    viewModel.leaveWorkspace(appState: appState)
+                }
+                .buttonStyle(.bordered)
+
                 // Workspace sessions list (P2.4)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("sessions.recent")

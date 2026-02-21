@@ -207,6 +207,19 @@ class SessionViewModel: ObservableObject {
         entryScreen = .workspaceMode
     }
 
+    func leaveWorkspace(appState: AppState) {
+        appState.sessionRepository?.setWorkspaceToken(token: nil)
+        appState.sessionRepository?.setRefreshToken(token: nil)
+        appState.clearSession()
+        clearWorkspace()
+        clearSavedSession()
+        workspaceSessions = []
+        sessionsError = nil
+        sessionsLoading = false
+        sessionError = nil
+        handoffError = nil
+    }
+
     // MARK: - Workspace actions
 
     func submitWorkspaceCredentials(appState: AppState) {
