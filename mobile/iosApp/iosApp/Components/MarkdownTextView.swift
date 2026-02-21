@@ -53,6 +53,7 @@ struct MarkdownTextView: View {
         }
     }
 
+    @ViewBuilder
     private func headingView(level: Int, text: String) -> some View {
         let size: CGFloat = {
             switch level {
@@ -67,26 +68,24 @@ struct MarkdownTextView: View {
 
         let weight: Font.Weight = level <= 2 ? .bold : .semibold
 
-        if let attributed = try? AttributedString(
-            markdown: text,
-            options: .init(
-                allowsExtendedAttributes: true,
-                interpretedSyntax: .inlineOnlyPreservingWhitespace,
-                failurePolicy: .returnPartiallyParsedIfPossible
-            )
-        ) {
-            Text(attributed)
-                .font(.system(size: size, weight: weight))
-                .foregroundColor(.vibe80Ink)
-                .textSelection(.enabled)
-                .padding(.top, level <= 2 ? 4 : 2)
-        } else {
-            Text(text)
-                .font(.system(size: size, weight: weight))
-                .foregroundColor(.vibe80Ink)
-                .textSelection(.enabled)
-                .padding(.top, level <= 2 ? 4 : 2)
+        Group {
+            if let attributed = try? AttributedString(
+                markdown: text,
+                options: .init(
+                    allowsExtendedAttributes: true,
+                    interpretedSyntax: .inlineOnlyPreservingWhitespace,
+                    failurePolicy: .returnPartiallyParsedIfPossible
+                )
+            ) {
+                Text(attributed)
+            } else {
+                Text(text)
+            }
         }
+        .font(.system(size: size, weight: weight))
+        .foregroundColor(.vibe80Ink)
+        .textSelection(.enabled)
+        .padding(.top, level <= 2 ? 4 : 2)
     }
 }
 
