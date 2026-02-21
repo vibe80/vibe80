@@ -15,8 +15,21 @@ struct MarkdownTextView: View {
                         code: segment.content
                     )
                 } else if !segment.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    markdownText(segment.content)
+                    nonCodeMarkdownContent(segment.content)
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func nonCodeMarkdownContent(_ text: String) -> some View {
+        let blocks = splitHeadingBlocks(text)
+        ForEach(blocks.indices, id: \.self) { index in
+            switch blocks[index] {
+            case let .heading(level, content):
+                headingView(level: level, text: content)
+            case let .markdown(content):
+                markdownText(content)
             }
         }
     }
@@ -27,7 +40,7 @@ struct MarkdownTextView: View {
                 markdown: text,
                 options: .init(
                     allowsExtendedAttributes: true,
-                    interpretedSyntax: .inlineOnlyPreservingWhitespace,
+                    interpretedSyntax: .full,
                     failurePolicy: .returnPartiallyParsedIfPossible
                 )
             ) {
@@ -37,6 +50,42 @@ struct MarkdownTextView: View {
                 Text(text)
                     .textSelection(.enabled)
             }
+        }
+    }
+
+    private func headingView(level: Int, text: String) -> some View {
+        let size: CGFloat = {
+            switch level {
+            case 1: return 24   // max requested
+            case 2: return 22
+            case 3: return 20
+            case 4: return 18
+            case 5: return 16
+            default: return 15
+            }
+        }()
+
+        let weight: Font.Weight = level <= 2 ? .bold : .semibold
+
+        if let attributed = try? AttributedString(
+            markdown: text,
+            options: .init(
+                allowsExtendedAttributes: true,
+                interpretedSyntax: .inlineOnlyPreservingWhitespace,
+                failurePolicy: .returnPartiallyParsedIfPossible
+            )
+        ) {
+            Text(attributed)
+                .font(.system(size: size, weight: weight))
+                .foregroundColor(.vibe80Ink)
+                .textSelection(.enabled)
+                .padding(.top, level <= 2 ? 4 : 2)
+        } else {
+            Text(text)
+                .font(.system(size: size, weight: weight))
+                .foregroundColor(.vibe80Ink)
+                .textSelection(.enabled)
+                .padding(.top, level <= 2 ? 4 : 2)
         }
     }
 }
@@ -141,6 +190,48 @@ private struct TextSegment {
     let content: String
     let isCode: Bool
     let language: String?
+}
+
+private enum MarkdownBlock {
+    case heading(level: Int, text: String)
+    case markdown(String)
+}
+
+private func splitHeadingBlocks(_ text: String) -> [MarkdownBlock] {
+    let lines = text.components(separatedBy: .newlines)
+    var blocks: [MarkdownBlock] = []
+    var buffer: [String] = []
+
+    func flushBuffer() {
+        guard !buffer.isEmpty else { return }
+        blocks.append(.markdown(buffer.joined(separator: "\n")))
+        buffer.removeAll()
+    }
+
+    for line in lines {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if let heading = parseHeadingLine(trimmed) {
+            flushBuffer()
+            blocks.append(.heading(level: heading.level, text: heading.text))
+        } else {
+            buffer.append(line)
+        }
+    }
+    flushBuffer()
+    return blocks
+}
+
+private func parseHeadingLine(_ line: String) -> (level: Int, text: String)? {
+    guard line.hasPrefix("#") else { return nil }
+    let hashes = line.prefix { $0 == "#" }
+    let level = min(6, hashes.count)
+    guard level > 0 else { return nil }
+
+    let remainder = line.dropFirst(level)
+    guard remainder.first == " " else { return nil }
+    let text = remainder.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty else { return nil }
+    return (level, text)
 }
 
 private func splitCodeBlocks(_ text: String) -> [TextSegment] {
