@@ -30,6 +30,8 @@
 		M5_022 /* FileSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_125 /* FileSheetView.swift */; };
 		M5_023 /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_126 /* MarkdownTextView.swift */; };
 		M5_024 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_127 /* NotificationManager.swift */; };
+		M5_025 /* AttachmentUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_128 /* AttachmentUploader.swift */; };
+		M5_026 /* PendingAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_129 /* PendingAttachment.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -59,6 +61,8 @@
 		M5_125 /* FileSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSheetView.swift; sourceTree = "<group>"; };
 		M5_126 /* MarkdownTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTextView.swift; sourceTree = "<group>"; };
 		M5_127 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		M5_128 /* AttachmentUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentUploader.swift; sourceTree = "<group>"; };
+		M5_129 /* PendingAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingAttachment.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +95,7 @@
 				M5_303 /* Views */,
 				M5_304 /* ViewModels */,
 				M5_305 /* Components */,
+				M5_308 /* Models */,
 				M5_307 /* Services */,
 			);
 			path = iosApp;
@@ -155,8 +160,17 @@
 			isa = PBXGroup;
 			children = (
 				M5_127 /* NotificationManager.swift */,
+				M5_128 /* AttachmentUploader.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		M5_308 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				M5_129 /* PendingAttachment.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -274,6 +288,8 @@
 				M5_022 /* FileSheetView.swift in Sources */,
 				M5_023 /* MarkdownTextView.swift in Sources */,
 				M5_024 /* NotificationManager.swift in Sources */,
+				M5_025 /* AttachmentUploader.swift in Sources */,
+				M5_026 /* PendingAttachment.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
