@@ -180,6 +180,21 @@ class SessionRepository(
         }
     }
 
+    private suspend fun loadMainWorktreeHistory(
+        sessionId: String,
+        fallbackMessages: List<ChatMessage> = emptyList()
+    ) {
+        val snapshotResult = apiClient.getWorktree(sessionId, Worktree.MAIN_WORKTREE_ID)
+        snapshotResult
+            .onSuccess { snapshot ->
+                _messages.value = snapshot.messages
+            }
+            .onFailure {
+                handleApiFailure(it, "getWorktreeMainHistory")
+                _messages.value = fallbackMessages
+            }
+    }
+
     private fun parseCommandExecutionMessage(
         itemId: String,
         item: JsonElement?,
@@ -730,9 +745,8 @@ class SessionRepository(
             auth = auth
         )
 
-        val result = apiClient.createSession(request)
-        result.onFailure { handleApiFailure(it, "createSession") }
-        return result.map { response ->
+        return try {
+            val response = apiClient.createSession(request).getOrElse { throw it }
             val state = SessionState(
                 sessionId = response.sessionId,
                 repoUrl = response.repoUrl,
@@ -740,14 +754,20 @@ class SessionRepository(
                 providers = response.providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
             _sessionState.value = state
-            _messages.value = response.messages
+            loadMainWorktreeHistory(
+                sessionId = response.sessionId,
+                fallbackMessages = response.messages
+            )
 
             // Connect WebSocket
             webSocketManager.connect(response.sessionId)
             // Load worktrees via REST
             listWorktrees()
 
-            state
+            Result.success(state)
+        } catch (e: Throwable) {
+            handleApiFailure(e, "createSession")
+            Result.failure(e)
         }
     }
 
@@ -969,9 +989,8 @@ class SessionRepository(
 
     @Throws(Throwable::class)
     suspend fun reconnectSession(sessionId: String, repoUrlOverride: String?): Result<SessionState> {
-        val result = apiClient.getSession(sessionId)
-        result.onFailure { handleApiFailure(it, "reconnectSession") }
-        return result.map { response ->
+        return try {
+            val response = apiClient.getSession(sessionId).getOrElse { throw it }
             val providerValue = response.defaultProvider?.uppercase() ?: "CODEX"
             val providers = if (response.providers.isNotEmpty()) {
                 response.providers
@@ -991,22 +1010,17 @@ class SessionRepository(
                 providers = providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
             _sessionState.value = state
-            val worktreeSnapshot = apiClient
-                .getWorktree(sessionId, Worktree.MAIN_WORKTREE_ID)
-                .getOrNull()
-            val snapshotMessages = worktreeSnapshot?.messages ?: emptyList()
-            _messages.value = if (snapshotMessages.size > 10) {
-                snapshotMessages.takeLast(10)
-            } else {
-                snapshotMessages
-            }
+            loadMainWorktreeHistory(sessionId = sessionId)
 
             // Connect WebSocket
             ensureWebSocketConnected(sessionId)
             // Load worktrees via REST
             listWorktrees()
 
-            state
+            Result.success(state)
+        } catch (e: Throwable) {
+            handleApiFailure(e, "reconnectSession")
+            Result.failure(e)
         }
     }
 
