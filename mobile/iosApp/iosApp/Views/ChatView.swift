@@ -57,6 +57,7 @@ struct ChatView: View {
                     text: $viewModel.inputText,
                     isLoading: viewModel.isActiveWorktreeProcessing,
                     isUploading: viewModel.uploadingAttachments,
+                    canInteract: viewModel.canInteractWithComposer,
                     actionMode: viewModel.activeActionMode,
                     activeModel: viewModel.activeSelectedModel,
                     availableModels: viewModel.activeModels,

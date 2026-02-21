@@ -21,6 +21,7 @@ class ChatViewModel: ObservableObject {
 
     // Connection
     @Published var connectionState: ConnectionState = .disconnected
+    @Published var appServerReady: Bool = false
 
     // Provider
     @Published var activeProvider: LLMProvider = .codex
@@ -133,6 +134,22 @@ class ChatViewModel: ObservableObject {
         return provider.name.lowercased()
     }
 
+    var effectiveProvider: LLMProvider {
+        worktrees.first(where: { $0.id == activeWorktreeId })?.provider ?? activeProvider
+    }
+
+    var canInteractWithComposer: Bool {
+        guard connectionState == .connected else { return false }
+        if effectiveProvider != .codex {
+            return true
+        }
+        if activeWorktreeId == "main" {
+            return appServerReady
+        }
+        let status = worktrees.first(where: { $0.id == activeWorktreeId })?.status
+        return status == .ready
+    }
+
     var activeModels: [ProviderModel] {
         providerModels[activeProviderKey] ?? []
     }
@@ -141,6 +158,7 @@ class ChatViewModel: ObservableObject {
     private var sessionId: String?
     private weak var appState: AppState?
     private var attachmentUploader: AttachmentUploader?
+    private var didSetup = false
 
     // Flow subscriptions
     private var messagesWrapper: FlowWrapper<NSArray>?
@@ -148,6 +166,7 @@ class ChatViewModel: ObservableObject {
     private var processingWrapper: FlowWrapper<KotlinBoolean>?
     private var connectionStateWrapper: FlowWrapper<ConnectionState>?
     private var sessionStateWrapper: FlowWrapper<SessionState>?
+    private var activeWorktreeIdWrapper: FlowWrapper<NSString>?
     private var repoDiffWrapper: FlowWrapper<RepoDiff>?
     private var worktreesWrapper: FlowWrapper<NSDictionary>?
     private var worktreeMessagesWrapper: FlowWrapper<NSDictionary>?
@@ -183,11 +202,15 @@ class ChatViewModel: ObservableObject {
     // MARK: - Initialization
 
     func setup(appState: AppState) {
+        if didSetup {
+            return
+        }
         self.appState = appState
         if let baseUrl = appState.dependencies?.apiClient.getBaseUrl() {
             attachmentUploader = AttachmentUploader(baseUrl: baseUrl)
         }
         subscribeToFlows()
+        didSetup = true
     }
 
     private func subscribeToFlows() {
@@ -237,6 +260,19 @@ class ChatViewModel: ObservableObject {
         sessionStateWrapper?.subscribe { [weak self] state in
             if let activeProvider = state?.activeProvider {
                 self?.activeProvider = activeProvider
+            }
+            if let ready = state?.appServerReady {
+                self?.appServerReady = ready
+            }
+        }
+
+        // Subscribe to active worktree id from repository (Android parity)
+        activeWorktreeIdWrapper = FlowWrapper(flow: repository.activeWorktreeId)
+        activeWorktreeIdWrapper?.subscribe { [weak self] worktreeId in
+            guard let self = self else { return }
+            guard let id = worktreeId as String? else { return }
+            if self.activeWorktreeId != id {
+                self.activeWorktreeId = id
             }
         }
 
@@ -351,6 +387,15 @@ class ChatViewModel: ObservableObject {
         submittedFormMessageIds.removeAll()
         submittedYesNoMessageIds.removeAll()
         loadDiff()
+        if let repository = appState?.sessionRepository {
+            Task {
+                do {
+                    try await repository.listWorktrees()
+                } catch {
+                    // Non-critical on chat entry.
+                }
+            }
+        }
     }
 
     func disconnect() {
@@ -376,6 +421,7 @@ class ChatViewModel: ObservableObject {
         processingWrapper?.close()
         connectionStateWrapper?.close()
         sessionStateWrapper?.close()
+        activeWorktreeIdWrapper?.close()
         repoDiffWrapper?.close()
         worktreesWrapper?.close()
         worktreeMessagesWrapper?.close()
@@ -403,6 +449,7 @@ class ChatViewModel: ObservableObject {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let repository = appState?.sessionRepository else { return }
         guard !trimmedText.isEmpty || !pendingAttachments.isEmpty else { return }
+        guard canInteractWithComposer else { return }
 
         inputText = ""
 
@@ -461,6 +508,7 @@ class ChatViewModel: ObservableObject {
 
     private func sendMessageWithAttachments(text: String, repository: SessionRepository) {
         guard !pendingAttachments.isEmpty else { return }
+        guard canInteractWithComposer else { return }
         guard let sessionId else {
             repository.reportError(
                 error: AppError.companion.upload(
