@@ -33,6 +33,7 @@
 		M5_025 /* AttachmentUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_128 /* AttachmentUploader.swift */; };
 		M5_026 /* PendingAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_129 /* PendingAttachment.swift */; };
 		M5_027 /* LogsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M5_130 /* LogsSheetView.swift */; };
+		M5_028 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = M5_901 /* MarkdownUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -72,6 +73,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				M5_028 /* MarkdownUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -192,6 +194,9 @@
 			);
 			dependencies = (
 			);
+			packageProductDependencies = (
+				M5_901 /* MarkdownUI */,
+			);
 			name = iosApp;
 			productName = iosApp;
 			productReference = M5_100 /* iosApp.app */;
@@ -222,6 +227,9 @@
 				fr,
 			);
 			mainGroup = M5_300;
+			packageReferences = (
+				M5_900 /* XCRemoteSwiftPackageReference "MarkdownUI" */,
+			);
 			productRefGroup = M5_302 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -310,6 +318,25 @@
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		M5_900 /* XCRemoteSwiftPackageReference "MarkdownUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		M5_901 /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = M5_900 /* XCRemoteSwiftPackageReference "MarkdownUI" */;
+			productName = MarkdownUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		M5_700 /* Debug */ = {

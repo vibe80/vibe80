@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUI
 
 struct MarkdownTextView: View {
     let markdown: String
@@ -35,22 +36,8 @@ struct MarkdownTextView: View {
     }
 
     private func markdownText(_ text: String) -> some View {
-        return Group {
-            if let attributed = try? AttributedString(
-                markdown: text,
-                options: .init(
-                    allowsExtendedAttributes: true,
-                    interpretedSyntax: .full,
-                    failurePolicy: .returnPartiallyParsedIfPossible
-                )
-            ) {
-                Text(attributed)
-                    .textSelection(.enabled)
-            } else {
-                Text(text)
-                    .textSelection(.enabled)
-            }
-        }
+        Markdown(text)
+            .textSelection(.enabled)
     }
 
     @ViewBuilder
@@ -231,10 +218,6 @@ private func parseHeadingLine(_ line: String) -> (level: Int, text: String)? {
     let text = remainder.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !text.isEmpty else { return nil }
     return (level, text)
-}
-
-private func preserveLineBreaks(_ text: String) -> String {
-    return text
 }
 
 private func splitCodeBlocks(_ text: String) -> [TextSegment] {
