@@ -7,6 +7,7 @@ struct ComposerView: View {
     @Binding var text: String
     let isLoading: Bool
     var isUploading: Bool = false
+    var canInteract: Bool = true
     let actionMode: ComposerActionMode
     let activeModel: String?
     let availableModels: [ProviderModel]
@@ -106,6 +107,7 @@ struct ComposerView: View {
                     .foregroundColor(.vibe80Accent)
                     .frame(width: 28, height: 28)
                 }
+                .disabled(!canInteract || isUploading)
 
                 TextField("composer.message.placeholder", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
@@ -115,13 +117,14 @@ struct ComposerView: View {
                     .padding(.vertical, 4)
                     .background(Color.vibe80SurfaceElevated)
                     .cornerRadius(16)
+                    .disabled(!canInteract || isUploading)
 
                 Button(action: sendMessage) {
                     Image(systemName: isLoading ? "stop.fill" : "arrow.up.circle.fill")
                         .font(.title2)
                         .foregroundColor(canSend ? .vibe80Accent : .vibe80InkMuted)
                 }
-                .disabled((!canSend && !isLoading) || isUploading)
+                .disabled((!canSend && !isLoading) || isUploading || !canInteract)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 4)
@@ -235,6 +238,7 @@ struct ComposerView: View {
             return
         }
 
+        guard canInteract else { return }
         guard canSend else { return }
 
         selectedItems.removeAll()
@@ -320,6 +324,7 @@ struct ComposerView: View {
         ComposerView(
             text: .constant(""),
             isLoading: false,
+            canInteract: true,
             actionMode: .llm,
             activeModel: nil,
             availableModels: [],
