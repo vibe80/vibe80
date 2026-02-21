@@ -52,20 +52,12 @@ struct WorktreeTab: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 6) {
-                // Color indicator
-                Circle()
-                    .fill(worktreeColor)
-                    .frame(width: 8, height: 8)
+                leadingIndicator
 
-                // Name
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(worktree.name)
-                        .font(.subheadline)
-                        .fontWeight(isActive ? .semibold : .regular)
-                        .lineLimit(1)
-
-                    statusBadge
-                }
+                Text(worktree.name)
+                    .font(.subheadline)
+                    .fontWeight(isActive ? .semibold : .regular)
+                    .lineLimit(1)
 
                 Spacer()
             }
@@ -92,44 +84,16 @@ struct WorktreeTab: View {
     }
 
     @ViewBuilder
-    private var statusBadge: some View {
-        let status = worktree.status
-        switch status {
-        case .creating:
+    private var leadingIndicator: some View {
+        if worktree.status == .ready {
+            Circle()
+                .fill(worktreeColor)
+                .frame(width: 8, height: 8)
+        } else {
             ProgressView()
                 .scaleEffect(0.7)
                 .frame(width: 12, height: 12)
-        case .processing:
-            ProgressView()
-                .scaleEffect(0.7)
-                .tint(.purple)
-                .frame(width: 12, height: 12)
-        case .merging:
-            ProgressView()
-                .scaleEffect(0.7)
-                .tint(.teal)
-                .frame(width: 12, height: 12)
-        case .mergeConflict:
-            compactBadge(text: "!", color: .red)
-        case .error:
-            compactBadge(text: "!", color: .red)
-        case .completed:
-            if worktree.id != "main" {
-                compactBadge(text: NSLocalizedString("worktree.done", comment: ""), color: .green)
-            }
-        default:
-            EmptyView()
         }
-    }
-
-    private func compactBadge(text: String, color: Color) -> some View {
-        Text(text)
-            .font(.caption2)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(color.opacity(0.15))
-        .foregroundColor(color)
-        .cornerRadius(12)
     }
 }
 
