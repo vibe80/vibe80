@@ -112,6 +112,7 @@ struct ComposerView: View {
                 TextField("composer.message.placeholder", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
+                    .applyTechnicalInputBehavior(shouldUseTechnicalKeyboard)
                     .focused($isFocused)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
@@ -186,6 +187,10 @@ struct ComposerView: View {
             return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pendingAttachments.isEmpty
         }
         return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var shouldUseTechnicalKeyboard: Bool {
+        actionMode == .git || actionMode == .shell
     }
 
     private var attachmentsPreview: some View {
@@ -315,6 +320,20 @@ struct ComposerView: View {
 
     private func removeAttachment(_ attachment: PendingAttachment) {
         onRemoveAttachment(attachment)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func applyTechnicalInputBehavior(_ enabled: Bool) -> some View {
+        if enabled {
+            self
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.asciiCapable)
+        } else {
+            self
+        }
     }
 }
 
