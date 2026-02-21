@@ -707,6 +707,7 @@ class SessionRepository(
         }
     }
 
+    @Throws(Throwable::class)
     suspend fun createSession(
         repoUrl: String,
         sshKey: String? = null,
@@ -750,6 +751,7 @@ class SessionRepository(
         }
     }
 
+    @Throws(Throwable::class)
     suspend fun createSessionOrThrow(
         repoUrl: String,
         sshKey: String? = null,
@@ -759,32 +761,38 @@ class SessionRepository(
         return createSession(repoUrl, sshKey, httpUser, httpPassword).getOrElse { throw it }
     }
 
+    @Throws(Throwable::class)
     suspend fun createWorkspace(request: WorkspaceCreateRequest): Result<WorkspaceCreateResponse> {
         val result = apiClient.createWorkspace(request)
         result.onFailure { handleApiFailure(it, "createWorkspace") }
         return result
     }
 
+    @Throws(Throwable::class)
     suspend fun createWorkspaceOrThrow(request: WorkspaceCreateRequest): WorkspaceCreateResponse {
         return createWorkspace(request).getOrElse { throw it }
     }
 
+    @Throws(Throwable::class)
     suspend fun loginWorkspace(request: WorkspaceLoginRequest): Result<WorkspaceLoginResponse> {
         val result = apiClient.loginWorkspace(request)
         result.onFailure { handleApiFailure(it, "loginWorkspace") }
         return result
     }
 
+    @Throws(Throwable::class)
     suspend fun loginWorkspaceOrThrow(request: WorkspaceLoginRequest): WorkspaceLoginResponse {
         return loginWorkspace(request).getOrElse { throw it }
     }
 
+    @Throws(Throwable::class)
     suspend fun updateWorkspace(workspaceId: String, request: WorkspaceUpdateRequest): Result<WorkspaceUpdateResponse> {
         val result = apiClient.updateWorkspace(workspaceId, request)
         result.onFailure { handleApiFailure(it, "updateWorkspace") }
         return result
     }
 
+    @Throws(Throwable::class)
     suspend fun updateWorkspaceOrThrow(
         workspaceId: String,
         request: WorkspaceUpdateRequest
@@ -796,6 +804,7 @@ class SessionRepository(
      * iOS-safe helper: never throws to Swift bridge.
      * Returns a fallback response when API call fails.
      */
+    @Throws(Throwable::class)
     suspend fun updateWorkspaceOrCurrent(
         workspaceId: String,
         request: WorkspaceUpdateRequest
@@ -813,22 +822,26 @@ class SessionRepository(
         }
     }
 
+    @Throws(Throwable::class)
     suspend fun consumeHandoffToken(handoffToken: String): Result<HandoffConsumeResponse> {
         val result = apiClient.consumeHandoffToken(HandoffConsumeRequest(handoffToken))
         result.onFailure { handleApiFailure(it, "consumeHandoffToken") }
         return result
     }
 
+    @Throws(Throwable::class)
     suspend fun consumeHandoffTokenOrThrow(handoffToken: String): HandoffConsumeResponse {
         return consumeHandoffToken(handoffToken).getOrElse { throw it }
     }
 
+    @Throws(Throwable::class)
     suspend fun listSessions(): Result<SessionListResponse> {
         val result = apiClient.listSessions()
         result.onFailure { handleApiFailure(it, "listSessions") }
         return result
     }
 
+    @Throws(Throwable::class)
     suspend fun listSessionsOrThrow(): SessionListResponse {
         return listSessions().getOrElse { throw it }
     }
@@ -837,6 +850,7 @@ class SessionRepository(
      * iOS-safe helper: never throws to Swift bridge.
      * Returns an empty list when API call fails.
      */
+    @Throws(Throwable::class)
     suspend fun listSessionsOrEmpty(): SessionListResponse {
         return listSessions().getOrElse { error ->
             AppLogger.error(
@@ -848,6 +862,7 @@ class SessionRepository(
         }
     }
 
+    @Throws(Throwable::class)
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
         AppLogger.info(LogSource.APP, "SessionRepository.sendMessage called", "text='$text', attachments=${attachments.size}, connectionState=${connectionState.value}")
 
@@ -872,6 +887,7 @@ class SessionRepository(
      * Upload attachments to the server
      * Returns list of uploaded file info
      */
+    @Throws(Throwable::class)
     suspend fun uploadAttachments(
         sessionId: String,
         files: List<Pair<String, String>> // uri to name
@@ -881,10 +897,12 @@ class SessionRepository(
         return result.getOrDefault(emptyList())
     }
 
+    @Throws(Throwable::class)
     suspend fun switchProvider(provider: LLMProvider) {
         webSocketManager.switchProvider(provider.name.lowercase())
     }
 
+    @Throws(Throwable::class)
     suspend fun setModel(worktreeId: String, model: String, reasoningEffort: String? = null) {
         webSocketManager.sendModelSet(
             model = model,
@@ -893,6 +911,7 @@ class SessionRepository(
         )
     }
 
+    @Throws(Throwable::class)
     suspend fun sendActionRequest(worktreeId: String, request: String, arg: String) {
         webSocketManager.sendActionRequest(
             request = request,
@@ -901,6 +920,7 @@ class SessionRepository(
         )
     }
 
+    @Throws(Throwable::class)
     suspend fun loadDiff() {
         val sessionId = _sessionState.value?.sessionId ?: return
         val worktreeId = _activeWorktreeId.value
@@ -914,6 +934,7 @@ class SessionRepository(
             .onFailure { handleApiFailure(it, "loadDiff") }
     }
 
+    @Throws(Throwable::class)
     suspend fun getWorktreeFile(
         sessionId: String,
         worktreeId: String,
@@ -924,6 +945,7 @@ class SessionRepository(
         return result
     }
 
+    @Throws(Throwable::class)
     suspend fun getWorktreeFileOrThrow(
         sessionId: String,
         worktreeId: String,
@@ -935,14 +957,17 @@ class SessionRepository(
     /**
      * Reconnect to an existing session
      */
+    @Throws(Throwable::class)
     suspend fun reconnectSession(sessionId: String): Result<SessionState> {
         return reconnectSession(sessionId, null)
     }
 
+    @Throws(Throwable::class)
     suspend fun reconnectSessionOrThrow(sessionId: String): SessionState {
         return reconnectSession(sessionId).getOrElse { throw it }
     }
 
+    @Throws(Throwable::class)
     suspend fun reconnectSession(sessionId: String, repoUrlOverride: String?): Result<SessionState> {
         val result = apiClient.getSession(sessionId)
         result.onFailure { handleApiFailure(it, "reconnectSession") }
@@ -985,6 +1010,7 @@ class SessionRepository(
         }
     }
 
+    @Throws(Throwable::class)
     suspend fun reconnectSessionOrThrow(sessionId: String, repoUrlOverride: String?): SessionState {
         return reconnectSession(sessionId, repoUrlOverride).getOrElse { throw it }
     }
@@ -1044,6 +1070,7 @@ class SessionRepository(
         }
     }
 
+    @Throws(Throwable::class)
     suspend fun createWorktree(
         name: String?,
         provider: LLMProvider,
@@ -1098,6 +1125,7 @@ class SessionRepository(
         }
     }
 
+    @Throws(Throwable::class)
     suspend fun loadProviderModels(provider: String): Result<List<ProviderModel>> {
         val sessionId = _sessionState.value?.sessionId
             ?: return Result.failure(IllegalStateException("No active session"))
@@ -1108,10 +1136,12 @@ class SessionRepository(
         return result
     }
 
+    @Throws(Throwable::class)
     suspend fun loadProviderModelsOrThrow(provider: String): List<ProviderModel> {
         return loadProviderModels(provider).getOrElse { throw it }
     }
 
+    @Throws(Throwable::class)
     suspend fun sendWorktreeMessage(
         worktreeId: String,
         text: String,
@@ -1134,6 +1164,7 @@ class SessionRepository(
         webSocketManager.sendWorktreeMessage(worktreeId, text, attachments = attachments)
     }
 
+    @Throws(Throwable::class)
     suspend fun closeWorktree(worktreeId: String) {
         if (worktreeId == Worktree.MAIN_WORKTREE_ID) return // Cannot close main
         val sessionId = _sessionState.value?.sessionId ?: return
@@ -1150,6 +1181,7 @@ class SessionRepository(
             .onFailure { handleApiFailure(it, "closeWorktree") }
     }
 
+    @Throws(Throwable::class)
     suspend fun listWorktrees() {
         val sessionId = _sessionState.value?.sessionId ?: return
         apiClient.listWorktrees(sessionId)
