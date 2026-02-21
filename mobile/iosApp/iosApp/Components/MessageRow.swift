@@ -594,13 +594,15 @@ private struct ToolResultPanel: View {
             .buttonStyle(.plain)
 
             if expanded {
-                ScrollView([.horizontal, .vertical], showsIndicators: true) {
-                    Text(verbatim: content)
-                        .font(.vibe80SpaceMono(.caption1))
-                        .foregroundColor(.vibe80Ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                ScrollView(.vertical, showsIndicators: true) {
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        Text(verbatim: content)
+                            .font(.vibe80SpaceMono(.caption1))
+                            .foregroundColor(.vibe80Ink)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxHeight: 220)
                 .background(Color.vibe80BackgroundStrong)
