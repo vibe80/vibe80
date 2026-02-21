@@ -50,7 +50,15 @@ struct LogsSheetView: View {
                 .pickerStyle(.segmented)
 
                 if filteredLogs.isEmpty {
-                    ContentUnavailableView("logs.empty", systemImage: "text.page")
+                    VStack(spacing: 10) {
+                        Image(systemName: "text.page")
+                            .font(.system(size: 28))
+                            .foregroundColor(.secondary)
+                        Text("logs.empty")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
                         ForEach(Array(filteredLogs.indices), id: \.self) { index in
@@ -101,7 +109,7 @@ struct LogsSheetView: View {
                 Text(formatTimestamp(entry.timestamp as Any))
                     .font(.caption2)
                     .foregroundColor(.secondary)
-                    .fontDesign(.monospaced)
+                    .font(.system(.caption2, design: .monospaced))
 
                 Image(systemName: iconName(for: entry.source))
                     .font(.caption2)
@@ -120,7 +128,7 @@ struct LogsSheetView: View {
             Text(entry.message)
                 .font(.caption)
                 .textSelection(.enabled)
-                .fontDesign(.monospaced)
+                .font(.system(.caption, design: .monospaced))
 
             if let details = entry.details, !details.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -128,7 +136,7 @@ struct LogsSheetView: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .textSelection(.enabled)
-                        .fontDesign(.monospaced)
+                        .font(.system(.caption2, design: .monospaced))
                         .padding(8)
                 }
                 .background(Color.vibe80BackgroundStrong)

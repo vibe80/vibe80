@@ -48,7 +48,7 @@ final class AttachmentUploader {
             Attachment(
                 name: file.name,
                 path: file.path,
-                size: file.size.map { KotlinLong(long: $0) },
+                size: nil,
                 mimeType: nil
             )
         }
