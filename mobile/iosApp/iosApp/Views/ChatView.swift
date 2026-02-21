@@ -75,8 +75,8 @@ struct ChatView: View {
             .navigationBarTitleDisplayMode(.inline)
             .background(Color.vibe80Background)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    VStack(alignment: .leading, spacing: 0) {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 0) {
                         HStack(spacing: 6) {
                             Text("app.name")
                                 .font(.headline)
