@@ -1,15 +1,13 @@
 {
   "images" : [
     {
-      "filename" : "vibe80_light.pdf",
-      "idiom" : "universal"
+      "filename" : "vibe80_light.png",
+      "idiom" : "universal",
+      "scale" : "1x"
     }
   ],
   "info" : {
     "author" : "xcode",
     "version" : 1
-  },
-  "properties" : {
-    "preserves-vector-representation" : true
   }
 }
