@@ -72,10 +72,22 @@ struct ChatView: View {
                     onRemoveAttachment: viewModel.removePendingAttachment
                 )
             }
-            .navigationTitle("app.name")
             .navigationBarTitleDisplayMode(.inline)
             .background(Color.vibe80Background)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 0) {
+                        Text("app.name")
+                            .font(.headline)
+                        if !viewModel.repoName.isEmpty {
+                            Text(viewModel.repoName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+
                 ToolbarItem(placement: .navigationBarLeading) {
                     connectionIndicator
                 }

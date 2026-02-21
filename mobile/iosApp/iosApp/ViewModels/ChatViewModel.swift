@@ -25,6 +25,7 @@ class ChatViewModel: ObservableObject {
 
     // Provider
     @Published var activeProvider: LLMProvider = .codex
+    @Published var repoName: String = ""
 
     // Diff
     @Published var repoDiff: RepoDiff?
@@ -199,6 +200,20 @@ class ChatViewModel: ObservableObject {
         return KotlinBoolean(bool: value)
     }
 
+    private func repoNameFromUrl(_ url: String) -> String {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !trimmed.isEmpty else { return "" }
+        let slashIndex = trimmed.lastIndex(of: "/")
+        let colonIndex = trimmed.lastIndex(of: ":")
+        if let index = [slashIndex, colonIndex].compactMap({ $0 }).max() {
+            let next = trimmed.index(after: index)
+            guard next < trimmed.endIndex else { return trimmed }
+            let candidate = String(trimmed[next...])
+            return candidate.isEmpty ? trimmed : candidate
+        }
+        return trimmed
+    }
+
     // MARK: - Initialization
 
     func setup(appState: AppState) {
@@ -263,6 +278,9 @@ class ChatViewModel: ObservableObject {
             }
             if let ready = state?.appServerReady {
                 self?.appServerReady = ready
+            }
+            if let repoUrl = state?.repoUrl {
+                self?.repoName = self?.repoNameFromUrl(repoUrl) ?? ""
             }
         }
 
