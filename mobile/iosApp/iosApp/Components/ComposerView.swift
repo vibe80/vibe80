@@ -99,7 +99,7 @@ struct ComposerView: View {
                         case .shell:
                             Image(systemName: "terminal")
                         case .git:
-                            Image(systemName: "point.3.connected")
+                            Image(systemName: "arrow.triangle.branch")
                         }
                     }
                     .font(.title3)
@@ -174,7 +174,7 @@ struct ComposerView: View {
         switch mode {
         case .llm: return "message"
         case .shell: return "terminal"
-        case .git: return "point.3.connected"
+        case .git: return "arrow.triangle.branch"
         }
     }
 
