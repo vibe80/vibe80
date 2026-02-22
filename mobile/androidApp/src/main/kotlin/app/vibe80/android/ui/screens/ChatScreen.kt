@@ -408,6 +408,9 @@ fun ChatScreen(
             label = "animatedInputBarHeight"
         )
         val imeBottomDp = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+        // Safety gap to avoid the last message being visually clipped behind the composer
+        // on some Android devices/layout combinations.
+        val composerSafetyOffset = 20.dp
 
         LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomDp, listItemCount) {
             if (listItemCount > 0 && (inputFocused || imeBottomDp > 0.dp)) {
@@ -442,7 +445,7 @@ fun ChatScreen(
                         start = 16.dp,
                         top = 16.dp,
                         end = 16.dp,
-                        bottom = 16.dp + animatedInputBarHeight + imeBottomDp
+                        bottom = 16.dp + animatedInputBarHeight + imeBottomDp + composerSafetyOffset
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
