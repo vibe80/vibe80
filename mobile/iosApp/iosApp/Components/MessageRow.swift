@@ -102,6 +102,13 @@ struct MessageRow: View {
         return cleanVibe80Blocks(displayText, formsSubmitted: formsSubmitted, yesNoSubmitted: yesNoSubmitted)
     }
 
+    private var shouldRenderMessageBubble: Bool {
+        if isToolOrCommand || isStreaming {
+            return true
+        }
+        return !cleanedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             if isUser {
@@ -122,7 +129,9 @@ struct MessageRow: View {
                 }
 
                 // Message bubble
-                messageBubble
+                if shouldRenderMessageBubble {
+                    messageBubble
+                }
 
                 // File ref chips
                 if !fileRefs.isEmpty {
