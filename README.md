@@ -105,6 +105,19 @@ vibe80 worktree diff [worktreeId]
 vibe80 worktree commits [worktreeId] --limit 20
 ```
 
+## Message CLI (avec pièces jointes)
+
+```bash
+# Envoyer un message (et uploader des fichiers)
+vibe80 message send --text "analyse ça" --file ./a.txt --file ./b.png
+
+# Lister les messages d'un worktree
+vibe80 message ls [--limit 50]
+
+# Suivre les nouveaux messages (polling)
+vibe80 message tail [--interval-ms 2000]
+```
+
 ## Docker
 
 ### Docker with Codex

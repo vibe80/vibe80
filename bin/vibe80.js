@@ -195,6 +195,14 @@ const parseListOption = (value, previous = []) => {
   return [...previous, ...parts];
 };
 
+const parseRepeatOption = (value, previous = []) => {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return previous;
+  }
+  return [...previous, trimmed];
+};
+
 const parseProviderName = (value) => {
   const provider = String(value || "").trim().toLowerCase();
   if (provider !== "codex" && provider !== "claude") {
@@ -1090,6 +1098,53 @@ const resolveWorktreeForCommand = (state, workspaceId, sessionId, worktreeIdArg)
   return worktreeId;
 };
 
+const uploadAttachmentFiles = async ({
+  baseUrl,
+  workspaceToken,
+  sessionId,
+  files,
+}) => {
+  if (!Array.isArray(files) || !files.length) {
+    return [];
+  }
+  const formData = new FormData();
+  for (const filePath of files) {
+    const absPath = path.resolve(filePath);
+    const filename = path.basename(absPath);
+    const buffer = fs.readFileSync(absPath);
+    const blob = new Blob([buffer]);
+    formData.append("files", blob, filename);
+  }
+  const response = await fetch(
+    `${normalizeBaseUrl(baseUrl)}/api/v1/sessions/${encodeURIComponent(sessionId)}/attachments/upload`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${workspaceToken}`,
+      },
+      body: formData,
+    }
+  );
+  const raw = await response.text();
+  let payload = {};
+  if (raw) {
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      payload = { raw };
+    }
+  }
+  if (!response.ok) {
+    const message =
+      payload?.error || payload?.message || `Attachment upload failed (${response.status}).`;
+    const error = new Error(message);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return Array.isArray(payload?.files) ? payload.files : [];
+};
+
 const worktreeCommand = program
   .command("worktree")
   .alias("wt")
@@ -1467,6 +1522,167 @@ worktreeCommand
     }
     for (const commit of commits) {
       console.log(`${commit.sha || "-"} ${commit.date || ""} ${commit.message || ""}`);
+    }
+  });
+
+const messageCommand = program
+  .command("message")
+  .alias("msg")
+  .description("Send and inspect worktree messages");
+
+messageCommand
+  .command("send")
+  .description("Send a user message to a worktree (supports attachments)")
+  .requiredOption("--text <text>", "Message text")
+  .option("--file <path>", "Attachment path (repeatable)", parseRepeatOption, [])
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--worktree-id <id>", "Worktree ID (default: current for session)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(
+      state,
+      workspaceId,
+      sessionId,
+      options.worktreeId
+    );
+    const uploaded = await uploadAttachmentFiles({
+      baseUrl,
+      workspaceToken: entry.workspaceToken,
+      sessionId,
+      files: options.file || [],
+    });
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/messages`,
+      method: "POST",
+      workspaceToken: entry.workspaceToken,
+      body: {
+        role: "user",
+        text: options.text,
+        attachments: uploaded,
+      },
+    });
+    if (options.json) {
+      console.log(JSON.stringify({ ...response, attachments: uploaded }, null, 2));
+      return;
+    }
+    console.log(
+      `Message sent: worktree=${worktreeId} messageId=${response.messageId || "-"} turnId=${response.turnId || "-"}`
+    );
+    if (uploaded.length) {
+      console.log(`Attachments uploaded: ${uploaded.map((item) => item.name || item.path).join(", ")}`);
+    }
+  });
+
+messageCommand
+  .command("ls")
+  .description("List messages for a worktree")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--worktree-id <id>", "Worktree ID (default: current for session)")
+  .option("--base-url <url>", "API base URL")
+  .option("--limit <n>", "Number of messages (default: 50)")
+  .option("--before-message-id <id>", "Pagination cursor")
+  .option("--json", "Output JSON")
+  .action(async (options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(
+      state,
+      workspaceId,
+      sessionId,
+      options.worktreeId
+    );
+    const qs = new URLSearchParams();
+    if (options.limit) qs.set("limit", String(options.limit));
+    if (options.beforeMessageId) qs.set("beforeMessageId", String(options.beforeMessageId));
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/messages${qs.size ? `?${qs.toString()}` : ""}`,
+      workspaceToken: entry.workspaceToken,
+    });
+    const messages = Array.isArray(response.messages) ? response.messages : [];
+    if (options.json) {
+      console.log(JSON.stringify({ ...response, worktreeId, messages }, null, 2));
+      return;
+    }
+    if (!messages.length) {
+      console.log("No message found.");
+      return;
+    }
+    for (const msg of messages) {
+      const role = msg.role || "unknown";
+      const text = String(msg.text || "").replace(/\s+/g, " ").trim();
+      const attachments = Array.isArray(msg.attachments) ? msg.attachments : [];
+      const suffix = attachments.length
+        ? ` [attachments: ${attachments.map((a) => a?.name || a?.path).filter(Boolean).join(", ")}]`
+        : "";
+      console.log(`${msg.id || "-"} ${role}: ${text}${suffix}`);
+    }
+  });
+
+messageCommand
+  .command("tail")
+  .description("Poll and display new messages for a worktree")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--worktree-id <id>", "Worktree ID (default: current for session)")
+  .option("--base-url <url>", "API base URL")
+  .option("--limit <n>", "Initial number of messages (default: 50)")
+  .option("--interval-ms <ms>", "Polling interval in milliseconds (default: 2000)")
+  .action(async (options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(
+      state,
+      workspaceId,
+      sessionId,
+      options.worktreeId
+    );
+    const intervalMs = Number.parseInt(options.intervalMs, 10) || 2000;
+    const initialLimit = Number.parseInt(options.limit, 10) || 50;
+    const seen = new Set();
+    console.log(`Tailing messages for ${workspaceId}/${sessionId}/${worktreeId} (Ctrl+C to stop)...`);
+    while (true) {
+      const qs = new URLSearchParams();
+      qs.set("limit", String(initialLimit));
+      const response = await apiRequest({
+        baseUrl,
+        pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/messages?${qs.toString()}`,
+        workspaceToken: entry.workspaceToken,
+      });
+      const messages = Array.isArray(response.messages) ? response.messages : [];
+      for (const msg of messages) {
+        const id = msg.id || `${msg.role}-${msg.createdAt || ""}-${msg.text || ""}`;
+        if (seen.has(id)) {
+          continue;
+        }
+        seen.add(id);
+        const role = msg.role || "unknown";
+        const text = String(msg.text || "").replace(/\s+/g, " ").trim();
+        const attachments = Array.isArray(msg.attachments) ? msg.attachments : [];
+        const suffix = attachments.length
+          ? ` [attachments: ${attachments.map((a) => a?.name || a?.path).filter(Boolean).join(", ")}]`
+          : "";
+        console.log(`${msg.id || "-"} ${role}: ${text}${suffix}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
   });
 
