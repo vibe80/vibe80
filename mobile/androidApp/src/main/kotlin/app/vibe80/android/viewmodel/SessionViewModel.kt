@@ -244,9 +244,15 @@ class SessionViewModel(
             _uiState.update { it.copy(sessionsLoading = true, sessionsError = null) }
             sessionRepository.listSessions()
                 .onSuccess { response ->
+                    val sortedSessions = response.sessions.sortedWith(
+                        compareBy<app.vibe80.shared.models.SessionSummary>(
+                            { it.createdAt ?: Long.MAX_VALUE },
+                            { it.sessionId }
+                        )
+                    )
                     _uiState.update {
                         it.copy(
-                            workspaceSessions = response.sessions,
+                            workspaceSessions = sortedSessions,
                             sessionsLoading = false,
                             sessionsError = null
                         )
