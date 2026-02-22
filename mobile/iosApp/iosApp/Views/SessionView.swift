@@ -233,7 +233,11 @@ struct SessionView: View {
                                 .font(.subheadline)
                                 .foregroundColor(.vibe80Ink)
                             HStack(spacing: 12) {
-                                Button(viewModel.loadingState == .resuming ? "action.resume.progress" : "action.resume") {
+                                Button(
+                                    viewModel.resumingSessionId == viewModel.savedSessionId && viewModel.loadingState == .resuming
+                                        ? "action.resume.progress"
+                                        : "action.resume"
+                                ) {
                                     viewModel.resumeSession(appState: appState)
                                 }
                                 .buttonStyle(.borderedProminent)
@@ -306,7 +310,11 @@ struct SessionView: View {
 
                 Spacer()
 
-                Button(viewModel.loadingState == .resuming ? "action.resume.progress" : "action.resume") {
+                Button(
+                    viewModel.resumingSessionId == session.sessionId && viewModel.loadingState == .resuming
+                        ? "action.resume.progress"
+                        : "action.resume"
+                ) {
                     viewModel.resumeWorkspaceSession(
                         sessionId: session.sessionId,
                         repoUrl: session.repoUrl,
