@@ -64,6 +64,25 @@ vibe80 workspace update <workspaceId> --enable claude --claude-auth-type api_key
 vibe80 workspace rm <workspaceId> --yes
 ```
 
+## Session CLI (nouveau)
+
+```bash
+# Lister / sélectionner / afficher
+vibe80 session ls
+vibe80 session use <sessionId>
+vibe80 session current
+vibe80 session show
+
+# Créer / supprimer / santé
+vibe80 session create --repo-url <repoUrl> [--name "My session"]
+vibe80 session health [sessionId]
+vibe80 session rm [sessionId] --yes
+
+# Handoff
+vibe80 session handoff create [sessionId]
+vibe80 session handoff consume --token <handoffToken>
+```
+
 ## Docker
 
 ### Docker with Codex

@@ -28,12 +28,24 @@ const resolveCliStatePath = () => {
 const loadCliState = () => {
   const statePath = resolveCliStatePath();
   if (!fs.existsSync(statePath)) {
-    return { version: 1, currentWorkspaceId: null, workspaces: {} };
+    return {
+      version: 1,
+      currentWorkspaceId: null,
+      workspaces: {},
+      currentSessionByWorkspace: {},
+      sessionsByWorkspace: {},
+    };
   }
   try {
     const parsed = JSON.parse(fs.readFileSync(statePath, "utf8"));
     if (!parsed || typeof parsed !== "object") {
-      return { version: 1, currentWorkspaceId: null, workspaces: {} };
+      return {
+        version: 1,
+        currentWorkspaceId: null,
+        workspaces: {},
+        currentSessionByWorkspace: {},
+        sessionsByWorkspace: {},
+      };
     }
     return {
       version: 1,
@@ -43,9 +55,23 @@ const loadCliState = () => {
           : null,
       workspaces:
         parsed.workspaces && typeof parsed.workspaces === "object" ? parsed.workspaces : {},
+      currentSessionByWorkspace:
+        parsed.currentSessionByWorkspace && typeof parsed.currentSessionByWorkspace === "object"
+          ? parsed.currentSessionByWorkspace
+          : {},
+      sessionsByWorkspace:
+        parsed.sessionsByWorkspace && typeof parsed.sessionsByWorkspace === "object"
+          ? parsed.sessionsByWorkspace
+          : {},
     };
   } catch {
-    return { version: 1, currentWorkspaceId: null, workspaces: {} };
+    return {
+      version: 1,
+      currentWorkspaceId: null,
+      workspaces: {},
+      currentSessionByWorkspace: {},
+      sessionsByWorkspace: {},
+    };
   }
 };
 
@@ -85,6 +111,56 @@ const ensureWorkspaceEntry = (state, workspaceId) => {
     state.workspaces[id].baseUrl = normalizeBaseUrl(defaultBaseUrl);
   }
   return state.workspaces[id];
+};
+
+const ensureSessionWorkspaceMap = (state, workspaceId) => {
+  const id = String(workspaceId || "").trim();
+  if (!id) {
+    throw new Error("workspaceId is required.");
+  }
+  if (!state.sessionsByWorkspace || typeof state.sessionsByWorkspace !== "object") {
+    state.sessionsByWorkspace = {};
+  }
+  if (
+    !state.sessionsByWorkspace[id]
+    || typeof state.sessionsByWorkspace[id] !== "object"
+    || Array.isArray(state.sessionsByWorkspace[id])
+  ) {
+    state.sessionsByWorkspace[id] = {};
+  }
+  if (!state.currentSessionByWorkspace || typeof state.currentSessionByWorkspace !== "object") {
+    state.currentSessionByWorkspace = {};
+  }
+  return state.sessionsByWorkspace[id];
+};
+
+const setCurrentSessionForWorkspace = (state, workspaceId, sessionId) => {
+  ensureSessionWorkspaceMap(state, workspaceId);
+  if (!sessionId) {
+    delete state.currentSessionByWorkspace[workspaceId];
+    return;
+  }
+  state.currentSessionByWorkspace[workspaceId] = sessionId;
+};
+
+const getCurrentSessionForWorkspace = (state, workspaceId) =>
+  state.currentSessionByWorkspace?.[workspaceId] || null;
+
+const upsertKnownSession = (state, workspaceId, session) => {
+  const map = ensureSessionWorkspaceMap(state, workspaceId);
+  const sessionId = String(session?.sessionId || "").trim();
+  if (!sessionId) {
+    return;
+  }
+  map[sessionId] = {
+    sessionId,
+    name: session.name || "",
+    repoUrl: session.repoUrl || "",
+    createdAt: session.createdAt || null,
+    lastActivityAt: session.lastActivityAt || null,
+    defaultProvider: session.defaultProvider || session.activeProvider || null,
+    providers: Array.isArray(session.providers) ? session.providers : [],
+  };
 };
 
 const parseListOption = (value, previous = []) => {
@@ -703,12 +779,286 @@ workspaceCommand
     console.log(`Workspace deleted: ${workspaceId}`);
   });
 
+const resolveWorkspaceAuthContext = (state, options = {}) => {
+  const { workspaceId, entry } = resolveWorkspaceForCommand(state, options.workspaceId);
+  if (!entry.workspaceToken) {
+    throw new Error(`No workspace token for "${workspaceId}". Run workspace login first.`);
+  }
+  const baseUrl = normalizeBaseUrl(options.baseUrl || entry.baseUrl || defaultBaseUrl);
+  return { workspaceId, entry, baseUrl };
+};
+
+const resolveSessionForCommand = (state, workspaceId, sessionIdArg) => {
+  const sessionId = sessionIdArg || getCurrentSessionForWorkspace(state, workspaceId);
+  if (!sessionId) {
+    throw new Error("No session selected. Use `vibe80 session use <sessionId>`.");
+  }
+  return sessionId;
+};
+
+const sessionCommand = program
+  .command("session")
+  .alias("s")
+  .description("Manage sessions for the current workspace");
+
+sessionCommand
+  .command("ls")
+  .description("List sessions from API for the selected workspace")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: "/api/v1/sessions",
+      workspaceToken: entry.workspaceToken,
+    });
+    const sessions = Array.isArray(response.sessions) ? response.sessions : [];
+    for (const session of sessions) {
+      upsertKnownSession(state, workspaceId, session);
+    }
+    saveCliState(state);
+    const currentSessionId = getCurrentSessionForWorkspace(state, workspaceId);
+    if (options.json) {
+      console.log(JSON.stringify({ workspaceId, currentSessionId, sessions }, null, 2));
+      return;
+    }
+    if (!sessions.length) {
+      console.log("No session found.");
+      return;
+    }
+    for (const session of sessions) {
+      const marker = currentSessionId === session.sessionId ? "*" : " ";
+      const name = session.name ? ` name="${session.name}"` : "";
+      const repo = session.repoUrl ? ` repo=${session.repoUrl}` : "";
+      console.log(`${marker} ${session.sessionId}${name}${repo}`);
+    }
+  });
+
+sessionCommand
+  .command("current")
+  .description("Show current session in selected workspace")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--json", "Output JSON")
+  .action((options) => {
+    const state = loadCliState();
+    const { workspaceId } = resolveWorkspaceForCommand(state, options.workspaceId);
+    const currentSessionId = getCurrentSessionForWorkspace(state, workspaceId);
+    if (options.json) {
+      console.log(JSON.stringify({ workspaceId, sessionId: currentSessionId }, null, 2));
+      return;
+    }
+    if (!currentSessionId) {
+      console.log("No current session selected.");
+      return;
+    }
+    console.log(currentSessionId);
+  });
+
+sessionCommand
+  .command("use <sessionId>")
+  .description("Set current session for current workspace")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .action((sessionId, options) => {
+    const state = loadCliState();
+    const { workspaceId } = resolveWorkspaceForCommand(state, options.workspaceId);
+    ensureSessionWorkspaceMap(state, workspaceId);
+    setCurrentSessionForWorkspace(state, workspaceId, sessionId);
+    saveCliState(state);
+    console.log(`Current session (${workspaceId}): ${sessionId}`);
+  });
+
+sessionCommand
+  .command("show [sessionId]")
+  .description("Show session details")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (sessionIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}`,
+      workspaceToken: entry.workspaceToken,
+    });
+    upsertKnownSession(state, workspaceId, response);
+    saveCliState(state);
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(`Session: ${response.sessionId}`);
+    console.log(`Name: ${response.name || "-"}`);
+    console.log(`Repo: ${response.repoUrl || "-"}`);
+    console.log(`Provider: ${response.defaultProvider || "-"}`);
+  });
+
+sessionCommand
+  .command("create")
+  .description("Create a new session")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--base-url <url>", "API base URL")
+  .requiredOption("--repo-url <url>", "Repository URL")
+  .option("--name <name>", "Session display name")
+  .option("--default-internet-access <bool>", "true|false")
+  .option("--default-deny-git-credentials-access <bool>", "true|false")
+  .option("--json", "Output JSON")
+  .action(async (options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const body = {
+      repoUrl: options.repoUrl,
+      name: options.name,
+    };
+    if (typeof options.defaultInternetAccess === "string") {
+      body.defaultInternetAccess = options.defaultInternetAccess === "true";
+    }
+    if (typeof options.defaultDenyGitCredentialsAccess === "string") {
+      body.defaultDenyGitCredentialsAccess =
+        options.defaultDenyGitCredentialsAccess === "true";
+    }
+    const response = await apiRequest({
+      baseUrl,
+      pathname: "/api/v1/sessions",
+      method: "POST",
+      workspaceToken: entry.workspaceToken,
+      body,
+    });
+    upsertKnownSession(state, workspaceId, response);
+    setCurrentSessionForWorkspace(state, workspaceId, response.sessionId);
+    saveCliState(state);
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(`Session created: ${response.sessionId}`);
+  });
+
+sessionCommand
+  .command("rm [sessionId]")
+  .description("Delete a session")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--base-url <url>", "API base URL")
+  .option("--yes", "Confirm deletion")
+  .action(async (sessionIdArg, options) => {
+    if (!options.yes) {
+      throw new Error("Refusing to delete without --yes.");
+    }
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}`,
+      method: "DELETE",
+      workspaceToken: entry.workspaceToken,
+    });
+    const map = ensureSessionWorkspaceMap(state, workspaceId);
+    delete map[sessionId];
+    if (getCurrentSessionForWorkspace(state, workspaceId) === sessionId) {
+      setCurrentSessionForWorkspace(state, workspaceId, null);
+    }
+    saveCliState(state);
+    console.log(`Session deleted: ${response.sessionId || sessionId}`);
+  });
+
+sessionCommand
+  .command("health [sessionId]")
+  .description("Get session health")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (sessionIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/health`,
+      workspaceToken: entry.workspaceToken,
+    });
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(
+      `${sessionId}: ok=${Boolean(response.ok)} ready=${Boolean(response.ready)} provider=${response.provider || "-"}`
+    );
+  });
+
+const handoffCommand = sessionCommand
+  .command("handoff")
+  .description("Create or consume session handoff tokens");
+
+handoffCommand
+  .command("create [sessionId]")
+  .description("Create handoff token for a session")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (sessionIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: "/api/v1/sessions/handoff",
+      method: "POST",
+      workspaceToken: entry.workspaceToken,
+      body: { sessionId },
+    });
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(`handoffToken=${response.handoffToken}`);
+    if (response.expiresAt) {
+      console.log(`expiresAt=${response.expiresAt}`);
+    }
+  });
+
+handoffCommand
+  .command("consume")
+  .description("Consume handoff token and save returned workspace/session context")
+  .requiredOption("--token <handoffToken>", "Handoff token")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (options) => {
+    const baseUrl = normalizeBaseUrl(options.baseUrl || defaultBaseUrl);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: "/api/v1/sessions/handoff/consume",
+      method: "POST",
+      body: { handoffToken: options.token },
+    });
+    const state = loadCliState();
+    upsertWorkspaceFromTokens(state, response.workspaceId, baseUrl, response, null);
+    if (response.sessionId) {
+      upsertKnownSession(state, response.workspaceId, { sessionId: response.sessionId });
+      setCurrentSessionForWorkspace(state, response.workspaceId, response.sessionId);
+    }
+    saveCliState(state);
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(
+      `Handoff consumed: workspace=${response.workspaceId}${response.sessionId ? ` session=${response.sessionId}` : ""}`
+    );
+  });
+
 program.command("help").description("Show help").action(() => {
   program.outputHelp();
 });
 
 if (!process.argv.slice(2).length) {
-  console.error("[vibe80] Missing command. Use `vibe80 run --codex` or `vibe80 workspace --help`.");
+  console.error(
+    "[vibe80] Missing command. Use `vibe80 run --codex`, `vibe80 workspace --help`, or `vibe80 session --help`."
+  );
   program.outputHelp();
   process.exit(1);
 }
