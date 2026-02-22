@@ -166,14 +166,12 @@ struct SessionView: View {
                     Text("workspace.id")
                         .font(.caption)
                         .foregroundColor(.vibe80InkMuted)
-                    Text(viewModel.workspaceCreatedId ?? "-")
-                        .font(.body)
+                    copyableCredentialRow(viewModel.workspaceCreatedId ?? "-")
 
                     Text("workspace.secret")
                         .font(.caption)
                         .foregroundColor(.vibe80InkMuted)
-                    Text(viewModel.workspaceCreatedSecret ?? "-")
-                        .font(.body)
+                    copyableCredentialRow(viewModel.workspaceCreatedSecret ?? "-")
                 }
                 .vibe80CardStyle()
 
@@ -517,6 +515,26 @@ struct SessionView: View {
                 .foregroundColor(.vibe80Ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func copyableCredentialRow(_ value: String) -> some View {
+        HStack(spacing: 8) {
+            Text(value)
+                .font(.body)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Button {
+                UIPasteboard.general.string = value == "-" ? nil : value
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .foregroundColor(.vibe80InkMuted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("action.copy"))
+        }
     }
 }
 
