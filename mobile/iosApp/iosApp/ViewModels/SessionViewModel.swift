@@ -540,7 +540,12 @@ class SessionViewModel: ObservableObject {
             do {
                 let listResponse = try await repository.listSessionsOrEmpty()
                 guard let self = self else { return }
-                self.workspaceSessions = listResponse.sessions
+                self.workspaceSessions = listResponse.sessions.sorted { a, b in
+                    let aCreatedAt = a.createdAt?.int64Value ?? Int64.max
+                    let bCreatedAt = b.createdAt?.int64Value ?? Int64.max
+                    if aCreatedAt != bCreatedAt { return aCreatedAt < bCreatedAt }
+                    return a.sessionId < b.sessionId
+                }
                 self.sessionsLoading = false
             } catch {
                 self?.sessionsError = self?.errorMessage(error)
