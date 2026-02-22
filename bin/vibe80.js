@@ -2,26 +2,22 @@
 "use strict";
 
 const { spawn } = require("child_process");
+const { Command } = require("commander");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
 const rootDir = path.resolve(__dirname, "..");
 const homeDir = process.env.HOME || os.homedir();
-const monoAuthUrlFile = path.join(
-  os.tmpdir(),
-  `vibe80-mono-auth-${process.pid}-${Date.now()}.url`
-);
 const defaultEnv = {
   DEPLOYMENT_MODE: "mono_user",
   VIBE80_DATA_DIRECTORY: path.join(homeDir, ".vibe80"),
   STORAGE_BACKEND: "sqlite",
 };
-const deploymentMode = process.env.DEPLOYMENT_MODE || defaultEnv.DEPLOYMENT_MODE;
-const serverPort = process.env.PORT || "5179";
-const cliArgs = process.argv.slice(2);
-const enableCodexFromCli = cliArgs.includes("--codex");
-const enableClaudeFromCli = cliArgs.includes("--claude");
+const monoAuthUrlFile = path.join(
+  os.tmpdir(),
+  `vibe80-mono-auth-${process.pid}-${Date.now()}.url`
+);
 
 const spawnProcess = (cmd, args, label, extraEnv = {}) => {
   const child = spawn(cmd, args, {
@@ -103,7 +99,8 @@ const waitForMonoAuthUrl = (timeoutMs = 15000) =>
     poll();
   });
 
-const maybeOpenMonoAuthUrl = async () => {
+const maybeOpenMonoAuthUrl = async (serverPort) => {
+  const deploymentMode = process.env.DEPLOYMENT_MODE || defaultEnv.DEPLOYMENT_MODE;
   if (deploymentMode !== "mono_user") {
     return;
   }
@@ -128,7 +125,12 @@ const shutdown = (code = 0) => {
   process.exit(code);
 };
 
-const startServer = () => {
+const startServer = (options = {}) => {
+  const enableCodexFromCli = Boolean(options.codex);
+  const enableClaudeFromCli = Boolean(options.claude);
+  const shouldOpenBrowser = options.open !== false;
+  const serverPort = options.port || process.env.PORT || "5179";
+
   unlinkMonoAuthUrlFile();
   const monoProviderEnv = {};
   if (enableCodexFromCli) {
@@ -137,6 +139,14 @@ const startServer = () => {
   if (enableClaudeFromCli) {
     monoProviderEnv.VIBE80_MONO_ENABLE_CLAUDE = "true";
   }
+  if (options.dataDir) {
+    monoProviderEnv.VIBE80_DATA_DIRECTORY = path.resolve(options.dataDir);
+  }
+  if (options.storageBackend) {
+    monoProviderEnv.STORAGE_BACKEND = options.storageBackend;
+  }
+  monoProviderEnv.PORT = String(serverPort);
+
   server = spawnProcess(
     process.execPath,
     ["server/src/index.js"],
@@ -146,7 +156,9 @@ const startServer = () => {
       ...monoProviderEnv,
     }
   );
-  void maybeOpenMonoAuthUrl();
+  if (shouldOpenBrowser) {
+    void maybeOpenMonoAuthUrl(serverPort);
+  }
 
   server.on("exit", (code, signal) => {
     if (shuttingDown) return;
@@ -162,7 +174,38 @@ const startServer = () => {
   });
 };
 
-startServer();
+const program = new Command();
+
+program
+  .name("vibe80")
+  .description("Vibe80 CLI")
+  .showHelpAfterError()
+  .showSuggestionAfterError(true);
+
+program
+  .command("run")
+  .description("Run the Vibe80 server (mono_user by default)")
+  .option("--codex", "Enable Codex provider in mono_user mode")
+  .option("--claude", "Enable Claude provider in mono_user mode")
+  .option("--port <port>", "Server port (default: 5179)")
+  .option("--data-dir <path>", "Override VIBE80_DATA_DIRECTORY")
+  .option("--storage-backend <backend>", "Override STORAGE_BACKEND (default: sqlite)")
+  .option("--no-open", "Do not auto-open authentication URL in a browser")
+  .action((options) => {
+    startServer(options);
+  });
+
+program.command("help").description("Show help").action(() => {
+  program.outputHelp();
+});
+
+if (!process.argv.slice(2).length) {
+  console.error("[vibe80] Missing command. Use `vibe80 run --codex` or `vibe80 run --claude`.");
+  program.outputHelp();
+  process.exit(1);
+}
+
+program.parse(process.argv);
 
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));

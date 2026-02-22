@@ -31,6 +31,7 @@
     "prepack": "npm --workspace client run build"
   },
   "dependencies": {
+    "commander": "^12.1.0",
     "concurrently": "^8.2.2",
     "docker-names": "^1.2.1",
     "express": "^4.19.2",

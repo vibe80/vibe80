@@ -27,10 +27,13 @@ At least one of `codex` or `claude code` must be installed before starting.
 npm install -g @vibe80/vibe80
 
 # Run with Codex support
-vibe80 --codex
+vibe80 run --codex
 
 # Run with Claude support
-vibe80 --claude
+vibe80 run --claude
+
+# Run without opening browser automatically
+vibe80 run --codex --no-open
 ```
 
 The server starts on `http://localhost:5179` and prints a one-shot authentication link at startup.
