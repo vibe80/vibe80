@@ -1012,8 +1012,10 @@ class SessionRepository(
             _sessionState.value = state
             loadMainWorktreeHistory(sessionId = sessionId)
 
-            // Connect WebSocket
-            ensureWebSocketConnected(sessionId)
+            // Always reconnect WebSocket on session resume to avoid
+            // keeping an existing socket bound to another session.
+            webSocketManager.connect(sessionId)
+            scheduleSyncOnConnected()
             // Load worktrees via REST
             listWorktrees()
 
