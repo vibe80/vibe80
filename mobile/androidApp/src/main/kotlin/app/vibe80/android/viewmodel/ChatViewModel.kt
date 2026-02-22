@@ -102,17 +102,23 @@ data class ChatUiState(
     /** Sorted list of worktrees (main first, then by creation) */
     val sortedWorktrees: List<Worktree>
         get() {
-            val base = worktrees.values.toMutableList()
-            if (base.isNotEmpty() && base.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
-                base.add(Worktree.createMain(activeProvider))
+            val items = worktrees.values.toMutableList()
+            // iOS parity: if there are worktrees but "main" is missing in payload, inject it.
+            if (items.isNotEmpty() && items.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
+                items.add(0, Worktree.createMain(activeProvider))
             }
-            return base.sortedWith(
-                compareBy<Worktree>(
-                    { it.id != Worktree.MAIN_WORKTREE_ID },
-                    { it.createdAt },
-                    { it.id }
-                )
-            )
+            // iOS parity sort:
+            // 1) main first
+            // 2) by createdAt asc
+            // 3) by id asc
+            return items.sortedWith { a, b ->
+                when {
+                    a.id == Worktree.MAIN_WORKTREE_ID && b.id != Worktree.MAIN_WORKTREE_ID -> -1
+                    b.id == Worktree.MAIN_WORKTREE_ID && a.id != Worktree.MAIN_WORKTREE_ID -> 1
+                    a.createdAt != b.createdAt -> a.createdAt.compareTo(b.createdAt)
+                    else -> a.id.compareTo(b.id)
+                }
+            }
         }
 }
 

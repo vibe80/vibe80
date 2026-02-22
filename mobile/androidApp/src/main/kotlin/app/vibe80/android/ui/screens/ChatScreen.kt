@@ -287,7 +287,7 @@ fun ChatScreen(
                     val worktreesForTabs = uiState.sortedWorktrees
                     val activeWorktreeName = worktreesForTabs.firstOrNull { it.id == uiState.activeWorktreeId }?.name
                         ?: Worktree.MAIN_WORKTREE_ID
-                    val showWorktreeTabs = worktreesForTabs.size > 1
+                    val showWorktreeTabs = worktreesForTabs.isNotEmpty()
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -416,7 +416,7 @@ fun ChatScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 // Worktree tabs
                 val worktreesForTabs = uiState.sortedWorktrees
-                if (worktreesForTabs.size > 1) {
+                if (worktreesForTabs.isNotEmpty()) {
                     WorktreeTabs(
                         worktrees = worktreesForTabs,
                         activeWorktreeId = uiState.activeWorktreeId,
