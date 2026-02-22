@@ -779,7 +779,7 @@ private fun CollapsibleToolResultBlock(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember(content) { mutableStateOf(false) }
-    val background = MaterialTheme.colorScheme.surface
+    val background = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
     val textColor = MaterialTheme.colorScheme.onSurface
     val lineCount = remember(content) { content.lines().size }
 
