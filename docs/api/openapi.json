@@ -3057,7 +3057,7 @@
           "attachments": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Attachment"
+              "$ref": "#/components/schemas/AttachmentRef"
             }
           }
         }
