@@ -130,7 +130,12 @@ struct MessageRow: View {
 
                 // Message bubble
                 if shouldRenderMessageBubble {
-                    messageBubble
+                    if isUser {
+                        messageBubble
+                    } else {
+                        messageBubble
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
 
                 // File ref chips
@@ -180,9 +185,6 @@ struct MessageRow: View {
                 }
             }
 
-            if !isUser {
-                Spacer(minLength: 60)
-            }
         }
         .fullScreenCover(item: $previewImage) { preview in
             ZoomableAttachmentImageView(
