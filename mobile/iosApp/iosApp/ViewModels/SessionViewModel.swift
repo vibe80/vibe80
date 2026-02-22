@@ -29,6 +29,7 @@ class SessionViewModel: ObservableObject {
     @Published var httpPassword: String = ""
     @Published var isLoading: Bool = false
     @Published var loadingState: LoadingState = .none
+    @Published var resumingSessionId: String?
     @Published var sessionError: String?
     @Published var handoffBusy: Bool = false
     @Published var handoffError: String?
@@ -119,6 +120,7 @@ class SessionViewModel: ObservableObject {
                 self.handoffBusy = false
                 self.isLoading = false
                 self.loadingState = .none
+                self.resumingSessionId = nil
                 self.workspaceError = message
                 self.sessionError = nil
                 self.sessionsError = nil
@@ -437,6 +439,7 @@ class SessionViewModel: ObservableObject {
         savedSessionId = nil
         savedSessionRepoUrl = ""
         hasSavedSession = false
+        resumingSessionId = nil
     }
 
     // MARK: - Session actions
@@ -489,6 +492,7 @@ class SessionViewModel: ObservableObject {
     }
 
     func resumeSession(appState: AppState) {
+        guard !isLoading else { return }
         guard let repository = appState.sessionRepository else {
             sessionError = "Module partagé non initialisé"
             return
@@ -500,6 +504,7 @@ class SessionViewModel: ObservableObject {
 
         isLoading = true
         loadingState = .resuming
+        resumingSessionId = sessionId
         sessionError = nil
 
         Task { [weak self] in
@@ -511,11 +516,13 @@ class SessionViewModel: ObservableObject {
                 )
                 self?.isLoading = false
                 self?.loadingState = .none
+                self?.resumingSessionId = nil
                 appState.setSession(sessionId: sessionId)
             } catch {
                 self?.sessionError = self?.errorMessage(error)
                 self?.isLoading = false
                 self?.loadingState = .none
+                self?.resumingSessionId = nil
                 self?.clearSavedSession()
             }
         }
@@ -543,6 +550,7 @@ class SessionViewModel: ObservableObject {
     }
 
     func resumeWorkspaceSession(sessionId: String, repoUrl: String?, appState: AppState) {
+        guard !isLoading else { return }
         guard let repository = appState.sessionRepository else {
             sessionError = "Module partagé non initialisé"
             return
@@ -550,6 +558,7 @@ class SessionViewModel: ObservableObject {
 
         isLoading = true
         loadingState = .resuming
+        resumingSessionId = sessionId
         sessionError = nil
 
         // Save as last session
@@ -569,11 +578,13 @@ class SessionViewModel: ObservableObject {
                 )
                 self?.isLoading = false
                 self?.loadingState = .none
+                self?.resumingSessionId = nil
                 appState.setSession(sessionId: sessionId)
             } catch {
                 self?.sessionError = self?.errorMessage(error)
                 self?.isLoading = false
                 self?.loadingState = .none
+                self?.resumingSessionId = nil
             }
         }
     }
