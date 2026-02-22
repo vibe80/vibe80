@@ -36,13 +36,14 @@ export const createRedisStorage = () => {
     buildKey(prefix, "session", sessionId, "worktrees");
   const workspaceSessionsKey = (workspaceId) =>
     buildKey(prefix, "workspace", workspaceId, "sessions");
-  const worktreeKey = (worktreeId) => buildKey(prefix, "worktree", worktreeId);
-  const worktreeMessagesKey = (worktreeId) =>
-    buildKey(prefix, "worktree", worktreeId, "messages");
-  const worktreeMessageIndexKey = (worktreeId) =>
-    buildKey(prefix, "worktree", worktreeId, "messageIndex");
-  const worktreeMessageSeqKey = (worktreeId) =>
-    buildKey(prefix, "worktree", worktreeId, "messageSeq");
+  const worktreeKey = (sessionId, worktreeId) =>
+    buildKey(prefix, "worktree", sessionId, worktreeId);
+  const worktreeMessagesKey = (sessionId, worktreeId) =>
+    buildKey(prefix, "worktree", sessionId, worktreeId, "messages");
+  const worktreeMessageIndexKey = (sessionId, worktreeId) =>
+    buildKey(prefix, "worktree", sessionId, worktreeId, "messageIndex");
+  const worktreeMessageSeqKey = (sessionId, worktreeId) =>
+    buildKey(prefix, "worktree", sessionId, worktreeId, "messageSeq");
   const workspaceUserIdsKey = (workspaceId) =>
     buildKey(prefix, "workspaceUserIds", workspaceId);
   const workspaceKey = (workspaceId) => buildKey(prefix, "workspace", workspaceId);
@@ -104,10 +105,10 @@ export const createRedisStorage = () => {
     const worktreeIds = await client.sMembers(sessionWorktreesKey(sessionId));
     if (worktreeIds.length) {
       const keys = worktreeIds.flatMap((id) => [
-        worktreeKey(id),
-        worktreeMessagesKey(id),
-        worktreeMessageIndexKey(id),
-        worktreeMessageSeqKey(id),
+        worktreeKey(sessionId, id),
+        worktreeMessagesKey(sessionId, id),
+        worktreeMessageIndexKey(sessionId, id),
+        worktreeMessageSeqKey(sessionId, id),
       ]);
       await client.del(keys);
     }
@@ -143,24 +144,24 @@ export const createRedisStorage = () => {
 
   const saveWorktree = async (sessionId, worktreeId, data) => {
     await ensureConnected();
-    await setWithTtl(worktreeKey(worktreeId), toJson(data), sessionTtlMs);
+    await setWithTtl(worktreeKey(sessionId, worktreeId), toJson(data), sessionTtlMs);
     await client.sAdd(sessionWorktreesKey(sessionId), worktreeId);
     await touchTtl(sessionWorktreesKey(sessionId), sessionTtlMs);
   };
 
-  const getWorktree = async (worktreeId) => {
+  const getWorktree = async (sessionId, worktreeId) => {
     await ensureConnected();
-    const raw = await client.get(worktreeKey(worktreeId));
+    const raw = await client.get(worktreeKey(sessionId, worktreeId));
     return fromJson(raw);
   };
 
   const deleteWorktree = async (sessionId, worktreeId) => {
     await ensureConnected();
     await client.del(
-      worktreeKey(worktreeId),
-      worktreeMessagesKey(worktreeId),
-      worktreeMessageIndexKey(worktreeId),
-      worktreeMessageSeqKey(worktreeId)
+      worktreeKey(sessionId, worktreeId),
+      worktreeMessagesKey(sessionId, worktreeId),
+      worktreeMessageIndexKey(sessionId, worktreeId),
+      worktreeMessageSeqKey(sessionId, worktreeId)
     );
     await client.sRem(sessionWorktreesKey(sessionId), worktreeId);
   };
@@ -171,7 +172,7 @@ export const createRedisStorage = () => {
     if (!ids.length) {
       return [];
     }
-    const keys = ids.map((id) => worktreeKey(id));
+    const keys = ids.map((id) => worktreeKey(sessionId, id));
     const raw = await client.mGet(keys);
     return raw.map(fromJson).filter(Boolean);
   };
@@ -182,12 +183,12 @@ export const createRedisStorage = () => {
     if (!messageId) {
       throw new Error("Message id is required.");
     }
-    const seq = await client.incr(worktreeMessageSeqKey(worktreeId));
-    await client.hSet(worktreeMessageIndexKey(worktreeId), messageId, seq);
-    await client.rPush(worktreeMessagesKey(worktreeId), toJson(message));
-    await touchTtl(worktreeMessagesKey(worktreeId), sessionTtlMs);
-    await touchTtl(worktreeMessageIndexKey(worktreeId), sessionTtlMs);
-    await touchTtl(worktreeMessageSeqKey(worktreeId), sessionTtlMs);
+    const seq = await client.incr(worktreeMessageSeqKey(sessionId, worktreeId));
+    await client.hSet(worktreeMessageIndexKey(sessionId, worktreeId), messageId, seq);
+    await client.rPush(worktreeMessagesKey(sessionId, worktreeId), toJson(message));
+    await touchTtl(worktreeMessagesKey(sessionId, worktreeId), sessionTtlMs);
+    await touchTtl(worktreeMessageIndexKey(sessionId, worktreeId), sessionTtlMs);
+    await touchTtl(worktreeMessageSeqKey(sessionId, worktreeId), sessionTtlMs);
   };
 
   const getWorktreeMessages = async (
@@ -196,7 +197,7 @@ export const createRedisStorage = () => {
     { limit = null, beforeMessageId = null } = {}
   ) => {
     await ensureConnected();
-    const listKey = worktreeMessagesKey(worktreeId);
+    const listKey = worktreeMessagesKey(sessionId, worktreeId);
     const listLength = await client.lLen(listKey);
     if (!listLength) {
       return [];
@@ -207,7 +208,7 @@ export const createRedisStorage = () => {
 
     if (beforeMessageId) {
       const seqValue = await client.hGet(
-        worktreeMessageIndexKey(worktreeId),
+        worktreeMessageIndexKey(sessionId, worktreeId),
         beforeMessageId
       );
       const seq = Number.parseInt(seqValue, 10);
@@ -233,9 +234,9 @@ export const createRedisStorage = () => {
   const clearWorktreeMessages = async (sessionId, worktreeId) => {
     await ensureConnected();
     await client.del(
-      worktreeMessagesKey(worktreeId),
-      worktreeMessageIndexKey(worktreeId),
-      worktreeMessageSeqKey(worktreeId)
+      worktreeMessagesKey(sessionId, worktreeId),
+      worktreeMessageIndexKey(sessionId, worktreeId),
+      worktreeMessageSeqKey(sessionId, worktreeId)
     );
   };
 

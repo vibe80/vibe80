@@ -108,9 +108,10 @@ export const createSqliteStorage = () => {
     await run(
       db,
       `CREATE TABLE IF NOT EXISTS worktrees (
-        worktreeId TEXT PRIMARY KEY,
+        worktreeId TEXT NOT NULL,
         sessionId TEXT NOT NULL,
         data TEXT NOT NULL,
+        PRIMARY KEY (sessionId, worktreeId),
         FOREIGN KEY(sessionId) REFERENCES sessions(sessionId) ON DELETE CASCADE
       );`
     );
@@ -127,7 +128,7 @@ export const createSqliteStorage = () => {
         worktreeId TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
         data TEXT NOT NULL,
-        PRIMARY KEY (worktreeId, messageId),
+        PRIMARY KEY (sessionId, worktreeId, messageId),
         FOREIGN KEY(sessionId) REFERENCES sessions(sessionId) ON DELETE CASCADE
       );`
     );
@@ -275,19 +276,18 @@ export const createSqliteStorage = () => {
       db,
       `INSERT INTO worktrees (worktreeId, sessionId, data)
        VALUES (?, ?, ?)
-       ON CONFLICT(worktreeId) DO UPDATE SET
-         sessionId=excluded.sessionId,
+       ON CONFLICT(sessionId, worktreeId) DO UPDATE SET
          data=excluded.data;`,
       [worktreeId, sessionId, toJson(data)]
     );
   };
 
-  const getWorktree = async (worktreeId) => {
+  const getWorktree = async (sessionId, worktreeId) => {
     await ensureConnected();
     const row = await get(
       db,
-      "SELECT data FROM worktrees WHERE worktreeId = ?",
-      [worktreeId]
+      "SELECT data FROM worktrees WHERE sessionId = ? AND worktreeId = ?",
+      [sessionId, worktreeId]
     );
     return fromJson(row?.data);
   };
@@ -328,7 +328,7 @@ export const createSqliteStorage = () => {
       db,
       `INSERT INTO worktree_messages (messageId, sessionId, worktreeId, createdAt, data)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(worktreeId, messageId) DO NOTHING;`,
+       ON CONFLICT(sessionId, worktreeId, messageId) DO NOTHING;`,
       [messageId, sessionId, worktreeId, createdAt, toJson(message)]
     );
   };
