@@ -29,6 +29,7 @@ fun CreateWorktreeSheet(
     currentProvider: LLMProvider,
     worktrees: List<Worktree>,
     providerModelState: Map<String, ProviderModelState>,
+    isCreating: Boolean,
     onDismiss: () -> Unit,
     onRequestModels: (provider: String) -> Unit,
     onCreate: (
@@ -104,7 +105,7 @@ fun CreateWorktreeSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = { if (!isCreating) onDismiss() }) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -447,9 +448,22 @@ fun CreateWorktreeSheet(
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = startingBranch.trim().isNotEmpty() && (selectedContext == "new" || sourceWorktreeId.isNotBlank())
+                enabled = !isCreating &&
+                    startingBranch.trim().isNotEmpty() &&
+                    (selectedContext == "new" || sourceWorktreeId.isNotBlank())
             ) {
-                Text(stringResource(R.string.action_create))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isCreating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    Text(stringResource(R.string.action_create))
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))

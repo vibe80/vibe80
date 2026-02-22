@@ -33,6 +33,7 @@ class ChatViewModel: ObservableObject {
     // Worktrees
     @Published var worktrees: [Worktree] = []
     @Published var activeWorktreeId: String = "main"
+    @Published var isCreatingWorktree: Bool = false
 
     // Worktree-specific state
     @Published var worktreeMessages: [String: [ChatMessage]] = [:]
@@ -699,8 +700,11 @@ class ChatViewModel: ObservableObject {
         denyGitCredentialsAccess: Bool?
     ) {
         guard let repository = appState?.sessionRepository else { return }
+        if isCreatingWorktree { return }
 
         Task {
+            isCreatingWorktree = true
+            defer { isCreatingWorktree = false }
             do {
                 try await repository.createWorktree(
                     name: name,

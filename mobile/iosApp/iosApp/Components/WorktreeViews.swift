@@ -175,6 +175,7 @@ struct WorktreeMenuView: View {
 struct CreateWorktreeSheetView: View {
     let currentProvider: LLMProvider
     let worktrees: [Worktree]
+    let isCreating: Bool
     let onCreate: (
         String?,
         LLMProvider,
@@ -296,10 +297,11 @@ struct CreateWorktreeSheetView: View {
                     Button("action.cancel") {
                         dismiss()
                     }
+                    .disabled(isCreating)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("action.create") {
+                    Button {
                         onCreate(
                             name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : name.trimmingCharacters(in: .whitespacesAndNewlines),
                             selectedProvider,
@@ -311,8 +313,15 @@ struct CreateWorktreeSheetView: View {
                             internetAccess,
                             denyGitCredentialsAccess
                         )
+                    } label: {
+                        if isCreating {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                        } else {
+                            Text("action.create")
+                        }
                     }
-                    .disabled(sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(isCreating || sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .fontWeight(.semibold)
                 }
             }
@@ -459,6 +468,7 @@ extension Color {
         worktrees: [
             Worktree(id: "main", name: "main", branchName: "main", provider: .codex, status: .ready, color: "#4CAF50", parentId: nil, createdAt: 0),
         ],
+        isCreating: false,
         onCreate: { _, _, _, _, _, _, _, _, _ in }
     )
 }

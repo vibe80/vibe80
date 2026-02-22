@@ -833,6 +833,7 @@ fun ChatScreen(
             currentProvider = uiState.activeProvider,
             worktrees = uiState.sortedWorktrees,
             providerModelState = uiState.providerModelState,
+            isCreating = uiState.isCreatingWorktree,
             onDismiss = viewModel::hideCreateWorktreeSheet,
             onRequestModels = viewModel::loadProviderModels,
             onCreate = { name, provider, branchName, model, reasoningEffort, context, sourceWorktree, internetAccess, denyGitCredentialsAccess ->

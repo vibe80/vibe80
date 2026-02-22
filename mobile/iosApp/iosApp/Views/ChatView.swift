@@ -161,6 +161,7 @@ struct ChatView: View {
                 CreateWorktreeSheetView(
                     currentProvider: viewModel.activeProvider,
                     worktrees: viewModel.sortedWorktrees,
+                    isCreating: viewModel.isCreatingWorktree,
                     onCreate: { name, provider, branch, model, reasoningEffort, context, sourceWorktree, internetAccess, denyGitCredentialsAccess in
                         viewModel.createWorktree(
                             name: name,
@@ -173,7 +174,6 @@ struct ChatView: View {
                             internetAccess: internetAccess,
                             denyGitCredentialsAccess: denyGitCredentialsAccess
                         )
-                        showCreateWorktreeSheet = false
                     }
                 )
                 .presentationDetents([.medium])
@@ -222,6 +222,11 @@ struct ChatView: View {
         }
         .onChange(of: viewModel.activeWorktreeId) { _ in
             viewModel.loadModelsForActiveWorktree()
+        }
+        .onChange(of: viewModel.isCreatingWorktree) { isCreating in
+            if !isCreating && showCreateWorktreeSheet {
+                showCreateWorktreeSheet = false
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
             guard

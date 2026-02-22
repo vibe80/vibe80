@@ -66,6 +66,7 @@ data class ChatUiState(
     val worktrees: Map<String, Worktree> = emptyMap(),
     val activeWorktreeId: String = Worktree.MAIN_WORKTREE_ID,
     val showCreateWorktreeSheet: Boolean = false,
+    val isCreatingWorktree: Boolean = false,
     val showWorktreeMenuFor: String? = null,
     val showCloseWorktreeConfirm: String? = null,
     // Provider models
@@ -638,19 +639,25 @@ class ChatViewModel(
         internetAccess: Boolean? = null,
         denyGitCredentialsAccess: Boolean? = null
     ) {
+        if (_uiState.value.isCreatingWorktree) return
         viewModelScope.launch {
-            sessionRepository.createWorktree(
-                name = name,
-                provider = provider,
-                branchName = branchName,
-                model = model,
-                reasoningEffort = reasoningEffort,
-                context = context,
-                sourceWorktree = sourceWorktree,
-                internetAccess = internetAccess,
-                denyGitCredentialsAccess = denyGitCredentialsAccess
-            )
-            _uiState.update { it.copy(showCreateWorktreeSheet = false) }
+            _uiState.update { it.copy(isCreatingWorktree = true) }
+            try {
+                sessionRepository.createWorktree(
+                    name = name,
+                    provider = provider,
+                    branchName = branchName,
+                    model = model,
+                    reasoningEffort = reasoningEffort,
+                    context = context,
+                    sourceWorktree = sourceWorktree,
+                    internetAccess = internetAccess,
+                    denyGitCredentialsAccess = denyGitCredentialsAccess
+                )
+                _uiState.update { it.copy(showCreateWorktreeSheet = false) }
+            } finally {
+                _uiState.update { it.copy(isCreatingWorktree = false) }
+            }
         }
     }
 
