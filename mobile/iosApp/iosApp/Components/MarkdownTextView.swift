@@ -3,6 +3,7 @@ import MarkdownUI
 
 struct MarkdownTextView: View {
     let markdown: String
+    private let markdownScale: CGFloat = 0.85
 
     var body: some View {
         let segments = splitCodeBlocks(markdown)
@@ -13,7 +14,8 @@ struct MarkdownTextView: View {
                 if segment.isCode {
                     CodeBlockView(
                         language: segment.language,
-                        code: segment.content
+                        code: segment.content,
+                        scale: markdownScale
                     )
                 } else if !segment.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     nonCodeMarkdownContent(segment.content)
@@ -37,6 +39,7 @@ struct MarkdownTextView: View {
 
     private func markdownText(_ text: String) -> some View {
         Markdown(text)
+            .font(.system(size: 15 * markdownScale))
             .textSelection(.enabled)
     }
 
@@ -44,12 +47,12 @@ struct MarkdownTextView: View {
     private func headingView(level: Int, text: String) -> some View {
         let size: CGFloat = {
             switch level {
-            case 1: return 24   // max requested
-            case 2: return 22
-            case 3: return 20
-            case 4: return 18
-            case 5: return 16
-            default: return 15
+            case 1: return 24 * markdownScale   // max requested
+            case 2: return 22 * markdownScale
+            case 3: return 20 * markdownScale
+            case 4: return 18 * markdownScale
+            case 5: return 16 * markdownScale
+            default: return 15 * markdownScale
             }
         }()
 
@@ -81,6 +84,7 @@ struct MarkdownTextView: View {
 private struct CodeBlockView: View {
     let language: String?
     let code: String
+    let scale: CGFloat
 
     @State private var expanded = false
 
@@ -110,19 +114,19 @@ private struct CodeBlockView: View {
                 HStack(spacing: 8) {
                     if let language, !language.isEmpty {
                         Text(language)
-                            .font(.caption.weight(.semibold))
+                            .font(.system(size: 12 * scale, weight: .semibold))
                             .foregroundColor(.vibe80Accent)
                     }
 
                     Text("\(lineCount) lines")
-                        .font(.caption2)
+                        .font(.system(size: 11 * scale))
                         .foregroundColor(.secondary)
 
                     Spacer()
 
                     if shouldCollapse {
                         Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                            .font(.caption2)
+                            .font(.system(size: 11 * scale))
                             .foregroundColor(.secondary)
                     }
 
@@ -130,7 +134,7 @@ private struct CodeBlockView: View {
                         UIPasteboard.general.string = code
                     } label: {
                         Image(systemName: "doc.on.doc")
-                            .font(.caption2)
+                            .font(.system(size: 11 * scale))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -143,7 +147,7 @@ private struct CodeBlockView: View {
             // Code content
             if shouldCollapse && !expanded {
                 Text(verbatim: preview)
-                    .font(.vibe80SpaceMono(.caption1))
+                    .font(.system(size: 12 * scale, design: .monospaced))
                     .foregroundColor(.vibe80Ink)
                     .lineLimit(3)
                     .padding(.horizontal, 10)
@@ -151,7 +155,7 @@ private struct CodeBlockView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(verbatim: code)
-                        .font(.vibe80SpaceMono(.caption1))
+                        .font(.system(size: 12 * scale, design: .monospaced))
                         .foregroundColor(.vibe80Ink)
                         .textSelection(.enabled)
                         .padding(.horizontal, 10)
