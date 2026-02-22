@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -88,6 +89,7 @@ fun ChatScreen(
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
+    val isDarkTheme = isSystemInDarkTheme()
     val uiState by viewModel.uiState.collectAsState()
     val listStatesByWorktree = remember { mutableStateMapOf<String, LazyListState>() }
     val listState = listStatesByWorktree.getOrPut(uiState.activeWorktreeId) { LazyListState() }
@@ -270,6 +272,11 @@ fun ChatScreen(
     )
 
     Scaffold(
+        containerColor = if (isDarkTheme) {
+            MaterialTheme.colorScheme.background
+        } else {
+            Color.White
+        },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
