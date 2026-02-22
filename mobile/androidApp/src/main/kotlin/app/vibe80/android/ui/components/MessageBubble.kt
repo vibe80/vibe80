@@ -213,7 +213,8 @@ fun MessageBubble(
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Description,
-                                        contentDescription = null
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.4.dp)
                                     )
                                 },
                                 colors = AssistChipDefaults.assistChipColors(
