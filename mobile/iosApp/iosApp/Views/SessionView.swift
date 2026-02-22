@@ -274,10 +274,18 @@ struct SessionView: View {
 
     private func sessionCard(_ session: SessionSummary) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(session.repoUrl ?? session.sessionId)
+            Text(repoShortName(from: session.repoUrl) ?? session.sessionId)
                 .font(.subheadline.weight(.medium))
                 .foregroundColor(.vibe80Ink)
                 .lineLimit(1)
+            
+            if let repoUrl = session.repoUrl, !repoUrl.isEmpty {
+                Text(repoUrl)
+                    .font(.caption2)
+                    .foregroundColor(.vibe80InkMuted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
 
             HStack(spacing: 12) {
                 if let lastActivity = session.lastActivityAt {
@@ -312,6 +320,21 @@ struct SessionView: View {
             }
         }
         .vibe80CardStyle()
+    }
+
+    private func repoShortName(from repoUrl: String?) -> String? {
+        guard let repoUrl else { return nil }
+        let trimmed = repoUrl
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !trimmed.isEmpty else { return nil }
+        let slashIndex = trimmed.lastIndex(of: "/")
+        let colonIndex = trimmed.lastIndex(of: ":")
+        if let index = [slashIndex, colonIndex].compactMap({ $0 }).max() {
+            let next = trimmed.index(after: index)
+            return String(trimmed[next...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return trimmed
     }
 
     private func formatSessionDate(_ timestamp: KotlinLong) -> String {
