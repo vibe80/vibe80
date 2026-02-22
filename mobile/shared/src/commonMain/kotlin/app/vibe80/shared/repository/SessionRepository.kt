@@ -187,10 +187,21 @@ class SessionRepository(
         val snapshotResult = apiClient.getWorktree(sessionId, Worktree.MAIN_WORKTREE_ID)
         snapshotResult
             .onSuccess { snapshot ->
+                if (_sessionState.value?.sessionId != sessionId) {
+                    AppLogger.debug(
+                        LogSource.APP,
+                        "Ignoring stale main history snapshot",
+                        "requestedSession=$sessionId currentSession=${_sessionState.value?.sessionId}"
+                    )
+                    return@onSuccess
+                }
                 _messages.value = snapshot.messages
             }
             .onFailure {
                 handleApiFailure(it, "getWorktreeMainHistory")
+                if (_sessionState.value?.sessionId != sessionId) {
+                    return@onFailure
+                }
                 _messages.value = fallbackMessages
             }
     }
@@ -754,6 +765,12 @@ class SessionRepository(
                 providers = response.providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
             _sessionState.value = state
+            _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
+            _messages.value = emptyList()
+            _worktrees.value = emptyMap()
+            _worktreeMessages.value = emptyMap()
+            _worktreeStreamingMessages.value = emptyMap()
+            _worktreeProcessing.value = emptyMap()
             loadMainWorktreeHistory(
                 sessionId = response.sessionId,
                 fallbackMessages = response.messages
@@ -1010,6 +1027,12 @@ class SessionRepository(
                 providers = providers.map { LLMProvider.valueOf(it.uppercase()) }
             )
             _sessionState.value = state
+            _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
+            _messages.value = emptyList()
+            _worktrees.value = emptyMap()
+            _worktreeMessages.value = emptyMap()
+            _worktreeStreamingMessages.value = emptyMap()
+            _worktreeProcessing.value = emptyMap()
             loadMainWorktreeHistory(sessionId = sessionId)
 
             // Always reconnect WebSocket on session resume to avoid
@@ -1213,6 +1236,14 @@ class SessionRepository(
         val sessionId = _sessionState.value?.sessionId ?: return
         apiClient.listWorktrees(sessionId)
             .onSuccess { response ->
+                if (_sessionState.value?.sessionId != sessionId) {
+                    AppLogger.debug(
+                        LogSource.APP,
+                        "Ignoring stale worktrees response",
+                        "requestedSession=$sessionId currentSession=${_sessionState.value?.sessionId}"
+                    )
+                    return@onSuccess
+                }
                 val worktreeMap = response.worktrees.associateBy { it.id }
                 _worktrees.value = worktreeMap
                 _worktreeMessages.update { current ->
