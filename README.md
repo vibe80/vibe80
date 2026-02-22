@@ -38,6 +38,32 @@ vibe80 run --codex --no-open
 
 The server starts on `http://localhost:5179` and prints a one-shot authentication link at startup.
 
+## Workspace CLI (nouveau)
+
+```bash
+# Lister les workspaces connus localement
+vibe80 workspace ls
+
+# Définir / lire le workspace courant
+vibe80 workspace use <workspaceId>
+vibe80 workspace current
+vibe80 workspace show
+
+# Login workspace
+vibe80 workspace login --workspace-id <id> --workspace-secret <secret>
+# ou (mono_user)
+vibe80 workspace login --mono-auth-token <token>
+
+# Refresh / logout
+vibe80 workspace refresh
+vibe80 workspace logout
+
+# Admin (si autorisé côté serveur)
+vibe80 workspace create --enable codex --codex-auth-type api_key --codex-auth-value "$OPENAI_API_KEY"
+vibe80 workspace update <workspaceId> --enable claude --claude-auth-type api_key --claude-auth-value "$ANTHROPIC_API_KEY"
+vibe80 workspace rm <workspaceId> --yes
+```
+
 ## Docker
 
 ### Docker with Codex
