@@ -1304,6 +1304,36 @@ worktreeCommand
   });
 
 worktreeCommand
+  .command("rename [worktreeId]")
+  .description("Rename a worktree")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .requiredOption("--name <name>", "New worktree name")
+  .option("--json", "Output JSON")
+  .action(async (worktreeIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}`,
+      method: "PATCH",
+      workspaceToken: entry.workspaceToken,
+      body: { name: options.name },
+    });
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(`Worktree renamed: ${worktreeId} -> ${options.name}`);
+  });
+
+worktreeCommand
   .command("wakeup [worktreeId]")
   .description("Wake provider for a worktree")
   .option("--workspace-id <id>", "Workspace ID (default: current)")

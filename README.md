@@ -95,6 +95,7 @@ vibe80 worktree show
 # Créer / fork / supprimer
 vibe80 worktree create --provider codex [--name "Feature A"]
 vibe80 worktree fork --from main [--name "Feature B"]
+vibe80 worktree rename [worktreeId] --name "Nouveau nom"
 vibe80 worktree rm [worktreeId] --yes
 
 # Runtime + état git
