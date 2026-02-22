@@ -83,6 +83,27 @@ vibe80 session handoff create [sessionId]
 vibe80 session handoff consume --token <handoffToken>
 ```
 
+## Worktree CLI (phase 1 + 2)
+
+```bash
+# Lister / sélectionner / afficher
+vibe80 worktree ls
+vibe80 worktree use <worktreeId>
+vibe80 worktree current
+vibe80 worktree show
+
+# Créer / fork / supprimer
+vibe80 worktree create --provider codex [--name "Feature A"]
+vibe80 worktree fork --from main [--name "Feature B"]
+vibe80 worktree rm [worktreeId] --yes
+
+# Runtime + état git
+vibe80 worktree wakeup [worktreeId]
+vibe80 worktree status [worktreeId]
+vibe80 worktree diff [worktreeId]
+vibe80 worktree commits [worktreeId] --limit 20
+```
+
 ## Docker
 
 ### Docker with Codex

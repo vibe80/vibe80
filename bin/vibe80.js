@@ -34,6 +34,7 @@ const loadCliState = () => {
       workspaces: {},
       currentSessionByWorkspace: {},
       sessionsByWorkspace: {},
+      currentWorktreeBySession: {},
     };
   }
   try {
@@ -45,6 +46,7 @@ const loadCliState = () => {
         workspaces: {},
         currentSessionByWorkspace: {},
         sessionsByWorkspace: {},
+        currentWorktreeBySession: {},
       };
     }
     return {
@@ -63,6 +65,10 @@ const loadCliState = () => {
         parsed.sessionsByWorkspace && typeof parsed.sessionsByWorkspace === "object"
           ? parsed.sessionsByWorkspace
           : {},
+      currentWorktreeBySession:
+        parsed.currentWorktreeBySession && typeof parsed.currentWorktreeBySession === "object"
+          ? parsed.currentWorktreeBySession
+          : {},
     };
   } catch {
     return {
@@ -71,6 +77,7 @@ const loadCliState = () => {
       workspaces: {},
       currentSessionByWorkspace: {},
       sessionsByWorkspace: {},
+      currentWorktreeBySession: {},
     };
   }
 };
@@ -162,6 +169,23 @@ const upsertKnownSession = (state, workspaceId, session) => {
     providers: Array.isArray(session.providers) ? session.providers : [],
   };
 };
+
+const getSessionKey = (workspaceId, sessionId) => `${workspaceId}/${sessionId}`;
+
+const setCurrentWorktreeForSession = (state, workspaceId, sessionId, worktreeId) => {
+  if (!state.currentWorktreeBySession || typeof state.currentWorktreeBySession !== "object") {
+    state.currentWorktreeBySession = {};
+  }
+  const key = getSessionKey(workspaceId, sessionId);
+  if (!worktreeId) {
+    delete state.currentWorktreeBySession[key];
+    return;
+  }
+  state.currentWorktreeBySession[key] = worktreeId;
+};
+
+const getCurrentWorktreeForSession = (state, workspaceId, sessionId) =>
+  state.currentWorktreeBySession?.[getSessionKey(workspaceId, sessionId)] || null;
 
 const parseListOption = (value, previous = []) => {
   const parts = String(value || "")
@@ -959,6 +983,7 @@ sessionCommand
     });
     const map = ensureSessionWorkspaceMap(state, workspaceId);
     delete map[sessionId];
+    setCurrentWorktreeForSession(state, workspaceId, sessionId, null);
     if (getCurrentSessionForWorkspace(state, workspaceId) === sessionId) {
       setCurrentSessionForWorkspace(state, workspaceId, null);
     }
@@ -1051,13 +1076,377 @@ handoffCommand
     );
   });
 
+const resolveSessionAuthContext = (state, options = {}, sessionIdArg = null) => {
+  const { workspaceId, entry, baseUrl } = resolveWorkspaceAuthContext(state, options);
+  const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
+  return { workspaceId, entry, baseUrl, sessionId };
+};
+
+const resolveWorktreeForCommand = (state, workspaceId, sessionId, worktreeIdArg) => {
+  const worktreeId = worktreeIdArg || getCurrentWorktreeForSession(state, workspaceId, sessionId);
+  if (!worktreeId) {
+    throw new Error("No worktree selected. Use `vibe80 worktree use <worktreeId>`.");
+  }
+  return worktreeId;
+};
+
+const worktreeCommand = program
+  .command("worktree")
+  .alias("wt")
+  .description("Manage worktrees for the current session");
+
+worktreeCommand
+  .command("ls")
+  .description("List worktrees for a session")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees`,
+      workspaceToken: entry.workspaceToken,
+    });
+    const worktrees = Array.isArray(response.worktrees) ? response.worktrees : [];
+    const currentWorktreeId = getCurrentWorktreeForSession(state, workspaceId, sessionId);
+    if (options.json) {
+      console.log(JSON.stringify({ workspaceId, sessionId, currentWorktreeId, worktrees }, null, 2));
+      return;
+    }
+    if (!worktrees.length) {
+      console.log("No worktree found.");
+      return;
+    }
+    for (const wt of worktrees) {
+      const marker = currentWorktreeId === wt.id ? "*" : " ";
+      console.log(
+        `${marker} ${wt.id} name="${wt.name || "-"}" branch=${wt.branchName || "-"} provider=${wt.provider || "-"} status=${wt.status || "-"}`
+      );
+    }
+  });
+
+worktreeCommand
+  .command("current")
+  .description("Show current worktree in selected session")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--json", "Output JSON")
+  .action((options) => {
+    const state = loadCliState();
+    const { workspaceId } = resolveWorkspaceForCommand(state, options.workspaceId);
+    const sessionId = resolveSessionForCommand(state, workspaceId, options.sessionId);
+    const worktreeId = getCurrentWorktreeForSession(state, workspaceId, sessionId);
+    if (options.json) {
+      console.log(JSON.stringify({ workspaceId, sessionId, worktreeId }, null, 2));
+      return;
+    }
+    if (!worktreeId) {
+      console.log("No current worktree selected.");
+      return;
+    }
+    console.log(worktreeId);
+  });
+
+worktreeCommand
+  .command("use <worktreeId>")
+  .description("Set current worktree for selected session")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .action((worktreeId, options) => {
+    const state = loadCliState();
+    const { workspaceId } = resolveWorkspaceForCommand(state, options.workspaceId);
+    const sessionId = resolveSessionForCommand(state, workspaceId, options.sessionId);
+    setCurrentWorktreeForSession(state, workspaceId, sessionId, worktreeId);
+    saveCliState(state);
+    console.log(`Current worktree (${workspaceId}/${sessionId}): ${worktreeId}`);
+  });
+
+worktreeCommand
+  .command("show [worktreeId]")
+  .description("Show worktree details")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (worktreeIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}`,
+      workspaceToken: entry.workspaceToken,
+    });
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(`Worktree: ${response.id}`);
+    console.log(`Name: ${response.name || "-"}`);
+    console.log(`Branch: ${response.branchName || "-"}`);
+    console.log(`Provider: ${response.provider || "-"}`);
+    console.log(`Status: ${response.status || "-"}`);
+  });
+
+worktreeCommand
+  .command("create")
+  .description("Create a new worktree (context=new)")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .requiredOption("--provider <provider>", "codex|claude")
+  .option("--name <name>", "Worktree display name")
+  .option("--json", "Output JSON")
+  .action(async (options) => {
+    const provider = parseProviderName(options.provider);
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees`,
+      method: "POST",
+      workspaceToken: entry.workspaceToken,
+      body: {
+        context: "new",
+        provider,
+        name: options.name || null,
+      },
+    });
+    setCurrentWorktreeForSession(state, workspaceId, sessionId, response.worktreeId);
+    saveCliState(state);
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(`Worktree created: ${response.worktreeId}`);
+  });
+
+worktreeCommand
+  .command("fork")
+  .description("Fork a worktree (context=fork)")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .requiredOption("--from <worktreeId>", "Source worktree id")
+  .option("--name <name>", "Worktree display name")
+  .option("--json", "Output JSON")
+  .action(async (options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees`,
+      method: "POST",
+      workspaceToken: entry.workspaceToken,
+      body: {
+        context: "fork",
+        sourceWorktree: options.from,
+        name: options.name || null,
+      },
+    });
+    setCurrentWorktreeForSession(state, workspaceId, sessionId, response.worktreeId);
+    saveCliState(state);
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(`Worktree forked: ${response.worktreeId} (from ${options.from})`);
+  });
+
+worktreeCommand
+  .command("rm [worktreeId]")
+  .description("Delete a worktree")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .option("--yes", "Confirm deletion")
+  .action(async (worktreeIdArg, options) => {
+    if (!options.yes) {
+      throw new Error("Refusing to delete without --yes.");
+    }
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
+    await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}`,
+      method: "DELETE",
+      workspaceToken: entry.workspaceToken,
+    });
+    if (getCurrentWorktreeForSession(state, workspaceId, sessionId) === worktreeId) {
+      setCurrentWorktreeForSession(state, workspaceId, sessionId, null);
+    }
+    saveCliState(state);
+    console.log(`Worktree deleted: ${worktreeId}`);
+  });
+
+worktreeCommand
+  .command("wakeup [worktreeId]")
+  .description("Wake provider for a worktree")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .option("--timeout-ms <ms>", "Wakeup timeout in milliseconds")
+  .option("--json", "Output JSON")
+  .action(async (worktreeIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
+    const body = {};
+    if (options.timeoutMs != null) {
+      body.timeoutMs = Number.parseInt(options.timeoutMs, 10);
+    }
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/wakeup`,
+      method: "POST",
+      workspaceToken: entry.workspaceToken,
+      body,
+    });
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    console.log(
+      `${response.worktreeId || worktreeId}: status=${response.status || "ready"} provider=${response.provider || "-"}`
+    );
+  });
+
+worktreeCommand
+  .command("status [worktreeId]")
+  .description("Show git status entries for a worktree")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (worktreeIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/status`,
+      workspaceToken: entry.workspaceToken,
+    });
+    const entries = Array.isArray(response.entries) ? response.entries : [];
+    if (options.json) {
+      console.log(JSON.stringify({ worktreeId, entries }, null, 2));
+      return;
+    }
+    if (!entries.length) {
+      console.log("Clean worktree.");
+      return;
+    }
+    for (const item of entries) {
+      console.log(`${item.type || "modified"}\t${item.path || ""}`);
+    }
+  });
+
+worktreeCommand
+  .command("diff [worktreeId]")
+  .description("Show worktree diff")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .option("--json", "Output JSON")
+  .action(async (worktreeIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/diff`,
+      workspaceToken: entry.workspaceToken,
+    });
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+    if (typeof response.diff === "string") {
+      console.log(response.diff);
+      return;
+    }
+    console.log(JSON.stringify(response, null, 2));
+  });
+
+worktreeCommand
+  .command("commits [worktreeId]")
+  .description("List recent commits for a worktree")
+  .option("--workspace-id <id>", "Workspace ID (default: current)")
+  .option("--session-id <id>", "Session ID (default: current for workspace)")
+  .option("--base-url <url>", "API base URL")
+  .option("--limit <n>", "Number of commits (default: 20)")
+  .option("--json", "Output JSON")
+  .action(async (worktreeIdArg, options) => {
+    const state = loadCliState();
+    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+      state,
+      options,
+      options.sessionId
+    );
+    const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
+    const qs = options.limit ? `?limit=${encodeURIComponent(String(options.limit))}` : "";
+    const response = await apiRequest({
+      baseUrl,
+      pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/commits${qs}`,
+      workspaceToken: entry.workspaceToken,
+    });
+    const commits = Array.isArray(response.commits) ? response.commits : [];
+    if (options.json) {
+      console.log(JSON.stringify({ worktreeId, commits }, null, 2));
+      return;
+    }
+    if (!commits.length) {
+      console.log("No commit found.");
+      return;
+    }
+    for (const commit of commits) {
+      console.log(`${commit.sha || "-"} ${commit.date || ""} ${commit.message || ""}`);
+    }
+  });
+
 program.command("help").description("Show help").action(() => {
   program.outputHelp();
 });
 
 if (!process.argv.slice(2).length) {
   console.error(
-    "[vibe80] Missing command. Use `vibe80 run --codex`, `vibe80 workspace --help`, or `vibe80 session --help`."
+    "[vibe80] Missing command. Use `vibe80 run --codex`, `vibe80 workspace --help`, `vibe80 session --help`, or `vibe80 worktree --help`."
   );
   program.outputHelp();
   process.exit(1);
