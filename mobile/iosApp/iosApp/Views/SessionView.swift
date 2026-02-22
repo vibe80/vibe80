@@ -398,7 +398,7 @@ struct SessionView: View {
             .toggleStyle(SwitchToggleStyle(tint: .vibe80Accent))
 
             if state.enabled {
-                Picker("Auth", selection: Binding(
+                Picker("auth.method.label", selection: Binding(
                     get: { effectiveAuthType },
                     set: { viewModel.updateProviderAuthType(provider, authType: $0) }
                 )) {
@@ -430,10 +430,11 @@ struct SessionView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
+                    let authTitleKey: LocalizedStringKey = effectiveAuthType == .setupToken
+                        ? "provider.auth.setup_token_label"
+                        : "provider.auth.api_key_label"
                     Vibe80SecureField(
-                        title: effectiveAuthType == .setupToken
-                            ? "provider.auth.setup_token_label"
-                            : "provider.auth.api_key_label",
+                        title: authTitleKey,
                         text: Binding(
                             get: { state.authValue },
                             set: { viewModel.updateProviderAuthValue(provider, authValue: $0) }
@@ -489,7 +490,7 @@ struct SessionView: View {
 }
 
 private struct Vibe80TextField: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var text: String
 
     var body: some View {
@@ -507,7 +508,7 @@ private struct Vibe80TextField: View {
 }
 
 private struct Vibe80SecureField: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var text: String
     @Binding var isRevealed: Bool
 
@@ -540,7 +541,7 @@ private struct Vibe80SecureField: View {
 }
 
 private struct Vibe80TextEditor: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var text: String
 
     var body: some View {
