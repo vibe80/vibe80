@@ -197,6 +197,38 @@ struct CreateWorktreeSheetView: View {
     @State private var internetAccess = true
     @State private var denyGitCredentialsAccess = true
     @State private var selectedColor = Worktree.companion.COLORS.first ?? "#4CAF50"
+    
+    private var availableSourceWorktrees: [Worktree] {
+        if worktrees.isEmpty {
+            return [
+                Worktree(
+                    id: "main",
+                    name: "main",
+                    branchName: "main",
+                    provider: currentProvider,
+                    status: .ready,
+                    color: "#4CAF50",
+                    parentId: nil,
+                    createdAt: 0
+                )
+            ]
+        }
+        if worktrees.contains(where: { $0.id == "main" }) {
+            return worktrees
+        }
+        return [
+            Worktree(
+                id: "main",
+                name: "main",
+                branchName: "main",
+                provider: currentProvider,
+                status: .ready,
+                color: "#4CAF50",
+                parentId: nil,
+                createdAt: 0
+            )
+        ] + worktrees
+    }
 
     var body: some View {
         NavigationStack {
@@ -232,7 +264,7 @@ struct CreateWorktreeSheetView: View {
                 } else {
                     Section("worktree.source_worktree.label") {
                         Picker("worktree.source_worktree.label", selection: $selectedSourceWorktree) {
-                            ForEach(worktrees, id: \.id) { worktree in
+                            ForEach(availableSourceWorktrees, id: \.id) { worktree in
                                 Text(worktree.id == "main" ? "main" : worktree.name)
                                     .tag(worktree.id)
                             }
@@ -286,9 +318,9 @@ struct CreateWorktreeSheetView: View {
             }
             .onAppear {
                 selectedProvider = currentProvider
-                if !worktrees.contains(where: { $0.id == selectedSourceWorktree }) {
-                    selectedSourceWorktree = worktrees.first(where: { $0.id == "main" })?.id
-                        ?? worktrees.first?.id
+                if !availableSourceWorktrees.contains(where: { $0.id == selectedSourceWorktree }) {
+                    selectedSourceWorktree = availableSourceWorktrees.first(where: { $0.id == "main" })?.id
+                        ?? availableSourceWorktrees.first?.id
                         ?? "main"
                 }
             }
