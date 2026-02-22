@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -102,9 +103,15 @@ fun MessageBubble(
         if (!isUser && !isStreaming) parseVibe80YesNo(displayText) else emptyList()
     }
 
-    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks, fileRefs, formsSubmitted, yesNoSubmitted) {
+    // Parse vibe80:task for assistant messages
+    val taskLabel = remember(displayText, isUser) {
+        if (!isUser && !isStreaming) parseVibe80Task(displayText) else null
+    }
+
+    val text = remember(displayText, choicesBlocks, formBlocks, yesNoBlocks, fileRefs, taskLabel, formsSubmitted, yesNoSubmitted) {
         var result = displayText
         if (fileRefs.isNotEmpty()) result = removeVibe80FileRefs(result)
+        result = removeVibe80Task(result)
         if (choicesBlocks.isNotEmpty()) result = removeVibe80Choices(result)
         if (yesNoBlocks.isNotEmpty()) {
             result = if (yesNoSubmitted) {
@@ -153,6 +160,26 @@ fun MessageBubble(
             shape = MaterialTheme.shapes.medium
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
+                if (!isUser && taskLabel != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = taskLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 // Role indicator for non-user messages
                 if (!isUser && message != null && message.role != MessageRole.ASSISTANT) {
                     if (isToolOrCommand) {
