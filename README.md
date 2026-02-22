@@ -64,6 +64,10 @@ vibe80 workspace update <workspaceId> --enable claude --claude-auth-type api_key
 vibe80 workspace rm <workspaceId> --yes
 ```
 
+Notes:
+- `workspace ls` is local-only (no API call).
+- After `workspace login`, the CLI stores `refreshToken` locally and auto-refreshes `workspaceToken` for `session`, `worktree` and `message` commands (with one automatic retry on HTTP 401).
+
 ## Session CLI (nouveau)
 
 ```bash

@@ -278,6 +278,95 @@ const apiRequest = async ({ baseUrl, pathname, method = "GET", body, workspaceTo
   return payload || {};
 };
 
+const isAccessTokenFresh = (entry, skewMs = 30 * 1000) => {
+  const token = typeof entry?.workspaceToken === "string" ? entry.workspaceToken : "";
+  if (!token) {
+    return false;
+  }
+  const expiresAt = Date.parse(entry?.expiresAt || "");
+  if (!Number.isFinite(expiresAt)) {
+    return true;
+  }
+  return Date.now() + skewMs < expiresAt;
+};
+
+const refreshWorkspaceAccessToken = async ({
+  state,
+  workspaceId,
+  entry,
+  baseUrl,
+}) => {
+  if (!entry?.refreshToken) {
+    throw new Error(`No refresh token saved for workspace "${workspaceId}". Run workspace login first.`);
+  }
+  const payload = await apiRequest({
+    baseUrl,
+    pathname: "/api/v1/workspaces/refresh",
+    method: "POST",
+    body: { refreshToken: entry.refreshToken },
+  });
+  upsertWorkspaceFromTokens(state, payload.workspaceId || workspaceId, baseUrl, payload, null);
+  const updatedId = payload.workspaceId || workspaceId;
+  const updatedEntry = ensureWorkspaceEntry(state, updatedId);
+  saveCliState(state);
+  return { workspaceId: updatedId, entry: updatedEntry };
+};
+
+const ensureWorkspaceAccessToken = async ({
+  state,
+  workspaceId,
+  entry,
+  baseUrl,
+}) => {
+  if (isAccessTokenFresh(entry)) {
+    return { workspaceId, entry };
+  }
+  if (!entry?.refreshToken) {
+    if (entry?.workspaceToken) {
+      return { workspaceId, entry };
+    }
+    throw new Error(`No workspace token/refresh token for "${workspaceId}". Run workspace login first.`);
+  }
+  return refreshWorkspaceAccessToken({ state, workspaceId, entry, baseUrl });
+};
+
+const authedApiRequest = async ({
+  state,
+  workspaceId,
+  entry,
+  baseUrl,
+  retryOnUnauthorized = true,
+  ...request
+}) => {
+  const ensured = await ensureWorkspaceAccessToken({ state, workspaceId, entry, baseUrl });
+  let activeWorkspaceId = ensured.workspaceId;
+  let activeEntry = ensured.entry;
+  try {
+    return await apiRequest({
+      baseUrl,
+      workspaceToken: activeEntry.workspaceToken,
+      ...request,
+    });
+  } catch (error) {
+    if (!retryOnUnauthorized || error?.status !== 401) {
+      throw error;
+    }
+    const refreshed = await refreshWorkspaceAccessToken({
+      state,
+      workspaceId: activeWorkspaceId,
+      entry: activeEntry,
+      baseUrl,
+    });
+    activeWorkspaceId = refreshed.workspaceId;
+    activeEntry = refreshed.entry;
+    return apiRequest({
+      baseUrl,
+      workspaceToken: activeEntry.workspaceToken,
+      ...request,
+    });
+  }
+};
+
 const spawnProcess = (cmd, args, label, extraEnv = {}) => {
   const child = spawn(cmd, args, {
     cwd: rootDir,
@@ -588,12 +677,14 @@ workspaceCommand
     };
     let remotePayload = null;
     let remoteError = null;
-    if (entry.workspaceToken) {
+    if (entry.workspaceToken || entry.refreshToken) {
       try {
-        remotePayload = await apiRequest({
+        remotePayload = await authedApiRequest({
+          state,
+          workspaceId,
+          entry,
           baseUrl,
           pathname: `/api/v1/workspaces/${workspaceId}`,
-          workspaceToken: entry.workspaceToken,
         });
       } catch (error) {
         remoteError = error.message || String(error);
@@ -762,15 +853,14 @@ workspaceCommand
     const state = loadCliState();
     const entry = ensureWorkspaceEntry(state, workspaceId);
     const baseUrl = normalizeBaseUrl(options.baseUrl || entry.baseUrl || defaultBaseUrl);
-    if (!entry.workspaceToken) {
-      throw new Error(`No workspace token for "${workspaceId}". Run workspace login first.`);
-    }
     const patch = buildProvidersPatch(options);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/workspaces/${workspaceId}`,
       method: "PATCH",
-      workspaceToken: entry.workspaceToken,
       body: { providers: patch },
     });
     entry.baseUrl = baseUrl;
@@ -794,14 +884,13 @@ workspaceCommand
     const state = loadCliState();
     const entry = ensureWorkspaceEntry(state, workspaceId);
     const baseUrl = normalizeBaseUrl(options.baseUrl || entry.baseUrl || defaultBaseUrl);
-    if (!entry.workspaceToken) {
-      throw new Error(`No workspace token for "${workspaceId}". Run workspace login first.`);
-    }
-    await apiRequest({
+    await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/workspaces/${workspaceId}`,
       method: "DELETE",
-      workspaceToken: entry.workspaceToken,
     });
     delete state.workspaces[workspaceId];
     if (state.currentWorkspaceId === workspaceId) {
@@ -811,13 +900,20 @@ workspaceCommand
     console.log(`Workspace deleted: ${workspaceId}`);
   });
 
-const resolveWorkspaceAuthContext = (state, options = {}) => {
+const resolveWorkspaceAuthContext = async (state, options = {}) => {
   const { workspaceId, entry } = resolveWorkspaceForCommand(state, options.workspaceId);
-  if (!entry.workspaceToken) {
-    throw new Error(`No workspace token for "${workspaceId}". Run workspace login first.`);
-  }
   const baseUrl = normalizeBaseUrl(options.baseUrl || entry.baseUrl || defaultBaseUrl);
-  return { workspaceId, entry, baseUrl };
+  const ensured = await ensureWorkspaceAccessToken({
+    state,
+    workspaceId,
+    entry,
+    baseUrl,
+  });
+  return {
+    workspaceId: ensured.workspaceId,
+    entry: ensured.entry,
+    baseUrl,
+  };
 };
 
 const resolveSessionForCommand = (state, workspaceId, sessionIdArg) => {
@@ -841,11 +937,13 @@ sessionCommand
   .option("--json", "Output JSON")
   .action(async (options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
-    const response = await apiRequest({
+    const { workspaceId, baseUrl, entry } = await resolveWorkspaceAuthContext(state, options);
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: "/api/v1/sessions",
-      workspaceToken: entry.workspaceToken,
     });
     const sessions = Array.isArray(response.sessions) ? response.sessions : [];
     for (const session of sessions) {
@@ -910,12 +1008,14 @@ sessionCommand
   .option("--json", "Output JSON")
   .action(async (sessionIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const { workspaceId, baseUrl, entry } = await resolveWorkspaceAuthContext(state, options);
     const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}`,
-      workspaceToken: entry.workspaceToken,
     });
     upsertKnownSession(state, workspaceId, response);
     saveCliState(state);
@@ -941,7 +1041,7 @@ sessionCommand
   .option("--json", "Output JSON")
   .action(async (options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const { workspaceId, baseUrl, entry } = await resolveWorkspaceAuthContext(state, options);
     const body = {
       repoUrl: options.repoUrl,
       name: options.name,
@@ -953,11 +1053,13 @@ sessionCommand
       body.defaultDenyGitCredentialsAccess =
         options.defaultDenyGitCredentialsAccess === "true";
     }
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: "/api/v1/sessions",
       method: "POST",
-      workspaceToken: entry.workspaceToken,
       body,
     });
     upsertKnownSession(state, workspaceId, response);
@@ -981,13 +1083,15 @@ sessionCommand
       throw new Error("Refusing to delete without --yes.");
     }
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const { workspaceId, baseUrl, entry } = await resolveWorkspaceAuthContext(state, options);
     const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}`,
       method: "DELETE",
-      workspaceToken: entry.workspaceToken,
     });
     const map = ensureSessionWorkspaceMap(state, workspaceId);
     delete map[sessionId];
@@ -1007,12 +1111,14 @@ sessionCommand
   .option("--json", "Output JSON")
   .action(async (sessionIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const { workspaceId, baseUrl, entry } = await resolveWorkspaceAuthContext(state, options);
     const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/health`,
-      workspaceToken: entry.workspaceToken,
     });
     if (options.json) {
       console.log(JSON.stringify(response, null, 2));
@@ -1035,13 +1141,15 @@ handoffCommand
   .option("--json", "Output JSON")
   .action(async (sessionIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry } = resolveWorkspaceAuthContext(state, options);
+    const { workspaceId, baseUrl, entry } = await resolveWorkspaceAuthContext(state, options);
     const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: "/api/v1/sessions/handoff",
       method: "POST",
-      workspaceToken: entry.workspaceToken,
       body: { sessionId },
     });
     if (options.json) {
@@ -1084,8 +1192,8 @@ handoffCommand
     );
   });
 
-const resolveSessionAuthContext = (state, options = {}, sessionIdArg = null) => {
-  const { workspaceId, entry, baseUrl } = resolveWorkspaceAuthContext(state, options);
+const resolveSessionAuthContext = async (state, options = {}, sessionIdArg = null) => {
+  const { workspaceId, entry, baseUrl } = await resolveWorkspaceAuthContext(state, options);
   const sessionId = resolveSessionForCommand(state, workspaceId, sessionIdArg);
   return { workspaceId, entry, baseUrl, sessionId };
 };
@@ -1099,50 +1207,81 @@ const resolveWorktreeForCommand = (state, workspaceId, sessionId, worktreeIdArg)
 };
 
 const uploadAttachmentFiles = async ({
+  state,
+  workspaceId,
+  entry,
   baseUrl,
-  workspaceToken,
   sessionId,
   files,
 }) => {
   if (!Array.isArray(files) || !files.length) {
     return [];
   }
-  const formData = new FormData();
-  for (const filePath of files) {
-    const absPath = path.resolve(filePath);
-    const filename = path.basename(absPath);
-    const buffer = fs.readFileSync(absPath);
-    const blob = new Blob([buffer]);
-    formData.append("files", blob, filename);
-  }
-  const response = await fetch(
-    `${normalizeBaseUrl(baseUrl)}/api/v1/sessions/${encodeURIComponent(sessionId)}/attachments/upload`,
-    {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${workspaceToken}`,
-      },
-      body: formData,
+  const doUpload = async (workspaceToken) => {
+    const formData = new FormData();
+    for (const filePath of files) {
+      const absPath = path.resolve(filePath);
+      const filename = path.basename(absPath);
+      const buffer = fs.readFileSync(absPath);
+      const blob = new Blob([buffer]);
+      formData.append("files", blob, filename);
     }
-  );
-  const raw = await response.text();
-  let payload = {};
-  if (raw) {
-    try {
-      payload = JSON.parse(raw);
-    } catch {
-      payload = { raw };
+    const response = await fetch(
+      `${normalizeBaseUrl(baseUrl)}/api/v1/sessions/${encodeURIComponent(sessionId)}/attachments/upload`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${workspaceToken}`,
+        },
+        body: formData,
+      }
+    );
+    const raw = await response.text();
+    let payload = {};
+    if (raw) {
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        payload = { raw };
+      }
     }
+    if (!response.ok) {
+      const message =
+        payload?.error || payload?.message || `Attachment upload failed (${response.status}).`;
+      const error = new Error(message);
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
+    }
+    return payload;
+  };
+
+  const ensured = await ensureWorkspaceAccessToken({
+    state,
+    workspaceId,
+    entry,
+    baseUrl,
+  });
+  let activeWorkspaceId = ensured.workspaceId;
+  let activeEntry = ensured.entry;
+  try {
+    const payload = await doUpload(activeEntry.workspaceToken);
+    return Array.isArray(payload?.files) ? payload.files : [];
+  } catch (error) {
+    if (error?.status !== 401) {
+      throw error;
+    }
+    const refreshed = await refreshWorkspaceAccessToken({
+      state,
+      workspaceId: activeWorkspaceId,
+      entry: activeEntry,
+      baseUrl,
+    });
+    activeWorkspaceId = refreshed.workspaceId;
+    activeEntry = refreshed.entry;
+    const payload = await doUpload(activeEntry.workspaceToken);
+    return Array.isArray(payload?.files) ? payload.files : [];
   }
-  if (!response.ok) {
-    const message =
-      payload?.error || payload?.message || `Attachment upload failed (${response.status}).`;
-    const error = new Error(message);
-    error.status = response.status;
-    error.payload = payload;
-    throw error;
-  }
-  return Array.isArray(payload?.files) ? payload.files : [];
 };
 
 const worktreeCommand = program
@@ -1159,15 +1298,17 @@ worktreeCommand
   .option("--json", "Output JSON")
   .action(async (options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees`,
-      workspaceToken: entry.workspaceToken,
     });
     const worktrees = Array.isArray(response.worktrees) ? response.worktrees : [];
     const currentWorktreeId = getCurrentWorktreeForSession(state, workspaceId, sessionId);
@@ -1232,16 +1373,18 @@ worktreeCommand
   .option("--json", "Output JSON")
   .action(async (worktreeIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
     const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}`,
-      workspaceToken: entry.workspaceToken,
     });
     if (options.json) {
       console.log(JSON.stringify(response, null, 2));
@@ -1266,16 +1409,18 @@ worktreeCommand
   .action(async (options) => {
     const provider = parseProviderName(options.provider);
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees`,
       method: "POST",
-      workspaceToken: entry.workspaceToken,
       body: {
         context: "new",
         provider,
@@ -1302,16 +1447,18 @@ worktreeCommand
   .option("--json", "Output JSON")
   .action(async (options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees`,
       method: "POST",
-      workspaceToken: entry.workspaceToken,
       body: {
         context: "fork",
         sourceWorktree: options.from,
@@ -1339,17 +1486,19 @@ worktreeCommand
       throw new Error("Refusing to delete without --yes.");
     }
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
     const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
-    await apiRequest({
+    await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}`,
       method: "DELETE",
-      workspaceToken: entry.workspaceToken,
     });
     if (getCurrentWorktreeForSession(state, workspaceId, sessionId) === worktreeId) {
       setCurrentWorktreeForSession(state, workspaceId, sessionId, null);
@@ -1368,17 +1517,19 @@ worktreeCommand
   .option("--json", "Output JSON")
   .action(async (worktreeIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
     const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}`,
       method: "PATCH",
-      workspaceToken: entry.workspaceToken,
       body: { name: options.name },
     });
     if (options.json) {
@@ -1398,7 +1549,7 @@ worktreeCommand
   .option("--json", "Output JSON")
   .action(async (worktreeIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
@@ -1408,11 +1559,13 @@ worktreeCommand
     if (options.timeoutMs != null) {
       body.timeoutMs = Number.parseInt(options.timeoutMs, 10);
     }
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/wakeup`,
       method: "POST",
-      workspaceToken: entry.workspaceToken,
       body,
     });
     if (options.json) {
@@ -1433,16 +1586,18 @@ worktreeCommand
   .option("--json", "Output JSON")
   .action(async (worktreeIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
     const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/status`,
-      workspaceToken: entry.workspaceToken,
     });
     const entries = Array.isArray(response.entries) ? response.entries : [];
     if (options.json) {
@@ -1467,16 +1622,18 @@ worktreeCommand
   .option("--json", "Output JSON")
   .action(async (worktreeIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
     const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/diff`,
-      workspaceToken: entry.workspaceToken,
     });
     if (options.json) {
       console.log(JSON.stringify(response, null, 2));
@@ -1499,17 +1656,19 @@ worktreeCommand
   .option("--json", "Output JSON")
   .action(async (worktreeIdArg, options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
     );
     const worktreeId = resolveWorktreeForCommand(state, workspaceId, sessionId, worktreeIdArg);
     const qs = options.limit ? `?limit=${encodeURIComponent(String(options.limit))}` : "";
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/commits${qs}`,
-      workspaceToken: entry.workspaceToken,
     });
     const commits = Array.isArray(response.commits) ? response.commits : [];
     if (options.json) {
@@ -1542,7 +1701,7 @@ messageCommand
   .option("--json", "Output JSON")
   .action(async (options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
@@ -1554,16 +1713,20 @@ messageCommand
       options.worktreeId
     );
     const uploaded = await uploadAttachmentFiles({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
-      workspaceToken: entry.workspaceToken,
       sessionId,
       files: options.file || [],
     });
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/messages`,
       method: "POST",
-      workspaceToken: entry.workspaceToken,
       body: {
         role: "user",
         text: options.text,
@@ -1594,7 +1757,7 @@ messageCommand
   .option("--json", "Output JSON")
   .action(async (options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
@@ -1608,10 +1771,12 @@ messageCommand
     const qs = new URLSearchParams();
     if (options.limit) qs.set("limit", String(options.limit));
     if (options.beforeMessageId) qs.set("beforeMessageId", String(options.beforeMessageId));
-    const response = await apiRequest({
+    const response = await authedApiRequest({
+      state,
+      workspaceId,
+      entry,
       baseUrl,
       pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/messages${qs.size ? `?${qs.toString()}` : ""}`,
-      workspaceToken: entry.workspaceToken,
     });
     const messages = Array.isArray(response.messages) ? response.messages : [];
     if (options.json) {
@@ -1644,7 +1809,7 @@ messageCommand
   .option("--interval-ms <ms>", "Polling interval in milliseconds (default: 2000)")
   .action(async (options) => {
     const state = loadCliState();
-    const { workspaceId, baseUrl, entry, sessionId } = resolveSessionAuthContext(
+    const { workspaceId, baseUrl, entry, sessionId } = await resolveSessionAuthContext(
       state,
       options,
       options.sessionId
@@ -1662,10 +1827,12 @@ messageCommand
     while (true) {
       const qs = new URLSearchParams();
       qs.set("limit", String(initialLimit));
-      const response = await apiRequest({
+      const response = await authedApiRequest({
+        state,
+        workspaceId,
+        entry,
         baseUrl,
         pathname: `/api/v1/sessions/${sessionId}/worktrees/${worktreeId}/messages?${qs.toString()}`,
-        workspaceToken: entry.workspaceToken,
       });
       const messages = Array.isArray(response.messages) ? response.messages : [];
       for (const msg of messages) {
