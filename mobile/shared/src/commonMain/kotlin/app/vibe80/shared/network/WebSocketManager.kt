@@ -163,6 +163,14 @@ class WebSocketManager(
                 AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Starting incoming message loop")
                 try {
                     for (frame in incoming) {
+                        if (sessionId != currentSessionId) {
+                            AppLogger.info(
+                                app.vibe80.shared.logging.LogSource.WEBSOCKET,
+                                "Ignoring frames from stale WebSocket session",
+                                "stale=$currentSessionId active=$sessionId"
+                            )
+                            break
+                        }
                         try {
                             when (frame) {
                                 is Frame.Text -> {
@@ -205,14 +213,30 @@ class WebSocketManager(
                 }
             }
             // WebSocket closed normally, attempt to reconnect
-            AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "WebSocket block exited, scheduling reconnect")
-            _connectionState.value = ConnectionState.DISCONNECTED
-            scheduleReconnect()
+            if (sessionId == currentSessionId) {
+                AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "WebSocket block exited, scheduling reconnect")
+                _connectionState.value = ConnectionState.DISCONNECTED
+                scheduleReconnect()
+            } else {
+                AppLogger.info(
+                    app.vibe80.shared.logging.LogSource.WEBSOCKET,
+                    "WebSocket block exited for stale session, skipping reconnect",
+                    "stale=$currentSessionId active=$sessionId"
+                )
+            }
         } catch (e: Exception) {
             AppLogger.error(app.vibe80.shared.logging.LogSource.WEBSOCKET, "WebSocket connection error: ${e::class.simpleName}", e.stackTraceToString())
-            _connectionState.value = ConnectionState.ERROR
-            _errors.emit(e)
-            scheduleReconnect()
+            if (sessionId == currentSessionId) {
+                _connectionState.value = ConnectionState.ERROR
+                _errors.emit(e)
+                scheduleReconnect()
+            } else {
+                AppLogger.info(
+                    app.vibe80.shared.logging.LogSource.WEBSOCKET,
+                    "Ignoring connection error from stale session",
+                    "stale=$currentSessionId active=$sessionId"
+                )
+            }
         }
     }
 
