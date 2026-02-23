@@ -36,6 +36,8 @@ vibe80 run --claude
 vibe80 run --codex --no-open
 ```
 
+> `vibe80 run` requires at least one provider flag: `--codex` or `--claude`.
+
 The server starts on `http://localhost:5179` and prints a one-shot authentication link at startup.
 
 ## Workspace CLI (nouveau)

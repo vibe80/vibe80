@@ -575,6 +575,9 @@ program
   .option("--storage-backend <backend>", "Override STORAGE_BACKEND (default: sqlite)")
   .option("--no-open", "Do not auto-open authentication URL in a browser")
   .action((options) => {
+    if (!options.codex && !options.claude) {
+      throw new Error("`vibe80 run` requires at least one provider flag: --codex or --claude.");
+    }
     startServer(options);
   });
 
