@@ -819,7 +819,7 @@ class SessionRepository(
             webSocketManager.connect(response.sessionId)
             // Load worktrees via REST
             listWorktrees()
-            loadLastCommitFor(sessionId, Worktree.MAIN_WORKTREE_ID)
+            loadLastCommitFor(response.sessionId, Worktree.MAIN_WORKTREE_ID)
 
             Result.success(state)
         } catch (e: Throwable) {
