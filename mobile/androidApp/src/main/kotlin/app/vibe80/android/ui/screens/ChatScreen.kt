@@ -408,6 +408,10 @@ fun ChatScreen(
             label = "animatedInputBarHeight"
         )
         val imeBottomDp = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+        val navBarInsets = WindowInsets.navigationBars
+        val navBarBottomDp = with(density) { navBarInsets.getBottom(density).toDp() }
+        val hasButtonNav = navBarBottomDp > 24.dp
+        val buttonNavExtraOffset = if (hasButtonNav) 35.dp else 0.dp
 
         LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomDp, listItemCount) {
             if (listItemCount > 0 && (inputFocused || imeBottomDp > 0.dp)) {
@@ -442,7 +446,7 @@ fun ChatScreen(
                         start = 16.dp,
                         top = 16.dp,
                         end = 16.dp,
-                        bottom = 16.dp + animatedInputBarHeight + imeBottomDp
+                        bottom = 16.dp + animatedInputBarHeight + imeBottomDp + buttonNavExtraOffset
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -526,10 +530,6 @@ fun ChatScreen(
             // Only add nav-bar padding for button-style navigation (3-button / 2-button).
             // Gesture-nav insets are small (typically ≤24 dp) and just add an
             // unwanted gap on phones with rounded corners.
-            val navBarInsets = WindowInsets.navigationBars
-            val navBarBottomDp = with(density) { navBarInsets.getBottom(density).toDp() }
-            val hasButtonNav = navBarBottomDp > 24.dp
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
