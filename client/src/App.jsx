@@ -172,6 +172,7 @@ const extractVibe80Blocks = (text, t = (value) => value) => {
       const trimmed = String(filePath || "").trim();
       if (trimmed) {
         filerefs.push(trimmed);
+        return `\`${trimmed.replace(/`/g, "\\`")}\``;
       }
       return "";
     })
