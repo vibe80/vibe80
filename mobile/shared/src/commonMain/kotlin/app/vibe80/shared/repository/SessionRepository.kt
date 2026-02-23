@@ -56,6 +56,12 @@ class SessionRepository(
 
     private val _repoDiff = MutableStateFlow<RepoDiff?>(null)
     val repoDiff: StateFlow<RepoDiff?> = _repoDiff.asStateFlow()
+    private val _repoLastCommit = MutableStateFlow<LastCommit?>(null)
+    val repoLastCommit: StateFlow<LastCommit?> = _repoLastCommit.asStateFlow()
+    private val _repoLastCommitBranch = MutableStateFlow("")
+    val repoLastCommitBranch: StateFlow<String> = _repoLastCommitBranch.asStateFlow()
+    private val _worktreeLastCommitById = MutableStateFlow<Map<String, WorktreeCommit>>(emptyMap())
+    val worktreeLastCommitById: StateFlow<Map<String, WorktreeCommit>> = _worktreeLastCommitById.asStateFlow()
 
     private val _processing = MutableStateFlow(false)
     val processing: StateFlow<Boolean> = _processing.asStateFlow()
@@ -579,6 +585,7 @@ class SessionRepository(
                 _worktreeMessages.update { it - message.worktreeId }
                 _worktreeStreamingMessages.update { it - message.worktreeId }
                 _worktreeProcessing.update { it - message.worktreeId }
+                _worktreeLastCommitById.update { it - message.worktreeId }
                 // Switch to main if active worktree was closed
                 if (_activeWorktreeId.value == message.worktreeId) {
                     _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
@@ -590,6 +597,7 @@ class SessionRepository(
                 _worktreeMessages.update { it - message.worktreeId }
                 _worktreeStreamingMessages.update { it - message.worktreeId }
                 _worktreeProcessing.update { it - message.worktreeId }
+                _worktreeLastCommitById.update { it - message.worktreeId }
                 if (_activeWorktreeId.value == message.worktreeId) {
                     _activeWorktreeId.value = Worktree.MAIN_WORKTREE_ID
                 }
@@ -811,6 +819,7 @@ class SessionRepository(
             webSocketManager.connect(response.sessionId)
             // Load worktrees via REST
             listWorktrees()
+            loadLastCommitFor(sessionId, Worktree.MAIN_WORKTREE_ID)
 
             Result.success(state)
         } catch (e: Throwable) {
@@ -1064,6 +1073,9 @@ class SessionRepository(
             _worktreeMessages.value = emptyMap()
             _worktreeStreamingMessages.value = emptyMap()
             _worktreeProcessing.value = emptyMap()
+            _repoLastCommit.value = null
+            _repoLastCommitBranch.value = ""
+            _worktreeLastCommitById.value = emptyMap()
             loadMainWorktreeHistory(sessionId = sessionId)
 
             // Always reconnect WebSocket on session resume to avoid
@@ -1145,7 +1157,32 @@ class SessionRepository(
                     }
                 }
                 .onFailure { handleApiFailure(it, "getWorktree") }
+            loadLastCommitFor(sessionId, worktreeId)
         }
+    }
+
+    private suspend fun loadLastCommitFor(sessionId: String, worktreeId: String) {
+        if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+            apiClient.getLastCommit(sessionId)
+                .onSuccess { response ->
+                    _repoLastCommit.value = response.commit
+                    _repoLastCommitBranch.value = response.branch
+                }
+                .onFailure {
+                    // Non-blocking meta rail data.
+                }
+            return
+        }
+        apiClient.getWorktreeCommits(sessionId, worktreeId, limit = 1)
+            .onSuccess { response ->
+                val commit = response.commits.firstOrNull() ?: return@onSuccess
+                _worktreeLastCommitById.update { current ->
+                    current + (worktreeId to commit)
+                }
+            }
+            .onFailure {
+                // Non-blocking meta rail data.
+            }
     }
 
     @Throws(Throwable::class)

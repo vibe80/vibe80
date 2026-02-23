@@ -74,6 +74,30 @@ data class SessionListResponse(
 )
 
 @Serializable
+data class LastCommit(
+    val sha: String = "",
+    val message: String = ""
+)
+
+@Serializable
+data class LastCommitResponse(
+    val branch: String = "",
+    val commit: LastCommit = LastCommit()
+)
+
+@Serializable
+data class WorktreeCommit(
+    val sha: String = "",
+    val message: String = "",
+    val date: String? = null
+)
+
+@Serializable
+data class WorktreeCommitsResponse(
+    val commits: List<WorktreeCommit> = emptyList()
+)
+
+@Serializable
 data class AttachmentUploadResponse(
     val files: List<UploadedFile>
 )

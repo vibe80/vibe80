@@ -15,6 +15,8 @@ import app.vibe80.shared.models.LLMProvider
 import app.vibe80.shared.models.RepoDiff
 import app.vibe80.shared.models.ProviderModelState
 import app.vibe80.shared.models.Worktree
+import app.vibe80.shared.models.WorktreeCommit
+import app.vibe80.shared.models.LastCommit
 import app.vibe80.shared.models.WorktreeStatus
 import app.vibe80.shared.network.ConnectionState
 import app.vibe80.shared.repository.SessionRepository
@@ -51,6 +53,9 @@ data class ChatUiState(
     val processing: Boolean = false,
     val repoName: String = "",
     val repoDiff: RepoDiff? = null,
+    val repoLastCommit: LastCommit? = null,
+    val repoLastCommitBranch: String = "",
+    val worktreeLastCommitById: Map<String, WorktreeCommit> = emptyMap(),
     val inputText: String = "",
     val showDiffSheet: Boolean = false,
     val showLogsSheet: Boolean = false,
@@ -298,6 +303,24 @@ class ChatViewModel(
         viewModelScope.launch {
             sessionRepository.lastError.collect { error ->
                 _uiState.update { it.copy(error = error) }
+            }
+        }
+
+        viewModelScope.launch {
+            sessionRepository.repoLastCommit.collect { commit ->
+                _uiState.update { it.copy(repoLastCommit = commit) }
+            }
+        }
+
+        viewModelScope.launch {
+            sessionRepository.repoLastCommitBranch.collect { branch ->
+                _uiState.update { it.copy(repoLastCommitBranch = branch) }
+            }
+        }
+
+        viewModelScope.launch {
+            sessionRepository.worktreeLastCommitById.collect { commits ->
+                _uiState.update { it.copy(worktreeLastCommitById = commits) }
             }
         }
     }

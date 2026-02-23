@@ -223,6 +223,23 @@ fun ChatScreen(
         }
     val showInternetAccess = activeWorktree?.internetAccess == true
     val showGitCredentialsShared = activeWorktree?.denyGitCredentialsAccess == false
+    val activeBranchLabel = if (uiState.activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+        uiState.repoLastCommitBranch.ifBlank { Worktree.MAIN_WORKTREE_ID }
+    } else {
+        activeWorktree?.branchName ?: Worktree.MAIN_WORKTREE_ID
+    }
+    val activeCommitSha = if (uiState.activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+        uiState.repoLastCommit?.sha
+    } else {
+        uiState.worktreeLastCommitById[uiState.activeWorktreeId]?.sha
+    }
+    val activeCommitMessage = if (uiState.activeWorktreeId == Worktree.MAIN_WORKTREE_ID) {
+        uiState.repoLastCommit?.message
+    } else {
+        uiState.worktreeLastCommitById[uiState.activeWorktreeId]?.message
+    }
+    val shortSha = (activeCommitSha ?: "").take(7)
+    val commitMessage = activeCommitMessage ?: ""
     val activeTaskLabel = if (uiState.processing) {
         activeWorktree?.taskLabel
             ?: parseVibe80Task(uiState.currentStreamingMessage ?: "")
@@ -490,12 +507,11 @@ fun ChatScreen(
                         .width(metaPanelWidth)
                         .padding(start = 12.dp, top = 12.dp, bottom = 12.dp),
                     repoName = uiState.repoName,
-                    connectionState = uiState.connectionState,
                     provider = effectiveProvider,
                     activeModelLabel = activeModelLabel,
-                    activeBranch = activeWorktree?.branchName ?: Worktree.MAIN_WORKTREE_ID,
-                    shortSha = "",
-                    commitMessage = "",
+                    activeBranch = activeBranchLabel,
+                    shortSha = shortSha,
+                    commitMessage = commitMessage,
                     showInternetAccess = showInternetAccess,
                     showGitCredentialsShared = showGitCredentialsShared,
                     activeTaskLabel = activeTaskLabel ?: ""
@@ -981,7 +997,6 @@ fun ChatScreen(
 private fun ContextMetaPanel(
     modifier: Modifier = Modifier,
     repoName: String,
-    connectionState: ConnectionState,
     provider: LLMProvider,
     activeModelLabel: String,
     activeBranch: String,
@@ -1061,13 +1076,6 @@ private fun ContextMetaPanel(
                 }
             }
 
-            if (connectionState != ConnectionState.CONNECTED) {
-                Text(
-                    text = "Disconnected",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
         }
     }
 }

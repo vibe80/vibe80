@@ -286,6 +286,69 @@ class ApiClient(
     }
 
     /**
+     * Get last commit for main session repository
+     */
+    suspend fun getLastCommit(sessionId: String): Result<LastCommitResponse> {
+        val url = "$baseUrl/api/v1/sessions/$sessionId/last-commit"
+        AppLogger.apiRequest("GET", url)
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    applyAuth(this)
+                }
+            }
+            val responseBody = if (!response.status.isSuccess()) {
+                readBodyTextUtf8(response)
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url, responseBody))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("GET", url, e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get commits for a specific worktree
+     */
+    suspend fun getWorktreeCommits(
+        sessionId: String,
+        worktreeId: String,
+        limit: Int = 20
+    ): Result<WorktreeCommitsResponse> {
+        val url = "$baseUrl/api/v1/sessions/$sessionId/worktrees/$worktreeId/commits"
+        AppLogger.apiRequest("GET", "$url?limit=$limit")
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.get(url) {
+                    parameter("limit", limit)
+                    applyAuth(this)
+                }
+            }
+            val responseBody = if (!response.status.isSuccess()) {
+                readBodyTextUtf8(response)
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("GET", "$url?limit=$limit", response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(response.body())
+            } else {
+                Result.failure(buildApiException(response, url, responseBody))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("GET", "$url?limit=$limit", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Check if session is healthy and ready
      */
     suspend fun checkHealth(sessionId: String): Result<Boolean> {
