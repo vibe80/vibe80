@@ -412,14 +412,8 @@ fun ChatScreen(
         // on some Android devices/layout combinations.
         val composerSafetyOffset = 20.dp
 
-        LaunchedEffect(
-            uiState.activeWorktreeId,
-            inputFocused,
-            imeBottomDp,
-            animatedInputBarHeight,
-            listItemCount
-        ) {
-            if (listItemCount > 0) {
+        LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomDp, listItemCount) {
+            if (listItemCount > 0 && (inputFocused || imeBottomDp > 0.dp)) {
                 listState.animateScrollToItem(listItemCount - 1)
             }
         }
