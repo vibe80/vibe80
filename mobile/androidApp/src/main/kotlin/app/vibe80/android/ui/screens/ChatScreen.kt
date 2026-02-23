@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -88,6 +89,8 @@ fun ChatScreen(
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isLargeScreen = configuration.screenWidthDp >= 840
     val isDarkTheme = isSystemInDarkTheme()
     val uiState by viewModel.uiState.collectAsState()
     val listStatesByWorktree = remember { mutableStateMapOf<String, LazyListState>() }
@@ -426,6 +429,9 @@ fun ChatScreen(
         val navBarBottomDp = with(density) { navBarInsets.getBottom(density).toDp() }
         val hasButtonNav = navBarBottomDp > 24.dp
         val buttonNavExtraOffset = if (hasButtonNav) 35.dp else 0.dp
+        val metaPanelWidth = 332.dp
+        val metaPanelGap = 12.dp
+        val contentStartInset = if (isLargeScreen) metaPanelWidth + metaPanelGap else 0.dp
 
         LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomDp, listItemCount) {
             if (listItemCount > 0 && (inputFocused || imeBottomDp > 0.dp)) {
@@ -438,7 +444,31 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            if (isLargeScreen) {
+                ContextMetaPanel(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxHeight()
+                        .width(metaPanelWidth)
+                        .padding(vertical = 12.dp, start = 12.dp),
+                    repoName = uiState.repoName,
+                    sessionId = uiState.sessionId,
+                    connectionState = uiState.connectionState,
+                    connectionColor = connectionColor,
+                    provider = effectiveProvider,
+                    activeWorktreeName = activeWorktree?.name ?: Worktree.MAIN_WORKTREE_ID,
+                    activeBranch = activeWorktree?.branchName ?: Worktree.MAIN_WORKTREE_ID,
+                    worktreeStatus = activeWorktree?.status,
+                    modifiedFilesCount = uiState.modifiedFilesCount,
+                    hasUncommittedChanges = uiState.hasUncommittedChanges
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = contentStartInset)
+            ) {
                 // Worktree tabs
                 val worktreesForTabs = uiState.sortedWorktrees
                 if (worktreesForTabs.isNotEmpty()) {
@@ -547,6 +577,7 @@ fun ChatScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(start = contentStartInset)
                     .align(Alignment.BottomCenter)
                     .imePadding()
                     .then(
@@ -913,6 +944,86 @@ fun ChatScreen(
                         Text(stringResource(R.string.action_cancel))
                     }
                 }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContextMetaPanel(
+    modifier: Modifier = Modifier,
+    repoName: String,
+    sessionId: String,
+    connectionState: ConnectionState,
+    connectionColor: Color,
+    provider: LLMProvider,
+    activeWorktreeName: String,
+    activeBranch: String,
+    worktreeStatus: WorktreeStatus?,
+    modifiedFilesCount: Int,
+    hasUncommittedChanges: Boolean
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        ),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(connectionColor)
+                )
+                Text(
+                    text = if (connectionState == ConnectionState.CONNECTED) "Connected" else "Disconnected",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = repoName.ifBlank { "Repository" },
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "Session: ${sessionId.ifBlank { "n/a" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Text(text = "Context", style = MaterialTheme.typography.titleSmall)
+            Text(text = "Provider: ${provider.name.lowercase()}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Worktree: $activeWorktreeName", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Branch: $activeBranch", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = "Status: ${worktreeStatus?.name?.lowercase() ?: "ready"}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Text(text = "Git", style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = if (hasUncommittedChanges) {
+                    "Changes: $modifiedFilesCount file(s)"
+                } else {
+                    "Changes: clean"
+                },
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
