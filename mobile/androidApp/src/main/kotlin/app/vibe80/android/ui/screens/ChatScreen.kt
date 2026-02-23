@@ -63,6 +63,7 @@ import app.vibe80.android.ui.components.FileSheetContent
 import app.vibe80.android.ui.components.LogsSheetContent
 import app.vibe80.android.ui.components.MessageBubble
 import app.vibe80.android.ui.components.Vibe80FormField
+import app.vibe80.android.ui.components.parseVibe80Task
 import app.vibe80.android.ui.components.WorktreeMenuSheet
 import app.vibe80.android.ui.components.WorktreeTabs
 import app.vibe80.android.ui.components.formatFormResponse
@@ -205,6 +206,7 @@ fun ChatScreen(
         ?: activeModels.firstOrNull()?.model
     val selectedModelDisplay = activeModels.firstOrNull { it.model == selectedModel }?.displayName
         ?: selectedModel
+    val activeModelLabel = selectedModelDisplay ?: stringResource(R.string.model_default)
     val activeActionMode = uiState.activeActionMode
     val canSend = if (activeActionMode == ComposerActionMode.LLM) {
         uiState.inputText.isNotBlank() || uiState.pendingAttachments.isNotEmpty()
@@ -219,6 +221,17 @@ fun ChatScreen(
         } else {
             activeWorktree.status == WorktreeStatus.READY
         }
+    val showInternetAccess = activeWorktree?.internetAccess == true
+    val showGitCredentialsShared = activeWorktree?.denyGitCredentialsAccess == false
+    val activeTaskLabel = if (uiState.processing) {
+        activeWorktree?.taskLabel
+            ?: parseVibe80Task(uiState.currentStreamingMessage ?: "")
+            ?: uiState.messages
+                .asReversed()
+                .firstNotNullOfOrNull { parseVibe80Task(it.text) }
+    } else {
+        ""
+    }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -477,15 +490,15 @@ fun ChatScreen(
                         .width(metaPanelWidth)
                         .padding(start = 12.dp, top = 12.dp, bottom = 12.dp),
                     repoName = uiState.repoName,
-                    sessionId = uiState.sessionId,
                     connectionState = uiState.connectionState,
-                    connectionColor = connectionColor,
                     provider = effectiveProvider,
-                    activeWorktreeName = activeWorktree?.name ?: Worktree.MAIN_WORKTREE_ID,
+                    activeModelLabel = activeModelLabel,
                     activeBranch = activeWorktree?.branchName ?: Worktree.MAIN_WORKTREE_ID,
-                    worktreeStatus = activeWorktree?.status,
-                    modifiedFilesCount = uiState.modifiedFilesCount,
-                    hasUncommittedChanges = uiState.hasUncommittedChanges
+                    shortSha = "",
+                    commitMessage = "",
+                    showInternetAccess = showInternetAccess,
+                    showGitCredentialsShared = showGitCredentialsShared,
+                    activeTaskLabel = activeTaskLabel ?: ""
                 )
             }
 
@@ -968,15 +981,15 @@ fun ChatScreen(
 private fun ContextMetaPanel(
     modifier: Modifier = Modifier,
     repoName: String,
-    sessionId: String,
     connectionState: ConnectionState,
-    connectionColor: Color,
     provider: LLMProvider,
-    activeWorktreeName: String,
+    activeModelLabel: String,
     activeBranch: String,
-    worktreeStatus: WorktreeStatus?,
-    modifiedFilesCount: Int,
-    hasUncommittedChanges: Boolean
+    shortSha: String,
+    commitMessage: String,
+    showInternetAccess: Boolean,
+    showGitCredentialsShared: Boolean,
+    activeTaskLabel: String,
 ) {
     Card(
         modifier = modifier,
@@ -991,55 +1004,70 @@ private fun ContextMetaPanel(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(connectionColor)
-                )
-                Text(
-                    text = if (connectionState == ConnectionState.CONNECTED) "Connected" else "Disconnected",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
             Text(
                 text = repoName.ifBlank { "Repository" },
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "Session: ${sessionId.ifBlank { "n/a" }}",
+                text = activeBranch,
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            if (shortSha.isNotBlank() || commitMessage.isNotBlank()) {
+                Text(
+                    text = listOf(shortSha, commitMessage).filter { it.isNotBlank() }.joinToString("  "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            val providerLabel = provider.name.lowercase()
+            Text(
+                text = "$providerLabel • $activeModelLabel",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (showInternetAccess) {
+                Text(
+                    text = "Internet access enabled",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-            Text(text = "Context", style = MaterialTheme.typography.titleSmall)
-            Text(text = "Provider: ${provider.name.lowercase()}", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "Worktree: $activeWorktreeName", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "Branch: $activeBranch", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = "Status: ${worktreeStatus?.name?.lowercase() ?: "ready"}",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            if (showGitCredentialsShared) {
+                Text(
+                    text = "Git credentials shared",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (activeTaskLabel.isNotBlank()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(12.dp),
+                        strokeWidth = 1.5.dp
+                    )
+                    Text(
+                        text = activeTaskLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
-            Text(text = "Git", style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = if (hasUncommittedChanges) {
-                    "Changes: $modifiedFilesCount file(s)"
-                } else {
-                    "Changes: clean"
-                },
-                style = MaterialTheme.typography.bodyMedium
-            )
+            if (connectionState != ConnectionState.CONNECTED) {
+                Text(
+                    text = "Disconnected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }

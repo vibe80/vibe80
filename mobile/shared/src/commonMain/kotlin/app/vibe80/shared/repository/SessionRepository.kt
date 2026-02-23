@@ -500,11 +500,42 @@ class SessionRepository(
                 _worktrees.update { current ->
                     current[message.worktreeId]?.let { worktree ->
                         val updatedStatus = WorktreeStatus.fromWire(message.status)
-                        val updated = if (updatedStatus != null) {
-                            worktree.copy(status = updatedStatus)
-                        } else {
-                            worktree
-                        }
+                        val updated = worktree.copy(
+                            status = updatedStatus ?: worktree.status,
+                            name = message.changes["name"]
+                                ?.jsonPrimitive
+                                ?.contentOrNull
+                                ?.takeIf { it.isNotBlank() }
+                                ?: worktree.name,
+                            branchName = message.changes["branchName"]
+                                ?.jsonPrimitive
+                                ?.contentOrNull
+                                ?.takeIf { it.isNotBlank() }
+                                ?: worktree.branchName,
+                            model = message.changes["model"]
+                                ?.jsonPrimitive
+                                ?.contentOrNull
+                                ?: worktree.model,
+                            internetAccess = message.changes["internetAccess"]
+                                ?.jsonPrimitive
+                                ?.contentOrNull
+                                ?.toBooleanStrictOrNull()
+                                ?: worktree.internetAccess,
+                            denyGitCredentialsAccess = message.changes["denyGitCredentialsAccess"]
+                                ?.jsonPrimitive
+                                ?.contentOrNull
+                                ?.toBooleanStrictOrNull()
+                                ?: worktree.denyGitCredentialsAccess,
+                            taskLabel = message.changes["taskLabel"]
+                                ?.jsonPrimitive
+                                ?.contentOrNull,
+                            activity = message.changes["activity"]
+                                ?.jsonPrimitive
+                                ?.contentOrNull,
+                            currentTurnId = message.changes["currentTurnId"]
+                                ?.jsonPrimitive
+                                ?.contentOrNull
+                        )
                         current + (message.worktreeId to updated)
                     } ?: current
                 }
@@ -1161,6 +1192,9 @@ class SessionRepository(
                 provider = resolvedProvider,
                 status = response.status ?: WorktreeStatus.CREATING,
                 color = response.color ?: Worktree.COLORS.first(),
+                model = model,
+                internetAccess = response.internetAccess,
+                denyGitCredentialsAccess = response.denyGitCredentialsAccess,
                 createdAt = System.currentTimeMillis()
             )
             _worktrees.update { current ->

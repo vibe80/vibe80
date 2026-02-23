@@ -77,6 +77,12 @@ data class Worktree(
     val status: WorktreeStatus,
     val color: String,
     val parentId: String? = null,
+    val model: String? = null,
+    val internetAccess: Boolean? = null,
+    val denyGitCredentialsAccess: Boolean? = null,
+    val taskLabel: String? = null,
+    val activity: String? = null,
+    val currentTurnId: String? = null,
     @Serializable(with = FlexibleTimestampAsLongSerializer::class)
     val createdAt: Long = 0L
 ) {
