@@ -603,6 +603,7 @@ class ChatViewModel(
         _uiState.value.worktrees[worktreeId]?.let { worktree ->
             loadProviderModels(worktree.provider.name.lowercase())
         }
+        loadDiff()
     }
 
     fun setComposerActionModeForActiveWorktree(mode: ComposerActionMode) {
