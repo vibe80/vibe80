@@ -109,13 +109,26 @@ private fun WorktreeTab(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Color indicator
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(worktreeColor)
-            )
+            // Leading indicator (iOS parity: loader replaces color LED while loading)
+            when (worktree.status) {
+                WorktreeStatus.CREATING,
+                WorktreeStatus.PROCESSING,
+                WorktreeStatus.MERGING -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(10.dp),
+                        strokeWidth = 1.5.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(worktreeColor)
+                    )
+                }
+            }
 
             // Name
             Text(
@@ -145,25 +158,10 @@ private fun WorktreeStatusIndicator(
     isMain: Boolean
 ) {
     when (status) {
-        WorktreeStatus.CREATING -> {
-            CircularProgressIndicator(
-                modifier = Modifier.size(12.dp),
-                strokeWidth = 1.5.dp
-            )
-        }
-        WorktreeStatus.PROCESSING -> {
-            CircularProgressIndicator(
-                modifier = Modifier.size(12.dp),
-                strokeWidth = 1.5.dp,
-                color = MaterialTheme.colorScheme.tertiary
-            )
-        }
+        WorktreeStatus.CREATING,
+        WorktreeStatus.PROCESSING,
         WorktreeStatus.MERGING -> {
-            CircularProgressIndicator(
-                modifier = Modifier.size(12.dp),
-                strokeWidth = 1.5.dp,
-                color = MaterialTheme.colorScheme.secondary
-            )
+            // Loader is already shown as the leading indicator.
         }
         WorktreeStatus.MERGE_CONFLICT -> {
             Badge(
