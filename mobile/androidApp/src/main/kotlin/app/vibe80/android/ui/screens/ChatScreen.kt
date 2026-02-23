@@ -450,7 +450,7 @@ fun ChatScreen(
                         .align(Alignment.CenterStart)
                         .fillMaxHeight()
                         .width(metaPanelWidth)
-                        .padding(vertical = 12.dp, start = 12.dp),
+                        .padding(start = 12.dp, top = 12.dp, bottom = 12.dp),
                     repoName = uiState.repoName,
                     sessionId = uiState.sessionId,
                     connectionState = uiState.connectionState,
