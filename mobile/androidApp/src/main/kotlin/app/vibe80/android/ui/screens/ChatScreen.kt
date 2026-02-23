@@ -449,11 +449,26 @@ fun ChatScreen(
             }
         }
 
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            val worktreesForTabs = uiState.sortedWorktrees
+            if (worktreesForTabs.isNotEmpty()) {
+                WorktreeTabs(
+                    worktrees = worktreesForTabs,
+                    activeWorktreeId = uiState.activeWorktreeId,
+                    onSelectWorktree = viewModel::selectWorktree,
+                    onWorktreeMenu = viewModel::showWorktreeMenu
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+            ) {
             if (isLargeScreen) {
                 ContextMetaPanel(
                     modifier = Modifier
@@ -479,17 +494,6 @@ fun ChatScreen(
                     .fillMaxSize()
                     .padding(start = contentStartInset)
             ) {
-                // Worktree tabs
-                val worktreesForTabs = uiState.sortedWorktrees
-                if (worktreesForTabs.isNotEmpty()) {
-                    WorktreeTabs(
-                        worktrees = worktreesForTabs,
-                        activeWorktreeId = uiState.activeWorktreeId,
-                        onSelectWorktree = viewModel::selectWorktree,
-                        onWorktreeMenu = viewModel::showWorktreeMenu
-                    )
-                }
-
                 // Messages list
                 LazyColumn(
                     state = listState,
@@ -699,6 +703,7 @@ fun ChatScreen(
                     }
                 }
             }
+        }
         }
     }
 
