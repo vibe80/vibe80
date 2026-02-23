@@ -436,6 +436,12 @@ fun ChatScreen(
         val navBarBottomDp = with(density) { navBarInsets.getBottom(density).toDp() }
         val hasButtonNav = navBarBottomDp > 24.dp
         val buttonNavExtraOffset = if (hasButtonNav) 35.dp else 0.dp
+        // Safety gap to avoid the last message being visually clipped behind the composer
+        // on some Android devices/layout combinations.
+        val composerSafetyOffset = 20.dp
+        val metaPanelWidth = 332.dp
+        val metaPanelGap = 12.dp
+        val contentStartInset = if (isLargeScreen) metaPanelWidth + metaPanelGap else 0.dp
 
         LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomDp, listItemCount) {
             if (listItemCount > 0 && (inputFocused || imeBottomDp > 0.dp)) {
