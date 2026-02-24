@@ -90,6 +90,7 @@ fun SessionScreen(
     var showWorkspaceSecret by remember { mutableStateOf(false) }
     var showProviderSecrets by remember { mutableStateOf(false) }
     var showLogsSheet by remember { mutableStateOf(false) }
+    var pendingLogsExport by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     val codexAuthPicker = rememberLauncherForActivityResult(
@@ -107,6 +108,20 @@ fun SessionScreen(
                 // Ignore file read errors
             }
         }
+    }
+
+    val logsExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        val content = pendingLogsExport
+        if (uri != null && content != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(content.toByteArray())
+                }
+            }
+        }
+        pendingLogsExport = null
     }
 
     LaunchedEffect(uiState.sessionId) {
@@ -221,7 +236,12 @@ fun SessionScreen(
                 onDismissRequest = { showLogsSheet = false },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ) {
-                LogsSheetContent()
+                LogsSheetContent(
+                    onExportLogs = { content, fileName ->
+                        pendingLogsExport = content
+                        logsExportLauncher.launch(fileName)
+                    }
+                )
             }
         }
     }
