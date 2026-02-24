@@ -63,6 +63,7 @@ class ChatViewModel: ObservableObject {
     @Published var uploadingAttachments = false
     @Published var pendingAttachments: [PendingAttachment] = []
     @Published var showLogsSheet: Bool = false
+    @Published var logsButtonEnabled: Bool = Vibe80App.SHOW_LOGS_BUTTON
     @Published var logs: [LogEntry] = []
 
     // Computed properties
@@ -179,6 +180,7 @@ class ChatViewModel: ObservableObject {
     private var logsWrapper: FlowWrapper<NSArray>?
     private var fileCall: SuspendWrapper<AnyObject>?
     private var sessionListCall: SuspendWrapper<AnyObject>?
+    private let logsUnlockCommand = "open.the.maze"
 
     private func errorMessage(_ error: Error) -> String {
         if let kotlinError = error as? KotlinThrowable {
@@ -477,6 +479,10 @@ class ChatViewModel: ObservableObject {
             guard !trimmedText.isEmpty else { return }
             let worktreeId = activeWorktreeId
             actionModeByWorktree[worktreeId] = .llm
+            if activeActionMode == .git && trimmedText == logsUnlockCommand {
+                logsButtonEnabled = true
+                return
+            }
             let request = activeActionMode == .git ? "git" : "run"
             Task {
                 do {
