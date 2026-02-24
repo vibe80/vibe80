@@ -11,18 +11,18 @@ import storage from "../storage/index.js";
 import { generateId } from "../helpers.js";
 import { logDebug } from "../middleware/debug.js";
 
-const deploymentMode = process.env.DEPLOYMENT_MODE;
+const deploymentMode = process.env.VIBE80_DEPLOYMENT_MODE;
 const isMonoUser = deploymentMode === "mono_user";
-const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
-const workspaceRootBase = process.env.WORKSPACE_ROOT_DIRECTORY || "/workspaces";
+const workspaceHomeBase = process.env.VIBE80_WORKSPACE_HOME_BASE || "/home";
+const workspaceRootBase = process.env.VIBE80_WORKSPACE_ROOT_DIRECTORY || "/workspaces";
 const workspaceRootName = "vibe80_workspace";
 const monoUserWorkspaceDir =
-  process.env.MONO_USER_WORKSPACE_DIR || path.join(os.homedir(), workspaceRootName);
+  process.env.VIBE80_MONO_USER_WORKSPACE_DIR || path.join(os.homedir(), workspaceRootName);
 const workspaceSessionsDirName = "sessions";
 const rootHelperPath = process.env.VIBE80_ROOT_HELPER || "/usr/local/bin/vibe80-root";
 const sudoPath = process.env.VIBE80_SUDO_PATH || "sudo";
-const workspaceUidMin = Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
-const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
+const workspaceUidMin = Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MIN, 10) || 200000;
+const workspaceUidMax = Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MAX, 10) || 999999999;
 const workspaceUserExistsCache = new Map();
 
 export const workspaceIdPattern = isMonoUser ? /^default$/ : /^w[0-9a-f]{24}$/;
@@ -887,12 +887,12 @@ const applyMonoEnabledProviders = (providers = {}, enabledConfig) => {
 };
 
 const buildMonoUserProviderOverridesFromEnv = () => {
-  const codexApiKey = readEnvValue("CODEX_API_KEY");
-  const codexAuthJsonB64Raw = process.env.CODEX_AUTH_JSON_B64;
+  const codexApiKey = readEnvValue("VIBE80_CODEX_API_KEY");
+  const codexAuthJsonB64Raw = process.env.VIBE80_CODEX_AUTH_JSON_B64;
   const hasCodexAuthJsonB64 = typeof codexAuthJsonB64Raw === "string";
   const codexAuthJsonB64 = hasCodexAuthJsonB64 ? codexAuthJsonB64Raw.trim() : "";
-  const claudeApiKey = readEnvValue("CLAUDE_API_KEY");
-  const claudeSetupTokenRaw = process.env.CLAUDE_SETUP_TOKEN;
+  const claudeApiKey = readEnvValue("VIBE80_CLAUDE_API_KEY");
+  const claudeSetupTokenRaw = process.env.VIBE80_CLAUDE_SETUP_TOKEN;
   const hasClaudeSetupToken = typeof claudeSetupTokenRaw === "string";
   const claudeSetupToken = hasClaudeSetupToken ? claudeSetupTokenRaw.trim() : "";
 
@@ -900,13 +900,13 @@ const buildMonoUserProviderOverridesFromEnv = () => {
 
   if (codexApiKey && hasCodexAuthJsonB64) {
     console.warn(
-      "[warn] Both CODEX_API_KEY and CODEX_AUTH_JSON_B64 are set; using CODEX_AUTH_JSON_B64."
+      "[warn] Both VIBE80_CODEX_API_KEY and VIBE80_CODEX_AUTH_JSON_B64 are set; using VIBE80_CODEX_AUTH_JSON_B64."
     );
   }
   if (hasCodexAuthJsonB64) {
     if (!codexAuthJsonB64) {
       console.warn(
-        "[warn] Invalid CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
+        "[warn] Invalid VIBE80_CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
       );
     } else {
       try {
@@ -917,7 +917,7 @@ const buildMonoUserProviderOverridesFromEnv = () => {
         };
       } catch {
         console.warn(
-          "[warn] Invalid CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
+          "[warn] Invalid VIBE80_CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
         );
       }
     }
@@ -929,13 +929,13 @@ const buildMonoUserProviderOverridesFromEnv = () => {
 
   if (claudeApiKey && hasClaudeSetupToken) {
     console.warn(
-      "[warn] Both CLAUDE_API_KEY and CLAUDE_SETUP_TOKEN are set; using CLAUDE_SETUP_TOKEN."
+      "[warn] Both VIBE80_CLAUDE_API_KEY and VIBE80_CLAUDE_SETUP_TOKEN are set; using VIBE80_CLAUDE_SETUP_TOKEN."
     );
   }
   if (hasClaudeSetupToken) {
     if (!claudeSetupToken) {
       console.warn(
-        "[warn] Invalid CLAUDE_SETUP_TOKEN detected; ignoring claude preprovisioning."
+        "[warn] Invalid VIBE80_CLAUDE_SETUP_TOKEN detected; ignoring claude preprovisioning."
       );
     } else {
       overrides.claude = {

@@ -13,12 +13,12 @@ const monoAuthUrlFile = path.join(
   `vibe80-mono-auth-${process.pid}-${Date.now()}.url`
 );
 const defaultEnv = {
-  DEPLOYMENT_MODE: "mono_user",
+  VIBE80_DEPLOYMENT_MODE: "mono_user",
   VIBE80_DATA_DIRECTORY: path.join(homeDir, ".vibe80"),
-  STORAGE_BACKEND: "sqlite",
+  VIBE80_STORAGE_BACKEND: "sqlite",
 };
-const deploymentMode = process.env.DEPLOYMENT_MODE || defaultEnv.DEPLOYMENT_MODE;
-const serverPort = process.env.PORT || "5179";
+const deploymentMode = process.env.VIBE80_DEPLOYMENT_MODE || defaultEnv.VIBE80_DEPLOYMENT_MODE;
+const serverPort = process.env.VIBE80_PORT || "5179";
 const cliArgs = process.argv.slice(2);
 const enableCodexFromCli = cliArgs.includes("--codex");
 const enableClaudeFromCli = cliArgs.includes("--claude");

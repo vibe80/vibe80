@@ -4,8 +4,8 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const SYSTEM_PROMPT =
-  process.env.SYSTEM_PROMPT ||
+export const VIBE80_SYSTEM_PROMPT =
+  process.env.VIBE80_SYSTEM_PROMPT ||
   "output markdown format for inline generated text;" +
   "Reference files using relative paths when possible; " +
   "When proposing possible next steps, use: " +
@@ -18,10 +18,10 @@ export const SYSTEM_PROMPT =
   "Use <!-- vibe80:task <short_task_description> --> to notify the user about what you are doing;" +
   "Use <!-- vibe80:fileref <filepath> --> to reference any file in the current repository";
 
-export const DEFAULT_GIT_AUTHOR_NAME =
-  process.env.DEFAULT_GIT_AUTHOR_NAME || "Vibe80 agent";
-export const DEFAULT_GIT_AUTHOR_EMAIL =
-  process.env.DEFAULT_GIT_AUTHOR_EMAIL || "vibe80@example.org";
+export const VIBE80_DEFAULT_GIT_AUTHOR_NAME =
+  process.env.VIBE80_DEFAULT_GIT_AUTHOR_NAME || "Vibe80 agent";
+export const VIBE80_DEFAULT_GIT_AUTHOR_EMAIL =
+  process.env.VIBE80_DEFAULT_GIT_AUTHOR_EMAIL || "vibe80@example.org";
 
 export const GIT_HOOKS_DIR = process.env.VIBE80_GIT_HOOKS_DIR
   || path.resolve(__dirname, "../../git_hooks");

@@ -5,11 +5,11 @@ import { GIT_HOOKS_DIR } from "./config.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
-const DEPLOYMENT_MODE = process.env.DEPLOYMENT_MODE;
-const IS_MONO_USER = DEPLOYMENT_MODE === "mono_user";
-const WORKSPACE_ROOT_DIRECTORY = process.env.WORKSPACE_ROOT_DIRECTORY || "/workspaces";
-const MONO_USER_WORKSPACE_DIR =
-  process.env.MONO_USER_WORKSPACE_DIR || path.join(os.homedir(), "vibe80_workspace");
+const VIBE80_DEPLOYMENT_MODE = process.env.VIBE80_DEPLOYMENT_MODE;
+const IS_MONO_USER = VIBE80_DEPLOYMENT_MODE === "mono_user";
+const VIBE80_WORKSPACE_ROOT_DIRECTORY = process.env.VIBE80_WORKSPACE_ROOT_DIRECTORY || "/workspaces";
+const VIBE80_MONO_USER_WORKSPACE_DIR =
+  process.env.VIBE80_MONO_USER_WORKSPACE_DIR || path.join(os.homedir(), "vibe80_workspace");
 const ALLOWED_ENV_KEYS = new Set([
   "GIT_SSH_COMMAND",
   "GIT_CONFIG_GLOBAL",
@@ -147,14 +147,14 @@ const buildRunEnv = (options = {}) => {
 };
 
 export const getWorkspaceHome = (workspaceId) => {
-  const homeBase = process.env.WORKSPACE_HOME_BASE || "/home";
+  const homeBase = process.env.VIBE80_WORKSPACE_HOME_BASE || "/home";
   return IS_MONO_USER ? os.homedir() : path.join(homeBase, workspaceId);
 };
 
 export const getWorkspaceRoot = (workspaceId) =>
   (IS_MONO_USER
-    ? MONO_USER_WORKSPACE_DIR
-    : path.join(WORKSPACE_ROOT_DIRECTORY, workspaceId));
+    ? VIBE80_MONO_USER_WORKSPACE_DIR
+    : path.join(VIBE80_WORKSPACE_ROOT_DIRECTORY, workspaceId));
 
 const validateCwd = (workspaceId, cwd) => {
   const resolved = path.resolve(cwd);
@@ -311,7 +311,7 @@ export const runAsCommand = (workspaceId, command, args, options = {}) =>
         ).catch((error) => {
           const details = [
             "run-as failed",
-            `mode=${DEPLOYMENT_MODE || "unknown"}`,
+            `mode=${VIBE80_DEPLOYMENT_MODE || "unknown"}`,
             `sudo=${SUDO_PATH}`,
             `helper=${RUN_AS_HELPER}`,
             `workspace=${workspaceId}`,
@@ -329,7 +329,7 @@ export const runAsCommand = (workspaceId, command, args, options = {}) =>
     const envPairs = collectEnvPairs(options.env || {});
     const details = [
       "run-as failed",
-      `mode=${DEPLOYMENT_MODE || "unknown"}`,
+      `mode=${VIBE80_DEPLOYMENT_MODE || "unknown"}`,
       IS_MONO_USER ? null : `sudo=${SUDO_PATH}`,
       IS_MONO_USER ? null : `helper=${RUN_AS_HELPER}`,
       `workspace=${workspaceId}`,
@@ -372,7 +372,7 @@ export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
         ).catch((error) => {
           const details = [
             "run-as output failed",
-            `mode=${DEPLOYMENT_MODE || "unknown"}`,
+            `mode=${VIBE80_DEPLOYMENT_MODE || "unknown"}`,
             `sudo=${SUDO_PATH}`,
             `helper=${RUN_AS_HELPER}`,
             `workspace=${workspaceId}`,
@@ -390,7 +390,7 @@ export const runAsCommandOutput = (workspaceId, command, args, options = {}) =>
     const envPairs = collectEnvPairs(options.env || {});
     const details = [
       "run-as output failed",
-      `mode=${DEPLOYMENT_MODE || "unknown"}`,
+      `mode=${VIBE80_DEPLOYMENT_MODE || "unknown"}`,
       IS_MONO_USER ? null : `sudo=${SUDO_PATH}`,
       IS_MONO_USER ? null : `helper=${RUN_AS_HELPER}`,
       `workspace=${workspaceId}`,
@@ -433,7 +433,7 @@ export const runAsCommandOutputWithStatus = (workspaceId, command, args, options
         ).catch((error) => {
           const details = [
             "run-as output failed",
-            `mode=${DEPLOYMENT_MODE || "unknown"}`,
+            `mode=${VIBE80_DEPLOYMENT_MODE || "unknown"}`,
             `sudo=${SUDO_PATH}`,
             `helper=${RUN_AS_HELPER}`,
             `workspace=${workspaceId}`,
@@ -451,7 +451,7 @@ export const runAsCommandOutputWithStatus = (workspaceId, command, args, options
     const envPairs = collectEnvPairs(options.env || {});
     const details = [
       "run-as output failed",
-      `mode=${DEPLOYMENT_MODE || "unknown"}`,
+      `mode=${VIBE80_DEPLOYMENT_MODE || "unknown"}`,
       IS_MONO_USER ? null : `sudo=${SUDO_PATH}`,
       IS_MONO_USER ? null : `helper=${RUN_AS_HELPER}`,
       `workspace=${workspaceId}`,

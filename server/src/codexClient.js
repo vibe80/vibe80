@@ -1,13 +1,13 @@
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import path from "path";
-import { SYSTEM_PROMPT } from "./config.js";
+import { VIBE80_SYSTEM_PROMPT } from "./config.js";
 import { createProviderLogger } from "./providerLogger.js";
 import { buildSandboxArgs, getWorkspaceHome } from "./runAs.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
-const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
+const isMonoUser = process.env.VIBE80_DEPLOYMENT_MODE === "mono_user";
 
 export class CodexAppServerClient extends EventEmitter {
   constructor({
@@ -430,7 +430,7 @@ export class CodexAppServerClient extends EventEmitter {
         "sandbox_workspace_write.network_access": Boolean(this.internetAccess),
         "web_search": this.internetAccess ? "live" : "disabled"
       },
-      baseInstructions: SYSTEM_PROMPT,
+      baseInstructions: VIBE80_SYSTEM_PROMPT,
       sandbox: sandboxMode,
       approvalPolicy: "never"
     };

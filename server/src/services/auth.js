@@ -3,12 +3,12 @@ import { createWorkspaceToken, accessTokenTtlSeconds } from "../middleware/auth.
 import { generateId, hashRefreshToken, generateRefreshToken } from "../helpers.js";
 
 const refreshTokenTtlSeconds =
-  Number(process.env.REFRESH_TOKEN_TTL_SECONDS) || 30 * 24 * 60 * 60;
+  Number(process.env.VIBE80_REFRESH_TOKEN_TTL_SECONDS) || 30 * 24 * 60 * 60;
 const refreshTokenTtlMs = refreshTokenTtlSeconds * 1000;
 const handoffTokenTtlMs =
-  Number(process.env.HANDOFF_TOKEN_TTL_MS) || 120 * 1000;
+  Number(process.env.VIBE80_HANDOFF_TOKEN_TTL_MS) || 120 * 1000;
 const monoAuthTokenTtlMs =
-  Number(process.env.MONO_AUTH_TOKEN_TTL_MS) || 5 * 60 * 1000;
+  Number(process.env.VIBE80_MONO_AUTH_TOKEN_TTL_MS) || 5 * 60 * 1000;
 
 export const handoffTokens = new Map();
 const monoAuthTokens = new Map();

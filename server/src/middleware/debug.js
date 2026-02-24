@@ -1,10 +1,10 @@
 import { createDebugId, formatDebugPayload } from "../helpers.js";
 
 const debugApiWsLog = /^(1|true|yes|on)$/i.test(
-  process.env.DEBUG_API_WS_LOG || ""
+  process.env.VIBE80_DEBUG_API_WS_LOG || ""
 );
-const debugLogMaxBody = Number.isFinite(Number(process.env.DEBUG_API_WS_LOG_MAX_BODY))
-  ? Number(process.env.DEBUG_API_WS_LOG_MAX_BODY)
+const debugLogMaxBody = Number.isFinite(Number(process.env.VIBE80_DEBUG_API_WS_LOG_MAX_BODY))
+  ? Number(process.env.VIBE80_DEBUG_API_WS_LOG_MAX_BODY)
   : 2000;
 
 export { debugApiWsLog };

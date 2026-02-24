@@ -23,7 +23,7 @@ RUN chown -R vibe80:vibe80 /app /var/lib/vibe80
 EXPOSE 5179
 
 ENV VIBE80_SERVER_USER=vibe80 \
-    MONO_USER_WORKSPACE_DIR=/home/vibe80
+    VIBE80_MONO_USER_WORKSPACE_DIR=/home/vibe80
 
 USER vibe80
 

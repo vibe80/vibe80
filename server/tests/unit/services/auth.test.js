@@ -34,7 +34,7 @@ describe("services/auth", () => {
     vi.clearAllMocks();
     idSeq.value = 0;
     vi.useRealTimers();
-    delete process.env.MONO_AUTH_TOKEN_TTL_MS;
+    delete process.env.VIBE80_MONO_AUTH_TOKEN_TTL_MS;
   });
 
   it("issueWorkspaceTokens crée un refresh token indépendant", async () => {
@@ -128,7 +128,7 @@ describe("services/auth", () => {
 
   it("consumeMonoAuthToken retourne EXPIRED pour un token expiré", async () => {
     vi.useFakeTimers();
-    process.env.MONO_AUTH_TOKEN_TTL_MS = "1";
+    process.env.VIBE80_MONO_AUTH_TOKEN_TTL_MS = "1";
     const { createMonoAuthToken, consumeMonoAuthToken } = await loadAuthModule();
     const record = createMonoAuthToken("default");
     vi.advanceTimersByTime(10);
@@ -162,7 +162,7 @@ describe("services/auth", () => {
 
   it("cleanupMonoAuthTokens purge les tokens expirés", async () => {
     vi.useFakeTimers();
-    process.env.MONO_AUTH_TOKEN_TTL_MS = "1";
+    process.env.VIBE80_MONO_AUTH_TOKEN_TTL_MS = "1";
     const {
       createMonoAuthToken,
       cleanupMonoAuthTokens,

@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 
 const isLoggingEnabled = () => {
-  const value = process.env.ACTIVATE_PROVIDER_LOG;
+  const value = process.env.VIBE80_ACTIVATE_PROVIDER_LOG;
   if (!value) {
     return false;
   }
@@ -19,7 +19,7 @@ export const createProviderLogger = ({ provider, sessionId, worktreeId }) => {
   }
   const safeWorktreeId = worktreeId || "main";
   const baseDir =
-    process.env.PROVIDER_LOG_DIRECTORY || path.join(os.homedir(), "logs");
+    process.env.VIBE80_PROVIDER_LOG_DIRECTORY || path.join(os.homedir(), "logs");
   try {
     fs.mkdirSync(baseDir, { recursive: true, mode: 0o700 });
     const filePath = path.join(

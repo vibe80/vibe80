@@ -18,8 +18,8 @@ import {
 } from "../helpers.js";
 import { debugApiWsLog } from "../middleware/debug.js";
 import {
-  DEFAULT_GIT_AUTHOR_NAME,
-  DEFAULT_GIT_AUTHOR_EMAIL,
+  VIBE80_DEFAULT_GIT_AUTHOR_NAME,
+  VIBE80_DEFAULT_GIT_AUTHOR_EMAIL,
   GIT_HOOKS_DIR,
 } from "../config.js";
 import {
@@ -61,11 +61,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const sessionGcIntervalMs =
-  Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
+  Number(process.env.VIBE80_SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
 const sessionIdleTtlMs =
-  (Number(process.env.SESSION_IDLE_TTL_SECONDS) || 24 * 60 * 60) * 1000;
+  (Number(process.env.VIBE80_SESSION_IDLE_TTL_SECONDS) || 24 * 60 * 60) * 1000;
 const sessionMaxTtlMs =
-  (Number(process.env.SESSION_MAX_TTL_SECONDS) || 7 * 24 * 60 * 60) * 1000;
+  (Number(process.env.VIBE80_SESSION_MAX_TTL_SECONDS) || 7 * 24 * 60 * 60) * 1000;
 export const sessionIdPattern = /^s[0-9a-f]{24}$/;
 
 const TREE_IGNORED_NAMES = new Set([
@@ -482,17 +482,17 @@ export const createSession = async (
           { cwd: repoDir }
         );
       }
-      if (DEFAULT_GIT_AUTHOR_NAME && DEFAULT_GIT_AUTHOR_EMAIL) {
+      if (VIBE80_DEFAULT_GIT_AUTHOR_NAME && VIBE80_DEFAULT_GIT_AUTHOR_EMAIL) {
         await runAsCommand(
           workspaceId,
           "git",
-          ["-C", repoDir, "config", "user.name", DEFAULT_GIT_AUTHOR_NAME],
+          ["-C", repoDir, "config", "user.name", VIBE80_DEFAULT_GIT_AUTHOR_NAME],
           { env }
         );
         await runAsCommand(
           workspaceId,
           "git",
-          ["-C", repoDir, "config", "user.email", DEFAULT_GIT_AUTHOR_EMAIL],
+          ["-C", repoDir, "config", "user.email", VIBE80_DEFAULT_GIT_AUTHOR_EMAIL],
           { env }
         );
       }

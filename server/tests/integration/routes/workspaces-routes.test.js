@@ -49,7 +49,7 @@ describe("routes/workspaces", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.DEPLOYMENT_MODE = "multi_user";
+    process.env.VIBE80_DEPLOYMENT_MODE = "multi_user";
     issueWorkspaceTokensMock.mockResolvedValue({
       workspaceToken: "workspace-token",
       refreshToken: "refresh-token",
@@ -89,7 +89,7 @@ describe("routes/workspaces", () => {
   });
 
   it("POST /api/v1/workspaces/login mono_auth_token renvoie 403 hors mono_user", async () => {
-    process.env.DEPLOYMENT_MODE = "multi_user";
+    process.env.VIBE80_DEPLOYMENT_MODE = "multi_user";
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
     await handler(
@@ -104,7 +104,7 @@ describe("routes/workspaces", () => {
   });
 
   it("POST /api/v1/workspaces renvoie 403 en mode mono_user", async () => {
-    process.env.DEPLOYMENT_MODE = "mono_user";
+    process.env.VIBE80_DEPLOYMENT_MODE = "mono_user";
     const handler = await createRouteHandler("/workspaces", "post");
     const res = createMockRes();
     await handler(
@@ -124,7 +124,7 @@ describe("routes/workspaces", () => {
   });
 
   it("POST /api/v1/workspaces/login credentials renvoie 403 en mode mono_user", async () => {
-    process.env.DEPLOYMENT_MODE = "mono_user";
+    process.env.VIBE80_DEPLOYMENT_MODE = "mono_user";
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
     await handler(
@@ -145,7 +145,7 @@ describe("routes/workspaces", () => {
   });
 
   it("POST /api/v1/workspaces/login mono_auth_token renvoie 400 si token manquant", async () => {
-    process.env.DEPLOYMENT_MODE = "mono_user";
+    process.env.VIBE80_DEPLOYMENT_MODE = "mono_user";
     const handler = await createRouteHandler("/workspaces/login", "post");
     const res = createMockRes();
     await handler({ body: { grantType: "mono_auth_token" } }, res);
@@ -157,7 +157,7 @@ describe("routes/workspaces", () => {
   });
 
   it("POST /api/v1/workspaces/login mono_auth_token renvoie 401 si token invalide", async () => {
-    process.env.DEPLOYMENT_MODE = "mono_user";
+    process.env.VIBE80_DEPLOYMENT_MODE = "mono_user";
     consumeMonoAuthTokenMock.mockReturnValueOnce({
       ok: false,
       code: "MONO_AUTH_TOKEN_INVALID",
@@ -176,7 +176,7 @@ describe("routes/workspaces", () => {
   });
 
   it("POST /api/v1/workspaces/login mono_auth_token renvoie 401 si workspace non résolu", async () => {
-    process.env.DEPLOYMENT_MODE = "mono_user";
+    process.env.VIBE80_DEPLOYMENT_MODE = "mono_user";
     consumeMonoAuthTokenMock.mockReturnValueOnce({
       ok: true,
       workspaceId: validCredentials.workspaceId,
@@ -201,7 +201,7 @@ describe("routes/workspaces", () => {
   });
 
   it("POST /api/v1/workspaces/login mono_auth_token renvoie 200 en succès", async () => {
-    process.env.DEPLOYMENT_MODE = "mono_user";
+    process.env.VIBE80_DEPLOYMENT_MODE = "mono_user";
     consumeMonoAuthTokenMock.mockReturnValueOnce({
       ok: true,
       workspaceId: validCredentials.workspaceId,

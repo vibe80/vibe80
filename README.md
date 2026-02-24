@@ -41,7 +41,7 @@ The server starts on `http://localhost:5179` and prints a one-shot authenticatio
 
 ```bash
 docker run \
-  -e DEPLOYMENT_MODE=mono_user \
+  -e VIBE80_DEPLOYMENT_MODE=mono_user \
   -e VIBE80_MONO_ENABLE_CODEX=true \
   -v vibe80home:/home/vibe80 \
   -p 5179:5179 \
@@ -52,7 +52,7 @@ docker run \
 
 ```bash
 docker run --rm -it \
-  -e DEPLOYMENT_MODE=mono_user \
+  -e VIBE80_DEPLOYMENT_MODE=mono_user \
   -e VIBE80_MONO_ENABLE_CLAUDE=true \
   -v vibe80home:/home/vibe80 \
   -v $(realpath $(which claude)):/usr/bin/claude \
