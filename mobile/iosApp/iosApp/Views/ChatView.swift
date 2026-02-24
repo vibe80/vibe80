@@ -129,7 +129,7 @@ struct ChatView: View {
                         }
                     }
 
-                    if Vibe80App.SHOW_LOGS_BUTTON {
+                    if viewModel.logsButtonEnabled {
                         Button {
                             viewModel.showLogs()
                         } label: {
@@ -151,7 +151,7 @@ struct ChatView: View {
                     .presentationDetents([.large])
             }
             .sheet(isPresented: $viewModel.showLogsSheet) {
-                if Vibe80App.SHOW_LOGS_BUTTON {
+                if viewModel.logsButtonEnabled {
                     LogsSheetView(
                         logs: viewModel.logs,
                         onClear: viewModel.clearLogs

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.vibe80.android.data.AttachmentUploader
 import app.vibe80.android.data.SessionPreferences
+import app.vibe80.android.Vibe80Application
 import app.vibe80.shared.logging.AppLogger
 import app.vibe80.shared.logging.LogSource
 import app.vibe80.shared.models.AppError
@@ -53,6 +54,7 @@ data class ChatUiState(
     val inputText: String = "",
     val showDiffSheet: Boolean = false,
     val showLogsSheet: Boolean = false,
+    val logsButtonEnabled: Boolean = Vibe80Application.SHOW_LOGS_BUTTON,
     val showFileSheet: Boolean = false,
     val fileSheetPath: String? = null,
     val fileSheetContent: String = "",
@@ -155,6 +157,7 @@ class ChatViewModel(
     private val sessionPreferences: SessionPreferences,
     private val attachmentUploader: AttachmentUploader
 ) : ViewModel() {
+    private val logsUnlockCommand = "open.the.maze"
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -471,6 +474,18 @@ class ChatViewModel(
                     else -> "run"
                 }
                 val worktreeId = _uiState.value.activeWorktreeId
+                if (actionMode == ComposerActionMode.GIT && text == logsUnlockCommand) {
+                    _uiState.update {
+                        it.copy(
+                            logsButtonEnabled = true,
+                            inputText = "",
+                            pendingAttachments = emptyList(),
+                            uploadingAttachments = false,
+                            actionModeByWorktree = it.actionModeByWorktree + (worktreeId to ComposerActionMode.LLM)
+                        )
+                    }
+                    return@launch
+                }
                 if (text.isNotBlank()) {
                     sessionRepository.sendActionRequest(
                         worktreeId = worktreeId,
