@@ -45,6 +45,7 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
         notifier = MessageNotifier(this)
         notifier.createChannel()
 
+        startWorkspaceTokenObservers()
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         startNotificationObservers()
     }
@@ -110,6 +111,29 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
                         )
                     }
                 }
+            }
+        }
+    }
+
+    private fun startWorkspaceTokenObservers() {
+        val sessionRepository: SessionRepository = get()
+        val sessionPreferences: SessionPreferences = get()
+
+        appScope.launch {
+            sessionRepository.workspaceTokenUpdates.collect { update ->
+                sessionPreferences.saveWorkspaceToken(
+                    workspaceToken = update.workspaceToken,
+                    refreshToken = update.refreshToken
+                )
+            }
+        }
+
+        appScope.launch {
+            sessionRepository.workspaceAuthInvalid.collect {
+                sessionPreferences.saveWorkspaceToken(
+                    workspaceToken = null,
+                    refreshToken = null
+                )
             }
         }
     }
