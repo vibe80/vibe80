@@ -69,6 +69,7 @@ export default function WorktreeTabs({
   const [newSourceWorktree, setNewSourceWorktree] = useState("main");
   const [newModel, setNewModel] = useState("");
   const [newReasoningEffort, setNewReasoningEffort] = useState("");
+  const [createSubmitting, setCreateSubmitting] = useState(false);
   const [newInternetAccess, setNewInternetAccess] = useState(
     Boolean(defaultInternetAccess)
   );
@@ -218,34 +219,46 @@ export default function WorktreeTabs({
     }
   }, [newContext, newProvider, selectedModelDetails, newReasoningEffort]);
 
-  const handleCreate = () => {
-    if (onCreate) {
-      onCreate({
-        context: newContext,
-        name: newName.trim() || null,
-        provider: newProvider,
-        sourceWorktree: newContext === "fork" ? newSourceWorktree : null,
-        startingBranch: effectiveBranch || null,
-        model: newContext === "new" ? newModel || null : null,
-        reasoningEffort: newContext === "new" ? newReasoningEffort || null : null,
-        internetAccess: newInternetAccess,
-        denyGitCredentialsAccess: newDenyGitCredentialsAccess,
-      });
+  const handleCreate = async () => {
+    if (createSubmitting) {
+      return;
     }
-    setNewName("");
-    setNewContext("new");
-    setNewProvider(providerOptions[0]);
-    setNewSourceWorktree("main");
-    setStartingBranch(defaultBranch || "");
-    setNewModel("");
-    setNewReasoningEffort("");
-    setNewInternetAccess(Boolean(defaultInternetAccess));
-    setNewDenyGitCredentialsAccess(
-      typeof defaultDenyGitCredentialsAccess === "boolean"
-        ? defaultDenyGitCredentialsAccess
-        : true
-    );
-    setCreateDialogOpen(false);
+    setCreateSubmitting(true);
+    try {
+      let created = true;
+      if (onCreate) {
+        created = await onCreate({
+          context: newContext,
+          name: newName.trim() || null,
+          provider: newProvider,
+          sourceWorktree: newContext === "fork" ? newSourceWorktree : null,
+          startingBranch: effectiveBranch || null,
+          model: newContext === "new" ? newModel || null : null,
+          reasoningEffort: newContext === "new" ? newReasoningEffort || null : null,
+          internetAccess: newInternetAccess,
+          denyGitCredentialsAccess: newDenyGitCredentialsAccess,
+        });
+      }
+      if (!created) {
+        return;
+      }
+      setNewName("");
+      setNewContext("new");
+      setNewProvider(providerOptions[0]);
+      setNewSourceWorktree("main");
+      setStartingBranch(defaultBranch || "");
+      setNewModel("");
+      setNewReasoningEffort("");
+      setNewInternetAccess(Boolean(defaultInternetAccess));
+      setNewDenyGitCredentialsAccess(
+        typeof defaultDenyGitCredentialsAccess === "boolean"
+          ? defaultDenyGitCredentialsAccess
+          : true
+      );
+      setCreateDialogOpen(false);
+    } finally {
+      setCreateSubmitting(false);
+    }
   };
 
   const handleStartEdit = (wt) => {
@@ -271,8 +284,11 @@ export default function WorktreeTabs({
   };
 
   const handleKeyDownCreate = (e) => {
+    if (createSubmitting) {
+      return;
+    }
     if (e.key === "Enter") {
-      handleCreate();
+      void handleCreate();
     } else if (e.key === "Escape") {
       setCreateDialogOpen(false);
     }
@@ -416,10 +432,23 @@ export default function WorktreeTabs({
       </div>
 
       {createDialogOpen && (
-        <div className="worktree-create-dialog-overlay" onClick={() => setCreateDialogOpen(false)}>
-          <div className="worktree-create-dialog" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="worktree-create-dialog-overlay"
+          onClick={() => {
+            if (!createSubmitting) {
+              setCreateDialogOpen(false);
+            }
+          }}
+        >
+          <div
+            className={`worktree-create-dialog ${
+              createSubmitting ? "is-submitting" : ""
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3>{t("New worktree")}</h3>
-            <div className="worktree-create-grid">
+            <fieldset className="worktree-create-form" disabled={createSubmitting}>
+              <div className="worktree-create-grid">
               <div className="worktree-create-field">
                 <label>{t("Name (optional)")}</label>
                 <input
@@ -579,22 +608,23 @@ export default function WorktreeTabs({
                   </label>
                 </div>
               )}
-            </div>
-            <div className="worktree-create-actions">
-              <button
-                className="worktree-btn-cancel"
-                onClick={() => setCreateDialogOpen(false)}
-              >
-                {t("Cancel")}
-              </button>
-              <button
-                className="worktree-btn-create"
-                onClick={handleCreate}
-                disabled={!isBranchValid || (newContext === "fork" && !newSourceWorktree)}
-              >
-                {t("Create")}
-              </button>
-            </div>
+              </div>
+              <div className="worktree-create-actions">
+                <button
+                  className="worktree-btn-cancel"
+                  onClick={() => setCreateDialogOpen(false)}
+                >
+                  {t("Cancel")}
+                </button>
+                <button
+                  className="worktree-btn-create"
+                  onClick={() => void handleCreate()}
+                  disabled={!isBranchValid || (newContext === "fork" && !newSourceWorktree)}
+                >
+                  {createSubmitting ? t("Creating...") : t("Create")}
+                </button>
+              </div>
+            </fieldset>
           </div>
         </div>
       )}

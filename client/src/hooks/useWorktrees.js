@@ -249,7 +249,7 @@ export default function useWorktrees({
     }) => {
       if (!attachmentSessionId) {
         showToast?.(t("Session not found."), "error");
-        return;
+        return false;
       }
       try {
         const response = await apiFetch(
@@ -313,11 +313,13 @@ export default function useWorktrees({
         }));
         setActiveWorktreeId(payload.worktreeId);
         void requestWorktreesList();
+        return true;
       } catch (error) {
         showToast?.(
           error.message || t("Failed to create parallel request."),
           "error"
         );
+        return false;
       }
     },
     [

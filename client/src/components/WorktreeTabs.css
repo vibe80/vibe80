@@ -258,6 +258,17 @@
   font-size: 18px;
 }
 
+.worktree-create-form {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.worktree-create-dialog.is-submitting .worktree-create-form {
+  opacity: 0.55;
+}
+
 .worktree-create-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
