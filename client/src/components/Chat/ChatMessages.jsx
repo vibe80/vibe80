@@ -610,7 +610,7 @@ export default function ChatMessages({
                           ) : (
                             content
                           )}
-                          {filerefs.length ? (
+                          {filerefs.length && !message?.isStreaming ? (
                             <ul className="fileref-list">
                               {filerefs.map((pathRef) => (
                                 <li

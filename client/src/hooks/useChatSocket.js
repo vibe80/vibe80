@@ -264,12 +264,14 @@ export default function useChatSocket({
                 id: payload.itemId,
                 role: "assistant",
                 text: payload.delta,
+                isStreaming: true,
               });
               return next;
             }
 
             const updated = { ...next[existingIndex] };
             updated.text += payload.delta;
+            updated.isStreaming = true;
             next[existingIndex] = updated;
             return next;
           });
@@ -294,6 +296,7 @@ export default function useChatSocket({
                 id: payload.itemId,
                 role: "assistant",
                 text: payload.text,
+                isStreaming: false,
               });
               return next;
             }
@@ -301,6 +304,7 @@ export default function useChatSocket({
             next[existingIndex] = {
               ...next[existingIndex],
               text: payload.text,
+              isStreaming: false,
             };
             return next;
           });
@@ -924,12 +928,14 @@ export default function useChatSocket({
                     id: payload.itemId,
                     role: "assistant",
                     text: payload.delta || "",
+                    isStreaming: true,
                   });
                 } else {
                   messages[existingIdx] = {
                     ...messages[existingIdx],
                     text:
                       (messages[existingIdx].text || "") + (payload.delta || ""),
+                    isStreaming: true,
                   };
                 }
               } else {
@@ -938,11 +944,13 @@ export default function useChatSocket({
                     id: payload.itemId,
                     role: "assistant",
                     text: payload.text || "",
+                    isStreaming: false,
                   });
                 } else {
                   messages[existingIdx] = {
                     ...messages[existingIdx],
                     text: payload.text || "",
+                    isStreaming: false,
                   };
                 }
               }
