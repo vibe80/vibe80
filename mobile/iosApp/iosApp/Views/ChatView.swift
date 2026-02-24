@@ -129,13 +129,13 @@ struct ChatView: View {
                         }
                     }
 
-#if DEBUG
-                    Button {
-                        viewModel.showLogs()
-                    } label: {
-                        Image(systemName: "ladybug")
+                    if Vibe80App.SHOW_LOGS_BUTTON {
+                        Button {
+                            viewModel.showLogs()
+                        } label: {
+                            Image(systemName: "ladybug")
+                        }
                     }
-#endif
 
                     // Disconnect button
                     Button {
@@ -151,11 +151,13 @@ struct ChatView: View {
                     .presentationDetents([.large])
             }
             .sheet(isPresented: $viewModel.showLogsSheet) {
-                LogsSheetView(
-                    logs: viewModel.logs,
-                    onClear: viewModel.clearLogs
-                )
-                .presentationDetents([.large])
+                if Vibe80App.SHOW_LOGS_BUTTON {
+                    LogsSheetView(
+                        logs: viewModel.logs,
+                        onClear: viewModel.clearLogs
+                    )
+                    .presentationDetents([.large])
+                }
             }
             .sheet(isPresented: $showCreateWorktreeSheet) {
                 CreateWorktreeSheetView(
