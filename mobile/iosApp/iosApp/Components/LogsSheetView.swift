@@ -1,5 +1,28 @@
 import SwiftUI
 import Shared
+import UniformTypeIdentifiers
+
+private struct LogsTextDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.plainText] }
+    var text: String
+
+    init(text: String) {
+        self.text = text
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        if let data = configuration.file.regularFileContents,
+           let value = String(data: data, encoding: .utf8) {
+            text = value
+        } else {
+            text = ""
+        }
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: Data(text.utf8))
+    }
+}
 
 private enum LogsFilter: String, CaseIterable, Identifiable {
     case all
@@ -25,6 +48,8 @@ struct LogsSheetView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedFilter: LogsFilter = .all
+    @State private var showExporter = false
+    @State private var exportDocument = LogsTextDocument(text: "")
 
     private var filteredLogs: [LogEntry] {
         switch selectedFilter {
@@ -86,12 +111,26 @@ struct LogsSheetView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("logs.clear") {
-                        onClear()
+                    HStack(spacing: 10) {
+                        Button {
+                            exportDocument = LogsTextDocument(text: buildLogsExportText(logs))
+                            showExporter = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
+                        Button("logs.clear") {
+                            onClear()
+                        }
+                        .disabled(logs.isEmpty)
                     }
-                    .disabled(logs.isEmpty)
                 }
             }
+            .fileExporter(
+                isPresented: $showExporter,
+                document: exportDocument,
+                contentType: .plainText,
+                defaultFilename: "vibe80-logs-\(Int(Date().timeIntervalSince1970)).txt"
+            ) { _ in }
         }
     }
 
@@ -206,5 +245,21 @@ struct LogsSheetView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss.SSS"
         return formatter.string(from: date)
+    }
+
+    private func buildLogsExportText(_ entries: [LogEntry]) -> String {
+        var lines: [String] = []
+        lines.append("Vibe80 logs export")
+        lines.append("Generated at: \(Date())")
+        lines.append("Total entries: \(entries.count)")
+        lines.append("")
+        for entry in entries {
+            lines.append("[\(formatTimestamp(entry.timestamp as Any))] [\(entry.source.name)] [\(entry.level.name)] \(entry.message)")
+            if let details = entry.details, !details.isEmpty {
+                lines.append("details: \(details)")
+            }
+            lines.append("")
+        }
+        return lines.joined(separator: "\n")
     }
 }

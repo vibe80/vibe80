@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Api
 import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +34,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsSheetContent(
+    onExportLogs: ((content: String, fileName: String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val logs by AppLogger.logs.collectAsState()
@@ -58,11 +60,28 @@ fun LogsSheetContent(
                 text = stringResource(R.string.logs_title, filteredLogs.size),
                 style = MaterialTheme.typography.titleLarge
             )
-            IconButton(onClick = { AppLogger.clear() }) {
-                Icon(
-                    imageVector = Icons.Default.Clear,
-                    contentDescription = stringResource(R.string.logs_clear)
-                )
+            Row {
+                if (onExportLogs != null) {
+                    IconButton(
+                        onClick = {
+                            onExportLogs(
+                                buildLogsExportText(logs),
+                                "vibe80-logs-${System.currentTimeMillis()}.txt"
+                            )
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Export logs"
+                        )
+                    }
+                }
+                IconButton(onClick = { AppLogger.clear() }) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = stringResource(R.string.logs_clear)
+                    )
+                }
             }
         }
 
@@ -259,4 +278,18 @@ private fun LogEntryCard(log: LogEntry) {
 private fun formatTimestamp(timestamp: Long): String {
     val sdf = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+fun buildLogsExportText(logs: List<LogEntry>): String = buildString {
+    appendLine("Vibe80 logs export")
+    appendLine("Generated at: ${Date()}")
+    appendLine("Total entries: ${logs.size}")
+    appendLine()
+    logs.forEach { log ->
+        appendLine("[${formatTimestamp(log.timestamp)}] [${log.source.name}] [${log.level.name}] ${log.message}")
+        if (!log.details.isNullOrBlank()) {
+            appendLine("details: ${log.details}")
+        }
+        appendLine()
+    }
 }

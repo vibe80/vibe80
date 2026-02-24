@@ -96,6 +96,7 @@ fun ChatScreen(
     val inputInteractionSource = remember { MutableInteractionSource() }
     val inputFocused by inputInteractionSource.collectIsFocusedAsState()
     var pendingCameraPhoto by remember { mutableStateOf<CameraPhoto?>(null) }
+    var pendingLogsExport by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.workspaceAuthInvalidEvent.collect {
@@ -173,6 +174,20 @@ fun ChatScreen(
             photo?.file?.delete()
         }
         pendingCameraPhoto = null
+    }
+
+    val logsExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        val content = pendingLogsExport
+        if (uri != null && content != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(content.toByteArray())
+                }
+            }
+        }
+        pendingLogsExport = null
     }
 
     var showAttachmentMenu by remember { mutableStateOf(false) }
@@ -812,7 +827,12 @@ fun ChatScreen(
             onDismissRequest = viewModel::hideLogsSheet,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
-            LogsSheetContent()
+            LogsSheetContent(
+                onExportLogs = { content, fileName ->
+                    pendingLogsExport = content
+                    logsExportLauncher.launch(fileName)
+                }
+            )
         }
     }
 
