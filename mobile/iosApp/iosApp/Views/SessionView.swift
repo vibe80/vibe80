@@ -11,6 +11,7 @@ struct SessionView: View {
     @State private var showHttpPassword = false
     @State private var showProviderSecrets = false
     @State private var showAuthJsonPicker = false
+    @State private var showLogsSheet = false
 
     var body: some View {
         NavigationStack {
@@ -46,6 +47,15 @@ struct SessionView: View {
                 viewModel.updateProviderAuthValue("codex", authValue: content)
             }
         }
+        .sheet(isPresented: $showLogsSheet) {
+            if appState.logsButtonEnabled {
+                LogsSheetView(
+                    logs: viewModel.logs,
+                    onClear: viewModel.clearLogs
+                )
+                .presentationDetents([.large])
+            }
+        }
     }
 
     private var workspaceModeSelection: some View {
@@ -73,6 +83,16 @@ struct SessionView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.vibe80AccentDark)
+
+                if appState.logsButtonEnabled {
+                    Button {
+                        showLogsSheet = true
+                    } label: {
+                        Label("logs.title.simple", systemImage: "ladybug")
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.vibe80AccentDark)
+                }
             }
             .padding(24)
         }

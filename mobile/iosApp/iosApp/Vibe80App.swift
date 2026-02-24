@@ -23,6 +23,7 @@ class AppState: ObservableObject {
     @Published var currentSessionId: String?
     @Published var isConnected: Bool = false
     @Published var isInitialized: Bool = false
+    @Published var logsButtonEnabled: Bool = Vibe80App.SHOW_LOGS_BUTTON
 
     /// Shared dependencies from KMP module
     private(set) var dependencies: SharedDependencies?

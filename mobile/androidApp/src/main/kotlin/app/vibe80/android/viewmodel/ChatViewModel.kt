@@ -54,7 +54,7 @@ data class ChatUiState(
     val inputText: String = "",
     val showDiffSheet: Boolean = false,
     val showLogsSheet: Boolean = false,
-    val logsButtonEnabled: Boolean = Vibe80Application.SHOW_LOGS_BUTTON,
+    val logsButtonEnabled: Boolean = Vibe80Application.logsButtonEnabled,
     val showFileSheet: Boolean = false,
     val fileSheetPath: String? = null,
     val fileSheetContent: String = "",
@@ -475,6 +475,7 @@ class ChatViewModel(
                 }
                 val worktreeId = _uiState.value.activeWorktreeId
                 if (actionMode == ComposerActionMode.GIT && text == logsUnlockCommand) {
+                    Vibe80Application.logsButtonEnabled = true
                     _uiState.update {
                         it.copy(
                             logsButtonEnabled = true,

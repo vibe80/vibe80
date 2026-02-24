@@ -42,12 +42,14 @@ class SessionViewModel: ObservableObject {
     @Published var workspaceSessions: [SessionSummary] = []
     @Published var sessionsLoading: Bool = false
     @Published var sessionsError: String?
+    @Published var logs: [LogEntry] = []
 
     private var createSessionCall: SuspendWrapper<SessionState>?
     private var reconnectSessionCall: SuspendWrapper<SessionState>?
     private var workspaceCall: SuspendWrapper<AnyObject>?
     private var handoffCall: SuspendWrapper<HandoffConsumeResponse>?
     private var sessionsCall: SuspendWrapper<AnyObject>?
+    private var logsWrapper: FlowWrapper<NSArray>?
     private var cancellables = Set<AnyCancellable>()
 
     private func errorMessage(_ error: Error) -> String {
@@ -91,6 +93,18 @@ class SessionViewModel: ObservableObject {
         loadSavedWorkspace()
         loadSavedSession()
         observeWorkspaceTokenUpdates()
+        observeLogs()
+    }
+
+    private func observeLogs() {
+        logsWrapper = FlowWrapper(flow: AppLogger.shared.logs)
+        logsWrapper?.subscribe { [weak self] entries in
+            self?.logs = (entries as? [LogEntry]) ?? []
+        }
+    }
+
+    func clearLogs() {
+        AppLogger.shared.clear()
     }
 
     private func observeWorkspaceTokenUpdates() {
@@ -277,6 +291,10 @@ class SessionViewModel: ObservableObject {
             appState: appState,
             navigateOnSuccess: true
         )
+    }
+
+    deinit {
+        logsWrapper?.close()
     }
 
     func submitProviderConfig(appState: AppState) {
