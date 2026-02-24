@@ -63,9 +63,9 @@ const __dirname = path.dirname(__filename);
 const sessionGcIntervalMs =
   Number(process.env.SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
 const sessionIdleTtlMs =
-  Number(process.env.SESSION_IDLE_TTL_MS) || 24 * 60 * 60 * 1000;
+  (Number(process.env.SESSION_IDLE_TTL_SECONDS) || 24 * 60 * 60) * 1000;
 const sessionMaxTtlMs =
-  Number(process.env.SESSION_MAX_TTL_MS) || 7 * 24 * 60 * 60 * 1000;
+  (Number(process.env.SESSION_MAX_TTL_SECONDS) || 7 * 24 * 60 * 60) * 1000;
 export const sessionIdPattern = /^s[0-9a-f]{24}$/;
 
 const TREE_IGNORED_NAMES = new Set([

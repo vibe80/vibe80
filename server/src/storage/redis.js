@@ -53,7 +53,8 @@ export const createRedisStorage = () => {
   const refreshTokenKey = (tokenHash) => buildKey(prefix, "refreshToken", tokenHash);
   const globalSessionsKey = () => buildKey(prefix, "sessions");
 
-  const sessionTtlMs = Number.parseInt(process.env.SESSION_MAX_TTL_MS, 10) || 0;
+  const sessionTtlMs =
+    (Number.parseInt(process.env.SESSION_MAX_TTL_SECONDS, 10) || 0) * 1000;
   const workspaceUidMin =
     Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
   const workspaceUidMax =
