@@ -3,6 +3,7 @@ import Shared
 
 @main
 struct Vibe80App: App {
+    static let SHOW_LOGS_BUTTON = false
     @StateObject private var appState = AppState()
 
     init() {
