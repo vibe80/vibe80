@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import app.vibe80.android.di.appModule
 import app.vibe80.android.data.SessionPreferences
 import app.vibe80.android.notifications.MessageNotifier
@@ -119,5 +122,6 @@ class Vibe80Application : Application(), DefaultLifecycleObserver, KoinComponent
     companion object {
         const val BASE_URL = "https://app.vibe80.io"
         const val SHOW_LOGS_BUTTON = false
+        var logsButtonEnabled by mutableStateOf(SHOW_LOGS_BUTTON)
     }
 }

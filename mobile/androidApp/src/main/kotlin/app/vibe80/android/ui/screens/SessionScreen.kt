@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -38,12 +39,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,6 +64,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import app.vibe80.android.R
+import app.vibe80.android.Vibe80Application
+import app.vibe80.android.ui.components.LogsSheetContent
 import app.vibe80.android.viewmodel.AuthMethod
 import app.vibe80.android.viewmodel.EntryScreen
 import app.vibe80.android.viewmodel.LoadingState
@@ -84,6 +89,7 @@ fun SessionScreen(
     var showHttpPassword by remember { mutableStateOf(false) }
     var showWorkspaceSecret by remember { mutableStateOf(false) }
     var showProviderSecrets by remember { mutableStateOf(false) }
+    var showLogsSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val codexAuthPicker = rememberLauncherForActivityResult(
@@ -129,7 +135,9 @@ fun SessionScreen(
                     EntryScreen.WORKSPACE_MODE -> WorkspaceModeSelection(
                         onCreateWorkspace = { viewModel.selectWorkspaceMode(WorkspaceMode.NEW) },
                         onJoinWorkspace = { viewModel.selectWorkspaceMode(WorkspaceMode.EXISTING) },
-                        onResumeDesktop = onOpenQrScanner
+                        onResumeDesktop = onOpenQrScanner,
+                        showLogsButton = Vibe80Application.logsButtonEnabled,
+                        onOpenLogs = { showLogsSheet = true }
                     )
 
                     EntryScreen.WORKSPACE_CREDENTIALS -> WorkspaceCredentialsScreen(
@@ -207,6 +215,15 @@ fun SessionScreen(
                 }
             }
         }
+
+        if (Vibe80Application.logsButtonEnabled && showLogsSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showLogsSheet = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ) {
+                LogsSheetContent()
+            }
+        }
     }
 }
 
@@ -260,7 +277,9 @@ private fun BrandHeader(title: String, subtitle: String? = null) {
 private fun WorkspaceModeSelection(
     onCreateWorkspace: () -> Unit,
     onJoinWorkspace: () -> Unit,
-    onResumeDesktop: () -> Unit
+    onResumeDesktop: () -> Unit,
+    showLogsButton: Boolean,
+    onOpenLogs: () -> Unit
 ) {
     ScreenContainer {
         BrandHeader(title = "")
@@ -286,6 +305,17 @@ private fun WorkspaceModeSelection(
             Icon(imageVector = Icons.Default.CameraAlt, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.workspace_resume_desktop))
+        }
+
+        if (showLogsButton) {
+            OutlinedButton(
+                onClick = onOpenLogs,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(imageVector = Icons.Default.BugReport, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.logs_title_simple))
+            }
         }
     }
 }

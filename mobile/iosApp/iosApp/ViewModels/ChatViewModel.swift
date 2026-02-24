@@ -225,6 +225,7 @@ class ChatViewModel: ObservableObject {
             return
         }
         self.appState = appState
+        self.logsButtonEnabled = appState.logsButtonEnabled
         if let baseUrl = appState.dependencies?.apiClient.getBaseUrl() {
             attachmentUploader = AttachmentUploader(baseUrl: baseUrl)
         }
@@ -481,6 +482,7 @@ class ChatViewModel: ObservableObject {
             actionModeByWorktree[worktreeId] = .llm
             if activeActionMode == .git && trimmedText == logsUnlockCommand {
                 logsButtonEnabled = true
+                appState?.logsButtonEnabled = true
                 return
             }
             let request = activeActionMode == .git ? "git" : "run"
