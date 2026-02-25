@@ -109,6 +109,16 @@ export { modelCache, modelCacheTtlMs };
 
 export { sessionGcIntervalMs };
 
+const parseCloneDepth = (value) => {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 50;
+  }
+  return parsed;
+};
+
+const cloneDepth = parseCloneDepth(process.env.VIBE80_CLONE_DEPTH);
+
 // ---------------------------------------------------------------------------
 // Session env / command helpers
 // ---------------------------------------------------------------------------
@@ -284,6 +294,20 @@ const normalizeRemoteBranches = (output, remote) =>
       ref.startsWith(`${remote}/`) ? ref.slice(remote.length + 1) : ref
     );
 
+const parseLsRemoteBranches = (output) =>
+  output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [, ref] = line.split(/\s+/);
+      if (!ref || !ref.startsWith("refs/heads/")) {
+        return "";
+      }
+      return ref.slice("refs/heads/".length).trim();
+    })
+    .filter(Boolean);
+
 export const getCurrentBranch = async (session) => {
   const output = await runSessionCommandOutput(
     session,
@@ -307,10 +331,7 @@ export const getLastCommit = async (session, cwd) => {
 };
 
 export const getBranchInfo = async (session, remote = "origin") => {
-  await runSessionCommand(session, "git", ["fetch", "--prune"], {
-    cwd: session.repoDir,
-  });
-  const [current, branchesOutput] = await Promise.all([
+  const [current, localBranchesOutput, remoteBranchesOutput] = await Promise.all([
     getCurrentBranch(session),
     runSessionCommandOutput(
       session,
@@ -318,11 +339,20 @@ export const getBranchInfo = async (session, remote = "origin") => {
       ["for-each-ref", "--format=%(refname:short)", `refs/remotes/${remote}`],
       { cwd: session.repoDir }
     ),
+    runSessionCommandOutput(
+      session,
+      "git",
+      ["ls-remote", "--heads", "--refs", remote],
+      { cwd: session.repoDir }
+    ).catch(() => ""),
   ]);
+  const localBranches = normalizeRemoteBranches(localBranchesOutput, remote);
+  const remoteBranches = parseLsRemoteBranches(remoteBranchesOutput);
+  const branches = Array.from(new Set([...localBranches, ...remoteBranches])).sort();
   return {
     current,
     remote,
-    branches: normalizeRemoteBranches(branchesOutput, remote).sort(),
+    branches,
   };
 };
 
@@ -465,7 +495,20 @@ export const createSession = async (
         );
         await runAsCommand(workspaceId, "/bin/rm", ["-f", credInputPath]);
       }
-      const cloneArgs = ["clone", repoUrl, repoDir];
+      const cloneArgs = [
+        "-c",
+        "http.version=HTTP/2",
+        "-c",
+        "fetch.parallel=10",
+        "clone",
+        "--depth",
+        String(cloneDepth),
+        "--filter=blob:none",
+        "--single-branch",
+        "--no-tags",
+        repoUrl,
+        repoDir,
+      ];
       const cloneEnv = { ...env };
       const cloneCmd = [];
       if (auth?.type === "http" && auth.username && auth.password) {

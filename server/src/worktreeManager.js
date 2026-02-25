@@ -63,6 +63,16 @@ const runSessionCommandOutput = (session, command, args, options = {}) =>
     env: buildSessionEnv(session, options),
   });
 
+const parseCloneDepth = (value) => {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 50;
+  }
+  return parsed;
+};
+
+const cloneDepth = parseCloneDepth(process.env.VIBE80_CLONE_DEPTH);
+
 const resolveSessionGitDir = (session) =>
   session?.gitDir || path.join(session.dir, "git");
 
@@ -330,8 +340,45 @@ export async function createWorktree(session, options) {
     }
   };
 
+  const ensureRemoteBranchAvailable = async (branch) => {
+    const normalized = normalizeBranchName(branch);
+    if (!normalized) {
+      return false;
+    }
+    const alreadyAvailable = await checkRemoteBranchExists(normalized);
+    if (alreadyAvailable) {
+      return true;
+    }
+    const remoteHead = `refs/heads/${normalized}`;
+    const localRemoteRef = `refs/remotes/origin/${normalized}`;
+    try {
+      await runSessionCommand(
+        session,
+        "git",
+        [
+          "fetch",
+          "--depth",
+          String(cloneDepth),
+          "origin",
+          `${remoteHead}:${localRemoteRef}`,
+        ],
+        { cwd: session.repoDir }
+      );
+    } catch {
+      return false;
+    }
+    return checkRemoteBranchExists(normalized);
+  };
+
+  if (startingBranch) {
+    const normalizedStartingBranch = normalizeBranchName(startingBranch);
+    if (normalizedStartingBranch) {
+      await ensureRemoteBranchAvailable(normalizedStartingBranch);
+    }
+  }
+
   const remoteBranchExists = requestedBranchName
-    ? await checkRemoteBranchExists(requestedBranchName)
+    ? await ensureRemoteBranchAvailable(requestedBranchName)
     : false;
 
   if (requestedBranchName) {
