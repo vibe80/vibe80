@@ -113,6 +113,7 @@
     <string name="providers_config_subtitle">Mettez à jour vos providers pour ce workspace.</string>
     <string name="providers_config_title">Configuration des providers IA</string>
     <string name="providers_config_validation">Sélectionnez au moins un provider.</string>
+    <string name="providers_config_learn_more">Cliquez ici pour en savoir plus.</string>
     <string name="providers_reconfigure">Reconfigurer les providers IA</string>
     <string name="qr_camera_permission">L\'accès à la caméra est requis pour scanner un QR code.</string>
     <string name="qr_scan_title">Scanner un QR code</string>

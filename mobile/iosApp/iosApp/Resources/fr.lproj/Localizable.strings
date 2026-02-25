@@ -117,6 +117,7 @@
 "provider.label" = "Provider";
 "provider.title" = "Provider";
 "providers.config.loading" = "Chargement...";
+"providers.config.learn_more" = "Cliquez ici pour en savoir plus.";
 "providers.config.subtitle" = "Mettez à jour vos providers pour ce workspace.";
 "providers.config.title" = "Configuration des providers IA";
 "providers.config.validation" = "Sélectionnez au moins un provider.";

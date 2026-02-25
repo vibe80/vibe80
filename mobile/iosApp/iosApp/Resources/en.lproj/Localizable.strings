@@ -117,6 +117,7 @@
 "provider.label" = "Provider";
 "provider.title" = "Provider";
 "providers.config.loading" = "Loading...";
+"providers.config.learn_more" = "Click here to learn more.";
 "providers.config.subtitle" = "Update your providers for this workspace.";
 "providers.config.title" = "Configure AI providers";
 "providers.config.validation" = "Select at least one provider.";
