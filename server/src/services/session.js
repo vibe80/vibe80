@@ -60,12 +60,27 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const parseSessionTtlSeconds = (value) => {
+  if (value == null) {
+    return 0;
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) {
+    return 0;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 0;
+  }
+  return parsed;
+};
+
 const sessionGcIntervalMs =
   Number(process.env.VIBE80_SESSION_GC_INTERVAL_MS) || 5 * 60 * 1000;
 const sessionIdleTtlMs =
-  (Number(process.env.VIBE80_SESSION_IDLE_TTL_SECONDS) || 24 * 60 * 60) * 1000;
+  parseSessionTtlSeconds(process.env.VIBE80_SESSION_IDLE_TTL_SECONDS) * 1000;
 const sessionMaxTtlMs =
-  (Number(process.env.VIBE80_SESSION_MAX_TTL_SECONDS) || 7 * 24 * 60 * 60) * 1000;
+  parseSessionTtlSeconds(process.env.VIBE80_SESSION_MAX_TTL_SECONDS) * 1000;
 export const sessionIdPattern = /^s[0-9a-f]{24}$/;
 
 const TREE_IGNORED_NAMES = new Set([
