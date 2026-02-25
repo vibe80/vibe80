@@ -1442,7 +1442,6 @@ function App() {
     maybeNotify,
     normalizeAttachments,
     loadRepoLastCommit,
-    loadBranches,
     loadWorktreeLastCommit,
     openAiLoginRequest,
     setOpenAiLoginRequest,

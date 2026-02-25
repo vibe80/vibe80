@@ -23,12 +23,14 @@ export default function useRepoBranchesModels({
   const [branchError, setBranchError] = useState("");
   const initialBranchRef = useRef("");
 
-  const loadBranches = useCallback(async () => {
+  const loadBranches = useCallback(async ({ background = false } = {}) => {
     if (!attachmentSessionId) {
       return;
     }
-    setBranchLoading(true);
-    setBranchError("");
+    if (!background) {
+      setBranchLoading(true);
+      setBranchError("");
+    }
     try {
       const response = await apiFetch(
         `/api/v1/sessions/${encodeURIComponent(
@@ -46,9 +48,13 @@ export default function useRepoBranchesModels({
         setDefaultBranch(payload.current);
       }
     } catch (error) {
-      setBranchError(error.message || t("Unable to load branches."));
+      if (!background) {
+        setBranchError(error.message || t("Unable to load branches."));
+      }
     } finally {
-      setBranchLoading(false);
+      if (!background) {
+        setBranchLoading(false);
+      }
     }
   }, [attachmentSessionId, apiFetch, t]);
 
@@ -110,7 +116,7 @@ export default function useRepoBranchesModels({
     initialBranchRef.current = "";
     setDefaultBranch("");
     setProviderModelState({});
-    loadBranches();
+    loadBranches({ background: true });
   }, [attachmentSessionId, loadBranches]);
 
   useEffect(() => {
