@@ -156,8 +156,8 @@ struct MessageRow: View {
                     if !yesNoSubmitted {
                         ForEach(yesNoBlocks.indices, id: \.self) { index in
                             Vibe80YesNoView(block: yesNoBlocks[index]) { answer in
-                                onChoiceSelected?(answer)
                                 onYesNoSubmit?(answer)
+                                onChoiceSelected?(answer)
                             }
                         }
                     }

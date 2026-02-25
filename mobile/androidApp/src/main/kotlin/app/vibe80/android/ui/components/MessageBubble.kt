@@ -273,8 +273,8 @@ fun MessageBubble(
                         Vibe80YesNoView(
                             block = block,
                             onOptionSelected = { choice ->
-                                onChoiceSelected(choice)
                                 onYesNoSubmit?.invoke()
+                                onChoiceSelected(choice)
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
