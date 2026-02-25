@@ -2,13 +2,13 @@ import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import crypto from "crypto";
 import path from "path";
-import { SYSTEM_PROMPT } from "./config.js";
+import { VIBE80_SYSTEM_PROMPT } from "./config.js";
 import { createProviderLogger } from "./providerLogger.js";
 import { buildSandboxArgs, getWorkspaceHome, runAsCommand } from "./runAs.js";
 
 const RUN_AS_HELPER = process.env.VIBE80_RUN_AS_HELPER || "/usr/local/bin/vibe80-run-as";
 const SUDO_PATH = process.env.VIBE80_SUDO_PATH || "sudo";
-const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
+const isMonoUser = process.env.VIBE80_DEPLOYMENT_MODE === "mono_user";
 
 const createTurnId = () =>
   typeof crypto.randomUUID === "function"
@@ -62,7 +62,7 @@ export class ClaudeCliClient extends EventEmitter {
       sessionId: this.sessionId,
       worktreeId: this.worktreeId,
     });
-    this.systemPrompt = SYSTEM_PROMPT;
+    this.systemPrompt = VIBE80_SYSTEM_PROMPT;
     this.activeProcess = null;
   }
 

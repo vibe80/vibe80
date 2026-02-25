@@ -24,11 +24,11 @@ const sanitizeSessionData = (data) => {
 };
 
 export const createRedisStorage = () => {
-  const url = process.env.REDIS_URL;
+  const url = process.env.VIBE80_REDIS_URL;
   if (!url) {
-    throw new Error("REDIS_URL is required when STORAGE_BACKEND=redis.");
+    throw new Error("VIBE80_REDIS_URL is required when VIBE80_STORAGE_BACKEND=redis.");
   }
-  const prefix = process.env.REDIS_KEY_PREFIX || DEFAULT_PREFIX;
+  const prefix = process.env.VIBE80_REDIS_KEY_PREFIX || DEFAULT_PREFIX;
   const client = createClient({ url });
 
   const sessionKey = (sessionId) => buildKey(prefix, "session", sessionId);
@@ -53,11 +53,12 @@ export const createRedisStorage = () => {
   const refreshTokenKey = (tokenHash) => buildKey(prefix, "refreshToken", tokenHash);
   const globalSessionsKey = () => buildKey(prefix, "sessions");
 
-  const sessionTtlMs = Number.parseInt(process.env.SESSION_MAX_TTL_MS, 10) || 0;
+  const sessionTtlMs =
+    (Number.parseInt(process.env.VIBE80_SESSION_MAX_TTL_SECONDS, 10) || 0) * 1000;
   const workspaceUidMin =
-    Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
+    Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MIN, 10) || 200000;
   const workspaceUidMax =
-    Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
+    Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MAX, 10) || 999999999;
 
   const ensureConnected = async () => {
     if (client.isOpen) {

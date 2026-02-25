@@ -85,7 +85,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
-const trustProxySetting = process.env.TRUST_PROXY;
+const trustProxySetting = process.env.VIBE80_TRUST_PROXY;
 if (trustProxySetting !== undefined) {
   const normalized = trustProxySetting.trim().toLowerCase();
   if (normalized === "true") {
@@ -102,7 +102,7 @@ if (trustProxySetting !== undefined) {
   }
 }
 const terminalRequested = !/^(0|false|no|off)$/i.test(
-  process.env.TERMINAL_ENABLED || ""
+  process.env.VIBE80_TERMINAL_ENABLED || ""
 );
 let pty = null;
 let terminalAvailable = false;
@@ -119,17 +119,17 @@ if (terminalRequested) {
 }
 const terminalEnabled = terminalRequested && terminalAvailable;
 const allowRunSlashCommand = !/^(0|false|no|off)$/i.test(
-  process.env.ALLOW_RUN_SLASH_COMMAND || ""
+  process.env.VIBE80_ALLOW_RUN_SLASH_COMMAND || ""
 );
 const allowGitSlashCommand = !/^(0|false|no|off)$/i.test(
-  process.env.ALLOW_GIT_SLASH_COMMAND || ""
+  process.env.VIBE80_ALLOW_GIT_SLASH_COMMAND || ""
 );
 const codexIdleTtlSeconds = Number.parseInt(
-  process.env.CODEX_IDLE_TTL_SECONDS || "300",
+  process.env.VIBE80_CODEX_IDLE_TTL_SECONDS || "300",
   10
 );
 const codexIdleGcIntervalSeconds = Number.parseInt(
-  process.env.CODEX_IDLE_GC_INTERVAL_SECONDS || "60",
+  process.env.VIBE80_CODEX_IDLE_GC_INTERVAL_SECONDS || "60",
   10
 );
 const worktreeStatusIntervalMs = 10 * 1000;
@@ -157,9 +157,9 @@ const resolveWorkspaceTokenErrorCode = (error) => {
   return "WORKSPACE_TOKEN_INVALID";
 };
 
-const deploymentMode = process.env.DEPLOYMENT_MODE || "mono_user";
+const deploymentMode = process.env.VIBE80_DEPLOYMENT_MODE || "mono_user";
 if (deploymentMode !== "mono_user" && deploymentMode !== "multi_user") {
-  console.error(`Invalid DEPLOYMENT_MODE: ${deploymentMode}. Use mono_user or multi_user.`);
+  console.error(`Invalid VIBE80_DEPLOYMENT_MODE: ${deploymentMode}. Use mono_user or multi_user.`);
   process.exit(1);
 }
 
@@ -1510,12 +1510,12 @@ process.on("SIGINT", () => {
   void gracefulShutdown("SIGINT");
 });
 
-const port = process.env.PORT || 5179;
+const port = process.env.VIBE80_PORT || 5179;
 server.listen(port, async () => {
   console.log(`Server listening on http://localhost:${port}`);
   if (deploymentMode === "mono_user") {
     const monoAuthRecord = createMonoAuthToken("default");
-    const monoAuthOrigin = process.env.MONO_AUTH_ORIGIN || `http://127.0.0.1:${port}`;
+    const monoAuthOrigin = process.env.VIBE80_MONO_AUTH_ORIGIN || `http://127.0.0.1:${port}`;
     const monoAuthUrl = `${monoAuthOrigin.replace(/\/+$/, "")}/#mono_auth=${encodeURIComponent(
       monoAuthRecord.token
     )}`;

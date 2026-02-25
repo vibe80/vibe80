@@ -13,7 +13,7 @@ const printUsage = () => {
       "  node server/scripts/rotate-workspace-secret.js --workspace-id <workspaceId> [--workspace-secret <secret>] [--json]",
       "",
       "Requirements:",
-      "  - SERVER env vars must be set (e.g. STORAGE_BACKEND, DEPLOYMENT_MODE, etc.)",
+      "  - SERVER env vars must be set (e.g. VIBE80_STORAGE_BACKEND, VIBE80_DEPLOYMENT_MODE, etc.)",
     ].join("\n")
   );
 };

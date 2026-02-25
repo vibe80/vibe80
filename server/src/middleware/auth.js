@@ -5,20 +5,20 @@ import path from "path";
 import jwt from "jsonwebtoken";
 
 const homeDir = process.env.HOME || os.homedir();
-const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
+const isMonoUser = process.env.VIBE80_DEPLOYMENT_MODE === "mono_user";
 const defaultDataDirectory = isMonoUser
   ? path.join(homeDir, ".vibe80")
   : "/var/lib/vibe80";
 const dataDirectory = process.env.VIBE80_DATA_DIRECTORY || defaultDataDirectory;
-const jwtKeyPath = process.env.JWT_KEY_PATH || path.join(dataDirectory, "jwt.key");
-const jwtIssuer = process.env.JWT_ISSUER || "vibe80";
-const jwtAudience = process.env.JWT_AUDIENCE || "workspace";
+const jwtKeyPath = process.env.VIBE80_JWT_KEY_PATH || path.join(dataDirectory, "jwt.key");
+const jwtIssuer = process.env.VIBE80_JWT_ISSUER || "vibe80";
+const jwtAudience = process.env.VIBE80_JWT_AUDIENCE || "workspace";
 const accessTokenTtlSeconds =
-  Number(process.env.ACCESS_TOKEN_TTL_SECONDS) || 60 * 60;
+  Number(process.env.VIBE80_ACCESS_TOKEN_TTL_SECONDS) || 60 * 60;
 
 const loadJwtKey = () => {
-  if (process.env.JWT_KEY) {
-    return process.env.JWT_KEY;
+  if (process.env.VIBE80_JWT_KEY) {
+    return process.env.VIBE80_JWT_KEY;
   }
   if (fs.existsSync(jwtKeyPath)) {
     return fs.readFileSync(jwtKeyPath, "utf8").trim();

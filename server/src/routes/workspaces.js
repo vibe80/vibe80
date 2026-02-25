@@ -89,7 +89,7 @@ const restartCodexClientsForWorkspace = async (workspaceId) => {
 
 export default function workspaceRoutes() {
   const router = Router();
-  const deploymentMode = process.env.DEPLOYMENT_MODE;
+  const deploymentMode = process.env.VIBE80_DEPLOYMENT_MODE;
 
   router.post("/workspaces", async (req, res) => {
     if (deploymentMode === "mono_user") {

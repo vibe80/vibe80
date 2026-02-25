@@ -11,18 +11,18 @@ import storage from "../storage/index.js";
 import { generateId } from "../helpers.js";
 import { logDebug } from "../middleware/debug.js";
 
-const deploymentMode = process.env.DEPLOYMENT_MODE;
+const deploymentMode = process.env.VIBE80_DEPLOYMENT_MODE;
 const isMonoUser = deploymentMode === "mono_user";
-const workspaceHomeBase = process.env.WORKSPACE_HOME_BASE || "/home";
-const workspaceRootBase = process.env.WORKSPACE_ROOT_DIRECTORY || "/workspaces";
+const workspaceHomeBase = process.env.VIBE80_WORKSPACE_HOME_BASE || "/home";
+const workspaceRootBase = process.env.VIBE80_WORKSPACE_ROOT_DIRECTORY || "/workspaces";
 const workspaceRootName = "vibe80_workspace";
 const monoUserWorkspaceDir =
-  process.env.MONO_USER_WORKSPACE_DIR || path.join(os.homedir(), workspaceRootName);
+  process.env.VIBE80_MONO_USER_WORKSPACE_DIR || path.join(os.homedir(), workspaceRootName);
 const workspaceSessionsDirName = "sessions";
 const rootHelperPath = process.env.VIBE80_ROOT_HELPER || "/usr/local/bin/vibe80-root";
 const sudoPath = process.env.VIBE80_SUDO_PATH || "sudo";
-const workspaceUidMin = Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
-const workspaceUidMax = Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
+const workspaceUidMin = Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MIN, 10) || 200000;
+const workspaceUidMax = Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MAX, 10) || 999999999;
 const workspaceUserExistsCache = new Map();
 
 export const workspaceIdPattern = isMonoUser ? /^default$/ : /^w[0-9a-f]{24}$/;
@@ -34,6 +34,36 @@ const runRootCommand = (args, options = {}) => {
     throw new Error("Root helpers are not available in mono_user mode.");
   }
   return runCommand(sudoPath, ["-n", rootHelperPath, ...args], options);
+};
+
+const runWorkspaceStatOutput = async (
+  workspaceId,
+  targetPath,
+  { gnuFormat, bsdFormat, options = {} }
+) => {
+  try {
+    return await runAsCommandOutput(
+      workspaceId,
+      "/usr/bin/stat",
+      ["-c", gnuFormat, targetPath],
+      options
+    );
+  } catch {
+    return runAsCommandOutput(
+      workspaceId,
+      "/usr/bin/stat",
+      ["-f", bsdFormat, targetPath],
+      options
+    );
+  }
+};
+
+const runHostStatOutput = async (targetPath, { gnuFormat, bsdFormat }) => {
+  try {
+    return await runCommandOutput("/usr/bin/stat", ["-c", gnuFormat, targetPath]);
+  } catch {
+    return runCommandOutput("/usr/bin/stat", ["-f", bsdFormat, targetPath]);
+  }
 };
 
 export const getWorkspacePaths = (workspaceId) => {
@@ -161,34 +191,50 @@ export const listWorkspaceEntries = async (workspaceId, dirPath) => {
 };
 
 export const getWorkspaceStat = async (workspaceId, targetPath, options = {}) => {
-  const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
-    "-c",
-    "%f\t%s\t%a",
-    targetPath,
-  ], options);
-  const [modeHex, sizeRaw, modeRaw] = output.trim().split("\t");
-  const modeValue = Number.parseInt(modeHex, 16);
+  const output = await runWorkspaceStatOutput(workspaceId, targetPath, {
+    gnuFormat: "%f\t%s\t%a",
+    bsdFormat: "%HT\t%z\t%Lp",
+    options,
+  });
+  const [typeOrMode, sizeRaw, modeRaw] = output.trim().split("\t");
+  const modeValue = Number.parseInt(typeOrMode, 16);
   const typeBits = Number.isFinite(modeValue) ? modeValue & 0o170000 : null;
   let type = "";
-  if (typeBits === 0o100000) {
-    type = "regular";
-  } else if (typeBits === 0o040000) {
-    type = "directory";
-  } else if (typeBits === 0o120000) {
-    type = "symlink";
-  } else if (Number.isFinite(typeBits)) {
-    type = "other";
+  if (Number.isFinite(typeBits)) {
+    if (typeBits === 0o100000) {
+      type = "regular";
+    } else if (typeBits === 0o040000) {
+      type = "directory";
+    } else if (typeBits === 0o120000) {
+      type = "symlink";
+    } else {
+      type = "other";
+    }
+  } else {
+    const normalizedType = String(typeOrMode || "").toLowerCase();
+    if (normalizedType.includes("regular")) {
+      type = "regular";
+    } else if (normalizedType.includes("directory")) {
+      type = "directory";
+    } else if (normalizedType.includes("symbolic")) {
+      type = "symlink";
+    } else if (normalizedType) {
+      type = "other";
+    }
   }
   return {
     type,
     size: Number.parseInt(sizeRaw, 10),
-    mode: modeRaw,
+    mode: String(modeRaw || ""),
   };
 };
 
 export const workspacePathExists = async (workspaceId, targetPath) => {
   try {
-    await runAsCommandOutput(workspaceId, "/usr/bin/stat", ["-c", "%F", targetPath]);
+    await runWorkspaceStatOutput(workspaceId, targetPath, {
+      gnuFormat: "%F",
+      bsdFormat: "%HT",
+    });
     return true;
   } catch {
     return false;
@@ -578,11 +624,10 @@ const recoverWorkspaceIds = async (workspaceId) => {
   let gid = Number.isFinite(workspaceRecord?.gid) ? Number(workspaceRecord.gid) : null;
   if (!Number.isFinite(uid) || !Number.isFinite(gid)) {
     try {
-      const output = await runAsCommandOutput(workspaceId, "/usr/bin/stat", [
-        "-c",
-        "%u\t%g",
-        homeDir,
-      ]);
+      const output = await runWorkspaceStatOutput(workspaceId, homeDir, {
+        gnuFormat: "%u\t%g",
+        bsdFormat: "%u\t%g",
+      });
       const [uidRaw, gidRaw] = output.trim().split("\t");
       if (!Number.isFinite(uid)) {
         uid = Number(uidRaw);
@@ -592,11 +637,10 @@ const recoverWorkspaceIds = async (workspaceId) => {
       }
     } catch {
       try {
-        const output = await runCommandOutput("/usr/bin/stat", [
-        "-c",
-        "%u\t%g",
-        homeDir,
-      ]);
+        const output = await runHostStatOutput(homeDir, {
+          gnuFormat: "%u\t%g",
+          bsdFormat: "%u\t%g",
+        });
         const [uidRaw, gidRaw] = output.trim().split("\t");
         if (!Number.isFinite(uid)) {
           uid = Number(uidRaw);
@@ -843,12 +887,12 @@ const applyMonoEnabledProviders = (providers = {}, enabledConfig) => {
 };
 
 const buildMonoUserProviderOverridesFromEnv = () => {
-  const codexApiKey = readEnvValue("CODEX_API_KEY");
-  const codexAuthJsonB64Raw = process.env.CODEX_AUTH_JSON_B64;
+  const codexApiKey = readEnvValue("VIBE80_CODEX_API_KEY");
+  const codexAuthJsonB64Raw = process.env.VIBE80_CODEX_AUTH_JSON_B64;
   const hasCodexAuthJsonB64 = typeof codexAuthJsonB64Raw === "string";
   const codexAuthJsonB64 = hasCodexAuthJsonB64 ? codexAuthJsonB64Raw.trim() : "";
-  const claudeApiKey = readEnvValue("CLAUDE_API_KEY");
-  const claudeSetupTokenRaw = process.env.CLAUDE_SETUP_TOKEN;
+  const claudeApiKey = readEnvValue("VIBE80_CLAUDE_API_KEY");
+  const claudeSetupTokenRaw = process.env.VIBE80_CLAUDE_SETUP_TOKEN;
   const hasClaudeSetupToken = typeof claudeSetupTokenRaw === "string";
   const claudeSetupToken = hasClaudeSetupToken ? claudeSetupTokenRaw.trim() : "";
 
@@ -856,13 +900,13 @@ const buildMonoUserProviderOverridesFromEnv = () => {
 
   if (codexApiKey && hasCodexAuthJsonB64) {
     console.warn(
-      "[warn] Both CODEX_API_KEY and CODEX_AUTH_JSON_B64 are set; using CODEX_AUTH_JSON_B64."
+      "[warn] Both VIBE80_CODEX_API_KEY and VIBE80_CODEX_AUTH_JSON_B64 are set; using VIBE80_CODEX_AUTH_JSON_B64."
     );
   }
   if (hasCodexAuthJsonB64) {
     if (!codexAuthJsonB64) {
       console.warn(
-        "[warn] Invalid CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
+        "[warn] Invalid VIBE80_CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
       );
     } else {
       try {
@@ -873,7 +917,7 @@ const buildMonoUserProviderOverridesFromEnv = () => {
         };
       } catch {
         console.warn(
-          "[warn] Invalid CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
+          "[warn] Invalid VIBE80_CODEX_AUTH_JSON_B64 detected; ignoring codex preprovisioning."
         );
       }
     }
@@ -885,13 +929,13 @@ const buildMonoUserProviderOverridesFromEnv = () => {
 
   if (claudeApiKey && hasClaudeSetupToken) {
     console.warn(
-      "[warn] Both CLAUDE_API_KEY and CLAUDE_SETUP_TOKEN are set; using CLAUDE_SETUP_TOKEN."
+      "[warn] Both VIBE80_CLAUDE_API_KEY and VIBE80_CLAUDE_SETUP_TOKEN are set; using VIBE80_CLAUDE_SETUP_TOKEN."
     );
   }
   if (hasClaudeSetupToken) {
     if (!claudeSetupToken) {
       console.warn(
-        "[warn] Invalid CLAUDE_SETUP_TOKEN detected; ignoring claude preprovisioning."
+        "[warn] Invalid VIBE80_CLAUDE_SETUP_TOKEN detected; ignoring claude preprovisioning."
       );
     } else {
       overrides.claude = {

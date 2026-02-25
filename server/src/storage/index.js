@@ -1,7 +1,7 @@
 import { createRedisStorage } from "./redis.js";
 import { createSqliteStorage } from "./sqlite.js";
 
-const backend = process.env.STORAGE_BACKEND || "sqlite";
+const backend = process.env.VIBE80_STORAGE_BACKEND || "sqlite";
 
 let storage = null;
 
@@ -10,7 +10,7 @@ if (backend === "redis") {
 } else if (backend === "sqlite") {
   storage = createSqliteStorage();
 } else {
-  throw new Error(`Unsupported STORAGE_BACKEND: ${backend}.`);
+  throw new Error(`Unsupported VIBE80_STORAGE_BACKEND: ${backend}.`);
 }
 
 export const storageBackend = backend;

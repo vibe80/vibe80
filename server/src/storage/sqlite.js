@@ -72,12 +72,12 @@ const all = (db, sql, params = []) =>
 
 export const createSqliteStorage = () => {
   const homeDir = process.env.HOME || os.homedir();
-  const isMonoUser = process.env.DEPLOYMENT_MODE === "mono_user";
+  const isMonoUser = process.env.VIBE80_DEPLOYMENT_MODE === "mono_user";
   const defaultDataDirectory = isMonoUser
     ? path.join(homeDir, ".vibe80")
     : "/var/lib/vibe80";
   const dataDirectory = process.env.VIBE80_DATA_DIRECTORY || defaultDataDirectory;
-  const dbPath = process.env.SQLITE_PATH || path.join(dataDirectory, "base.sqlite");
+  const dbPath = process.env.VIBE80_SQLITE_PATH || path.join(dataDirectory, "base.sqlite");
   const resolvedPath = path.resolve(dbPath);
   const dir = path.dirname(resolvedPath);
   fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
@@ -195,7 +195,7 @@ export const createSqliteStorage = () => {
     const row = await get(db, "SELECT lastUid FROM workspace_uid_seq WHERE id = 1");
     if (!row) {
       const workspaceUidMin =
-        Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
+        Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MIN, 10) || 200000;
       await run(
         db,
         "INSERT INTO workspace_uid_seq (id, lastUid) VALUES (1, ?)",
@@ -559,9 +559,9 @@ export const createSqliteStorage = () => {
   const getNextWorkspaceUid = async () => {
     await ensureConnected();
     const workspaceUidMin =
-      Number.parseInt(process.env.WORKSPACE_UID_MIN, 10) || 200000;
+      Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MIN, 10) || 200000;
     const workspaceUidMax =
-      Number.parseInt(process.env.WORKSPACE_UID_MAX, 10) || 999999999;
+      Number.parseInt(process.env.VIBE80_WORKSPACE_UID_MAX, 10) || 999999999;
     await run(db, "BEGIN IMMEDIATE");
     try {
       const row = await get(db, "SELECT lastUid FROM workspace_uid_seq WHERE id = 1");
