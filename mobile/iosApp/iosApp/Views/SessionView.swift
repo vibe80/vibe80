@@ -169,6 +169,14 @@ struct SessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.vibe80Accent)
                 .disabled(viewModel.workspaceBusy)
+
+                Link(
+                    destination: URL(string: "https://vibe80.io/docs/workspace-session-setup")!
+                ) {
+                    Text("providers.config.learn_more")
+                        .font(.footnote)
+                }
+                .tint(.vibe80AccentDark)
             }
             .padding(24)
         }

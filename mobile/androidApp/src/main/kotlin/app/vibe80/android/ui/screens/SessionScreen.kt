@@ -1,5 +1,6 @@
 package app.vibe80.android.ui.screens
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -427,6 +428,7 @@ private fun ProviderConfigScreen(
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
+    val context = LocalContext.current
 
     val codexConfig = providerConfigs["codex"]
     val claudeConfig = providerConfigs["claude"]
@@ -489,6 +491,19 @@ private fun ProviderConfigScreen(
             } else {
                 Text(stringResource(R.string.action_continue))
             }
+        }
+
+        TextButton(
+            onClick = {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://vibe80.io/docs/workspace-session-setup")
+                )
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.providers_config_learn_more))
         }
     }
 }

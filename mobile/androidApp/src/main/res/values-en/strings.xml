@@ -113,6 +113,7 @@
     <string name="providers_config_subtitle">Update your providers for this workspace.</string>
     <string name="providers_config_title">Configure AI providers</string>
     <string name="providers_config_validation">Select at least one provider.</string>
+    <string name="providers_config_learn_more">Click here to learn more.</string>
     <string name="providers_reconfigure">Reconfigure AI providers</string>
     <string name="qr_camera_permission">Camera access is required to scan a QR code.</string>
     <string name="qr_scan_title">Scan a QR code</string>
