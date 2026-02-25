@@ -236,8 +236,8 @@ jobs:
 
   mirror_image_dockerhub:
     runs-on: ubuntu-latest
-    needs: [build_image, ref_scope]
-    if: always() && github.event_name == 'push' && needs.ref_scope.outputs.on_main == 'true' && needs.build_image.result == 'success'
+    needs: [build_image]
+    if: always() && github.event_name == 'push' && needs.build_image.result == 'success'
     steps:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
