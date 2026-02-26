@@ -2298,8 +2298,6 @@ function App() {
         isCloning={isCloning}
         repoDisplay={repoDisplay}
         onRepoSubmit={onRepoSubmit}
-        sessionNameInput={sessionNameInput}
-        setSessionNameInput={setSessionNameInput}
         repoInput={repoInput}
         setRepoInput={setRepoInput}
         repoHistory={repoHistory}
