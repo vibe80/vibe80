@@ -33,5 +33,13 @@
   "Annotations": "Annotations",
   "Only sent with the next message.": "Only sent with the next message.",
   "No annotations yet.": "No annotations yet.",
-  "Write annotation...": "Write annotation..."
+  "Write annotation...": "Write annotation...",
+  "Configure session": "Configurer la session",
+  "Keep current credentials": "Conserver les identifiants actuels",
+  "Session name": "Nom de la session",
+  "Session name is required.": "Le nom de session est requis.",
+  "Session updated.": "Session mise a jour.",
+  "Failed to update session.": "Echec de la mise a jour de la session.",
+  "Private SSH key is required.": "La cle SSH privee est requise.",
+  "Validate": "Valider"
 }
