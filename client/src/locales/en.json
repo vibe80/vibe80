@@ -41,5 +41,8 @@
   "Session updated.": "Session mise a jour.",
   "Failed to update session.": "Echec de la mise a jour de la session.",
   "Private SSH key is required.": "La cle SSH privee est requise.",
-  "Validate": "Valider"
+  "Validate": "Valider",
+  "Keep unchanged": "Conserver tel quel",
+  "Update & Resume": "Mettre a jour et reprendre",
+  "Updating...": "Mise a jour..."
 }

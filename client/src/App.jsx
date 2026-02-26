@@ -1457,13 +1457,14 @@ function App() {
       await response.json().catch(() => null);
       await loadWorkspaceSessions();
       showToast?.(t("Session updated."), "success");
-      setSessionConfigTargetId("");
       setSessionConfigAuthMode("keep");
       setSessionConfigSshKey("");
       setSessionConfigHttpUsername("");
       setSessionConfigHttpPassword("");
+      return { ok: true, sessionId };
     } catch (error) {
       setWorkspaceSessionConfigError(error.message || t("Failed to update session."));
+      return { ok: false, sessionId };
     } finally {
       setWorkspaceSessionUpdatingId(null);
     }
@@ -1479,6 +1480,44 @@ function App() {
     sessionConfigSshKey,
     sessionConfigTarget,
     showToast,
+    t,
+  ]);
+
+  const handleUpdateAndResumeSession = useCallback(async () => {
+    const sessionId = sessionConfigTarget?.sessionId || "";
+    if (!sessionId) {
+      return;
+    }
+    const result = await handleUpdateSession();
+    if (!result?.ok) {
+      return;
+    }
+    try {
+      setSessionRequested(true);
+      setAttachmentsError("");
+      const response = await apiFetch(
+        `/api/v1/sessions/${encodeURIComponent(sessionId)}`
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || t("Unable to resume the session."));
+      }
+      const data = await response.json();
+      setAttachmentSession(data);
+      setSessionConfigTargetId("");
+    } catch (error) {
+      setWorkspaceSessionConfigError(
+        error?.message || t("Unable to resume the session.")
+      );
+      setSessionRequested(false);
+    }
+  }, [
+    apiFetch,
+    handleUpdateSession,
+    sessionConfigTarget?.sessionId,
+    setAttachmentSession,
+    setAttachmentsError,
+    setSessionRequested,
     t,
   ]);
   const explorerDirStatus = useMemo(() => {
@@ -2437,7 +2476,7 @@ function App() {
         handleResumeSession={handleResumeSession}
         openSessionConfigure={openSessionConfigure}
         closeSessionConfigure={closeSessionConfigure}
-        handleUpdateSession={handleUpdateSession}
+        handleUpdateAndResumeSession={handleUpdateAndResumeSession}
         handleDeleteSession={handleDeleteSession}
         locale={locale}
         extractRepoName={extractRepoName}
