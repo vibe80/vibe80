@@ -56,7 +56,7 @@ export default function SessionGate({
   handleResumeSession,
   openSessionConfigure,
   closeSessionConfigure,
-  handleUpdateSession,
+  handleUpdateAndResumeSession,
   handleDeleteSession,
   locale,
   extractRepoName,
@@ -614,6 +614,22 @@ export default function SessionGate({
                           {sessionConfigTarget.name || sessionConfigTarget.sessionId}
                         </div>
                       ) : null}
+                      <div className="session-form-row is-compact-grid">
+                        <input
+                          type="text"
+                          placeholder={t("Session name")}
+                          value={sessionConfigTarget?.name || ""}
+                          disabled
+                        />
+                        <div className="session-repo-field">
+                          <input
+                            type="text"
+                            placeholder={t("git@gitea.devops:my-org/my-repo.git")}
+                            value={sessionConfigTarget?.repoUrl || ""}
+                            disabled
+                          />
+                        </div>
+                      </div>
                       <div className="session-auth">
                         <div className="session-auth-title">
                           {t("Repository authentication (optional)")}
@@ -626,7 +642,7 @@ export default function SessionGate({
                             }
                             disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
                           >
-                            <option value="keep">{t("Keep current credentials")}</option>
+                            <option value="keep">{t("Keep unchanged")}</option>
                             <option value="none">{t("None")}</option>
                             <option value="ssh">
                               {t("Private SSH key (not recommended)")}
@@ -971,21 +987,37 @@ export default function SessionGate({
               </button>
             ) : showStep4 ? (
               sessionMode === "existing" ? (
-                <button
-                  type="button"
-                  className="session-button secondary session-footer-full"
-                  disabled={formDisabled}
-                  onClick={() => {
-                    setWorkspaceProvidersEditing(true);
-                    setWorkspaceError("");
-                    setProvidersBackStep(4);
-                    loadWorkspaceProviders();
-                    loadWorkspaceSessions();
-                    setWorkspaceStep(2);
-                  }}
-                >
-                  {t("AI providers")}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="session-button secondary"
+                    disabled={formDisabled}
+                    onClick={
+                      workspaceSessionConfigId
+                        ? closeSessionConfigure
+                        : () => {
+                            setWorkspaceProvidersEditing(true);
+                            setWorkspaceError("");
+                            setProvidersBackStep(4);
+                            loadWorkspaceProviders();
+                            loadWorkspaceSessions();
+                            setWorkspaceStep(2);
+                          }
+                    }
+                  >
+                    {workspaceSessionConfigId ? t("Cancel") : t("AI providers")}
+                  </button>
+                  {workspaceSessionConfigId ? (
+                    <button
+                      type="button"
+                      className="session-button primary"
+                      disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                      onClick={handleUpdateAndResumeSession}
+                    >
+                      {workspaceSessionUpdatingId ? t("Updating...") : t("Update & Resume")}
+                    </button>
+                  ) : null}
+                </>
               ) : (
                 <>
                   <button
