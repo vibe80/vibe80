@@ -609,11 +609,6 @@ export default function SessionGate({
                       <div className="session-auth-title">
                         {t("Configure session")}
                       </div>
-                      {sessionConfigTarget ? (
-                        <div className="session-auth-hint">
-                          {sessionConfigTarget.name || sessionConfigTarget.sessionId}
-                        </div>
-                      ) : null}
                       <div className="session-form-row is-compact-grid">
                         <input
                           type="text"
