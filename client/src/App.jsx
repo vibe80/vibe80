@@ -1733,6 +1733,7 @@ function App() {
     openCloseConfirm,
     closeCloseConfirm,
     handleConfirmDelete,
+    closeConfirmDeleting,
   } = useWorktreeCloseConfirm({
     closeConfirm,
     setCloseConfirm,
@@ -3053,7 +3054,7 @@ function App() {
           className="worktree-close-confirm-overlay"
           role="dialog"
           aria-modal="true"
-          onClick={closeCloseConfirm}
+          onClick={closeConfirmDeleting ? undefined : closeCloseConfirm}
         >
           <div
             className="worktree-close-confirm-dialog"
@@ -3068,6 +3069,7 @@ function App() {
                 className="worktree-close-confirm-close"
                 aria-label={t("Close")}
                 onClick={closeCloseConfirm}
+                disabled={closeConfirmDeleting}
               >
                 <FontAwesomeIcon icon={faXmark} />
               </button>
@@ -3080,6 +3082,7 @@ function App() {
                 type="button"
                 className="worktree-close-confirm-cancel"
                 onClick={closeCloseConfirm}
+                disabled={closeConfirmDeleting}
               >
                 {t("Cancel")}
               </button>
@@ -3087,6 +3090,7 @@ function App() {
                 type="button"
                 className="worktree-close-confirm-delete"
                 onClick={handleConfirmDelete}
+                disabled={closeConfirmDeleting}
               >
                 {t("Delete worktree")}
               </button>

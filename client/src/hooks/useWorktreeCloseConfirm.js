@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 export default function useWorktreeCloseConfirm({
   closeConfirm,
@@ -7,6 +7,8 @@ export default function useWorktreeCloseConfirm({
   activeWorktreeIdRef,
   closeWorktree,
 }) {
+  const [closeConfirmDeleting, setCloseConfirmDeleting] = useState(false);
+
   const openCloseConfirm = useCallback(
     (worktreeId) => {
       if (!worktreeId || worktreeId === "main") {
@@ -18,21 +20,30 @@ export default function useWorktreeCloseConfirm({
   );
 
   const closeCloseConfirm = useCallback(() => {
-    setCloseConfirm(null);
-  }, [setCloseConfirm]);
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!closeConfirm?.worktreeId) {
+    if (closeConfirmDeleting) {
       return;
     }
-    if (activeWorktreeIdRef.current === closeConfirm.worktreeId) {
-      setActiveWorktreeId("main");
-    }
-    await closeWorktree(closeConfirm.worktreeId);
     setCloseConfirm(null);
+  }, [closeConfirmDeleting, setCloseConfirm]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!closeConfirm?.worktreeId || closeConfirmDeleting) {
+      return;
+    }
+    setCloseConfirmDeleting(true);
+    try {
+      if (activeWorktreeIdRef.current === closeConfirm.worktreeId) {
+        setActiveWorktreeId("main");
+      }
+      await closeWorktree(closeConfirm.worktreeId);
+      setCloseConfirm(null);
+    } finally {
+      setCloseConfirmDeleting(false);
+    }
   }, [
     activeWorktreeIdRef,
     closeConfirm,
+    closeConfirmDeleting,
     closeWorktree,
     setActiveWorktreeId,
     setCloseConfirm,
@@ -42,5 +53,6 @@ export default function useWorktreeCloseConfirm({
     openCloseConfirm,
     closeCloseConfirm,
     handleConfirmDelete,
+    closeConfirmDeleting,
   };
 }
