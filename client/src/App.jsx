@@ -663,6 +663,17 @@ function App() {
   const [sshKeyInput, setSshKeyInput] = useState("");
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
+  const [sessionConfigTargetId, setSessionConfigTargetId] = useState("");
+  const [sessionConfigName, setSessionConfigName] = useState("");
+  const [sessionConfigAuthMode, setSessionConfigAuthMode] = useState("keep");
+  const [sessionConfigSshKey, setSessionConfigSshKey] = useState("");
+  const [sessionConfigHttpUsername, setSessionConfigHttpUsername] = useState("");
+  const [sessionConfigHttpPassword, setSessionConfigHttpPassword] = useState("");
+  const [sessionConfigInternetAccess, setSessionConfigInternetAccess] = useState(true);
+  const [sessionConfigDenyGitCredentialsAccess, setSessionConfigDenyGitCredentialsAccess] =
+    useState(false);
+  const [workspaceSessionUpdatingId, setWorkspaceSessionUpdatingId] = useState(null);
+  const [workspaceSessionConfigError, setWorkspaceSessionConfigError] = useState("");
   const [sessionMode, setSessionMode] = useState("new");
   const [annotationMode, setAnnotationMode] = useState(false);
   const [annotationsByScope, setAnnotationsByScope] = useState({});
@@ -1341,6 +1352,146 @@ function App() {
     setOpenAiLoginRequest,
   });
   const explorerStatusByPath = activeExplorer.statusByPath || {};
+  const sessionConfigTarget = useMemo(
+    () =>
+      Array.isArray(workspaceSessions)
+        ? workspaceSessions.find((item) => item?.sessionId === sessionConfigTargetId) || null
+        : null,
+    [workspaceSessions, sessionConfigTargetId]
+  );
+
+  const openSessionConfigure = useCallback(
+    (session) => {
+      const sessionId = session?.sessionId || "";
+      if (!sessionId) {
+        return;
+      }
+      setWorkspaceSessionConfigError("");
+      setSessionConfigTargetId(sessionId);
+      setSessionConfigName(session?.name || "");
+      setSessionConfigAuthMode("keep");
+      setSessionConfigSshKey("");
+      setSessionConfigHttpUsername("");
+      setSessionConfigHttpPassword("");
+      setSessionConfigInternetAccess(
+        typeof session?.defaultInternetAccess === "boolean"
+          ? session.defaultInternetAccess
+          : true
+      );
+      setSessionConfigDenyGitCredentialsAccess(
+        typeof session?.defaultDenyGitCredentialsAccess === "boolean"
+          ? session.defaultDenyGitCredentialsAccess
+          : true
+      );
+    },
+    []
+  );
+
+  const closeSessionConfigure = useCallback(() => {
+    if (workspaceSessionUpdatingId) {
+      return;
+    }
+    setSessionConfigTargetId("");
+    setWorkspaceSessionConfigError("");
+    setSessionConfigAuthMode("keep");
+    setSessionConfigSshKey("");
+    setSessionConfigHttpUsername("");
+    setSessionConfigHttpPassword("");
+  }, [workspaceSessionUpdatingId]);
+
+  const handleUpdateSession = useCallback(async () => {
+    if (!sessionConfigTarget?.sessionId) {
+      return;
+    }
+    const sessionId = sessionConfigTarget.sessionId;
+    const trimmedName = sessionConfigName.trim();
+    if (!trimmedName) {
+      setWorkspaceSessionConfigError(t("Session name is required."));
+      return;
+    }
+    const payload = {};
+    if (trimmedName !== (sessionConfigTarget?.name || "")) {
+      payload.name = trimmedName;
+    }
+    if (sessionConfigInternetAccess !== Boolean(sessionConfigTarget?.defaultInternetAccess)) {
+      payload.defaultInternetAccess = sessionConfigInternetAccess;
+    }
+    if (
+      sessionConfigDenyGitCredentialsAccess
+      !== Boolean(sessionConfigTarget?.defaultDenyGitCredentialsAccess)
+    ) {
+      payload.defaultDenyGitCredentialsAccess = sessionConfigDenyGitCredentialsAccess;
+    }
+    if (sessionConfigAuthMode !== "keep") {
+      if (sessionConfigAuthMode === "ssh") {
+        const privateKey = sessionConfigSshKey.trim();
+        if (!privateKey) {
+          setWorkspaceSessionConfigError(t("Private SSH key is required."));
+          return;
+        }
+        payload.auth = { type: "ssh", privateKey };
+      } else if (sessionConfigAuthMode === "http") {
+        const username = sessionConfigHttpUsername.trim();
+        if (!username || !sessionConfigHttpPassword) {
+          setWorkspaceSessionConfigError(t("Username and password required."));
+          return;
+        }
+        payload.auth = {
+          type: "http",
+          username,
+          password: sessionConfigHttpPassword,
+        };
+      } else {
+        payload.auth = { type: "none" };
+      }
+    }
+    if (!Object.keys(payload).length) {
+      closeSessionConfigure();
+      return;
+    }
+    try {
+      setWorkspaceSessionUpdatingId(sessionId);
+      setWorkspaceSessionConfigError("");
+      const response = await apiFetch(
+        `/api/v1/sessions/${encodeURIComponent(sessionId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        throw new Error(err?.error || t("Failed to update session."));
+      }
+      await response.json().catch(() => null);
+      await loadWorkspaceSessions();
+      showToast?.(t("Session updated."), "success");
+      setSessionConfigTargetId("");
+      setSessionConfigAuthMode("keep");
+      setSessionConfigSshKey("");
+      setSessionConfigHttpUsername("");
+      setSessionConfigHttpPassword("");
+    } catch (error) {
+      setWorkspaceSessionConfigError(error.message || t("Failed to update session."));
+    } finally {
+      setWorkspaceSessionUpdatingId(null);
+    }
+  }, [
+    apiFetch,
+    closeSessionConfigure,
+    loadWorkspaceSessions,
+    sessionConfigAuthMode,
+    sessionConfigDenyGitCredentialsAccess,
+    sessionConfigHttpPassword,
+    sessionConfigHttpUsername,
+    sessionConfigInternetAccess,
+    sessionConfigName,
+    sessionConfigSshKey,
+    sessionConfigTarget,
+    showToast,
+    t,
+  ]);
   const explorerDirStatus = useMemo(() => {
     const dirStatus = {};
     const setStatus = (dirPath, type) => {
@@ -2290,7 +2441,13 @@ function App() {
         workspaceSessions={workspaceSessions}
         workspaceSessionsError={workspaceSessionsError}
         workspaceSessionDeletingId={workspaceSessionDeletingId}
+        workspaceSessionConfigId={sessionConfigTargetId}
+        workspaceSessionUpdatingId={workspaceSessionUpdatingId}
+        workspaceSessionConfigError={workspaceSessionConfigError}
         handleResumeSession={handleResumeSession}
+        openSessionConfigure={openSessionConfigure}
+        closeSessionConfigure={closeSessionConfigure}
+        handleUpdateSession={handleUpdateSession}
         handleDeleteSession={handleDeleteSession}
         locale={locale}
         extractRepoName={extractRepoName}
@@ -2315,6 +2472,20 @@ function App() {
         setDefaultInternetAccess={setDefaultInternetAccess}
         defaultDenyGitCredentialsAccess={defaultDenyGitCredentialsAccess}
         setDefaultDenyGitCredentialsAccess={setDefaultDenyGitCredentialsAccess}
+        sessionConfigName={sessionConfigName}
+        setSessionConfigName={setSessionConfigName}
+        sessionConfigAuthMode={sessionConfigAuthMode}
+        setSessionConfigAuthMode={setSessionConfigAuthMode}
+        sessionConfigSshKey={sessionConfigSshKey}
+        setSessionConfigSshKey={setSessionConfigSshKey}
+        sessionConfigHttpUsername={sessionConfigHttpUsername}
+        setSessionConfigHttpUsername={setSessionConfigHttpUsername}
+        sessionConfigHttpPassword={sessionConfigHttpPassword}
+        setSessionConfigHttpPassword={setSessionConfigHttpPassword}
+        sessionConfigInternetAccess={sessionConfigInternetAccess}
+        setSessionConfigInternetAccess={setSessionConfigInternetAccess}
+        sessionConfigDenyGitCredentialsAccess={sessionConfigDenyGitCredentialsAccess}
+        setSessionConfigDenyGitCredentialsAccess={setSessionConfigDenyGitCredentialsAccess}
         attachmentsError={attachmentsError}
         sessionRequested={sessionRequested}
         workspaceBusy={workspaceBusy}
