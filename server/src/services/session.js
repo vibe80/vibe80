@@ -657,6 +657,116 @@ export const createSession = async (
   }
 };
 
+export const updateSessionAuth = async (session, auth) => {
+  if (!session) {
+    throw new Error("Invalid session.");
+  }
+  const authType = typeof auth?.type === "string" ? auth.type.trim() : "";
+  if (authType !== "none" && authType !== "ssh" && authType !== "http") {
+    throw new Error("Invalid auth type.");
+  }
+
+  const gitCredsDir = session.gitDir || path.join(session.dir, "git");
+  const sshPaths = getWorkspaceSshPaths(getWorkspacePaths(session.workspaceId).homeDir);
+  const credentialFile = path.join(gitCredsDir, "git-credentials");
+  const credentialInputFile = path.join(gitCredsDir, "git-credential-input");
+  const next = {
+    ...session,
+    gitDir: gitCredsDir,
+    sshKeyPath: null,
+    lastActivityAt: Date.now(),
+  };
+
+  await runAsCommand(session.workspaceId, "/bin/mkdir", ["-p", gitCredsDir]);
+  await runAsCommand(session.workspaceId, "/bin/chmod", ["2750", gitCredsDir]);
+
+  if (session.sshKeyPath) {
+    await runAsCommand(session.workspaceId, "/bin/rm", ["-f", session.sshKeyPath]).catch(() => {});
+  }
+  await runAsCommand(session.workspaceId, "/bin/rm", ["-f", credentialFile]).catch(() => {});
+  await runAsCommand(session.workspaceId, "/bin/rm", ["-f", credentialInputFile]).catch(() => {});
+  await runAsCommand(
+    session.workspaceId,
+    "git",
+    ["-C", session.repoDir, "config", "--unset-all", "core.sshCommand"]
+  ).catch(() => {});
+  await runAsCommand(
+    session.workspaceId,
+    "git",
+    ["-C", session.repoDir, "config", "--unset-all", "credential.helper"]
+  ).catch(() => {});
+
+  if (authType === "none") {
+    return next;
+  }
+
+  if (authType === "ssh") {
+    const privateKey = typeof auth?.privateKey === "string" ? auth.privateKey.trim() : "";
+    if (!privateKey) {
+      throw new Error("SSH private key is required.");
+    }
+    await ensureWorkspaceDir(session.workspaceId, sshPaths.sshDir, 0o700);
+    const keyPath = path.join(gitCredsDir, `ssh-key-${session.sessionId}`);
+    await writeWorkspaceFile(session.workspaceId, keyPath, `${privateKey}\n`, 0o600);
+    await ensureKnownHost(session.workspaceId, session.repoUrl, sshPaths);
+    await runAsCommand(
+      session.workspaceId,
+      "git",
+      [
+        "-C",
+        session.repoDir,
+        "config",
+        "core.sshCommand",
+        `ssh -i ${keyPath} -o IdentitiesOnly=yes`,
+      ]
+    );
+    return {
+      ...next,
+      sshKeyPath: keyPath,
+    };
+  }
+
+  const username = typeof auth?.username === "string" ? auth.username.trim() : "";
+  const password = typeof auth?.password === "string" ? auth.password : "";
+  if (!username || !password) {
+    throw new Error("HTTP username and password are required.");
+  }
+  const authInfo = resolveHttpAuthInfo(session.repoUrl);
+  if (!authInfo) {
+    throw new Error("Invalid HTTP repository URL for credential auth.");
+  }
+  const credentialPayload = [
+    `protocol=${authInfo.protocol}`,
+    `host=${authInfo.host}`,
+    `username=${username}`,
+    `password=${password}`,
+    "",
+    "",
+  ].join("\n");
+  await writeWorkspaceFile(session.workspaceId, credentialFile, "", 0o600);
+  await writeWorkspaceFile(session.workspaceId, credentialInputFile, credentialPayload, 0o600);
+  await runAsCommand(
+    session.workspaceId,
+    "git",
+    ["-c", `credential.helper=store --file ${credentialFile}`, "credential", "approve"],
+    { input: credentialPayload }
+  );
+  await runAsCommand(session.workspaceId, "/bin/rm", ["-f", credentialInputFile]).catch(() => {});
+  await runAsCommand(
+    session.workspaceId,
+    "git",
+    [
+      "-C",
+      session.repoDir,
+      "config",
+      "--add",
+      "credential.helper",
+      `store --file ${credentialFile}`,
+    ]
+  );
+  return next;
+};
+
 // ---------------------------------------------------------------------------
 // Message helpers
 // ---------------------------------------------------------------------------

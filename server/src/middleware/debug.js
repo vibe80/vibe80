@@ -14,6 +14,38 @@ export const logDebug = (...args) => {
   console.log(...args);
 };
 
+const SENSITIVE_KEYS = new Set([
+  "password",
+  "privatekey",
+  "token",
+  "refreshtoken",
+  "workspaceSecret",
+  "workspacesecret",
+  "httpPassword",
+  "httppassword",
+  "sshkey",
+  "auth",
+]);
+
+const redactSensitive = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactSensitive(item));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const next = {};
+  Object.entries(value).forEach(([key, entry]) => {
+    const normalized = String(key || "").toLowerCase();
+    if (SENSITIVE_KEYS.has(key) || SENSITIVE_KEYS.has(normalized)) {
+      next[key] = "[REDACTED]";
+      return;
+    }
+    next[key] = redactSensitive(entry);
+  });
+  return next;
+};
+
 export const attachWebSocketDebug = (socket, req, label) => {
   if (!debugApiWsLog) return;
   const connectionId = createDebugId();
@@ -61,7 +93,7 @@ export function debugMiddleware(req, res, next) {
     method: req.method,
     url: req.originalUrl,
     query: req.query,
-    body: formatDebugPayload(req.body, debugLogMaxBody),
+    body: formatDebugPayload(redactSensitive(req.body), debugLogMaxBody),
   });
 
   let responseBody;
