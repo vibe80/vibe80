@@ -733,24 +733,6 @@ export default function SessionGate({
                           {workspaceSessionConfigError}
                         </div>
                       ) : null}
-                      <div className="session-config-actions">
-                        <button
-                          type="button"
-                          className="session-button"
-                          onClick={closeSessionConfigure}
-                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
-                        >
-                          {t("Cancel")}
-                        </button>
-                        <button
-                          type="button"
-                          className="session-button primary"
-                          onClick={handleUpdateSession}
-                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
-                        >
-                          {workspaceSessionUpdatingId ? t("Saving...") : t("Validate")}
-                        </button>
-                      </div>
                     </div>
                   )}
                 </div>
