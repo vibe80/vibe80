@@ -605,7 +605,7 @@ export default function SessionGate({
                       )}
                     </div>
                   ) : (
-                    <div className="session-auth">
+                    <div className="session-form session-form--compact">
                       <div className="session-auth-title">
                         {t("Configure session")}
                       </div>
