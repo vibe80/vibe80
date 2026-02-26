@@ -50,6 +50,7 @@ export default function SessionGate({
   workspaceSessionsError,
   workspaceSessionDeletingId,
   workspaceSessionConfigId,
+  sessionConfigTarget,
   workspaceSessionUpdatingId,
   workspaceSessionConfigError,
   handleResumeSession,
@@ -505,243 +506,248 @@ export default function SessionGate({
                   }`}
                   aria-hidden={sessionMode !== "existing"}
                 >
-                  <div className="session-auth">
-                    <div className="session-auth-title">
-                      {t("Existing sessions")}
-                    </div>
-                    {workspaceSessionsLoading ? (
-                      <div className="session-auth-hint">
-                        {t("Loading sessions...")}
+                  {!workspaceSessionConfigId ? (
+                    <div className="session-auth">
+                      <div className="session-auth-title">
+                        {t("Existing sessions")}
                       </div>
-                    ) : workspaceSessions.length === 0 ? (
-                      <div className="session-auth-hint">
-                        {t("No sessions available.")}
-                      </div>
-                    ) : (
-                      <ul className="session-list">
-                        {workspaceSessions.map((session) => {
-                          const repoName = extractRepoName(session.repoUrl);
-                          const title =
-                            session.name || repoName || session.sessionId;
-                          const subtitle = session.repoUrl
-                            ? getTruncatedText(session.repoUrl, 72)
-                            : session.sessionId;
-                          const lastSeen = session.lastActivityAt
-                            ? new Date(session.lastActivityAt).toLocaleString(
-                                locale
-                              )
-                            : session.createdAt
-                              ? new Date(
-                                  session.createdAt
-                                ).toLocaleString(locale)
-                              : "";
-                          const isDeleting =
-                            workspaceSessionDeletingId === session.sessionId;
-                          const isUpdating =
-                            workspaceSessionUpdatingId === session.sessionId;
-                          const isConfigOpen =
-                            workspaceSessionConfigId === session.sessionId;
-                          return (
-                            <li key={session.sessionId} className="session-item">
-                              <div className="session-item-row">
-                                <div className="session-item-meta">
-                                  <div className="session-item-title">{title}</div>
-                                  <div className="session-item-sub">
-                                    {subtitle}
-                                  </div>
-                                  {lastSeen && (
+                      {workspaceSessionsLoading ? (
+                        <div className="session-auth-hint">
+                          {t("Loading sessions...")}
+                        </div>
+                      ) : workspaceSessions.length === 0 ? (
+                        <div className="session-auth-hint">
+                          {t("No sessions available.")}
+                        </div>
+                      ) : (
+                        <ul className="session-list">
+                          {workspaceSessions.map((session) => {
+                            const repoName = extractRepoName(session.repoUrl);
+                            const title =
+                              session.name || repoName || session.sessionId;
+                            const subtitle = session.repoUrl
+                              ? getTruncatedText(session.repoUrl, 72)
+                              : session.sessionId;
+                            const lastSeen = session.lastActivityAt
+                              ? new Date(session.lastActivityAt).toLocaleString(
+                                  locale
+                                )
+                              : session.createdAt
+                                ? new Date(
+                                    session.createdAt
+                                  ).toLocaleString(locale)
+                                : "";
+                            const isDeleting =
+                              workspaceSessionDeletingId === session.sessionId;
+                            const isUpdating =
+                              workspaceSessionUpdatingId === session.sessionId;
+                            return (
+                              <li key={session.sessionId} className="session-item">
+                                <div className="session-item-row">
+                                  <div className="session-item-meta">
+                                    <div className="session-item-title">{title}</div>
                                     <div className="session-item-sub">
-                                      {t("Last activity: {{date}}", {
-                                        date: lastSeen,
-                                      })}
+                                      {subtitle}
                                     </div>
-                                  )}
-                                </div>
-                                <div className="session-item-actions">
-                                  <button
-                                    type="button"
-                                    className="session-list-button session-list-icon-button"
-                                    onClick={() =>
-                                      handleResumeSession(session.sessionId)
-                                    }
-                                    disabled={formDisabled || isDeleting}
-                                    title={t("Resume")}
-                                    aria-label={t("Resume")}
-                                  >
-                                    <FontAwesomeIcon icon={faRightFromBracket} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="session-list-button session-list-icon-button"
-                                    onClick={() =>
-                                      isConfigOpen
-                                        ? closeSessionConfigure()
-                                        : openSessionConfigure(session)
-                                    }
-                                    disabled={formDisabled || isDeleting || isUpdating}
-                                    title={t("Configure session")}
-                                    aria-label={t("Configure session")}
-                                  >
-                                    <FontAwesomeIcon icon={faGear} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="session-list-button session-list-icon-button is-danger"
-                                    onClick={() => handleDeleteSession(session)}
-                                    disabled={formDisabled || isDeleting}
-                                    title={isDeleting ? t("Deleting...") : t("Delete")}
-                                    aria-label={isDeleting ? t("Deleting...") : t("Delete")}
-                                  >
-                                    <FontAwesomeIcon
-                                      icon={isDeleting ? faSpinner : faTrash}
-                                      spin={isDeleting}
-                                    />
-                                  </button>
-                                </div>
-                              </div>
-                              {isConfigOpen ? (
-                                <div className="session-auth session-auth-compact">
-                                  <div className="session-form-row is-compact-grid">
-                                    <input
-                                      type="text"
-                                      placeholder={t("Session name")}
-                                      value={sessionConfigName}
-                                      onChange={(event) =>
-                                        setSessionConfigName(event.target.value)
-                                      }
-                                      disabled={formDisabled || isUpdating}
-                                    />
-                                  </div>
-                                  <div className="session-auth-title">
-                                    {t("Repository authentication (optional)")}
-                                  </div>
-                                  <div className="session-auth-options">
-                                    <select
-                                      value={sessionConfigAuthMode}
-                                      onChange={(event) =>
-                                        setSessionConfigAuthMode(event.target.value)
-                                      }
-                                      disabled={formDisabled || isUpdating}
-                                    >
-                                      <option value="keep">{t("Keep current credentials")}</option>
-                                      <option value="none">{t("None")}</option>
-                                      <option value="ssh">
-                                        {t("Private SSH key (not recommended)")}
-                                      </option>
-                                      <option value="http">
-                                        {t("Username + password")}
-                                      </option>
-                                    </select>
-                                  </div>
-                                  {sessionConfigAuthMode === "ssh" ? (
-                                    <textarea
-                                      className="session-auth-textarea"
-                                      placeholder={t("-----BEGIN OPENSSH PRIVATE KEY-----")}
-                                      value={sessionConfigSshKey}
-                                      onChange={(event) =>
-                                        setSessionConfigSshKey(event.target.value)
-                                      }
-                                      disabled={formDisabled || isUpdating}
-                                      rows={6}
-                                      spellCheck={false}
-                                    />
-                                  ) : null}
-                                  {sessionConfigAuthMode === "http" ? (
-                                    <div className="session-auth-grid">
-                                      <input
-                                        type="text"
-                                        placeholder={t("Username")}
-                                        value={sessionConfigHttpUsername}
-                                        onChange={(event) =>
-                                          setSessionConfigHttpUsername(event.target.value)
-                                        }
-                                        disabled={formDisabled || isUpdating}
-                                        autoComplete="username"
-                                      />
-                                      <input
-                                        type="password"
-                                        placeholder={t("Password or PAT")}
-                                        value={sessionConfigHttpPassword}
-                                        onChange={(event) =>
-                                          setSessionConfigHttpPassword(event.target.value)
-                                        }
-                                        disabled={formDisabled || isUpdating}
-                                        autoComplete="current-password"
-                                      />
-                                    </div>
-                                  ) : null}
-                                  <div className="session-auth-title">
-                                    {t("Permissions")}
-                                  </div>
-                                  <div className="session-auth-options session-auth-options--compact">
-                                    <label className="session-auth-option">
-                                      <input
-                                        type="checkbox"
-                                        checked={sessionConfigInternetAccess}
-                                        onChange={(event) => {
-                                          const checked = event.target.checked;
-                                          setSessionConfigInternetAccess(checked);
-                                          if (!checked) {
-                                            setSessionConfigDenyGitCredentialsAccess(false);
-                                          }
-                                        }}
-                                        disabled={formDisabled || isUpdating}
-                                      />
-                                      {t("Internet access")}
-                                    </label>
-                                    {sessionConfigInternetAccess &&
-                                    deploymentMode !== "mono_user" ? (
-                                      <label className="session-auth-option">
-                                        <input
-                                          type="checkbox"
-                                          checked={sessionConfigDenyGitCredentialsAccess}
-                                          onChange={(event) =>
-                                            setSessionConfigDenyGitCredentialsAccess(
-                                              event.target.checked
-                                            )
-                                          }
-                                          disabled={formDisabled || isUpdating}
-                                        />
-                                        {t("Deny git credentials access")}
-                                      </label>
-                                    ) : null}
+                                    {lastSeen && (
+                                      <div className="session-item-sub">
+                                        {t("Last activity: {{date}}", {
+                                          date: lastSeen,
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="session-item-actions">
                                     <button
                                       type="button"
-                                      className="session-list-button"
-                                      onClick={closeSessionConfigure}
-                                      disabled={formDisabled || isUpdating}
+                                      className="session-list-button session-list-icon-button"
+                                      onClick={() =>
+                                        handleResumeSession(session.sessionId)
+                                      }
+                                      disabled={formDisabled || isDeleting}
+                                      title={t("Resume")}
+                                      aria-label={t("Resume")}
                                     >
-                                      {t("Cancel")}
+                                      <FontAwesomeIcon icon={faRightFromBracket} />
                                     </button>
                                     <button
                                       type="button"
-                                      className="session-list-button"
-                                      onClick={handleUpdateSession}
-                                      disabled={formDisabled || isUpdating}
+                                      className="session-list-button session-list-icon-button"
+                                      onClick={() => openSessionConfigure(session)}
+                                      disabled={formDisabled || isDeleting || isUpdating}
+                                      title={t("Configure session")}
+                                      aria-label={t("Configure session")}
                                     >
-                                      {isUpdating ? t("Saving...") : t("Save")}
+                                      <FontAwesomeIcon icon={faGear} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="session-list-button session-list-icon-button is-danger"
+                                      onClick={() => handleDeleteSession(session)}
+                                      disabled={formDisabled || isDeleting}
+                                      title={isDeleting ? t("Deleting...") : t("Delete")}
+                                      aria-label={isDeleting ? t("Deleting...") : t("Delete")}
+                                    >
+                                      <FontAwesomeIcon
+                                        icon={isDeleting ? faSpinner : faTrash}
+                                        spin={isDeleting}
+                                      />
                                     </button>
                                   </div>
-                                  {workspaceSessionConfigError ? (
-                                    <div className="attachments-error">
-                                      {workspaceSessionConfigError}
-                                    </div>
-                                  ) : null}
                                 </div>
-                              ) : null}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                    {workspaceSessionsError && (
-                      <div className="attachments-error">
-                        {workspaceSessionsError}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                      {workspaceSessionsError && (
+                        <div className="attachments-error">
+                          {workspaceSessionsError}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="session-auth">
+                      <div className="session-auth-title">
+                        {t("Configure session")}
                       </div>
-                    )}
-                  </div>
+                      {sessionConfigTarget ? (
+                        <div className="session-auth-hint">
+                          {sessionConfigTarget.name || sessionConfigTarget.sessionId}
+                        </div>
+                      ) : null}
+                      <div className="session-form-row is-compact-grid">
+                        <input
+                          type="text"
+                          placeholder={t("Session name")}
+                          value={sessionConfigName}
+                          onChange={(event) =>
+                            setSessionConfigName(event.target.value)
+                          }
+                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                        />
+                      </div>
+                      <div className="session-auth-title">
+                        {t("Repository authentication (optional)")}
+                      </div>
+                      <div className="session-auth-options">
+                        <select
+                          value={sessionConfigAuthMode}
+                          onChange={(event) =>
+                            setSessionConfigAuthMode(event.target.value)
+                          }
+                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                        >
+                          <option value="keep">{t("Keep current credentials")}</option>
+                          <option value="none">{t("None")}</option>
+                          <option value="ssh">
+                            {t("Private SSH key (not recommended)")}
+                          </option>
+                          <option value="http">
+                            {t("Username + password")}
+                          </option>
+                        </select>
+                      </div>
+                      {sessionConfigAuthMode === "ssh" ? (
+                        <textarea
+                          className="session-auth-textarea"
+                          placeholder={t("-----BEGIN OPENSSH PRIVATE KEY-----")}
+                          value={sessionConfigSshKey}
+                          onChange={(event) =>
+                            setSessionConfigSshKey(event.target.value)
+                          }
+                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                          rows={6}
+                          spellCheck={false}
+                        />
+                      ) : null}
+                      {sessionConfigAuthMode === "http" ? (
+                        <div className="session-auth-grid">
+                          <input
+                            type="text"
+                            placeholder={t("Username")}
+                            value={sessionConfigHttpUsername}
+                            onChange={(event) =>
+                              setSessionConfigHttpUsername(event.target.value)
+                            }
+                            disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                            autoComplete="username"
+                          />
+                          <input
+                            type="password"
+                            placeholder={t("Password or PAT")}
+                            value={sessionConfigHttpPassword}
+                            onChange={(event) =>
+                              setSessionConfigHttpPassword(event.target.value)
+                            }
+                            disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                            autoComplete="current-password"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="session-auth session-auth-compact">
+                        <div className="session-auth-title">
+                          {t("Permissions")}
+                        </div>
+                        <div className="session-auth-options session-auth-options--compact">
+                          <label className="session-auth-option">
+                            <input
+                              type="checkbox"
+                              checked={sessionConfigInternetAccess}
+                              onChange={(event) => {
+                                const checked = event.target.checked;
+                                setSessionConfigInternetAccess(checked);
+                                if (!checked) {
+                                  setSessionConfigDenyGitCredentialsAccess(false);
+                                }
+                              }}
+                              disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                            />
+                            {t("Internet access")}
+                          </label>
+                          {sessionConfigInternetAccess &&
+                          deploymentMode !== "mono_user" ? (
+                            <label className="session-auth-option">
+                              <input
+                                type="checkbox"
+                                checked={sessionConfigDenyGitCredentialsAccess}
+                                onChange={(event) =>
+                                  setSessionConfigDenyGitCredentialsAccess(
+                                    event.target.checked
+                                  )
+                                }
+                                disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                              />
+                              {t("Deny git credentials access")}
+                            </label>
+                          ) : null}
+                        </div>
+                      </div>
+                      {workspaceSessionConfigError ? (
+                        <div className="attachments-error">
+                          {workspaceSessionConfigError}
+                        </div>
+                      ) : null}
+                      <div className="session-config-actions">
+                        <button
+                          type="button"
+                          className="session-button"
+                          onClick={closeSessionConfigure}
+                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                        >
+                          {t("Cancel")}
+                        </button>
+                        <button
+                          type="button"
+                          className="session-button primary"
+                          onClick={handleUpdateSession}
+                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                        >
+                          {workspaceSessionUpdatingId ? t("Saving...") : t("Validate")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div
                   className={`session-panel ${

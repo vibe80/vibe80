@@ -317,5 +317,13 @@
   "{{count}} item(s)": "{{count}} élément(s)",
   "{{count}} KB": "{{count}} Ko",
   "{{count}} lines": "{{count}} lignes",
-  "{{count}} MB": "{{count}} Mo"
+  "{{count}} MB": "{{count}} Mo",
+  "Configure session": "Configurer la session",
+  "Keep current credentials": "Conserver les identifiants actuels",
+  "Session name": "Nom de la session",
+  "Session name is required.": "Le nom de session est requis.",
+  "Session updated.": "Session mise a jour.",
+  "Failed to update session.": "Echec de la mise a jour de la session.",
+  "Private SSH key is required.": "La cle SSH privee est requise.",
+  "Validate": "Valider"
 }

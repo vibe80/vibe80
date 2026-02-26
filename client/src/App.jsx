@@ -2442,6 +2442,7 @@ function App() {
         workspaceSessionsError={workspaceSessionsError}
         workspaceSessionDeletingId={workspaceSessionDeletingId}
         workspaceSessionConfigId={sessionConfigTargetId}
+        sessionConfigTarget={sessionConfigTarget}
         workspaceSessionUpdatingId={workspaceSessionUpdatingId}
         workspaceSessionConfigError={workspaceSessionConfigError}
         handleResumeSession={handleResumeSession}

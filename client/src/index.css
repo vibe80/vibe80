@@ -700,6 +700,13 @@ textarea {
   align-items: center;
 }
 
+.session-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .toast-container {
   position: fixed;
   right: 24px;
