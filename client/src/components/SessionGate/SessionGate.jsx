@@ -56,6 +56,8 @@ export default function SessionGate({
   isCloning,
   repoDisplay,
   onRepoSubmit,
+  sessionNameInput,
+  setSessionNameInput,
   repoInput,
   setRepoInput,
   repoHistory,
@@ -587,7 +589,16 @@ export default function SessionGate({
                       className="session-form session-form--compact"
                       onSubmit={onRepoSubmit}
                     >
-                      <div className="session-form-row single">
+                      <div className="session-form-row is-compact-grid">
+                        <input
+                          type="text"
+                          placeholder={t("Session name (optional)")}
+                          value={sessionNameInput}
+                          onChange={(event) =>
+                            setSessionNameInput(event.target.value)
+                          }
+                          disabled={formDisabled}
+                        />
                         <div className="session-repo-field">
                           <input
                             type="text"
@@ -617,11 +628,11 @@ export default function SessionGate({
                           )}
                         </div>
                       </div>
-                      <div className="session-auth session-auth-compact">
+                      <div className="session-auth">
                         <div className="session-auth-title">
                           {t("Repository authentication (optional)")}
                         </div>
-                        <div className="session-auth-options session-auth-options--compact">
+                        <div className="session-auth-options">
                           <select
                             value={authMode}
                             onChange={(event) =>
