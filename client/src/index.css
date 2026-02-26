@@ -669,6 +669,15 @@ textarea {
   cursor: pointer;
 }
 
+.session-list-icon-button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .session-list-button.is-danger {
   background: #e05a4f;
 }

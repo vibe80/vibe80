@@ -1,6 +1,14 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck, faCopy, faPlus, faRightFromBracket, faUser } from "@fortawesome/free-solid-svg-icons";
+import {
+  faCheck,
+  faCopy,
+  faPlus,
+  faRightFromBracket,
+  faSpinner,
+  faTrash,
+  faUser,
+} from "@fortawesome/free-solid-svg-icons";
 
 export default function SessionGate({
   t,
@@ -526,21 +534,28 @@ export default function SessionGate({
                               <div className="session-item-actions">
                                 <button
                                   type="button"
-                                  className="session-list-button"
+                                  className="session-list-button session-list-icon-button"
                                   onClick={() =>
                                     handleResumeSession(session.sessionId)
                                   }
                                   disabled={formDisabled || isDeleting}
+                                  title={t("Resume")}
+                                  aria-label={t("Resume")}
                                 >
-                                  {t("Resume")}
+                                  <FontAwesomeIcon icon={faRightFromBracket} />
                                 </button>
                                 <button
                                   type="button"
-                                  className="session-list-button is-danger"
+                                  className="session-list-button session-list-icon-button is-danger"
                                   onClick={() => handleDeleteSession(session)}
                                   disabled={formDisabled || isDeleting}
+                                  title={isDeleting ? t("Deleting...") : t("Delete")}
+                                  aria-label={isDeleting ? t("Deleting...") : t("Delete")}
                                 >
-                                  {isDeleting ? t("Deleting...") : t("Delete")}
+                                  <FontAwesomeIcon
+                                    icon={isDeleting ? faSpinner : faTrash}
+                                    spin={isDeleting}
+                                  />
                                 </button>
                               </div>
                             </li>
