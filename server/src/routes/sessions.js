@@ -21,6 +21,7 @@ import {
   getSession,
   touchSession,
   createSession,
+  updateSessionAuth,
   cleanupSession,
   getRepoDiff,
   getCurrentBranch,
@@ -46,6 +47,59 @@ export default function sessionRoutes(deps) {
   } = deps;
 
   const router = Router();
+  const buildSessionResponse = async (session) => {
+    const repoDiff = await getRepoDiff(session);
+    const activeProvider = session.activeProvider || "codex";
+    const enabledProviders = await resolveEnabledProviders(session.workspaceId);
+    return {
+      sessionId: session.sessionId,
+      workspaceId: session.workspaceId,
+      path: session.dir,
+      repoUrl: session.repoUrl,
+      name: session.name || "",
+      defaultProvider: activeProvider,
+      providers: enabledProviders,
+      defaultInternetAccess:
+        typeof session.defaultInternetAccess === "boolean"
+          ? session.defaultInternetAccess
+          : true,
+      defaultDenyGitCredentialsAccess: resolveDefaultDenyGitCredentialsAccess(session),
+      repoDiff,
+      rpcLogsEnabled: debugApiWsLog,
+      rpcLogs: debugApiWsLog ? session.rpcLogs || [] : [],
+      terminalEnabled,
+    };
+  };
+
+  const restartMainProvider = async (session) => {
+    const provider = session.activeProvider || "codex";
+    const client = await getOrCreateClient(session, provider);
+    if (!client) {
+      return;
+    }
+    if (typeof session.defaultInternetAccess === "boolean") {
+      client.internetAccess = session.defaultInternetAccess;
+    }
+    client.denyGitCredentialsAccess = resolveDefaultDenyGitCredentialsAccess(session);
+    client.gitDir = session.gitDir || client.gitDir || null;
+    const status = typeof client.getStatus === "function" ? client.getStatus() : "";
+    if (status === "idle" && typeof client.restart === "function") {
+      await client.restart();
+      return;
+    }
+    if (
+      (status === "stopped" || !status) &&
+      !client.ready &&
+      !client.proc &&
+      typeof client.start === "function"
+    ) {
+      await client.start();
+      return;
+    }
+    if (typeof client.requestRestart === "function") {
+      client.requestRestart();
+    }
+  };
   const resolveEnabledProviders = async (workspaceId) => {
     try {
       const workspaceConfig = await readWorkspaceConfig(workspaceId);
@@ -144,27 +198,85 @@ export default function sessionRoutes(deps) {
       return;
     }
     await touchSession(session);
-    const repoDiff = await getRepoDiff(session);
-    const activeProvider = session.activeProvider || "codex";
-    const enabledProviders = await resolveEnabledProviders(session.workspaceId);
-    res.json({
-      sessionId: req.params.sessionId,
-      workspaceId: session.workspaceId,
-      path: session.dir,
-      repoUrl: session.repoUrl,
-      name: session.name || "",
-      defaultProvider: activeProvider,
-      providers: enabledProviders,
-      defaultInternetAccess:
-        typeof session.defaultInternetAccess === "boolean"
-          ? session.defaultInternetAccess
-          : true,
-      defaultDenyGitCredentialsAccess: resolveDefaultDenyGitCredentialsAccess(session),
-      repoDiff,
-      rpcLogsEnabled: debugApiWsLog,
-      rpcLogs: debugApiWsLog ? session.rpcLogs || [] : [],
-      terminalEnabled,
-    });
+    res.json(await buildSessionResponse(session));
+  });
+
+  router.patch("/sessions/:sessionId", async (req, res) => {
+    const session = await getSession(req.params.sessionId, req.workspaceId);
+    if (!session) {
+      res.status(404).json({ error: "Session not found." });
+      return;
+    }
+    await touchSession(session);
+
+    const hasName = Object.prototype.hasOwnProperty.call(req.body || {}, "name");
+    const hasAuth = Object.prototype.hasOwnProperty.call(req.body || {}, "auth");
+    const hasInternet = Object.prototype.hasOwnProperty.call(req.body || {}, "defaultInternetAccess");
+    const hasDeny = Object.prototype.hasOwnProperty.call(
+      req.body || {},
+      "defaultDenyGitCredentialsAccess"
+    );
+    if (!hasName && !hasAuth && !hasInternet && !hasDeny) {
+      res.status(400).json({ error: "No updatable fields provided." });
+      return;
+    }
+
+    let updated = { ...session };
+    const changes = {};
+
+    try {
+      if (hasName) {
+        const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+        if (!name) {
+          res.status(400).json({ error: "name is required." });
+          return;
+        }
+        updated.name = name;
+        changes.name = name;
+      }
+
+      if (hasInternet) {
+        if (typeof req.body?.defaultInternetAccess !== "boolean") {
+          res.status(400).json({ error: "defaultInternetAccess must be a boolean." });
+          return;
+        }
+        updated.defaultInternetAccess = req.body.defaultInternetAccess;
+        changes.defaultInternetAccess = req.body.defaultInternetAccess;
+      }
+
+      if (hasDeny) {
+        if (typeof req.body?.defaultDenyGitCredentialsAccess !== "boolean") {
+          res.status(400).json({ error: "defaultDenyGitCredentialsAccess must be a boolean." });
+          return;
+        }
+        updated.defaultDenyGitCredentialsAccess = req.body.defaultDenyGitCredentialsAccess;
+        changes.defaultDenyGitCredentialsAccess = req.body.defaultDenyGitCredentialsAccess;
+      }
+
+      if (hasAuth) {
+        const auth = req.body?.auth;
+        if (!auth || typeof auth !== "object" || Array.isArray(auth)) {
+          res.status(400).json({ error: "auth object is required." });
+          return;
+        }
+        updated = await updateSessionAuth(updated, auth);
+        changes.authUpdated = true;
+      }
+
+      updated.lastActivityAt = Date.now();
+      await storage.saveSession(session.sessionId, updated);
+      await restartMainProvider(updated);
+
+      const runtimePayload = await buildSessionResponse(updated);
+      res.json(runtimePayload);
+      broadcastToSession(session.sessionId, {
+        type: "session_updated",
+        sessionId: session.sessionId,
+        changes,
+      });
+    } catch (error) {
+      res.status(400).json({ error: error?.message || "Failed to update session." });
+    }
   });
 
   router.delete("/sessions/:sessionId", async (req, res) => {
