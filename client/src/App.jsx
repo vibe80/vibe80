@@ -664,7 +664,6 @@ function App() {
   const [httpUsername, setHttpUsername] = useState("");
   const [httpPassword, setHttpPassword] = useState("");
   const [sessionConfigTargetId, setSessionConfigTargetId] = useState("");
-  const [sessionConfigName, setSessionConfigName] = useState("");
   const [sessionConfigAuthMode, setSessionConfigAuthMode] = useState("keep");
   const [sessionConfigSshKey, setSessionConfigSshKey] = useState("");
   const [sessionConfigHttpUsername, setSessionConfigHttpUsername] = useState("");
@@ -1368,7 +1367,6 @@ function App() {
       }
       setWorkspaceSessionConfigError("");
       setSessionConfigTargetId(sessionId);
-      setSessionConfigName(session?.name || "");
       setSessionConfigAuthMode("keep");
       setSessionConfigSshKey("");
       setSessionConfigHttpUsername("");
@@ -1404,15 +1402,7 @@ function App() {
       return;
     }
     const sessionId = sessionConfigTarget.sessionId;
-    const trimmedName = sessionConfigName.trim();
-    if (!trimmedName) {
-      setWorkspaceSessionConfigError(t("Session name is required."));
-      return;
-    }
     const payload = {};
-    if (trimmedName !== (sessionConfigTarget?.name || "")) {
-      payload.name = trimmedName;
-    }
     if (sessionConfigInternetAccess !== Boolean(sessionConfigTarget?.defaultInternetAccess)) {
       payload.defaultInternetAccess = sessionConfigInternetAccess;
     }
@@ -1486,7 +1476,6 @@ function App() {
     sessionConfigHttpPassword,
     sessionConfigHttpUsername,
     sessionConfigInternetAccess,
-    sessionConfigName,
     sessionConfigSshKey,
     sessionConfigTarget,
     showToast,
@@ -2473,8 +2462,6 @@ function App() {
         setDefaultInternetAccess={setDefaultInternetAccess}
         defaultDenyGitCredentialsAccess={defaultDenyGitCredentialsAccess}
         setDefaultDenyGitCredentialsAccess={setDefaultDenyGitCredentialsAccess}
-        sessionConfigName={sessionConfigName}
-        setSessionConfigName={setSessionConfigName}
         sessionConfigAuthMode={sessionConfigAuthMode}
         setSessionConfigAuthMode={setSessionConfigAuthMode}
         sessionConfigSshKey={sessionConfigSshKey}

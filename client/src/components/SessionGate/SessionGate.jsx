@@ -81,8 +81,6 @@ export default function SessionGate({
   setDefaultInternetAccess,
   defaultDenyGitCredentialsAccess,
   setDefaultDenyGitCredentialsAccess,
-  sessionConfigName,
-  setSessionConfigName,
   sessionConfigAuthMode,
   setSessionConfigAuthMode,
   sessionConfigSshKey,
@@ -616,75 +614,66 @@ export default function SessionGate({
                           {sessionConfigTarget.name || sessionConfigTarget.sessionId}
                         </div>
                       ) : null}
-                      <div className="session-form-row is-compact-grid">
-                        <input
-                          type="text"
-                          placeholder={t("Session name")}
-                          value={sessionConfigName}
-                          onChange={(event) =>
-                            setSessionConfigName(event.target.value)
-                          }
-                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
-                        />
-                      </div>
-                      <div className="session-auth-title">
-                        {t("Repository authentication (optional)")}
-                      </div>
-                      <div className="session-auth-options">
-                        <select
-                          value={sessionConfigAuthMode}
-                          onChange={(event) =>
-                            setSessionConfigAuthMode(event.target.value)
-                          }
-                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
-                        >
-                          <option value="keep">{t("Keep current credentials")}</option>
-                          <option value="none">{t("None")}</option>
-                          <option value="ssh">
-                            {t("Private SSH key (not recommended)")}
-                          </option>
-                          <option value="http">
-                            {t("Username + password")}
-                          </option>
-                        </select>
-                      </div>
-                      {sessionConfigAuthMode === "ssh" ? (
-                        <textarea
-                          className="session-auth-textarea"
-                          placeholder={t("-----BEGIN OPENSSH PRIVATE KEY-----")}
-                          value={sessionConfigSshKey}
-                          onChange={(event) =>
-                            setSessionConfigSshKey(event.target.value)
-                          }
-                          disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
-                          rows={6}
-                          spellCheck={false}
-                        />
-                      ) : null}
-                      {sessionConfigAuthMode === "http" ? (
-                        <div className="session-auth-grid">
-                          <input
-                            type="text"
-                            placeholder={t("Username")}
-                            value={sessionConfigHttpUsername}
-                            onChange={(event) =>
-                              setSessionConfigHttpUsername(event.target.value)
-                            }
-                            disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
-                            autoComplete="username"
-                          />
-                          <input
-                            type="password"
-                            placeholder={t("Password or PAT")}
-                            value={sessionConfigHttpPassword}
-                            onChange={(event) =>
-                              setSessionConfigHttpPassword(event.target.value)
-                            }
-                            disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
-                            autoComplete="current-password"
-                          />
+                      <div className="session-auth">
+                        <div className="session-auth-title">
+                          {t("Repository authentication (optional)")}
                         </div>
-                      ) : null}
+                        <div className="session-auth-options">
+                          <select
+                            value={sessionConfigAuthMode}
+                            onChange={(event) =>
+                              setSessionConfigAuthMode(event.target.value)
+                            }
+                            disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                          >
+                            <option value="keep">{t("Keep current credentials")}</option>
+                            <option value="none">{t("None")}</option>
+                            <option value="ssh">
+                              {t("Private SSH key (not recommended)")}
+                            </option>
+                            <option value="http">
+                              {t("Username + password")}
+                            </option>
+                          </select>
+                        </div>
+                        {sessionConfigAuthMode === "ssh" ? (
+                          <textarea
+                            className="session-auth-textarea"
+                            placeholder={t("-----BEGIN OPENSSH PRIVATE KEY-----")}
+                            value={sessionConfigSshKey}
+                            onChange={(event) =>
+                              setSessionConfigSshKey(event.target.value)
+                            }
+                            disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                            rows={6}
+                            spellCheck={false}
+                          />
+                        ) : null}
+                        {sessionConfigAuthMode === "http" ? (
+                          <div className="session-auth-grid">
+                            <input
+                              type="text"
+                              placeholder={t("Username")}
+                              value={sessionConfigHttpUsername}
+                              onChange={(event) =>
+                                setSessionConfigHttpUsername(event.target.value)
+                              }
+                              disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                              autoComplete="username"
+                            />
+                            <input
+                              type="password"
+                              placeholder={t("Password or PAT")}
+                              value={sessionConfigHttpPassword}
+                              onChange={(event) =>
+                                setSessionConfigHttpPassword(event.target.value)
+                              }
+                              disabled={formDisabled || Boolean(workspaceSessionUpdatingId)}
+                              autoComplete="current-password"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
                       <div className="session-auth session-auth-compact">
                         <div className="session-auth-title">
                           {t("Permissions")}
