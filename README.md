@@ -27,13 +27,102 @@ At least one of `codex` or `claude code` must be installed before starting.
 npm install -g @vibe80/vibe80
 
 # Run with Codex support
-vibe80 --codex
+vibe80 run --codex
 
 # Run with Claude support
-vibe80 --claude
+vibe80 run --claude
+
+# Run without opening browser automatically
+vibe80 run --codex --no-open
 ```
 
+> `vibe80 run` requires at least one provider flag: `--codex` or `--claude`.
+
 The server starts on `http://localhost:5179` and prints a one-shot authentication link at startup.
+
+## Workspace CLI (nouveau)
+
+```bash
+# Lister les workspaces connus localement
+vibe80 workspace ls
+
+# Définir / lire le workspace courant
+vibe80 workspace use <workspaceId>
+vibe80 workspace current
+vibe80 workspace show
+
+# Login workspace
+vibe80 workspace login --workspace-id <id> --workspace-secret <secret>
+# ou (mono_user)
+vibe80 workspace login --mono-auth-token <token>
+
+# Refresh / logout
+vibe80 workspace refresh
+vibe80 workspace logout
+
+# Admin (si autorisé côté serveur)
+vibe80 workspace create --enable codex --codex-auth-type api_key --codex-auth-value "$OPENAI_API_KEY"
+vibe80 workspace update <workspaceId> --enable claude --claude-auth-type api_key --claude-auth-value "$ANTHROPIC_API_KEY"
+vibe80 workspace rm <workspaceId> --yes
+```
+
+Notes:
+- `workspace ls` is local-only (no API call).
+- After `workspace login`, the CLI stores `refreshToken` locally and auto-refreshes `workspaceToken` for `session`, `worktree` and `message` commands (with one automatic retry on HTTP 401).
+
+## Session CLI (nouveau)
+
+```bash
+# Lister / sélectionner / afficher
+vibe80 session ls
+vibe80 session use <sessionId>
+vibe80 session current
+vibe80 session show
+
+# Créer / supprimer / santé
+vibe80 session create --repo-url <repoUrl> [--name "My session"]
+vibe80 session health [sessionId]
+vibe80 session rm [sessionId] --yes
+
+# Handoff
+vibe80 session handoff create [sessionId]
+vibe80 session handoff consume --token <handoffToken>
+```
+
+## Worktree CLI (phase 1 + 2)
+
+```bash
+# Lister / sélectionner / afficher
+vibe80 worktree ls
+vibe80 worktree use <worktreeId>
+vibe80 worktree current
+vibe80 worktree show
+
+# Créer / fork / supprimer
+vibe80 worktree create --provider codex [--name "Feature A"]
+vibe80 worktree fork --from main [--name "Feature B"]
+vibe80 worktree rename [worktreeId] --name "Nouveau nom"
+vibe80 worktree rm [worktreeId] --yes
+
+# Runtime + état git
+vibe80 worktree wakeup [worktreeId]
+vibe80 worktree status [worktreeId]
+vibe80 worktree diff [worktreeId]
+vibe80 worktree commits [worktreeId] --limit 20
+```
+
+## Message CLI (avec pièces jointes)
+
+```bash
+# Envoyer un message (et uploader des fichiers)
+vibe80 message send --text "analyse ça" --file ./a.txt --file ./b.png
+
+# Lister les messages d'un worktree
+vibe80 message ls [--limit 50]
+
+# Suivre les nouveaux messages (polling)
+vibe80 message tail [--interval-ms 2000]
+```
 
 ## Docker
 
