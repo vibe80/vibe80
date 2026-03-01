@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-import shared
+import Shared
 
 struct ChatView: View {
     let sessionId: String
@@ -9,9 +9,8 @@ struct ChatView: View {
     @StateObject private var viewModel = ChatViewModel()
 
     @State private var showDiffSheet = false
-    @State private var showProviderSheet = false
     @State private var showCreateWorktreeSheet = false
-    @State private var showWorktreeMenu: String? = nil
+    @State private var showWorktreeMenu: IdentifiableString? = nil
     @State private var isComposerFocused = false
     @State private var keyboardHeight: CGFloat = 0
 
@@ -25,49 +24,20 @@ struct ChatView: View {
                         activeWorktreeId: viewModel.activeWorktreeId,
                         onSelect: viewModel.selectWorktree,
                         onCreate: { showCreateWorktreeSheet = true },
-                        onMenu: { showWorktreeMenu = $0 }
+                        onMenu: { showWorktreeMenu = IdentifiableString($0) }
                     )
                 }
 
                 // Messages list
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(viewModel.messages, id: \.id) { message in
-                                MessageRow(
-                                    message: message,
-                                    sessionId: sessionId,
-                                    workspaceToken: UserDefaults.standard.string(forKey: "workspaceToken"),
-                                    baseUrl: currentServerUrl
-                                )
-                                    .id(message.id)
-                            }
-
-                            // Streaming message
-                            if let streamingText = viewModel.currentStreamingMessage {
-                                MessageRow(
-                                    message: nil,
-                                    sessionId: sessionId,
-                                    workspaceToken: UserDefaults.standard.string(forKey: "workspaceToken"),
-                                    baseUrl: currentServerUrl,
-                                    streamingText: streamingText,
-                                    isStreaming: true
-                                )
-                                .id("streaming")
-                            }
-
-                            // Processing indicator
-                            if viewModel.isProcessing && viewModel.currentStreamingMessage == nil {
-                                ProcessingIndicator()
-                                    .id("processing")
-                            }
-                        }
+                        messageListContent
                         .padding()
                     }
-                    .onChange(of: viewModel.messages.count) { _ in
+                    .onChange(of: viewModel.activeWorktreeMessages.count) { _ in
                         scrollToBottom(proxy)
                     }
-                    .onChange(of: viewModel.currentStreamingMessage) { _ in
+                    .onChange(of: viewModel.activeStreamingMessage) { _ in
                         scrollToBottom(proxy)
                     }
                     .onChange(of: isComposerFocused) { focused in
@@ -85,7 +55,9 @@ struct ChatView: View {
                 // Composer
                 ComposerView(
                     text: $viewModel.inputText,
-                    isLoading: viewModel.isProcessing,
+                    isLoading: viewModel.isActiveWorktreeProcessing,
+                    isUploading: viewModel.uploadingAttachments,
+                    canInteract: viewModel.canInteractWithComposer,
                     actionMode: viewModel.activeActionMode,
                     activeModel: viewModel.activeSelectedModel,
                     availableModels: viewModel.activeModels,
@@ -94,31 +66,51 @@ struct ChatView: View {
                     onSelectModel: viewModel.setActiveModel,
                     onFocusChanged: { focused in
                         isComposerFocused = focused
-                    }
+                    },
+                    pendingAttachments: viewModel.pendingAttachments,
+                    onAddAttachment: viewModel.addPendingAttachment,
+                    onRemoveAttachment: viewModel.removePendingAttachment
                 )
             }
-            .navigationTitle("app.name")
             .navigationBarTitleDisplayMode(.inline)
             .background(Color.vibe80Background)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    connectionIndicator
+                ToolbarItem(placement: .principal) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack(spacing: 6) {
+                                Text("app.name")
+                                    .font(.headline)
+
+                                Circle()
+                                    .fill(connectionColor)
+                                    .frame(width: 7, height: 7)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.black.opacity(0.12), lineWidth: 0.5)
+                                    )
+                                    .allowsHitTesting(false)
+                                    .accessibilityHidden(true)
+                                    .animation(.easeInOut, value: viewModel.connectionState)
+                            }
+                            if !viewModel.repoName.isEmpty {
+                                Text(viewModel.repoName)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    // Provider chip
+                    // Add worktree
                     Button {
-                        showProviderSheet = true
+                        showCreateWorktreeSheet = true
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "cpu")
-                            Text(viewModel.activeProvider.name)
-                        }
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.vibe80SurfaceElevated)
-                        .cornerRadius(12)
+                        Image(systemName: "plus.square.on.square")
                     }
 
                     // Diff button with badge
@@ -137,6 +129,14 @@ struct ChatView: View {
                         }
                     }
 
+                    if viewModel.logsButtonEnabled {
+                        Button {
+                            viewModel.showLogs()
+                        } label: {
+                            Image(systemName: "ladybug")
+                        }
+                    }
+
                     // Disconnect button
                     Button {
                         viewModel.disconnect()
@@ -150,20 +150,20 @@ struct ChatView: View {
                 DiffSheetView(diff: viewModel.repoDiff)
                     .presentationDetents([.large])
             }
-            .sheet(isPresented: $showProviderSheet) {
-                ProviderSheetView(
-                    currentProvider: viewModel.activeProvider,
-                    onSelect: { provider in
-                        viewModel.switchProvider(provider)
-                        showProviderSheet = false
-                    }
-                )
-                .presentationDetents([.height(200)])
+            .sheet(isPresented: $viewModel.showLogsSheet) {
+                if viewModel.logsButtonEnabled {
+                    LogsSheetView(
+                        logs: viewModel.logs,
+                        onClear: viewModel.clearLogs
+                    )
+                    .presentationDetents([.large])
+                }
             }
             .sheet(isPresented: $showCreateWorktreeSheet) {
                 CreateWorktreeSheetView(
                     currentProvider: viewModel.activeProvider,
                     worktrees: viewModel.sortedWorktrees,
+                    isCreating: viewModel.isCreatingWorktree,
                     onCreate: { name, provider, branch, model, reasoningEffort, context, sourceWorktree, internetAccess, denyGitCredentialsAccess in
                         viewModel.createWorktree(
                             name: name,
@@ -176,30 +176,59 @@ struct ChatView: View {
                             internetAccess: internetAccess,
                             denyGitCredentialsAccess: denyGitCredentialsAccess
                         )
-                        showCreateWorktreeSheet = false
                     }
                 )
                 .presentationDetents([.medium])
             }
             .sheet(item: $showWorktreeMenu) { worktreeId in
-                if let worktree = viewModel.worktrees.first(where: { $0.id == worktreeId }) {
+                if let worktree = viewModel.worktrees.first(where: { $0.id == worktreeId.value }) {
                     WorktreeMenuView(
                         worktree: worktree,
                         onClose: {
-                            viewModel.closeWorktree(worktreeId)
+                            viewModel.closeWorktree(worktreeId.value)
                             showWorktreeMenu = nil
                         }
                     )
                     .presentationDetents([.height(250)])
                 }
             }
+            // File sheet (P2.2)
+            .sheet(isPresented: $viewModel.showFileSheet) {
+                FileSheetView(
+                    path: viewModel.fileSheetPath,
+                    content: viewModel.fileSheetContent,
+                    isLoading: viewModel.fileSheetLoading,
+                    error: viewModel.fileSheetError,
+                    isBinary: viewModel.fileSheetBinary,
+                    isTruncated: viewModel.fileSheetTruncated
+                )
+                .presentationDetents([.large])
+            }
+            // Error banner overlay (P2.1)
+            .overlay(alignment: .bottom) {
+                if let error = viewModel.currentError {
+                    ErrorBannerView(error: error) {
+                        viewModel.dismissError()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 80)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.3), value: viewModel.currentError != nil)
+                }
+            }
         }
         .onAppear {
+            viewModel.setup(appState: appState)
             viewModel.connect(sessionId: sessionId)
             viewModel.loadModelsForActiveWorktree()
         }
         .onChange(of: viewModel.activeWorktreeId) { _ in
             viewModel.loadModelsForActiveWorktree()
+        }
+        .onChange(of: viewModel.isCreatingWorktree) { isCreating in
+            if !isCreating && showCreateWorktreeSheet {
+                showCreateWorktreeSheet = false
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { notification in
             guard
@@ -217,14 +246,64 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Connection Indicator
+    private var workspaceToken: String? {
+        UserDefaults.standard.string(forKey: "workspaceToken")
+    }
 
-    private var connectionIndicator: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(connectionColor)
-                .frame(width: 8, height: 8)
+    @ViewBuilder
+    private var messageListContent: some View {
+        LazyVStack(spacing: 12) {
+            ForEach(viewModel.activeWorktreeMessages, id: \.id) { message in
+                messageRow(message)
+            }
+
+            if let streamingText = viewModel.activeStreamingMessage {
+                MessageRow(
+                    message: nil,
+                    sessionId: sessionId,
+                    workspaceToken: workspaceToken,
+                    baseUrl: currentServerUrl,
+                    streamingText: streamingText,
+                    isStreaming: true
+                )
+                .id("streaming")
+            }
+
+            if viewModel.isActiveWorktreeProcessing && viewModel.activeStreamingMessage == nil {
+                ProcessingIndicator()
+                    .id("processing")
+                    .transition(.opacity)
+            }
         }
+    }
+
+    private func messageRow(_ message: ChatMessage) -> some View {
+        MessageRow(
+            message: message,
+            sessionId: sessionId,
+            workspaceToken: workspaceToken,
+            baseUrl: currentServerUrl,
+            onChoiceSelected: { option in
+                viewModel.inputText = option
+                viewModel.sendMessage()
+            },
+            onFileRefSelected: { path in
+                viewModel.openFileRef(path)
+            },
+            onFormSubmit: { formData, fields in
+                let response = formatFormResponse(formData, fields)
+                viewModel.inputText = response
+                viewModel.sendMessage()
+                viewModel.markFormSubmitted(message.id)
+            },
+            onYesNoSubmit: { _ in
+                viewModel.markYesNoSubmitted(message.id)
+            },
+            formsSubmitted: viewModel.submittedFormMessageIds.contains(message.id),
+            yesNoSubmitted: viewModel.submittedYesNoMessageIds.contains(message.id)
+        )
+        .id(message.id)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 
     private var connectionColor: Color {
@@ -250,21 +329,21 @@ struct ChatView: View {
             return savedUrl
         }
         #if DEBUG
-        return "http://localhost:3000"
+        return "https://app.vibe80.io"
         #else
-        return "https://vibe80.example.com"
+        return "https://app.vibe80.io"
         #endif
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
         let targetId: String? = {
-            if viewModel.isProcessing && viewModel.currentStreamingMessage == nil {
+            if viewModel.isActiveWorktreeProcessing && viewModel.activeStreamingMessage == nil {
                 return "processing"
             }
-            if viewModel.currentStreamingMessage != nil {
+            if viewModel.activeStreamingMessage != nil {
                 return "streaming"
             }
-            return viewModel.messages.last?.id
+            return viewModel.activeWorktreeMessages.last?.id
         }()
 
         guard let targetId else { return }
@@ -296,10 +375,13 @@ struct ProcessingIndicator: View {
     }
 }
 
-// MARK: - String Extension for Sheet Item
+struct IdentifiableString: Identifiable {
+    let value: String
+    var id: String { value }
 
-extension String: Identifiable {
-    public var id: String { self }
+    init(_ value: String) {
+        self.value = value
+    }
 }
 
 // MARK: - Preview

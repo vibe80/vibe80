@@ -1,6 +1,6 @@
 import SwiftUI
 import Combine
-import shared
+import Shared
 
 enum ComposerActionMode: String {
     case llm
@@ -21,9 +21,11 @@ class ChatViewModel: ObservableObject {
 
     // Connection
     @Published var connectionState: ConnectionState = .disconnected
+    @Published var appServerReady: Bool = false
 
     // Provider
     @Published var activeProvider: LLMProvider = .codex
+    @Published var repoName: String = ""
 
     // Diff
     @Published var repoDiff: RepoDiff?
@@ -31,6 +33,7 @@ class ChatViewModel: ObservableObject {
     // Worktrees
     @Published var worktrees: [Worktree] = []
     @Published var activeWorktreeId: String = "main"
+    @Published var isCreatingWorktree: Bool = false
 
     // Worktree-specific state
     @Published var worktreeMessages: [String: [ChatMessage]] = [:]
@@ -40,6 +43,29 @@ class ChatViewModel: ObservableObject {
     @Published var selectedModelByWorktree: [String: String] = [:]
     @Published var actionModeByWorktree: [String: ComposerActionMode] = [:]
 
+    // Error handling (P2.1)
+    @Published var currentError: AppError?
+
+    // Vibe80 block submission tracking (P2.2)
+    @Published var submittedFormMessageIds: Set<String> = []
+    @Published var submittedYesNoMessageIds: Set<String> = []
+
+    // File sheet state (P2.2)
+    @Published var showFileSheet = false
+    @Published var fileSheetPath: String = ""
+    @Published var fileSheetContent: String = ""
+    @Published var fileSheetLoading = false
+    @Published var fileSheetError: String?
+    @Published var fileSheetBinary = false
+    @Published var fileSheetTruncated = false
+
+    // Upload progress (P2.6)
+    @Published var uploadingAttachments = false
+    @Published var pendingAttachments: [PendingAttachment] = []
+    @Published var showLogsSheet: Bool = false
+    @Published var logsButtonEnabled: Bool = Vibe80App.SHOW_LOGS_BUTTON
+    @Published var logs: [LogEntry] = []
+
     // Computed properties
     var hasUncommittedChanges: Bool {
         guard let diff = repoDiff else { return false }
@@ -47,10 +73,31 @@ class ChatViewModel: ObservableObject {
     }
 
     var sortedWorktrees: [Worktree] {
-        worktrees.sorted { w1, w2 in
-            if w1.id == "main" { return true }
-            if w2.id == "main" { return false }
-            return w1.createdAt < w2.createdAt
+        var items = worktrees
+
+        // Server worktrees map may not include main.
+        // Keep main visible as first tab whenever worktrees are displayed.
+        if !items.isEmpty, !items.contains(where: { $0.id == "main" }) {
+            items.insert(
+                Worktree(
+                    id: "main",
+                    name: "main",
+                    branchName: "main",
+                    provider: activeProvider,
+                    status: .ready,
+                    color: "#4CAF50",
+                    parentId: nil,
+                    createdAt: 0
+                ),
+                at: 0
+            )
+        }
+
+        return items.sorted { a, b in
+            if a.id == "main", b.id != "main" { return true }
+            if b.id == "main", a.id != "main" { return false }
+            if a.createdAt != b.createdAt { return a.createdAt < b.createdAt }
+            return a.id < b.id
         }
     }
 
@@ -91,6 +138,22 @@ class ChatViewModel: ObservableObject {
         return provider.name.lowercased()
     }
 
+    var effectiveProvider: LLMProvider {
+        worktrees.first(where: { $0.id == activeWorktreeId })?.provider ?? activeProvider
+    }
+
+    var canInteractWithComposer: Bool {
+        guard connectionState == .connected else { return false }
+        if effectiveProvider != .codex {
+            return true
+        }
+        if activeWorktreeId == "main" {
+            return appServerReady
+        }
+        let status = worktrees.first(where: { $0.id == activeWorktreeId })?.status
+        return status == .ready
+    }
+
     var activeModels: [ProviderModel] {
         providerModels[activeProviderKey] ?? []
     }
@@ -98,24 +161,76 @@ class ChatViewModel: ObservableObject {
     // Private
     private var sessionId: String?
     private weak var appState: AppState?
+    private var attachmentUploader: AttachmentUploader?
+    private var didSetup = false
 
     // Flow subscriptions
     private var messagesWrapper: FlowWrapper<NSArray>?
-    private var streamingMessageWrapper: FlowWrapper<NSString?>?
+    private var streamingMessageWrapper: FlowWrapper<NSString>?
     private var processingWrapper: FlowWrapper<KotlinBoolean>?
     private var connectionStateWrapper: FlowWrapper<ConnectionState>?
-    private var sessionStateWrapper: FlowWrapper<SessionState?>?
-    private var repoDiffWrapper: FlowWrapper<RepoDiff?>?
+    private var sessionStateWrapper: FlowWrapper<SessionState>?
+    private var activeWorktreeIdWrapper: FlowWrapper<NSString>?
+    private var repoDiffWrapper: FlowWrapper<RepoDiff>?
     private var worktreesWrapper: FlowWrapper<NSDictionary>?
     private var worktreeMessagesWrapper: FlowWrapper<NSDictionary>?
     private var worktreeStreamingWrapper: FlowWrapper<NSDictionary>?
     private var worktreeProcessingWrapper: FlowWrapper<NSDictionary>?
+    private var errorWrapper: FlowWrapper<AppError>?
+    private var logsWrapper: FlowWrapper<NSArray>?
+    private var fileCall: SuspendWrapper<AnyObject>?
+    private var sessionListCall: SuspendWrapper<AnyObject>?
+    private let logsUnlockCommand = "open.the.maze"
+
+    private func errorMessage(_ error: Error) -> String {
+        if let kotlinError = error as? KotlinThrowable {
+            return kotlinError.message ?? String(describing: kotlinError)
+        }
+        return (error as NSError).localizedDescription
+    }
+
+    private func reportNetworkError(_ repository: SessionRepository, error: Error) {
+        repository.reportError(
+            error: AppError.companion.network(
+                message: errorMessage(error),
+                details: nil,
+                canRetry: true
+            )
+        )
+    }
+
+    private func toKotlinBoolean(_ value: Bool?) -> KotlinBoolean? {
+        guard let value else { return nil }
+        return KotlinBoolean(bool: value)
+    }
+
+    private func repoNameFromUrl(_ url: String) -> String {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !trimmed.isEmpty else { return "" }
+        let slashIndex = trimmed.lastIndex(of: "/")
+        let colonIndex = trimmed.lastIndex(of: ":")
+        if let index = [slashIndex, colonIndex].compactMap({ $0 }).max() {
+            let next = trimmed.index(after: index)
+            guard next < trimmed.endIndex else { return trimmed }
+            let candidate = String(trimmed[next...])
+            return candidate.isEmpty ? trimmed : candidate
+        }
+        return trimmed
+    }
 
     // MARK: - Initialization
 
     func setup(appState: AppState) {
+        if didSetup {
+            return
+        }
         self.appState = appState
+        self.logsButtonEnabled = appState.logsButtonEnabled
+        if let baseUrl = appState.dependencies?.apiClient.getBaseUrl() {
+            attachmentUploader = AttachmentUploader(baseUrl: baseUrl)
+        }
         subscribeToFlows()
+        didSetup = true
     }
 
     private func subscribeToFlows() {
@@ -124,7 +239,22 @@ class ChatViewModel: ObservableObject {
         // Subscribe to messages
         messagesWrapper = FlowWrapper(flow: repository.messages)
         messagesWrapper?.subscribe { [weak self] messages in
-            self?.messages = (messages as? [ChatMessage]) ?? []
+            let newMessages = (messages as? [ChatMessage]) ?? []
+            let oldCount = self?.messages.count ?? 0
+            self?.messages = newMessages
+
+            // Notify for new assistant messages when backgrounded (P2.5)
+            if newMessages.count > oldCount {
+                let newOnes = newMessages.suffix(newMessages.count - oldCount)
+                for msg in newOnes where msg.role == .assistant {
+                    NotificationManager.shared.notifyMessage(
+                        title: "Vibe80",
+                        body: msg.text,
+                        sessionId: self?.sessionId,
+                        worktreeId: self?.activeWorktreeId
+                    )
+                }
+            }
         }
 
         // Subscribe to streaming message
@@ -136,13 +266,13 @@ class ChatViewModel: ObservableObject {
         // Subscribe to processing state
         processingWrapper = FlowWrapper(flow: repository.processing)
         processingWrapper?.subscribe { [weak self] processing in
-            self?.isProcessing = processing.boolValue
+            self?.isProcessing = processing?.boolValue ?? false
         }
 
         // Subscribe to connection state
         connectionStateWrapper = FlowWrapper(flow: repository.connectionState)
         connectionStateWrapper?.subscribe { [weak self] state in
-            self?.connectionState = state
+            self?.connectionState = state ?? .disconnected
         }
 
         // Subscribe to session state for provider
@@ -150,6 +280,22 @@ class ChatViewModel: ObservableObject {
         sessionStateWrapper?.subscribe { [weak self] state in
             if let activeProvider = state?.activeProvider {
                 self?.activeProvider = activeProvider
+            }
+            if let ready = state?.appServerReady {
+                self?.appServerReady = ready
+            }
+            if let repoUrl = state?.repoUrl {
+                self?.repoName = self?.repoNameFromUrl(repoUrl) ?? ""
+            }
+        }
+
+        // Subscribe to active worktree id from repository (Android parity)
+        activeWorktreeIdWrapper = FlowWrapper(flow: repository.activeWorktreeId)
+        activeWorktreeIdWrapper?.subscribe { [weak self] worktreeId in
+            guard let self = self else { return }
+            guard let id = worktreeId as String? else { return }
+            if self.activeWorktreeId != id {
+                self.activeWorktreeId = id
             }
         }
 
@@ -190,20 +336,106 @@ class ChatViewModel: ObservableObject {
                 self?.worktreeProcessing = dict
             }
         }
+
+        // Subscribe to errors (P2.1)
+        errorWrapper = FlowWrapper(flow: repository.lastError)
+        errorWrapper?.subscribe { [weak self] error in
+            // Skip TURN_ERROR — logged but not shown to user (matching Android)
+            if let error, error.type == .turnError {
+                return
+            }
+            self?.currentError = error
+        }
+
+        logsWrapper = FlowWrapper(flow: AppLogger.shared.logs)
+        logsWrapper?.subscribe { [weak self] entries in
+            self?.logs = (entries as? [LogEntry]) ?? []
+        }
+    }
+
+    // MARK: - Error Handling (P2.1)
+
+    func dismissError() {
+        currentError = nil
+        appState?.sessionRepository?.clearError()
+    }
+
+    // MARK: - Vibe80 Block Tracking (P2.2)
+
+    func markFormSubmitted(_ messageId: String) {
+        submittedFormMessageIds.insert(messageId)
+    }
+
+    func markYesNoSubmitted(_ messageId: String) {
+        submittedYesNoMessageIds.insert(messageId)
+    }
+
+    func openFileRef(_ path: String) {
+        guard let repository = appState?.sessionRepository,
+              let sessionId else { return }
+
+        fileSheetPath = path
+        fileSheetContent = ""
+        fileSheetError = nil
+        fileSheetBinary = false
+        fileSheetTruncated = false
+        fileSheetLoading = true
+        showFileSheet = true
+
+        let worktreeId = activeWorktreeId
+        Task { [weak self] in
+            do {
+                guard let self = self else { return }
+                let fileResponse = try await repository.getWorktreeFileOrThrow(
+                    sessionId: sessionId,
+                    worktreeId: worktreeId,
+                    path: path
+                )
+                self.fileSheetContent = fileResponse.content
+                self.fileSheetBinary = fileResponse.binary
+                self.fileSheetTruncated = fileResponse.truncated
+                self.fileSheetLoading = false
+            } catch {
+                self?.fileSheetError = self?.errorMessage(error)
+                self?.fileSheetLoading = false
+            }
+        }
     }
 
     // MARK: - Connection
 
     func connect(sessionId: String) {
         self.sessionId = sessionId
-        // WebSocket connection is handled by SessionRepository.createSession/reconnectSession
-        // Just load initial data
+        // Reset submission tracking for new sessions
+        submittedFormMessageIds.removeAll()
+        submittedYesNoMessageIds.removeAll()
         loadDiff()
+        if let repository = appState?.sessionRepository {
+            Task {
+                do {
+                    try await repository.listWorktrees()
+                } catch {
+                    // Non-critical on chat entry.
+                }
+            }
+        }
     }
 
     func disconnect() {
         appState?.sessionRepository?.disconnect()
         closeAllSubscriptions()
+    }
+
+    func showLogs() {
+        showLogsSheet = true
+    }
+
+    func hideLogs() {
+        showLogsSheet = false
+    }
+
+    func clearLogs() {
+        AppLogger.shared.clear()
     }
 
     private func closeAllSubscriptions() {
@@ -212,85 +444,181 @@ class ChatViewModel: ObservableObject {
         processingWrapper?.close()
         connectionStateWrapper?.close()
         sessionStateWrapper?.close()
+        activeWorktreeIdWrapper?.close()
         repoDiffWrapper?.close()
         worktreesWrapper?.close()
         worktreeMessagesWrapper?.close()
         worktreeStreamingWrapper?.close()
         worktreeProcessingWrapper?.close()
+        errorWrapper?.close()
+        logsWrapper?.close()
     }
 
     // MARK: - Messages
 
+    func addPendingAttachment(_ attachment: PendingAttachment) {
+        pendingAttachments.append(attachment)
+    }
+
+    func removePendingAttachment(_ attachment: PendingAttachment) {
+        pendingAttachments.removeAll { $0.id == attachment.id }
+    }
+
+    private func clearPendingAttachments() {
+        pendingAttachments.removeAll()
+    }
+
     func sendMessage() {
-        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let repository = appState?.sessionRepository else { return }
+        guard !trimmedText.isEmpty || !pendingAttachments.isEmpty else { return }
+        guard canInteractWithComposer else { return }
+
+        inputText = ""
 
         if activeActionMode != .llm {
-            guard !text.isEmpty else { return }
+            guard !trimmedText.isEmpty else { return }
             let worktreeId = activeWorktreeId
-            inputText = ""
             actionModeByWorktree[worktreeId] = .llm
+            if activeActionMode == .git && trimmedText == logsUnlockCommand {
+                logsButtonEnabled = true
+                appState?.logsButtonEnabled = true
+                return
+            }
             let request = activeActionMode == .git ? "git" : "run"
-            Coroutines.shared.launch(
-                block: { [worktreeId] in
+            Task {
+                do {
                     try await repository.sendActionRequest(
                         worktreeId: worktreeId,
                         request: request,
-                        arg: text
+                        arg: trimmedText
                     )
-                },
-                onError: { error in
-                    print("Error sending action request: \(error)")
+                } catch {
+                    repository.reportError(
+                        error: AppError.companion.sendMessage(
+                            message: errorMessage(error),
+                            details: nil,
+                            canRetry: true
+                        )
+                    )
                 }
+            }
+            return
+        }
+
+        if !pendingAttachments.isEmpty {
+            sendMessageWithAttachments(text: trimmedText, repository: repository)
+            return
+        }
+
+        Task {
+            do {
+                if activeWorktreeId == "main" {
+                    try await repository.sendMessage(text: trimmedText, attachments: [])
+                } else {
+                    try await repository.sendWorktreeMessage(
+                        worktreeId: activeWorktreeId,
+                        text: trimmedText,
+                        attachments: []
+                    )
+                }
+            } catch {
+                repository.reportError(
+                    error: AppError.companion.sendMessage(
+                        message: errorMessage(error),
+                        details: nil,
+                        canRetry: true
+                    )
+                )
+            }
+        }
+    }
+
+    private func sendMessageWithAttachments(text: String, repository: SessionRepository) {
+        guard !pendingAttachments.isEmpty else { return }
+        guard canInteractWithComposer else { return }
+        guard let sessionId else {
+            repository.reportError(
+                error: AppError.companion.upload(
+                    message: "Session non disponible",
+                    details: nil,
+                    canRetry: true
+                )
+            )
+            return
+        }
+        guard let uploader = attachmentUploader else {
+            repository.reportError(
+                error: AppError.companion.upload(
+                    message: "Impossible d'uploader les pièces jointes pour le moment.",
+                    details: nil,
+                    canRetry: true
+                )
             )
             return
         }
 
-        guard !text.isEmpty else { return }
+        let attachmentsToUpload = pendingAttachments
+        clearPendingAttachments()
+        uploadingAttachments = true
 
-        inputText = ""
-
-        // Send via repository (which handles local message addition and WebSocket)
-        Coroutines.shared.launch(
-            block: { [activeWorktreeId] in
-                if activeWorktreeId == "main" {
-                    try await repository.sendMessage(text: text, attachments: [])
+        Task { [weak self] in
+            guard let self = self else { return }
+            do {
+                let uploadedAttachments = try await uploader.uploadAttachments(
+                    sessionId: sessionId,
+                    attachments: attachmentsToUpload
+                )
+                let suffix = self.buildAttachmentsSuffix(paths: uploadedAttachments.map { $0.path })
+                let textWithSuffix = text + suffix
+                if self.activeWorktreeId == "main" {
+                    try await repository.sendMessage(text: textWithSuffix, attachments: uploadedAttachments)
                 } else {
                     try await repository.sendWorktreeMessage(
-                        worktreeId: activeWorktreeId,
-                        text: text,
-                        attachments: []
+                        worktreeId: self.activeWorktreeId,
+                        text: textWithSuffix,
+                        attachments: uploadedAttachments
                     )
                 }
-            },
-            onError: { error in
-                print("Error sending message: \(error)")
+                self.uploadingAttachments = false
+            } catch {
+                self.uploadingAttachments = false
+                repository.reportError(
+                    error: AppError.companion.upload(
+                        message: self.errorMessage(error),
+                        details: nil,
+                        canRetry: true
+                    )
+                )
             }
-        )
+        }
     }
 
-    func sendMessageWithAttachments(_ attachments: [Attachment]) {
-        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let repository = appState?.sessionRepository else { return }
+    private func buildAttachmentsSuffix(paths: [String]) -> String {
+        guard !paths.isEmpty else { return "" }
+        let joined = paths.map { "\"\(escapeJson($0))\"" }.joined(separator: ", ")
+        return ";; attachments: [\(joined)]"
+    }
 
-        inputText = ""
-
-        Coroutines.shared.launch(
-            block: { [activeWorktreeId] in
-                if activeWorktreeId == "main" {
-                    try await repository.sendMessage(text: text, attachments: attachments)
-                } else {
-                    try await repository.sendWorktreeMessage(
-                        worktreeId: activeWorktreeId,
-                        text: text,
-                        attachments: attachments
-                    )
-                }
-            },
-            onError: { error in
-                print("Error sending message with attachments: \(error)")
+    private func escapeJson(_ value: String) -> String {
+        var result = ""
+        value.forEach { ch in
+            switch ch {
+            case "\\":
+                result.append("\\\\")
+            case "\"":
+                result.append("\\\"")
+            case "\n":
+                result.append("\\n")
+            case "\r":
+                result.append("\\r")
+            case "\t":
+                result.append("\\t")
+            default:
+                result.append(ch)
             }
-        )
+        }
+        return result
     }
 
     // MARK: - Provider
@@ -298,14 +626,13 @@ class ChatViewModel: ObservableObject {
     func switchProvider(_ provider: LLMProvider) {
         guard let repository = appState?.sessionRepository else { return }
 
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            do {
                 try await repository.switchProvider(provider: provider)
-            },
-            onError: { error in
-                print("Error switching provider: \(error)")
+            } catch {
+                reportNetworkError(repository, error: error)
             }
-        )
+        }
     }
 
     func setActionMode(_ mode: ComposerActionMode) {
@@ -315,40 +642,36 @@ class ChatViewModel: ObservableObject {
     func loadModelsForActiveWorktree() {
         guard let repository = appState?.sessionRepository else { return }
         let provider = activeProviderKey
-        Coroutines.shared.launch(
-            block: {
-                let list = try await repository.loadProviderModels(provider: provider)
-                await MainActor.run {
-                    self.providerModels[provider] = list
-                    if self.selectedModelByWorktree[self.activeWorktreeId] == nil {
-                        let fallback = list.first(where: { $0.isDefault })?.model ?? list.first?.model
-                        if let fallback {
-                            self.selectedModelByWorktree[self.activeWorktreeId] = fallback
-                        }
+        Task {
+            do {
+                let list = try await repository.loadProviderModelsOrThrow(provider: provider)
+                self.providerModels[provider] = list
+                if self.selectedModelByWorktree[self.activeWorktreeId] == nil {
+                    let fallback = list.first(where: { $0.isDefault })?.model ?? list.first?.model
+                    if let fallback {
+                        self.selectedModelByWorktree[self.activeWorktreeId] = fallback
                     }
                 }
-            },
-            onError: { error in
-                print("Error loading provider models: \(error)")
+            } catch {
+                reportNetworkError(repository, error: error)
             }
-        )
+        }
     }
 
     func setActiveModel(_ model: String) {
         guard let repository = appState?.sessionRepository else { return }
         selectedModelByWorktree[activeWorktreeId] = model
-        Coroutines.shared.launch(
-            block: { [activeWorktreeId] in
+        Task {
+            do {
                 try await repository.setModel(
                     worktreeId: activeWorktreeId,
                     model: model,
                     reasoningEffort: nil
                 )
-            },
-            onError: { error in
-                print("Error setting model: \(error)")
+            } catch {
+                reportNetworkError(repository, error: error)
             }
-        )
+        }
     }
 
     // MARK: - Diff
@@ -356,14 +679,13 @@ class ChatViewModel: ObservableObject {
     func loadDiff() {
         guard let repository = appState?.sessionRepository else { return }
 
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            do {
                 try await repository.loadDiff()
-            },
-            onError: { error in
-                print("Error loading diff: \(error)")
+            } catch {
+                // Diff loading errors are non-critical, don't report
             }
-        )
+        }
     }
 
     // MARK: - Worktrees
@@ -386,9 +708,12 @@ class ChatViewModel: ObservableObject {
         denyGitCredentialsAccess: Bool?
     ) {
         guard let repository = appState?.sessionRepository else { return }
+        if isCreatingWorktree { return }
 
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            isCreatingWorktree = true
+            defer { isCreatingWorktree = false }
+            do {
                 try await repository.createWorktree(
                     name: name,
                     provider: provider,
@@ -397,33 +722,42 @@ class ChatViewModel: ObservableObject {
                     reasoningEffort: reasoningEffort,
                     context: context,
                     sourceWorktree: sourceWorktree,
-                    internetAccess: internetAccess,
-                    denyGitCredentialsAccess: denyGitCredentialsAccess
+                    internetAccess: toKotlinBoolean(internetAccess),
+                    denyGitCredentialsAccess: toKotlinBoolean(denyGitCredentialsAccess)
                 )
-            },
-            onError: { error in
-                print("Error creating worktree: \(error)")
+            } catch {
+                repository.reportError(
+                    error: AppError.companion.network(
+                        message: errorMessage(error),
+                        details: nil,
+                        canRetry: true
+                    )
+                )
             }
-        )
+        }
     }
 
     func closeWorktree(_ worktreeId: String) {
         guard worktreeId != "main" else { return }
         guard let repository = appState?.sessionRepository else { return }
 
-        // Switch to main if closing active worktree
         if activeWorktreeId == worktreeId {
             activeWorktreeId = "main"
         }
 
-        Coroutines.shared.launch(
-            block: {
+        Task {
+            do {
                 try await repository.closeWorktree(worktreeId: worktreeId)
-            },
-            onError: { error in
-                print("Error closing worktree: \(error)")
+            } catch {
+                repository.reportError(
+                    error: AppError.companion.network(
+                        message: errorMessage(error),
+                        details: nil,
+                        canRetry: true
+                    )
+                )
             }
-        )
+        }
     }
 
     // MARK: - Cleanup
@@ -442,7 +776,11 @@ extension ChatMessage {
             role: .user,
             text: "Bonjour, peux-tu m'aider ?",
             attachments: [],
-            timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+            timestamp: Int64(Date().timeIntervalSince1970 * 1000),
+            command: nil,
+            output: nil,
+            status: nil,
+            toolResult: nil
         )
     }
 
@@ -452,7 +790,11 @@ extension ChatMessage {
             role: .assistant,
             text: "Bien sûr ! Comment puis-je vous aider aujourd'hui ?",
             attachments: [],
-            timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+            timestamp: Int64(Date().timeIntervalSince1970 * 1000),
+            command: nil,
+            output: nil,
+            status: nil,
+            toolResult: nil
         )
     }
 }

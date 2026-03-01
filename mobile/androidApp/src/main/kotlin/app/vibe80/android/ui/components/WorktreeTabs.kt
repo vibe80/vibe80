@@ -2,8 +2,9 @@ package app.vibe80.android.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -61,7 +61,7 @@ fun WorktreeTabs(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun WorktreeTab(
     worktree: Worktree,
@@ -91,24 +91,44 @@ private fun WorktreeTab(
 
     Surface(
         modifier = Modifier
-            .height(36.dp),
+            .height(36.dp)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    if (worktree.id != Worktree.MAIN_WORKTREE_ID) {
+                        onLongClick()
+                    }
+                }
+            ),
         shape = RoundedCornerShape(18.dp),
         color = backgroundColor,
-        tonalElevation = elevation,
-        onClick = onClick
+        tonalElevation = elevation
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Color indicator
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(worktreeColor)
-            )
+            // Leading indicator (iOS parity: loader replaces color LED while loading)
+            when (worktree.status) {
+                WorktreeStatus.CREATING,
+                WorktreeStatus.PROCESSING,
+                WorktreeStatus.MERGING -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(10.dp),
+                        strokeWidth = 1.5.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(worktreeColor)
+                    )
+                }
+            }
 
             // Name
             Text(
@@ -128,18 +148,6 @@ private fun WorktreeTab(
                 status = worktree.status,
                 isMain = worktree.id == Worktree.MAIN_WORKTREE_ID
             )
-
-            // Menu button for non-main worktrees
-            if (worktree.id != Worktree.MAIN_WORKTREE_ID) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = stringResource(R.string.worktree_menu),
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable { onLongClick() },
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
@@ -150,25 +158,10 @@ private fun WorktreeStatusIndicator(
     isMain: Boolean
 ) {
     when (status) {
-        WorktreeStatus.CREATING -> {
-            CircularProgressIndicator(
-                modifier = Modifier.size(12.dp),
-                strokeWidth = 1.5.dp
-            )
-        }
-        WorktreeStatus.PROCESSING -> {
-            CircularProgressIndicator(
-                modifier = Modifier.size(12.dp),
-                strokeWidth = 1.5.dp,
-                color = MaterialTheme.colorScheme.tertiary
-            )
-        }
+        WorktreeStatus.CREATING,
+        WorktreeStatus.PROCESSING,
         WorktreeStatus.MERGING -> {
-            CircularProgressIndicator(
-                modifier = Modifier.size(12.dp),
-                strokeWidth = 1.5.dp,
-                color = MaterialTheme.colorScheme.secondary
-            )
+            // Loader is already shown as the leading indicator.
         }
         WorktreeStatus.MERGE_CONFLICT -> {
             Badge(

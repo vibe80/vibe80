@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -55,7 +56,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
 import app.vibe80.android.R
-import app.vibe80.android.Vibe80Application
 import app.vibe80.android.ui.components.CreateWorktreeSheet
 import app.vibe80.android.ui.components.DiffSheetContent
 import app.vibe80.android.ui.components.FileSheetContent
@@ -88,6 +88,7 @@ fun ChatScreen(
     viewModel: ChatViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
+    val isDarkTheme = isSystemInDarkTheme()
     val uiState by viewModel.uiState.collectAsState()
     val listStatesByWorktree = remember { mutableStateMapOf<String, LazyListState>() }
     val listState = listStatesByWorktree.getOrPut(uiState.activeWorktreeId) { LazyListState() }
@@ -95,6 +96,7 @@ fun ChatScreen(
     val inputInteractionSource = remember { MutableInteractionSource() }
     val inputFocused by inputInteractionSource.collectIsFocusedAsState()
     var pendingCameraPhoto by remember { mutableStateOf<CameraPhoto?>(null) }
+    var pendingLogsExport by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.workspaceAuthInvalidEvent.collect {
@@ -172,6 +174,20 @@ fun ChatScreen(
             photo?.file?.delete()
         }
         pendingCameraPhoto = null
+    }
+
+    val logsExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        val content = pendingLogsExport
+        if (uri != null && content != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(content.toByteArray())
+                }
+            }
+        }
+        pendingLogsExport = null
     }
 
     var showAttachmentMenu by remember { mutableStateOf(false) }
@@ -270,6 +286,11 @@ fun ChatScreen(
     )
 
     Scaffold(
+        containerColor = if (isDarkTheme) {
+            MaterialTheme.colorScheme.background
+        } else {
+            Color.White
+        },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
@@ -284,15 +305,10 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    val baseWorktrees = uiState.sortedWorktrees
-                    val worktreesForTabs = if (baseWorktrees.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
-                        listOf(Worktree.createMain(uiState.activeProvider)) + baseWorktrees
-                    } else {
-                        baseWorktrees
-                    }
+                    val worktreesForTabs = uiState.sortedWorktrees
                     val activeWorktreeName = worktreesForTabs.firstOrNull { it.id == uiState.activeWorktreeId }?.name
                         ?: Worktree.MAIN_WORKTREE_ID
-                    val showWorktreeTabs = worktreesForTabs.size > 1
+                    val showWorktreeTabs = worktreesForTabs.isNotEmpty()
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -373,7 +389,7 @@ fun ChatScreen(
                         }
                     }
 
-                    if (Vibe80Application.SHOW_LOGS_BUTTON) {
+                    if (uiState.logsButtonEnabled) {
                         // Logs button (debug)
                         IconButton(onClick = viewModel::showLogsSheet) {
                             Icon(
@@ -406,6 +422,10 @@ fun ChatScreen(
             label = "animatedInputBarHeight"
         )
         val imeBottomDp = with(density) { WindowInsets.ime.getBottom(density).toDp() }
+        val navBarInsets = WindowInsets.navigationBars
+        val navBarBottomDp = with(density) { navBarInsets.getBottom(density).toDp() }
+        val hasButtonNav = navBarBottomDp > 24.dp
+        val buttonNavExtraOffset = if (hasButtonNav) 35.dp else 0.dp
 
         LaunchedEffect(uiState.activeWorktreeId, inputFocused, imeBottomDp, listItemCount) {
             if (listItemCount > 0 && (inputFocused || imeBottomDp > 0.dp)) {
@@ -420,15 +440,8 @@ fun ChatScreen(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Worktree tabs
-                val worktreesForTabs = run {
-                    val baseList = uiState.sortedWorktrees
-                    if (baseList.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
-                        listOf(Worktree.createMain(uiState.activeProvider)) + baseList
-                    } else {
-                        baseList
-                    }
-                }
-                if (worktreesForTabs.size > 1) {
+                val worktreesForTabs = uiState.sortedWorktrees
+                if (worktreesForTabs.isNotEmpty()) {
                     WorktreeTabs(
                         worktrees = worktreesForTabs,
                         activeWorktreeId = uiState.activeWorktreeId,
@@ -447,7 +460,7 @@ fun ChatScreen(
                         start = 16.dp,
                         top = 16.dp,
                         end = 16.dp,
-                        bottom = 16.dp + animatedInputBarHeight + imeBottomDp
+                        bottom = 16.dp + animatedInputBarHeight + imeBottomDp + buttonNavExtraOffset
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -531,10 +544,6 @@ fun ChatScreen(
             // Only add nav-bar padding for button-style navigation (3-button / 2-button).
             // Gesture-nav insets are small (typically ≤24 dp) and just add an
             // unwanted gap on phones with rounded corners.
-            val navBarInsets = WindowInsets.navigationBars
-            val navBarBottomDp = with(density) { navBarInsets.getBottom(density).toDp() }
-            val hasButtonNav = navBarBottomDp > 24.dp
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -813,12 +822,17 @@ fun ChatScreen(
     }
 
     // Logs Sheet
-    if (Vibe80Application.SHOW_LOGS_BUTTON && uiState.showLogsSheet) {
+    if (uiState.logsButtonEnabled && uiState.showLogsSheet) {
         ModalBottomSheet(
             onDismissRequest = viewModel::hideLogsSheet,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
-            LogsSheetContent()
+            LogsSheetContent(
+                onExportLogs = { content, fileName ->
+                    pendingLogsExport = content
+                    logsExportLauncher.launch(fileName)
+                }
+            )
         }
     }
 
@@ -845,6 +859,7 @@ fun ChatScreen(
             currentProvider = uiState.activeProvider,
             worktrees = uiState.sortedWorktrees,
             providerModelState = uiState.providerModelState,
+            isCreating = uiState.isCreatingWorktree,
             onDismiss = viewModel::hideCreateWorktreeSheet,
             onRequestModels = viewModel::loadProviderModels,
             onCreate = { name, provider, branchName, model, reasoningEffort, context, sourceWorktree, internetAccess, denyGitCredentialsAccess ->

@@ -15,6 +15,8 @@
 "action.resume" = "Resume";
 "action.resume.progress" = "Resuming...";
 "action.send" = "Send";
+"action.yes" = "Yes";
+"action.no" = "No";
 "app.name" = "Vibe80";
 "attachment.default_name" = "attachment";
 "auth.http" = "HTTP";
@@ -71,9 +73,14 @@
 "error.title" = "Error";
 "error.turn" = "Error processing request";
 "error.unknown" = "An unexpected error occurred";
+"error.provider_switch" = "Failed to switch provider";
+"error.upload" = "Failed to upload";
 "error.upload_attachment" = "Failed to upload file";
 "error.websocket" = "WebSocket connection error";
+"error.worktree" = "Worktree error";
+"file.binary" = "Binary file";
 "file.binary_unavailable" = "Binary file cannot be displayed.";
+"file.loading" = "Loading file...";
 "file.title" = "File";
 "file.truncated" = "Display truncated.";
 "loading" = "Loading...";
@@ -101,6 +108,8 @@
 "provider.auth.auth_json_file" = "auth.json file";
 "provider.auth.auth_json_label" = "auth.json";
 "provider.auth.import_auth_json" = "Import auth.json";
+"provider.auth.auth_json_selected" = "auth.json selected";
+"provider.auth.auth_json_not_selected" = "No auth.json selected";
 "provider.auth.setup_token" = "setup_token";
 "provider.auth.setup_token_label" = "Setup token";
 "provider.claude" = "Claude";
@@ -108,6 +117,7 @@
 "provider.label" = "Provider";
 "provider.title" = "Provider";
 "providers.config.loading" = "Loading...";
+"providers.config.learn_more" = "Click here to learn more.";
 "providers.config.subtitle" = "Update your providers for this workspace.";
 "providers.config.title" = "Configure AI providers";
 "providers.config.validation" = "Select at least one provider.";
@@ -128,6 +138,7 @@
 "session.start.new" = "Start a new session";
 "session.start.title" = "Start a session";
 "session.title" = "New Session";
+"sessions.loading" = "Loading sessions...";
 "sessions.recent" = "Recent sessions";
 "status.connected" = "Connected";
 "status.disconnected" = "Disconnected";
@@ -155,6 +166,13 @@
 "worktree.done" = "done";
 "worktree.menu" = "Menu";
 "worktree.merge_to_main" = "Merge into main";
+"worktree.status.creating" = "Creating";
+"worktree.status.processing" = "Processing";
+"worktree.status.merging" = "Merging";
+"worktree.status.merge_conflict" = "Merge conflict";
+"worktree.status.error" = "Error";
+"worktree.status.completed" = "Completed";
+"worktree.status.main" = "Main worktree";
 "worktree.name.count" = "%d/32 characters";
 "worktree.name.label" = "Name";
 "worktree.name.optional_label" = "Name (optional)";

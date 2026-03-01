@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.vibe80.android.data.AttachmentUploader
 import app.vibe80.android.data.SessionPreferences
+import app.vibe80.android.Vibe80Application
 import app.vibe80.shared.logging.AppLogger
 import app.vibe80.shared.logging.LogSource
 import app.vibe80.shared.models.AppError
@@ -53,6 +54,7 @@ data class ChatUiState(
     val inputText: String = "",
     val showDiffSheet: Boolean = false,
     val showLogsSheet: Boolean = false,
+    val logsButtonEnabled: Boolean = Vibe80Application.logsButtonEnabled,
     val showFileSheet: Boolean = false,
     val fileSheetPath: String? = null,
     val fileSheetContent: String = "",
@@ -66,6 +68,7 @@ data class ChatUiState(
     val worktrees: Map<String, Worktree> = emptyMap(),
     val activeWorktreeId: String = Worktree.MAIN_WORKTREE_ID,
     val showCreateWorktreeSheet: Boolean = false,
+    val isCreatingWorktree: Boolean = false,
     val showWorktreeMenuFor: String? = null,
     val showCloseWorktreeConfirm: String? = null,
     // Provider models
@@ -100,9 +103,25 @@ data class ChatUiState(
 
     /** Sorted list of worktrees (main first, then by creation) */
     val sortedWorktrees: List<Worktree>
-        get() = worktrees.values.sortedWith(
-            compareBy({ it.id != Worktree.MAIN_WORKTREE_ID }, { it.createdAt })
-        )
+        get() {
+            val items = worktrees.values.toMutableList()
+            // iOS parity: if there are worktrees but "main" is missing in payload, inject it.
+            if (items.isNotEmpty() && items.none { it.id == Worktree.MAIN_WORKTREE_ID }) {
+                items.add(0, Worktree.createMain(activeProvider))
+            }
+            // iOS parity sort:
+            // 1) main first
+            // 2) by createdAt asc
+            // 3) by id asc
+            return items.sortedWith { a, b ->
+                when {
+                    a.id == Worktree.MAIN_WORKTREE_ID && b.id != Worktree.MAIN_WORKTREE_ID -> -1
+                    b.id == Worktree.MAIN_WORKTREE_ID && a.id != Worktree.MAIN_WORKTREE_ID -> 1
+                    a.createdAt != b.createdAt -> a.createdAt.compareTo(b.createdAt)
+                    else -> a.id.compareTo(b.id)
+                }
+            }
+        }
 }
 
 private data class SessionSnapshot(
@@ -138,6 +157,7 @@ class ChatViewModel(
     private val sessionPreferences: SessionPreferences,
     private val attachmentUploader: AttachmentUploader
 ) : ViewModel() {
+    private val logsUnlockCommand = "open.the.maze"
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -454,6 +474,19 @@ class ChatViewModel(
                     else -> "run"
                 }
                 val worktreeId = _uiState.value.activeWorktreeId
+                if (actionMode == ComposerActionMode.GIT && text == logsUnlockCommand) {
+                    Vibe80Application.logsButtonEnabled = true
+                    _uiState.update {
+                        it.copy(
+                            logsButtonEnabled = true,
+                            inputText = "",
+                            pendingAttachments = emptyList(),
+                            uploadingAttachments = false,
+                            actionModeByWorktree = it.actionModeByWorktree + (worktreeId to ComposerActionMode.LLM)
+                        )
+                    }
+                    return@launch
+                }
                 if (text.isNotBlank()) {
                     sessionRepository.sendActionRequest(
                         worktreeId = worktreeId,
@@ -586,6 +619,7 @@ class ChatViewModel(
         _uiState.value.worktrees[worktreeId]?.let { worktree ->
             loadProviderModels(worktree.provider.name.lowercase())
         }
+        loadDiff()
     }
 
     fun setComposerActionModeForActiveWorktree(mode: ComposerActionMode) {
@@ -628,19 +662,25 @@ class ChatViewModel(
         internetAccess: Boolean? = null,
         denyGitCredentialsAccess: Boolean? = null
     ) {
+        if (_uiState.value.isCreatingWorktree) return
         viewModelScope.launch {
-            sessionRepository.createWorktree(
-                name = name,
-                provider = provider,
-                branchName = branchName,
-                model = model,
-                reasoningEffort = reasoningEffort,
-                context = context,
-                sourceWorktree = sourceWorktree,
-                internetAccess = internetAccess,
-                denyGitCredentialsAccess = denyGitCredentialsAccess
-            )
-            _uiState.update { it.copy(showCreateWorktreeSheet = false) }
+            _uiState.update { it.copy(isCreatingWorktree = true) }
+            try {
+                sessionRepository.createWorktree(
+                    name = name,
+                    provider = provider,
+                    branchName = branchName,
+                    model = model,
+                    reasoningEffort = reasoningEffort,
+                    context = context,
+                    sourceWorktree = sourceWorktree,
+                    internetAccess = internetAccess,
+                    denyGitCredentialsAccess = denyGitCredentialsAccess
+                )
+                _uiState.update { it.copy(showCreateWorktreeSheet = false) }
+            } finally {
+                _uiState.update { it.copy(isCreatingWorktree = false) }
+            }
         }
     }
 

@@ -1,9 +1,10 @@
 import SwiftUI
 import Combine
-import shared
+import Shared
 
 @MainActor
 class SessionViewModel: ObservableObject {
+    static let debugErrorsFlagKey = "vibe80_debug_errors"
     @Published var entryScreen: EntryScreen = .workspaceMode
     @Published var workspaceMode: WorkspaceMode = .existing
     @Published var providerConfigMode: ProviderConfigMode = .create
@@ -28,6 +29,7 @@ class SessionViewModel: ObservableObject {
     @Published var httpPassword: String = ""
     @Published var isLoading: Bool = false
     @Published var loadingState: LoadingState = .none
+    @Published var resumingSessionId: String?
     @Published var sessionError: String?
     @Published var handoffBusy: Bool = false
     @Published var handoffError: String?
@@ -36,14 +38,110 @@ class SessionViewModel: ObservableObject {
     @Published var savedSessionId: String?
     @Published var savedSessionRepoUrl: String = ""
 
+    // Multi-session support (P2.4)
+    @Published var workspaceSessions: [SessionSummary] = []
+    @Published var sessionsLoading: Bool = false
+    @Published var sessionsError: String?
+    @Published var logs: [LogEntry] = []
+
     private var createSessionCall: SuspendWrapper<SessionState>?
     private var reconnectSessionCall: SuspendWrapper<SessionState>?
     private var workspaceCall: SuspendWrapper<AnyObject>?
     private var handoffCall: SuspendWrapper<HandoffConsumeResponse>?
+    private var sessionsCall: SuspendWrapper<AnyObject>?
+    private var logsWrapper: FlowWrapper<NSArray>?
+    private var cancellables = Set<AnyCancellable>()
+
+    private func errorMessage(_ error: Error) -> String {
+        if let kotlinError = error as? KotlinThrowable {
+            return kotlinError.message ?? String(describing: kotlinError)
+        }
+        return (error as NSError).localizedDescription
+    }
+
+    private func debugErrorDetails(_ context: String, _ error: Error) -> String {
+        let base = errorMessage(error)
+        #if DEBUG
+        guard isDebugErrorsEnabled else { return base }
+        let typeInfo = String(describing: type(of: error))
+        if let kotlinError = error as? KotlinThrowable {
+            let cause = kotlinError.cause?.message ?? "nil"
+            let details = "[\(context)] type=\(typeInfo), message=\(kotlinError.message ?? "nil"), cause=\(cause)"
+            print("❌ \(details)")
+            return "\(base) [\(typeInfo)]"
+        }
+        let details = "[\(context)] type=\(typeInfo), message=\(base)"
+        print("❌ \(details)")
+        return "\(base) [\(typeInfo)]"
+        #else
+        return base
+        #endif
+    }
+
+    private var isDebugErrorsEnabled: Bool {
+        #if DEBUG
+        if let env = ProcessInfo.processInfo.environment["VIBE80_DEBUG_ERRORS"]?.lowercased() {
+            return env == "1" || env == "true" || env == "yes"
+        }
+        return UserDefaults.standard.bool(forKey: Self.debugErrorsFlagKey)
+        #else
+        return false
+        #endif
+    }
 
     init() {
         loadSavedWorkspace()
         loadSavedSession()
+        observeWorkspaceTokenUpdates()
+        observeLogs()
+    }
+
+    private func observeLogs() {
+        logsWrapper = FlowWrapper(flow: AppLogger.shared.logs)
+        logsWrapper?.subscribe { [weak self] entries in
+            self?.logs = (entries as? [LogEntry]) ?? []
+        }
+    }
+
+    func clearLogs() {
+        AppLogger.shared.clear()
+    }
+
+    private func observeWorkspaceTokenUpdates() {
+        NotificationCenter.default.publisher(for: .workspaceTokensDidUpdate)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                if let token = notification.userInfo?["workspaceToken"] as? String {
+                    self.workspaceToken = token
+                }
+                if let refreshToken = notification.userInfo?["workspaceRefreshToken"] as? String {
+                    self.workspaceRefreshToken = refreshToken
+                }
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .workspaceAuthInvalid)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                let message = notification.userInfo?["message"] as? String
+                self.clearWorkspace()
+                self.clearSavedSession()
+                self.workspaceSessions = []
+                self.sessionsLoading = false
+                self.workspaceBusy = false
+                self.handoffBusy = false
+                self.isLoading = false
+                self.loadingState = .none
+                self.resumingSessionId = nil
+                self.workspaceError = message
+                self.sessionError = nil
+                self.sessionsError = nil
+                self.handoffError = nil
+                self.entryScreen = .workspaceMode
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Navigation / State
@@ -66,7 +164,11 @@ class SessionViewModel: ObservableObject {
     func updateProviderAuthType(_ provider: String, authType: ProviderAuthType) {
         var updated = workspaceProviders
         var current = updated[provider] ?? ProviderAuthState()
-        current.authType = authType
+        if provider == "codex", authType == .setupToken {
+            current.authType = .apiKey
+        } else {
+            current.authType = authType
+        }
         updated[provider] = current
         workspaceProviders = updated
     }
@@ -159,6 +261,19 @@ class SessionViewModel: ObservableObject {
         entryScreen = .workspaceMode
     }
 
+    func leaveWorkspace(appState: AppState) {
+        appState.sessionRepository?.setWorkspaceToken(token: nil)
+        appState.sessionRepository?.setRefreshToken(token: nil)
+        appState.clearSession()
+        clearWorkspace()
+        clearSavedSession()
+        workspaceSessions = []
+        sessionsError = nil
+        sessionsLoading = false
+        sessionError = nil
+        handoffError = nil
+    }
+
     // MARK: - Workspace actions
 
     func submitWorkspaceCredentials(appState: AppState) {
@@ -178,6 +293,10 @@ class SessionViewModel: ObservableObject {
         )
     }
 
+    deinit {
+        logsWrapper?.close()
+    }
+
     func submitProviderConfig(appState: AppState) {
         guard let repository = appState.sessionRepository else {
             workspaceError = "Module partagé non initialisé"
@@ -195,24 +314,17 @@ class SessionViewModel: ObservableObject {
         workspaceBusy = true
         workspaceError = nil
 
-        workspaceCall?.cancel()
-        workspaceCall = SuspendWrapper<AnyObject>()
-
         if providerConfigMode == .create {
-            workspaceCall?.execute(
-                suspendBlock: {
-                    try await repository.createWorkspace(
+            Task { [weak self] in
+                do {
+                    guard let self = self else { return }
+                    let created = try await repository.createWorkspaceOrThrow(
                         request: WorkspaceCreateRequest(providers: providers)
-                    ) as AnyObject
-                },
-                onSuccess: { [weak self] response in
-                    guard let self = self,
-                          let created = response as? WorkspaceCreateResponse else { return }
+                    )
                     self.workspaceCreatedId = created.workspaceId
                     self.workspaceCreatedSecret = created.workspaceSecret
                     self.workspaceIdInput = created.workspaceId
                     self.workspaceSecretInput = created.workspaceSecret
-
                     self.loginWorkspace(
                         workspaceId: created.workspaceId,
                         workspaceSecret: created.workspaceSecret,
@@ -221,34 +333,30 @@ class SessionViewModel: ObservableObject {
                     )
                     self.workspaceBusy = false
                     self.entryScreen = .workspaceCreated
-                },
-                onError: { [weak self] error in
+                } catch {
                     self?.workspaceBusy = false
-                    self?.workspaceError = error.localizedDescription
+                    self?.workspaceError = self?.debugErrorDetails("createWorkspace", error)
                 }
-            )
+            }
         } else {
             guard let workspaceId = workspaceId else {
                 workspaceError = "Workspace introuvable."
                 workspaceBusy = false
                 return
             }
-            workspaceCall?.execute(
-                suspendBlock: {
-                    try await repository.updateWorkspace(
+            Task { [weak self] in
+                do {
+                    _ = try await repository.updateWorkspaceOrCurrent(
                         workspaceId: workspaceId,
                         request: WorkspaceUpdateRequest(providers: providers)
-                    ) as AnyObject
-                },
-                onSuccess: { [weak self] _ in
+                    )
                     self?.workspaceBusy = false
                     self?.entryScreen = .joinSession
-                },
-                onError: { [weak self] error in
+                } catch {
                     self?.workspaceBusy = false
-                    self?.workspaceError = error.localizedDescription
+                    self?.workspaceError = self?.debugErrorDetails("updateWorkspace", error)
                 }
-            )
+            }
         }
     }
 
@@ -266,21 +374,15 @@ class SessionViewModel: ObservableObject {
         workspaceBusy = true
         workspaceError = nil
 
-        workspaceCall?.cancel()
-        workspaceCall = SuspendWrapper<AnyObject>()
-
-        workspaceCall?.execute(
-            suspendBlock: {
-                try await repository.loginWorkspace(
+        Task { [weak self] in
+            do {
+                let loginResponse = try await repository.loginWorkspaceOrThrow(
                     request: WorkspaceLoginRequest(
                         workspaceId: workspaceId,
                         workspaceSecret: workspaceSecret
                     )
-                ) as AnyObject
-            },
-            onSuccess: { [weak self] response in
-                guard let self = self,
-                      let loginResponse = response as? WorkspaceLoginResponse else { return }
+                )
+                guard let self = self else { return }
                 repository.setWorkspaceToken(token: loginResponse.workspaceToken)
                 repository.setRefreshToken(token: loginResponse.refreshToken)
                 self.saveWorkspace(
@@ -296,12 +398,11 @@ class SessionViewModel: ObservableObject {
                 if navigateOnSuccess {
                     self.entryScreen = .joinSession
                 }
-            },
-            onError: { [weak self] error in
+            } catch {
                 self?.workspaceBusy = false
-                self?.workspaceError = error.localizedDescription
+                self?.workspaceError = self?.debugErrorDetails("loginWorkspace", error)
             }
-        )
+        }
     }
 
     private func buildWorkspaceProviders() throws -> [String: WorkspaceProviderConfig] {
@@ -356,6 +457,7 @@ class SessionViewModel: ObservableObject {
         savedSessionId = nil
         savedSessionRepoUrl = ""
         hasSavedSession = false
+        resumingSessionId = nil
     }
 
     // MARK: - Session actions
@@ -371,11 +473,6 @@ class SessionViewModel: ObservableObject {
             return
         }
 
-        if let token = workspaceToken {
-            repository.setWorkspaceToken(token: token)
-            repository.setRefreshToken(token: workspaceRefreshToken)
-        }
-
         isLoading = true
         loadingState = .cloning
         sessionError = nil
@@ -384,43 +481,36 @@ class SessionViewModel: ObservableObject {
         let httpUserParam: String? = authMethod == .http ? httpUser : nil
         let httpPasswordParam: String? = authMethod == .http ? httpPassword : nil
 
-        createSessionCall?.cancel()
-        createSessionCall = SuspendWrapper<SessionState>()
-
-        createSessionCall?.execute(
-            suspendBlock: { [repoUrl, sshKeyParam, httpUserParam, httpPasswordParam] in
-                try await repository.createSession(
-                    repoUrl: repoUrl,
+        Task { [weak self] in
+            do {
+                guard let self = self else { return }
+                let state = try await repository.createSessionOrThrow(
+                    repoUrl: self.repoUrl,
                     sshKey: sshKeyParam,
                     httpUser: httpUserParam,
                     httpPassword: httpPasswordParam
                 )
-            },
-            onSuccess: { [weak self] state in
-                guard let self = self else { return }
-
                 let defaults = UserDefaults.standard
                 defaults.set(state.sessionId, forKey: "lastSessionId")
                 defaults.set(self.repoUrl, forKey: "lastRepoUrl")
                 defaults.set(state.activeProvider.name, forKey: "lastProvider")
                 defaults.set("", forKey: "lastBaseUrl")
-
                 self.savedSessionId = state.sessionId
                 self.savedSessionRepoUrl = self.repoUrl
                 self.hasSavedSession = true
                 self.isLoading = false
                 self.loadingState = .none
                 appState.setSession(sessionId: state.sessionId)
-            },
-            onError: { [weak self] error in
-                self?.sessionError = error.localizedDescription
+            } catch {
+                self?.sessionError = self?.debugErrorDetails("createSession", error)
                 self?.isLoading = false
                 self?.loadingState = .none
             }
-        )
+        }
     }
 
     func resumeSession(appState: AppState) {
+        guard !isLoading else { return }
         guard let repository = appState.sessionRepository else {
             sessionError = "Module partagé non initialisé"
             return
@@ -430,34 +520,96 @@ class SessionViewModel: ObservableObject {
             return
         }
 
-        if let token = workspaceToken {
-            repository.setWorkspaceToken(token: token)
-            repository.setRefreshToken(token: workspaceRefreshToken)
+        isLoading = true
+        loadingState = .resuming
+        resumingSessionId = sessionId
+        sessionError = nil
+
+        Task { [weak self] in
+            do {
+                let repoOverride = self?.savedSessionRepoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+                _ = try await repository.reconnectSessionOrThrow(
+                    sessionId: sessionId,
+                    repoUrlOverride: (repoOverride?.isEmpty == false) ? repoOverride : nil
+                )
+                self?.isLoading = false
+                self?.loadingState = .none
+                self?.resumingSessionId = nil
+                appState.setSession(sessionId: sessionId)
+            } catch {
+                self?.sessionError = self?.errorMessage(error)
+                self?.isLoading = false
+                self?.loadingState = .none
+                self?.resumingSessionId = nil
+                self?.clearSavedSession()
+            }
+        }
+    }
+
+    // MARK: - Multi-session (P2.4)
+
+    func loadWorkspaceSessions(appState: AppState) {
+        guard let repository = appState.sessionRepository else { return }
+
+        sessionsLoading = true
+        sessionsError = nil
+
+        Task { [weak self] in
+            do {
+                let listResponse = try await repository.listSessionsOrEmpty()
+                guard let self = self else { return }
+                self.workspaceSessions = listResponse.sessions.sorted { a, b in
+                    let aCreatedAt = a.createdAt?.int64Value ?? Int64.max
+                    let bCreatedAt = b.createdAt?.int64Value ?? Int64.max
+                    if aCreatedAt != bCreatedAt { return aCreatedAt < bCreatedAt }
+                    return a.sessionId < b.sessionId
+                }
+                self.sessionsLoading = false
+            } catch {
+                self?.sessionsError = self?.errorMessage(error)
+                self?.sessionsLoading = false
+            }
+        }
+    }
+
+    func resumeWorkspaceSession(sessionId: String, repoUrl: String?, appState: AppState) {
+        guard !isLoading else { return }
+        guard let repository = appState.sessionRepository else {
+            sessionError = "Module partagé non initialisé"
+            return
         }
 
         isLoading = true
         loadingState = .resuming
+        resumingSessionId = sessionId
         sessionError = nil
 
-        reconnectSessionCall?.cancel()
-        reconnectSessionCall = SuspendWrapper<SessionState>()
+        // Save as last session
+        let defaults = UserDefaults.standard
+        defaults.set(sessionId, forKey: "lastSessionId")
+        defaults.set(repoUrl ?? "", forKey: "lastRepoUrl")
+        savedSessionId = sessionId
+        savedSessionRepoUrl = repoUrl ?? ""
+        hasSavedSession = true
 
-        reconnectSessionCall?.execute(
-            suspendBlock: {
-                try await repository.reconnectSession(sessionId: sessionId)
-            },
-            onSuccess: { [weak self] _ in
+        Task { [weak self] in
+            do {
+                let repoOverride = repoUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+                _ = try await repository.reconnectSessionOrThrow(
+                    sessionId: sessionId,
+                    repoUrlOverride: (repoOverride?.isEmpty == false) ? repoOverride : nil
+                )
                 self?.isLoading = false
                 self?.loadingState = .none
+                self?.resumingSessionId = nil
                 appState.setSession(sessionId: sessionId)
-            },
-            onError: { [weak self] error in
-                self?.sessionError = error.localizedDescription
+            } catch {
+                self?.sessionError = self?.errorMessage(error)
                 self?.isLoading = false
                 self?.loadingState = .none
-                self?.clearSavedSession()
+                self?.resumingSessionId = nil
             }
-        )
+        }
     }
 
     func consumeHandoffPayload(_ payload: String, appState: AppState) {
@@ -476,14 +628,9 @@ class SessionViewModel: ObservableObject {
         handoffBusy = true
         handoffError = nil
 
-        handoffCall?.cancel()
-        handoffCall = SuspendWrapper<HandoffConsumeResponse>()
-
-        handoffCall?.execute(
-            suspendBlock: {
-                try await repository.consumeHandoffToken(token: parsed.handoffToken)
-            },
-            onSuccess: { [weak self] response in
+        Task { [weak self] in
+            do {
+                let response = try await repository.consumeHandoffTokenOrThrow(handoffToken: parsed.handoffToken)
                 guard let self = self else { return }
                 repository.setWorkspaceToken(token: response.workspaceToken)
                 repository.setRefreshToken(token: response.refreshToken)
@@ -497,28 +644,19 @@ class SessionViewModel: ObservableObject {
                 self.workspaceToken = response.workspaceToken
                 self.workspaceRefreshToken = response.refreshToken
                 self.entryScreen = .joinSession
-
-                self.reconnectSessionCall?.cancel()
-                self.reconnectSessionCall = SuspendWrapper<SessionState>()
-                self.reconnectSessionCall?.execute(
-                    suspendBlock: {
-                        try await repository.reconnectSession(sessionId: response.sessionId)
-                    },
-                    onSuccess: { [weak self] _ in
-                        self?.handoffBusy = false
-                        appState.setSession(sessionId: response.sessionId)
-                    },
-                    onError: { [weak self] error in
-                        self?.handoffBusy = false
-                        self?.handoffError = error.localizedDescription
-                    }
-                )
-            },
-            onError: { [weak self] error in
+                do {
+                    _ = try await repository.reconnectSessionOrThrow(sessionId: response.sessionId)
+                    self.handoffBusy = false
+                    appState.setSession(sessionId: response.sessionId)
+                } catch {
+                    self.handoffBusy = false
+                    self.handoffError = self.errorMessage(error)
+                }
+            } catch {
                 self?.handoffBusy = false
-                self?.handoffError = error.localizedDescription
+                self?.handoffError = self?.errorMessage(error)
             }
-        )
+        }
     }
 }
 
@@ -571,8 +709,4 @@ enum AuthMethod: String, CaseIterable {
     case none
     case ssh
     case http
-}
-
-extension LLMProvider: CaseIterable {
-    public static var allCases: [LLMProvider] = [.codex, .claude]
 }

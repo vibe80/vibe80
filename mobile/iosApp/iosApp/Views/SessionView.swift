@@ -1,13 +1,17 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import UIKit
+import Shared
 
 struct SessionView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel = SessionViewModel()
     @State private var showWorkspaceSecret = false
     @State private var showHttpPassword = false
     @State private var showProviderSecrets = false
     @State private var showAuthJsonPicker = false
+    @State private var showLogsSheet = false
 
     var body: some View {
         NavigationStack {
@@ -43,6 +47,15 @@ struct SessionView: View {
                 viewModel.updateProviderAuthValue("codex", authValue: content)
             }
         }
+        .sheet(isPresented: $showLogsSheet) {
+            if appState.logsButtonEnabled {
+                LogsSheetView(
+                    logs: viewModel.logs,
+                    onClear: viewModel.clearLogs
+                )
+                .presentationDetents([.large])
+            }
+        }
     }
 
     private var workspaceModeSelection: some View {
@@ -70,6 +83,16 @@ struct SessionView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.vibe80AccentDark)
+
+                if appState.logsButtonEnabled {
+                    Button {
+                        showLogsSheet = true
+                    } label: {
+                        Label("logs.title.simple", systemImage: "ladybug")
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.vibe80AccentDark)
+                }
             }
             .padding(24)
         }
@@ -122,8 +145,18 @@ struct SessionView: View {
                 }
                 vibe80Header(title: "providers.config.title")
 
-                providerCard(provider: "codex", title: "provider.codex", supportsAuthJson: true)
-                providerCard(provider: "claude", title: "provider.claude", supportsAuthJson: false)
+                providerCard(
+                    provider: "codex",
+                    title: "provider.codex",
+                    supportsAuthJson: true,
+                    supportsSetupToken: false
+                )
+                providerCard(
+                    provider: "claude",
+                    title: "provider.claude",
+                    supportsAuthJson: false,
+                    supportsSetupToken: true
+                )
 
                 if let error = viewModel.workspaceError {
                     Text(error)
@@ -136,6 +169,14 @@ struct SessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.vibe80Accent)
                 .disabled(viewModel.workspaceBusy)
+
+                Link(
+                    destination: URL(string: "https://vibe80.io/docs/workspace-session-setup")!
+                ) {
+                    Text("providers.config.learn_more")
+                        .font(.footnote)
+                }
+                .tint(.vibe80AccentDark)
             }
             .padding(24)
         }
@@ -153,14 +194,12 @@ struct SessionView: View {
                     Text("workspace.id")
                         .font(.caption)
                         .foregroundColor(.vibe80InkMuted)
-                    Text(viewModel.workspaceCreatedId ?? "-")
-                        .font(.body)
+                    copyableCredentialRow(viewModel.workspaceCreatedId ?? "-")
 
                     Text("workspace.secret")
                         .font(.caption)
                         .foregroundColor(.vibe80InkMuted)
-                    Text(viewModel.workspaceCreatedSecret ?? "-")
-                        .font(.body)
+                    copyableCredentialRow(viewModel.workspaceCreatedSecret ?? "-")
                 }
                 .vibe80CardStyle()
 
@@ -191,16 +230,40 @@ struct SessionView: View {
                 .buttonStyle(.bordered)
                 .tint(.vibe80AccentDark)
 
+                Button("workspace.leave", role: .destructive) {
+                    viewModel.leaveWorkspace(appState: appState)
+                }
+                .buttonStyle(.bordered)
+
+                // Workspace sessions list (P2.4)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("sessions.recent")
                         .font(.headline)
-                    if viewModel.hasSavedSession {
+
+                    if viewModel.sessionsLoading {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("sessions.loading")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    } else if !viewModel.workspaceSessions.isEmpty {
+                        ForEach(viewModel.workspaceSessions, id: \.sessionId) { session in
+                            sessionCard(session)
+                        }
+                    } else if viewModel.hasSavedSession {
+                        // Fallback to saved session if API list is empty
                         VStack(alignment: .leading, spacing: 12) {
                             Text(viewModel.savedSessionRepoUrl.isEmpty ? "session.saved.placeholder" : viewModel.savedSessionRepoUrl)
                                 .font(.subheadline)
                                 .foregroundColor(.vibe80Ink)
                             HStack(spacing: 12) {
-                                Button(viewModel.loadingState == .resuming ? "action.resume.progress" : "action.resume") {
+                                Button(
+                                    viewModel.resumingSessionId == viewModel.savedSessionId && viewModel.loadingState == .resuming
+                                        ? "action.resume.progress"
+                                        : "action.resume"
+                                ) {
                                     viewModel.resumeSession(appState: appState)
                                 }
                                 .buttonStyle(.borderedProminent)
@@ -219,6 +282,12 @@ struct SessionView: View {
                         Text("session.saved.empty")
                             .foregroundColor(.vibe80InkMuted)
                     }
+
+                    if let error = viewModel.sessionsError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
 
                 if let error = viewModel.sessionError {
@@ -228,6 +297,85 @@ struct SessionView: View {
             }
             .padding(24)
         }
+        .onAppear {
+            viewModel.loadWorkspaceSessions(appState: appState)
+        }
+    }
+
+    private func sessionCard(_ session: SessionSummary) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(repoShortName(from: session.repoUrl) ?? session.sessionId)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.vibe80Ink)
+                .lineLimit(1)
+            
+            if let repoUrl = session.repoUrl, !repoUrl.isEmpty {
+                Text(repoUrl)
+                    .font(.caption2)
+                    .foregroundColor(.vibe80InkMuted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            HStack(spacing: 12) {
+                if let lastActivity = session.lastActivityAt {
+                    Text(formatSessionDate(lastActivity))
+                        .font(.caption)
+                        .foregroundColor(.vibe80InkMuted)
+                }
+
+                if let provider = session.activeProvider {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cpu")
+                            .font(.caption2)
+                        Text(provider)
+                            .font(.caption)
+                    }
+                    .foregroundColor(.vibe80InkMuted)
+                }
+
+                Spacer()
+
+                Button(
+                    viewModel.resumingSessionId == session.sessionId && viewModel.loadingState == .resuming
+                        ? "action.resume.progress"
+                        : "action.resume"
+                ) {
+                    viewModel.resumeWorkspaceSession(
+                        sessionId: session.sessionId,
+                        repoUrl: session.repoUrl,
+                        appState: appState
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.vibe80Accent)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading)
+            }
+        }
+        .vibe80CardStyle()
+    }
+
+    private func repoShortName(from repoUrl: String?) -> String? {
+        guard let repoUrl else { return nil }
+        let trimmed = repoUrl
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !trimmed.isEmpty else { return nil }
+        let slashIndex = trimmed.lastIndex(of: "/")
+        let colonIndex = trimmed.lastIndex(of: ":")
+        if let index = [slashIndex, colonIndex].compactMap({ $0 }).max() {
+            let next = trimmed.index(after: index)
+            return String(trimmed[next...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return trimmed
+    }
+
+    private func formatSessionDate(_ timestamp: KotlinLong) -> String {
+        let date = Date(timeIntervalSince1970: Double(timestamp.int64Value) / 1000)
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 
     private var startSession: some View {
@@ -282,8 +430,22 @@ struct SessionView: View {
         }
     }
 
-    private func providerCard(provider: String, title: String, supportsAuthJson: Bool) -> some View {
+    private func providerCard(
+        provider: String,
+        title: LocalizedStringKey,
+        supportsAuthJson: Bool,
+        supportsSetupToken: Bool
+    ) -> some View {
         let state = viewModel.workspaceProviders[provider] ?? ProviderAuthState()
+        let effectiveAuthType: ProviderAuthType = {
+            if !supportsSetupToken && state.authType == .setupToken {
+                return .apiKey
+            }
+            if !supportsAuthJson && state.authType == .authJsonB64 {
+                return .apiKey
+            }
+            return state.authType
+        }()
 
         return VStack(alignment: .leading, spacing: 12) {
             Toggle(title, isOn: Binding(
@@ -293,36 +455,43 @@ struct SessionView: View {
             .toggleStyle(SwitchToggleStyle(tint: .vibe80Accent))
 
             if state.enabled {
-                Picker("Auth", selection: Binding(
-                    get: { state.authType },
+                Picker("auth.method.label", selection: Binding(
+                    get: { effectiveAuthType },
                     set: { viewModel.updateProviderAuthType(provider, authType: $0) }
                 )) {
                     Text("provider.auth.api_key").tag(ProviderAuthType.apiKey)
                     if supportsAuthJson {
                         Text("provider.auth.auth_json_b64").tag(ProviderAuthType.authJsonB64)
                     }
-                    Text("provider.auth.setup_token").tag(ProviderAuthType.setupToken)
+                    if supportsSetupToken {
+                        Text("provider.auth.setup_token").tag(ProviderAuthType.setupToken)
+                    }
                 }
                 .pickerStyle(.segmented)
 
-                if state.authType == .authJsonB64 && supportsAuthJson {
+                if effectiveAuthType == .authJsonB64 && supportsAuthJson {
                     Button("provider.auth.import_auth_json") {
                         showAuthJsonPicker = true
                     }
                     .buttonStyle(.bordered)
                     .tint(.vibe80AccentDark)
-                    Vibe80TextEditor(
-                        title: "provider.auth.auth_json_label",
-                        text: Binding(
-                            get: { state.authValue },
-                            set: { viewModel.updateProviderAuthValue(provider, authValue: $0) }
-                        )
-                    )
+
+                    HStack(spacing: 8) {
+                        Image(systemName: state.authValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "doc" : "checkmark.circle.fill")
+                            .foregroundColor(state.authValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .vibe80InkMuted : .green)
+                        Text(state.authValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                             ? "provider.auth.auth_json_not_selected"
+                             : "provider.auth.auth_json_selected")
+                            .foregroundColor(.vibe80InkMuted)
+                            .font(.footnote)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
+                    let authTitleKey: LocalizedStringKey = effectiveAuthType == .setupToken
+                        ? "provider.auth.setup_token_label"
+                        : "provider.auth.api_key_label"
                     Vibe80SecureField(
-                        title: state.authType == .setupToken
-                            ? "provider.auth.setup_token_label"
-                            : "provider.auth.api_key_label",
+                        title: authTitleKey,
                         text: Binding(
                             get: { state.authValue },
                             set: { viewModel.updateProviderAuthValue(provider, authValue: $0) }
@@ -335,12 +504,9 @@ struct SessionView: View {
         .vibe80CardStyle()
     }
 
-    private func vibe80Header(title: String, subtitle: String? = nil) -> some View {
+    private func vibe80Header(title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("app.name")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.vibe80Ink)
+            sessionGateLogo
             Text(title)
                 .font(.headline)
                 .foregroundColor(.vibe80Ink)
@@ -353,6 +519,24 @@ struct SessionView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    @ViewBuilder
+    private var sessionGateLogo: some View {
+        let preferredName = colorScheme == .dark ? "Vibe80LogoDark" : "Vibe80LogoLight"
+        if let image = UIImage(named: preferredName) ?? UIImage(named: "Vibe80Logo") {
+            Image(uiImage: image)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 140, height: 32, alignment: .leading)
+                .accessibilityLabel(Text("app.name"))
+        } else {
+            Text("app.name")
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(.vibe80Ink)
+        }
+    }
+
     private func backButton(action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label("action.back", systemImage: "chevron.left")
@@ -360,10 +544,30 @@ struct SessionView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    private func copyableCredentialRow(_ value: String) -> some View {
+        HStack(spacing: 8) {
+            Text(value)
+                .font(.body)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Button {
+                UIPasteboard.general.string = value == "-" ? nil : value
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .foregroundColor(.vibe80InkMuted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("action.copy"))
+        }
+    }
 }
 
 private struct Vibe80TextField: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var text: String
 
     var body: some View {
@@ -373,12 +577,15 @@ private struct Vibe80TextField: View {
                 .foregroundColor(.vibe80InkMuted)
             TextField("", text: $text)
                 .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.asciiCapable)
         }
     }
 }
 
 private struct Vibe80SecureField: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var text: String
     @Binding var isRevealed: Bool
 
@@ -391,9 +598,15 @@ private struct Vibe80SecureField: View {
                 if isRevealed {
                     TextField("", text: $text)
                         .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled(true)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.asciiCapable)
                 } else {
                     SecureField("", text: $text)
                         .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled(true)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.asciiCapable)
                 }
                 Button(action: { isRevealed.toggle() }) {
                     Image(systemName: isRevealed ? "eye.slash" : "eye")
@@ -405,7 +618,7 @@ private struct Vibe80SecureField: View {
 }
 
 private struct Vibe80TextEditor: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var text: String
 
     var body: some View {
@@ -418,6 +631,9 @@ private struct Vibe80TextEditor: View {
                 .padding(8)
                 .background(Color.vibe80SurfaceElevated)
                 .cornerRadius(12)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.asciiCapable)
         }
     }
 }

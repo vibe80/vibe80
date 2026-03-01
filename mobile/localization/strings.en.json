@@ -64,6 +64,8 @@
   "provider.auth.auth_json_file": "auth.json file",
   "provider.auth.auth_json_label": "auth.json",
   "provider.auth.import_auth_json": "Import auth.json",
+  "provider.auth.auth_json_selected": "auth.json selected",
+  "provider.auth.auth_json_not_selected": "No auth.json selected",
   "provider.auth.setup_token": "setup_token",
   "provider.auth.setup_token_label": "Setup token",
   "provider.claude": "Claude",
@@ -162,5 +164,12 @@
   "worktree.name.count": "%d/32 characters",
   "worktree.name.optional_label": "Name (optional)",
   "worktree.name.placeholder.example": "e.g. refactor-auth",
-  "attachment.default_name": "attachment"
+  "attachment.default_name": "attachment",
+  "worktree.status.creating": "Creating",
+  "worktree.status.processing": "Processing",
+  "worktree.status.merging": "Merging",
+  "worktree.status.merge_conflict": "Merge conflict",
+  "worktree.status.error": "Error",
+  "worktree.status.completed": "Completed",
+  "worktree.status.main": "Main worktree"
 }

@@ -1,9 +1,14 @@
 import SwiftUI
-import shared
+import Shared
 
 @main
 struct Vibe80App: App {
+    static let SHOW_LOGS_BUTTON = false
     @StateObject private var appState = AppState()
+
+    init() {
+        NotificationManager.shared.requestAuthorization()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -18,9 +23,12 @@ class AppState: ObservableObject {
     @Published var currentSessionId: String?
     @Published var isConnected: Bool = false
     @Published var isInitialized: Bool = false
+    @Published var logsButtonEnabled: Bool = Vibe80App.SHOW_LOGS_BUTTON
 
     /// Shared dependencies from KMP module
     private(set) var dependencies: SharedDependencies?
+    private var workspaceTokenObserver: WorkspaceTokenObserver?
+    private var workspaceAuthInvalidObserver: WorkspaceAuthInvalidObserver?
 
     /// Convenience accessor for SessionRepository
     var sessionRepository: SessionRepository? {
@@ -39,7 +47,69 @@ class AppState: ObservableObject {
 
         // Get dependencies
         dependencies = SharedDependencies()
+        syncWorkspaceTokensToRepository()
+        observeWorkspaceTokenUpdates()
+        observeWorkspaceAuthInvalid()
         isInitialized = true
+    }
+
+    private func syncWorkspaceTokensToRepository() {
+        let defaults = UserDefaults.standard
+        let workspaceToken = defaults.string(forKey: "workspaceToken")
+        let workspaceRefreshToken = defaults.string(forKey: "workspaceRefreshToken")
+        dependencies?.sessionRepository.setWorkspaceToken(token: workspaceToken)
+        dependencies?.sessionRepository.setRefreshToken(token: workspaceRefreshToken)
+    }
+
+    private func observeWorkspaceTokenUpdates() {
+        workspaceTokenObserver?.close()
+        guard let observer = dependencies?.workspaceTokenObserver() else { return }
+        workspaceTokenObserver = observer
+        observer.subscribe { [weak self] workspaceToken, refreshToken in
+            let defaults = UserDefaults.standard
+            defaults.set(workspaceToken, forKey: "workspaceToken")
+            defaults.set(refreshToken, forKey: "workspaceRefreshToken")
+            self?.dependencies?.sessionRepository.setWorkspaceToken(token: workspaceToken)
+            self?.dependencies?.sessionRepository.setRefreshToken(token: refreshToken)
+            NotificationCenter.default.post(
+                name: .workspaceTokensDidUpdate,
+                object: nil,
+                userInfo: [
+                    "workspaceToken": workspaceToken,
+                    "workspaceRefreshToken": refreshToken
+                ]
+            )
+        }
+    }
+
+    private func observeWorkspaceAuthInvalid() {
+        workspaceAuthInvalidObserver?.close()
+        guard let observer = dependencies?.workspaceAuthInvalidObserver() else { return }
+        workspaceAuthInvalidObserver = observer
+        observer.subscribe { [weak self] message in
+            guard let self = self else { return }
+            self.sessionRepository?.setWorkspaceToken(token: nil)
+            self.sessionRepository?.setRefreshToken(token: nil)
+            self.clearSession()
+            self.clearStoredWorkspaceData()
+            NotificationCenter.default.post(
+                name: .workspaceAuthInvalid,
+                object: nil,
+                userInfo: ["message": message]
+            )
+        }
+    }
+
+    private func clearStoredWorkspaceData() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "workspaceId")
+        defaults.removeObject(forKey: "workspaceSecret")
+        defaults.removeObject(forKey: "workspaceToken")
+        defaults.removeObject(forKey: "workspaceRefreshToken")
+        defaults.removeObject(forKey: "lastSessionId")
+        defaults.removeObject(forKey: "lastRepoUrl")
+        defaults.removeObject(forKey: "lastProvider")
+        defaults.removeObject(forKey: "lastBaseUrl")
     }
 
     /// Get server URL from configuration
@@ -57,9 +127,9 @@ class AppState: ObservableObject {
 
         // Default server URL - change this for your deployment
         #if DEBUG
-        return "http://localhost:3000"
+        return "https://app.vibe80.io"
         #else
-        return "https://vibe80.example.com"
+        return "https://app.vibe80.io"
         #endif
     }
 
@@ -75,6 +145,8 @@ class AppState: ObservableObject {
     }
 
     deinit {
+        workspaceTokenObserver?.close()
+        workspaceAuthInvalidObserver?.close()
         KoinHelper.shared.stop()
     }
 }
@@ -90,5 +162,13 @@ extension AppState {
         KoinHelper.shared.stop()
         KoinHelper.shared.start(baseUrl: url)
         dependencies = SharedDependencies()
+        syncWorkspaceTokensToRepository()
+        observeWorkspaceTokenUpdates()
+        observeWorkspaceAuthInvalid()
     }
+}
+
+extension Notification.Name {
+    static let workspaceTokensDidUpdate = Notification.Name("workspaceTokensDidUpdate")
+    static let workspaceAuthInvalid = Notification.Name("workspaceAuthInvalid")
 }

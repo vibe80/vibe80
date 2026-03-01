@@ -1,11 +1,13 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
-import shared
+import Shared
 
 struct ComposerView: View {
     @Binding var text: String
     let isLoading: Bool
+    var isUploading: Bool = false
+    var canInteract: Bool = true
     let actionMode: ComposerActionMode
     let activeModel: String?
     let availableModels: [ProviderModel]
@@ -13,9 +15,11 @@ struct ComposerView: View {
     let onSelectActionMode: (ComposerActionMode) -> Void
     let onSelectModel: (String) -> Void
     let onFocusChanged: (Bool) -> Void
+    let pendingAttachments: [PendingAttachment]
+    let onAddAttachment: (PendingAttachment) -> Void
+    let onRemoveAttachment: (PendingAttachment) -> Void
 
     @State private var selectedItems: [PhotosPickerItem] = []
-    @State private var pendingAttachments: [PendingAttachment] = []
     @State private var showPhotoPicker = false
     @State private var showFileImporter = false
     @State private var showCameraPicker = false
@@ -25,6 +29,14 @@ struct ComposerView: View {
     var body: some View {
         VStack(spacing: 0) {
             Divider()
+
+            if isUploading {
+                ProgressView()
+                    .progressViewStyle(.linear)
+                    .tint(.vibe80Accent)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+            }
 
             if !pendingAttachments.isEmpty {
                 attachmentsPreview
@@ -88,29 +100,32 @@ struct ComposerView: View {
                         case .shell:
                             Image(systemName: "terminal")
                         case .git:
-                            Image(systemName: "point.3.connected")
+                            Image(systemName: "arrow.triangle.branch")
                         }
                     }
                     .font(.title3)
                     .foregroundColor(.vibe80Accent)
                     .frame(width: 28, height: 28)
                 }
+                .disabled(!canInteract || isUploading)
 
                 TextField("composer.message.placeholder", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
+                    .applyTechnicalInputBehavior(shouldUseTechnicalKeyboard)
                     .focused($isFocused)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     .background(Color.vibe80SurfaceElevated)
                     .cornerRadius(16)
+                    .disabled(!canInteract || isUploading)
 
                 Button(action: sendMessage) {
                     Image(systemName: isLoading ? "stop.fill" : "arrow.up.circle.fill")
                         .font(.title2)
                         .foregroundColor(canSend ? .vibe80Accent : .vibe80InkMuted)
                 }
-                .disabled(!canSend && !isLoading)
+                .disabled((!canSend && !isLoading) || isUploading || !canInteract)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 4)
@@ -145,7 +160,7 @@ struct ComposerView: View {
         }
     }
 
-    private func actionModeButton(_ mode: ComposerActionMode, title: String) -> some View {
+    private func actionModeButton(_ mode: ComposerActionMode, title: LocalizedStringKey) -> some View {
         Button {
             onSelectActionMode(mode)
         } label: {
@@ -163,7 +178,7 @@ struct ComposerView: View {
         switch mode {
         case .llm: return "message"
         case .shell: return "terminal"
-        case .git: return "point.3.connected"
+        case .git: return "arrow.triangle.branch"
         }
     }
 
@@ -172,6 +187,10 @@ struct ComposerView: View {
             return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pendingAttachments.isEmpty
         }
         return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var shouldUseTechnicalKeyboard: Bool {
+        actionMode == .git || actionMode == .shell
     }
 
     private var attachmentsPreview: some View {
@@ -224,9 +243,9 @@ struct ComposerView: View {
             return
         }
 
+        guard canInteract else { return }
         guard canSend else { return }
 
-        pendingAttachments.removeAll()
         selectedItems.removeAll()
 
         onSend()
@@ -248,9 +267,12 @@ struct ComposerView: View {
                     )
 
                     await MainActor.run {
-                        pendingAttachments.append(attachment)
+                        onAddAttachment(attachment)
                     }
                 }
+            }
+            await MainActor.run {
+                selectedItems.removeAll()
             }
         }
     }
@@ -273,7 +295,7 @@ struct ComposerView: View {
                         mimeType: mimeType
                     )
                     await MainActor.run {
-                        pendingAttachments.append(attachment)
+                        onAddAttachment(attachment)
                     }
                 }
             }
@@ -293,28 +315,24 @@ struct ComposerView: View {
             thumbnail: thumbnail,
             mimeType: "image/jpeg"
         )
-        pendingAttachments.append(attachment)
+        onAddAttachment(attachment)
     }
 
     private func removeAttachment(_ attachment: PendingAttachment) {
-        pendingAttachments.removeAll { $0.id == attachment.id }
+        onRemoveAttachment(attachment)
     }
 }
 
-struct PendingAttachment: Identifiable {
-    let id: UUID
-    let name: String
-    let data: Data
-    let thumbnail: UIImage?
-    let mimeType: String
-
-    var icon: String {
-        if mimeType.hasPrefix("image/") {
-            return "photo"
-        } else if mimeType == "application/pdf" {
-            return "doc.fill"
+private extension View {
+    @ViewBuilder
+    func applyTechnicalInputBehavior(_ enabled: Bool) -> some View {
+        if enabled {
+            self
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.asciiCapable)
         } else {
-            return "doc"
+            self
         }
     }
 }
@@ -325,13 +343,17 @@ struct PendingAttachment: Identifiable {
         ComposerView(
             text: .constant(""),
             isLoading: false,
+            canInteract: true,
             actionMode: .llm,
             activeModel: nil,
             availableModels: [],
             onSend: {},
             onSelectActionMode: { _ in },
             onSelectModel: { _ in },
-            onFocusChanged: { _ in }
+            onFocusChanged: { _ in },
+            pendingAttachments: [],
+            onAddAttachment: { _ in },
+            onRemoveAttachment: { _ in }
         )
     }
 }

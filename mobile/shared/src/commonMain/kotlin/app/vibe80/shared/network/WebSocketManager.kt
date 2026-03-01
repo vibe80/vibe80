@@ -5,6 +5,7 @@ import app.vibe80.shared.models.*
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.*
 import io.ktor.websocket.*
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -95,6 +96,7 @@ class WebSocketManager(
             val fullWsUrl = "$wsUrl/ws?session=$currentSessionId"
             AppLogger.wsConnecting(fullWsUrl)
             AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Starting WebSocket connection", "url=$fullWsUrl")
+            val authCompleted = CompletableDeferred<Unit>()
 
             httpClient.webSocket(fullWsUrl) {
                 session = this
@@ -117,6 +119,7 @@ class WebSocketManager(
                 pingJob = launch {
                     AppLogger.debug(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Ping job started")
                     try {
+                        authCompleted.await()
                         while (isActive) {
                             delay(25_000)
                             send(PingMessage())
@@ -131,6 +134,9 @@ class WebSocketManager(
                     AppLogger.debug(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Outgoing message handler started")
                     try {
                         for (message in outgoingMessages) {
+                            if (message !is AuthMessage) {
+                                authCompleted.await()
+                            }
                             // Encode each message type with its specific serializer to avoid sealed class issues
                             val (messageType, jsonString) = when (message) {
                                 is PingMessage -> "ping" to json.encodeToString(PingMessage.serializer(), message)
@@ -157,10 +163,24 @@ class WebSocketManager(
                 AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "Starting incoming message loop")
                 try {
                     for (frame in incoming) {
+                        if (sessionId != currentSessionId) {
+                            AppLogger.info(
+                                app.vibe80.shared.logging.LogSource.WEBSOCKET,
+                                "Ignoring frames from stale WebSocket session",
+                                "stale=$currentSessionId active=$sessionId"
+                            )
+                            break
+                        }
                         try {
                             when (frame) {
                                 is Frame.Text -> {
                                     val text = frame.readText()
+                                    val type = runCatching {
+                                        json.decodeFromString<JsonObject>(text)["type"]?.jsonPrimitive?.content
+                                    }.getOrNull()
+                                    if (type == "auth_ok" && !authCompleted.isCompleted) {
+                                        authCompleted.complete(Unit)
+                                    }
                                     parseAndEmitMessage(text)
                                 }
                                 is Frame.Close -> {
@@ -193,14 +213,30 @@ class WebSocketManager(
                 }
             }
             // WebSocket closed normally, attempt to reconnect
-            AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "WebSocket block exited, scheduling reconnect")
-            _connectionState.value = ConnectionState.DISCONNECTED
-            scheduleReconnect()
+            if (sessionId == currentSessionId) {
+                AppLogger.info(app.vibe80.shared.logging.LogSource.WEBSOCKET, "WebSocket block exited, scheduling reconnect")
+                _connectionState.value = ConnectionState.DISCONNECTED
+                scheduleReconnect()
+            } else {
+                AppLogger.info(
+                    app.vibe80.shared.logging.LogSource.WEBSOCKET,
+                    "WebSocket block exited for stale session, skipping reconnect",
+                    "stale=$currentSessionId active=$sessionId"
+                )
+            }
         } catch (e: Exception) {
             AppLogger.error(app.vibe80.shared.logging.LogSource.WEBSOCKET, "WebSocket connection error: ${e::class.simpleName}", e.stackTraceToString())
-            _connectionState.value = ConnectionState.ERROR
-            _errors.emit(e)
-            scheduleReconnect()
+            if (sessionId == currentSessionId) {
+                _connectionState.value = ConnectionState.ERROR
+                _errors.emit(e)
+                scheduleReconnect()
+            } else {
+                AppLogger.info(
+                    app.vibe80.shared.logging.LogSource.WEBSOCKET,
+                    "Ignoring connection error from stale session",
+                    "stale=$currentSessionId active=$sessionId"
+                )
+            }
         }
     }
 

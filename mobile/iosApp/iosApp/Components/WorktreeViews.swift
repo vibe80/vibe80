@@ -1,5 +1,5 @@
 import SwiftUI
-import shared
+import Shared
 
 // MARK: - Worktree Tabs
 
@@ -52,28 +52,24 @@ struct WorktreeTab: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 6) {
-                // Color indicator
-                Circle()
-                    .fill(worktreeColor)
-                    .frame(width: 8, height: 8)
+                leadingIndicator
 
-                // Name
                 Text(worktree.name)
                     .font(.subheadline)
                     .fontWeight(isActive ? .semibold : .regular)
                     .lineLimit(1)
 
-                // Status indicator
-                statusIndicator
+                Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(isActive ? Color.blue.opacity(0.15) : Color(.systemBackground))
+            .padding(.vertical, 10)
+            .background(isActive ? Color.blue.opacity(0.2) : Color(.systemBackground))
             .cornerRadius(18)
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
                     .stroke(isActive ? Color.blue : Color.clear, lineWidth: 1.5)
             )
+            .animation(.easeInOut(duration: 0.2), value: isActive)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -88,26 +84,15 @@ struct WorktreeTab: View {
     }
 
     @ViewBuilder
-    private var statusIndicator: some View {
-        switch worktree.status {
-        case .creating, .processing, .merging:
+    private var leadingIndicator: some View {
+        if worktree.status == .ready {
+            Circle()
+                .fill(worktreeColor)
+                .frame(width: 8, height: 8)
+        } else {
             ProgressView()
-                .scaleEffect(0.6)
-
-        case .error, .mergeConflict:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.caption2)
-                .foregroundColor(.red)
-
-        case .completed:
-            if worktree.id != "main" {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.caption2)
-                    .foregroundColor(.green)
-            }
-
-        default:
-            EmptyView()
+                .scaleEffect(0.7)
+                .frame(width: 12, height: 12)
         }
     }
 }
@@ -190,6 +175,7 @@ struct WorktreeMenuView: View {
 struct CreateWorktreeSheetView: View {
     let currentProvider: LLMProvider
     let worktrees: [Worktree]
+    let isCreating: Bool
     let onCreate: (
         String?,
         LLMProvider,
@@ -212,6 +198,38 @@ struct CreateWorktreeSheetView: View {
     @State private var internetAccess = true
     @State private var denyGitCredentialsAccess = true
     @State private var selectedColor = Worktree.companion.COLORS.first ?? "#4CAF50"
+    
+    private var availableSourceWorktrees: [Worktree] {
+        if worktrees.isEmpty {
+            return [
+                Worktree(
+                    id: "main",
+                    name: "main",
+                    branchName: "main",
+                    provider: currentProvider,
+                    status: .ready,
+                    color: "#4CAF50",
+                    parentId: nil,
+                    createdAt: 0
+                )
+            ]
+        }
+        if worktrees.contains(where: { $0.id == "main" }) {
+            return worktrees
+        }
+        return [
+            Worktree(
+                id: "main",
+                name: "main",
+                branchName: "main",
+                provider: currentProvider,
+                status: .ready,
+                color: "#4CAF50",
+                parentId: nil,
+                createdAt: 0
+            )
+        ] + worktrees
+    }
 
     var body: some View {
         NavigationStack {
@@ -247,7 +265,7 @@ struct CreateWorktreeSheetView: View {
                 } else {
                     Section("worktree.source_worktree.label") {
                         Picker("worktree.source_worktree.label", selection: $selectedSourceWorktree) {
-                            ForEach(worktrees, id: \.id) { worktree in
+                            ForEach(availableSourceWorktrees, id: \.id) { worktree in
                                 Text(worktree.id == "main" ? "main" : worktree.name)
                                     .tag(worktree.id)
                             }
@@ -279,10 +297,11 @@ struct CreateWorktreeSheetView: View {
                     Button("action.cancel") {
                         dismiss()
                     }
+                    .disabled(isCreating)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("action.create") {
+                    Button {
                         onCreate(
                             name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : name.trimmingCharacters(in: .whitespacesAndNewlines),
                             selectedProvider,
@@ -294,16 +313,23 @@ struct CreateWorktreeSheetView: View {
                             internetAccess,
                             denyGitCredentialsAccess
                         )
+                    } label: {
+                        if isCreating {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                        } else {
+                            Text("action.create")
+                        }
                     }
-                    .disabled(sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(isCreating || sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .fontWeight(.semibold)
                 }
             }
             .onAppear {
                 selectedProvider = currentProvider
-                if !worktrees.contains(where: { $0.id == selectedSourceWorktree }) {
-                    selectedSourceWorktree = worktrees.first(where: { $0.id == "main" })?.id
-                        ?? worktrees.first?.id
+                if !availableSourceWorktrees.contains(where: { $0.id == selectedSourceWorktree }) {
+                    selectedSourceWorktree = availableSourceWorktrees.first(where: { $0.id == "main" })?.id
+                        ?? availableSourceWorktrees.first?.id
                         ?? "main"
                 }
             }
@@ -336,13 +362,14 @@ struct CreateWorktreeSheetView: View {
 struct ProviderSheetView: View {
     let currentProvider: LLMProvider
     let onSelect: (LLMProvider) -> Void
+    private let providerOptions: [LLMProvider] = [.codex, .claude]
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(LLMProvider.allCases, id: \.self) { provider in
+                ForEach(providerOptions, id: \.name) { provider in
                     Button {
                         onSelect(provider)
                     } label: {
@@ -438,6 +465,10 @@ extension Color {
 #Preview("Create Worktree") {
     CreateWorktreeSheetView(
         currentProvider: .codex,
-        onCreate: { _, _, _ in }
+        worktrees: [
+            Worktree(id: "main", name: "main", branchName: "main", provider: .codex, status: .ready, color: "#4CAF50", parentId: nil, createdAt: 0),
+        ],
+        isCreating: false,
+        onCreate: { _, _, _, _, _, _, _, _, _ in }
     )
 }

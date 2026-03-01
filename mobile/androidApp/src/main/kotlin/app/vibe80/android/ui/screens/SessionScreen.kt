@@ -1,5 +1,6 @@
 package app.vibe80.android.ui.screens
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -38,12 +40,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,6 +65,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import app.vibe80.android.R
+import app.vibe80.android.Vibe80Application
+import app.vibe80.android.ui.components.LogsSheetContent
 import app.vibe80.android.viewmodel.AuthMethod
 import app.vibe80.android.viewmodel.EntryScreen
 import app.vibe80.android.viewmodel.LoadingState
@@ -84,6 +90,8 @@ fun SessionScreen(
     var showHttpPassword by remember { mutableStateOf(false) }
     var showWorkspaceSecret by remember { mutableStateOf(false) }
     var showProviderSecrets by remember { mutableStateOf(false) }
+    var showLogsSheet by remember { mutableStateOf(false) }
+    var pendingLogsExport by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     val codexAuthPicker = rememberLauncherForActivityResult(
@@ -101,6 +109,20 @@ fun SessionScreen(
                 // Ignore file read errors
             }
         }
+    }
+
+    val logsExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        val content = pendingLogsExport
+        if (uri != null && content != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(content.toByteArray())
+                }
+            }
+        }
+        pendingLogsExport = null
     }
 
     LaunchedEffect(uiState.sessionId) {
@@ -129,7 +151,9 @@ fun SessionScreen(
                     EntryScreen.WORKSPACE_MODE -> WorkspaceModeSelection(
                         onCreateWorkspace = { viewModel.selectWorkspaceMode(WorkspaceMode.NEW) },
                         onJoinWorkspace = { viewModel.selectWorkspaceMode(WorkspaceMode.EXISTING) },
-                        onResumeDesktop = onOpenQrScanner
+                        onResumeDesktop = onOpenQrScanner,
+                        showLogsButton = Vibe80Application.logsButtonEnabled,
+                        onOpenLogs = { showLogsSheet = true }
                     )
 
                     EntryScreen.WORKSPACE_CREDENTIALS -> WorkspaceCredentialsScreen(
@@ -207,6 +231,20 @@ fun SessionScreen(
                 }
             }
         }
+
+        if (Vibe80Application.logsButtonEnabled && showLogsSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showLogsSheet = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ) {
+                LogsSheetContent(
+                    onExportLogs = { content, fileName ->
+                        pendingLogsExport = content
+                        logsExportLauncher.launch(fileName)
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -260,7 +298,9 @@ private fun BrandHeader(title: String, subtitle: String? = null) {
 private fun WorkspaceModeSelection(
     onCreateWorkspace: () -> Unit,
     onJoinWorkspace: () -> Unit,
-    onResumeDesktop: () -> Unit
+    onResumeDesktop: () -> Unit,
+    showLogsButton: Boolean,
+    onOpenLogs: () -> Unit
 ) {
     ScreenContainer {
         BrandHeader(title = "")
@@ -286,6 +326,17 @@ private fun WorkspaceModeSelection(
             Icon(imageVector = Icons.Default.CameraAlt, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.workspace_resume_desktop))
+        }
+
+        if (showLogsButton) {
+            OutlinedButton(
+                onClick = onOpenLogs,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(imageVector = Icons.Default.BugReport, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.logs_title_simple))
+            }
         }
     }
 }
@@ -377,6 +428,7 @@ private fun ProviderConfigScreen(
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
+    val context = LocalContext.current
 
     val codexConfig = providerConfigs["codex"]
     val claudeConfig = providerConfigs["claude"]
@@ -439,6 +491,19 @@ private fun ProviderConfigScreen(
             } else {
                 Text(stringResource(R.string.action_continue))
             }
+        }
+
+        TextButton(
+            onClick = {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://vibe80.io/docs/workspace-session-setup")
+                )
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.providers_config_learn_more))
         }
     }
 }
