@@ -162,17 +162,24 @@ jobs:
         run: |
           yes | sdkmanager --licenses || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
-          sh ./gradlew :androidApp:assembleRelease --no-daemon --stacktrace
+          sh ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --no-daemon --stacktrace
       - name: Upload APK artifact (GitHub)
         uses: actions/upload-artifact@v4
         with:
           name: vibe80-android-release-${{ github.ref_name }}
           path: mobile/androidApp/build/outputs/apk/release/*.apk
+      - name: Upload AAB artifact (GitHub)
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe80-android-release-aab-${{ github.ref_name }}
+          path: mobile/androidApp/build/outputs/bundle/release/*.aab
       - name: Publish APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: mobile/androidApp/build/outputs/apk/release/*.apk
+          files: |
+            mobile/androidApp/build/outputs/apk/release/*.apk
+            mobile/androidApp/build/outputs/bundle/release/*.aab
           generate_release_notes: true
 
   publish_npm:
