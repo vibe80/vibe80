@@ -528,6 +528,22 @@ struct SessionView: View {
 
                 Spacer()
 
+                Button(
+                    viewModel.resumingSessionId == session.sessionId && viewModel.loadingState == .resuming
+                        ? "action.resume.progress"
+                        : "action.resume"
+                ) {
+                    viewModel.resumeWorkspaceSession(
+                        sessionId: session.sessionId,
+                        repoUrl: session.repoUrl,
+                        appState: appState
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.vibe80Accent)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading || viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
+
                 Button("session.config.button") {
                     openSessionConfig(session)
                 }
@@ -545,22 +561,6 @@ struct SessionView: View {
                 .tint(.red)
                 .controlSize(.small)
                 .disabled(viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
-
-                Button(
-                    viewModel.resumingSessionId == session.sessionId && viewModel.loadingState == .resuming
-                        ? "action.resume.progress"
-                        : "action.resume"
-                ) {
-                    viewModel.resumeWorkspaceSession(
-                        sessionId: session.sessionId,
-                        repoUrl: session.repoUrl,
-                        appState: appState
-                    )
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
-                .controlSize(.small)
-                .disabled(viewModel.isLoading || viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
             }
         }
         .vibe80CardStyle()
