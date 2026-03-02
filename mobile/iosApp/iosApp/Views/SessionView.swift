@@ -445,35 +445,107 @@ struct SessionView: View {
         ScrollView {
             VStack(spacing: 20) {
                 backButton { viewModel.backToJoinSession() }
-                vibe80Header(title: "session.start.title")
-
-                VStack(spacing: 12) {
-                    Vibe80TextField(title: "repo.url.label", text: $viewModel.repoUrl)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Start AI Session")
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundColor(.vibe80Ink)
+                    Text("Connect a Git repository to spin up your workspace.")
+                        .font(.body)
+                        .foregroundColor(.vibe80InkMuted)
                 }
-                .vibe80CardStyle()
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("auth.title")
-                        .font(.headline)
-                    Picker("auth.method.label", selection: $viewModel.authMethod) {
-                        Text("auth.none").tag(AuthMethod.none)
-                        Text("auth.http").tag(AuthMethod.http)
-                        Text("auth.ssh").tag(AuthMethod.ssh)
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "diamond.fill")
+                                .foregroundColor(.vibe80Accent)
+                            Text("Repository")
+                                .font(.title3.weight(.semibold))
+                                .foregroundColor(.vibe80Ink)
+                        }
+
+                        HStack(spacing: 8) {
+                            TextField("https://github.com/org/project", text: $viewModel.repoUrl)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled(true)
+                                .textInputAutocapitalization(.never)
+                                .keyboardType(.URL)
+
+                            if !viewModel.repoUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.green)
+                            }
+
+                            Button("Paste") {
+                                if let pasted = UIPasteboard.general.string {
+                                    viewModel.repoUrl = pasted
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.vibe80AccentDark)
+                        }
                     }
-                    .pickerStyle(.segmented)
 
-                    if viewModel.authMethod == .ssh {
-                        Vibe80TextEditor(title: "auth.ssh.key", text: $viewModel.sshKey)
-                    }
+                    Divider()
 
-                    if viewModel.authMethod == .http {
-                        Vibe80TextField(title: "auth.http.username", text: $viewModel.httpUser)
-                        Vibe80SecureField(
-                            title: "auth.http.password",
-                            text: $viewModel.httpPassword,
-                            isRevealed: $showHttpPassword
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Authentication method")
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(.vibe80Ink)
+
+                        VStack(spacing: 0) {
+                            authOptionRow("Public repository", method: .none)
+                            Divider().padding(.leading, 36)
+                            authOptionRow("HTTPS (username + token)", method: .http)
+                            Divider().padding(.leading, 36)
+                            authOptionRow("SSH key", method: .ssh)
+                        }
+                        .background(Color.vibe80SurfaceElevated)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.vibe80InkMuted.opacity(0.15), lineWidth: 1)
                         )
+
+                        if viewModel.authMethod == .ssh {
+                            Vibe80TextEditor(title: "auth.ssh.key", text: $viewModel.sshKey)
+                        }
+
+                        if viewModel.authMethod == .http {
+                            Vibe80TextField(title: "auth.http.username", text: $viewModel.httpUser)
+                            Vibe80SecureField(
+                                title: "auth.http.password",
+                                text: $viewModel.httpPassword,
+                                isRevealed: $showHttpPassword
+                            )
+                        }
                     }
+
+                    Button {
+                        viewModel.createSession(appState: appState)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "play.fill")
+                                .font(.headline.weight(.semibold))
+                            Text("Launch session")
+                                .font(.headline.weight(.bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 1.0, green: 0.42, blue: 0.15), Color(red: 1.0, green: 0.31, blue: 0.13)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .cornerRadius(22)
+                        .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.isLoading)
                 }
                 .vibe80CardStyle()
 
@@ -481,16 +553,27 @@ struct SessionView: View {
                     Text(error)
                         .foregroundColor(.red)
                 }
-
-                Button(viewModel.isLoading ? "session.start.loading" : "action.continue") {
-                    viewModel.createSession(appState: appState)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
-                .disabled(viewModel.isLoading)
             }
             .padding(24)
         }
+    }
+
+    private func authOptionRow(_ title: String, method: AuthMethod) -> some View {
+        Button {
+            viewModel.authMethod = method
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: viewModel.authMethod == method ? "record.circle.fill" : "circle")
+                    .foregroundColor(viewModel.authMethod == method ? .vibe80Accent : .vibe80InkMuted)
+                Text(title)
+                    .foregroundColor(.vibe80Ink)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func providerCard(
