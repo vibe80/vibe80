@@ -134,6 +134,7 @@
 "session.resuming" = "Resuming...";
 "session.saved.empty" = "No saved sessions yet.";
 "session.saved.placeholder" = "Saved session";
+"session.error.repo_url_required" = "Repository URL is required.";
 "session.start.loading" = "Loading...";
 "session.start.new" = "Start a new session";
 "settings.title" = "Settings";

@@ -473,7 +473,7 @@ class SessionViewModel: ObservableObject {
 
     func createSession(appState: AppState) {
         guard !repoUrl.isEmpty else {
-            sessionError = "L'URL du repository est requise"
+            sessionError = NSLocalizedString("session.error.repo_url_required", comment: "")
             return
         }
 
