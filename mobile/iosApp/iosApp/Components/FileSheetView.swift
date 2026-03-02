@@ -48,8 +48,8 @@ struct FileSheetView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ScrollView([.horizontal, .vertical]) {
-                        VStack(alignment: .leading, spacing: 0) {
+                    GeometryReader { geometry in
+                        ScrollView([.horizontal, .vertical]) {
                             Text(verbatim: content)
                                 .font(.vibe80SpaceMono(.caption1))
                                 .foregroundColor(.vibe80Ink)
@@ -57,11 +57,14 @@ struct FileSheetView: View {
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(
+                                    minWidth: geometry.size.width,
+                                    minHeight: geometry.size.height,
+                                    alignment: .topLeading
+                                )
+                                .padding(12)
                         }
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
             }
             .background(Color.vibe80Background)
