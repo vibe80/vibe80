@@ -10,9 +10,7 @@ struct SessionView: View {
     @State private var showWorkspaceSecret = false
     @State private var showHttpPassword = false
     @State private var showProviderSecrets = false
-    @State private var showAuthJsonPicker = false
-    @State private var showSshKeyPicker = false
-    @State private var showSessionConfigSshKeyPicker = false
+    @State private var activeFileImportTarget: FileImportTarget?
     @State private var showLogsSheet = false
     @State private var sessionConfigTargetId: String?
     @State private var sessionConfigAuthMode: SessionConfigAuthMode = .keep
@@ -48,33 +46,24 @@ struct SessionView: View {
             .navigationBarHidden(true)
         }
         .fileImporter(
-            isPresented: $showAuthJsonPicker,
-            allowedContentTypes: [.json, .plainText]
+            item: $activeFileImportTarget,
+            allowedContentTypes: [.json, .plainText, .text, .utf8PlainText, .data]
         ) { result in
-            guard case let .success(url) = result else { return }
-            if let data = try? Data(contentsOf: url),
-               let content = String(data: data, encoding: .utf8) {
+            guard
+                case let .success(url) = result,
+                let data = try? Data(contentsOf: url),
+                let content = String(data: data, encoding: .utf8)
+            else { return }
+
+            switch activeFileImportTarget {
+            case .authJson:
                 viewModel.updateProviderAuthValue("codex", authValue: content)
-            }
-        }
-        .fileImporter(
-            isPresented: $showSshKeyPicker,
-            allowedContentTypes: [.plainText, .text, .utf8PlainText, .data]
-        ) { result in
-            guard case let .success(url) = result else { return }
-            if let data = try? Data(contentsOf: url),
-               let content = String(data: data, encoding: .utf8) {
+            case .sshKeyStartSession:
                 viewModel.sshKey = content
-            }
-        }
-        .fileImporter(
-            isPresented: $showSessionConfigSshKeyPicker,
-            allowedContentTypes: [.plainText, .text, .utf8PlainText, .data]
-        ) { result in
-            guard case let .success(url) = result else { return }
-            if let data = try? Data(contentsOf: url),
-               let content = String(data: data, encoding: .utf8) {
+            case .sshKeySessionConfig:
                 sessionConfigSshKey = content
+            case .none:
+                break
             }
         }
         .sheet(isPresented: $showLogsSheet) {
@@ -633,7 +622,7 @@ struct SessionView: View {
 
                     if sessionConfigAuthMode == .ssh {
                         Button("auth.ssh.import_key") {
-                            showSessionConfigSshKeyPicker = true
+                            activeFileImportTarget = .sshKeySessionConfig
                         }
                         .buttonStyle(.bordered)
                         .tint(.vibe80AccentDark)
@@ -773,7 +762,7 @@ struct SessionView: View {
 
                         if viewModel.authMethod == .ssh {
                             Button("auth.ssh.import_key") {
-                                showSshKeyPicker = true
+                                activeFileImportTarget = .sshKeyStartSession
                             }
                             .buttonStyle(.bordered)
                             .tint(.vibe80AccentDark)
@@ -897,7 +886,7 @@ struct SessionView: View {
 
                 if effectiveAuthType == .authJsonB64 && supportsAuthJson {
                     Button("provider.auth.import_auth_json") {
-                        showAuthJsonPicker = true
+                        activeFileImportTarget = .authJson
                     }
                     .buttonStyle(.bordered)
                     .tint(.vibe80AccentDark)
@@ -1062,6 +1051,14 @@ private struct Vibe80TextEditor: View {
                 .keyboardType(.asciiCapable)
         }
     }
+}
+
+private enum FileImportTarget: String, Identifiable {
+    case authJson
+    case sshKeyStartSession
+    case sshKeySessionConfig
+
+    var id: String { rawValue }
 }
 
 #Preview {
