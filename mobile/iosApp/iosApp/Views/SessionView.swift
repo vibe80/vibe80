@@ -575,19 +575,19 @@ struct SessionView: View {
                 .controlSize(.small)
                 .disabled(viewModel.isLoading || viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
 
-                Button("session.config.button") {
-                    openSessionConfig(session)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
+                Menu {
+                    Button("session.config.button") {
+                        openSessionConfig(session)
+                    }
 
-                Button("action.delete") {
-                    deleteSessionTarget = session
+                    Button("action.delete", role: .destructive) {
+                        deleteSessionTarget = session
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                        .foregroundColor(.vibe80InkMuted)
                 }
-                .buttonStyle(.bordered)
-                .tint(.red)
-                .controlSize(.small)
                 .disabled(viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
             }
         }
