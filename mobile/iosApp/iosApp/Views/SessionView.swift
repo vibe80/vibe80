@@ -629,7 +629,6 @@ struct SessionView: View {
                         }
                         .buttonStyle(.bordered)
                         .tint(.vibe80AccentDark)
-                        Vibe80TextEditor(title: "auth.ssh.key", text: $sessionConfigSshKey)
                     }
 
                     if sessionConfigAuthMode == .http {
@@ -781,8 +780,6 @@ struct SessionView: View {
                                     .font(.footnote)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
-
-                            Vibe80TextEditor(title: "auth.ssh.key", text: $viewModel.sshKey)
                         }
 
                         if viewModel.authMethod == .http {
