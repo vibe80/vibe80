@@ -53,9 +53,11 @@ struct FileSheetView: View {
                             .font(.vibe80SpaceMono(.caption1))
                             .foregroundColor(.vibe80Ink)
                             .textSelection(.enabled)
+                            .multilineTextAlignment(.leading)
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
             }
             .background(Color.vibe80Background)

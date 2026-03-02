@@ -197,16 +197,26 @@ struct ChatView: View {
                 }
             }
             // File sheet (P2.2)
-            .sheet(isPresented: $viewModel.showFileSheet) {
-                FileSheetView(
-                    path: viewModel.fileSheetPath,
-                    content: viewModel.fileSheetContent,
-                    isLoading: viewModel.fileSheetLoading,
-                    error: viewModel.fileSheetError,
-                    isBinary: viewModel.fileSheetBinary,
-                    isTruncated: viewModel.fileSheetTruncated
-                )
-                .presentationDetents([.large])
+            .sheet(isPresented: Binding(
+                get: { viewModel.showFileSheet && !isPadDevice },
+                set: { if !$0 { viewModel.showFileSheet = false } }
+            )) {
+                fileSheetView
+                    .presentationDetents([.height(estimatedFileSheetHeight()), .large])
+            }
+            .popover(isPresented: Binding(
+                get: { viewModel.showFileSheet && isPadDevice },
+                set: { if !$0 { viewModel.showFileSheet = false } }
+            )) {
+                fileSheetView
+                    .frame(
+                        minWidth: 420,
+                        idealWidth: estimatedFileSheetWidth(),
+                        maxWidth: min(UIScreen.main.bounds.width * 0.9, 1000),
+                        minHeight: 260,
+                        idealHeight: estimatedFileSheetHeight(),
+                        maxHeight: min(UIScreen.main.bounds.height * 0.85, 900)
+                    )
             }
             // Error banner overlay (P2.1)
             .overlay(alignment: .bottom) {
@@ -337,6 +347,46 @@ struct ChatView: View {
         #else
         return "https://app.vibe80.io"
         #endif
+    }
+
+    private var isPadDevice: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+
+    private var fileSheetView: some View {
+        FileSheetView(
+            path: viewModel.fileSheetPath,
+            content: viewModel.fileSheetContent,
+            isLoading: viewModel.fileSheetLoading,
+            error: viewModel.fileSheetError,
+            isBinary: viewModel.fileSheetBinary,
+            isTruncated: viewModel.fileSheetTruncated
+        )
+    }
+
+    private func estimatedFileSheetHeight() -> CGFloat {
+        let maxHeight = UIScreen.main.bounds.height * (isPadDevice ? 0.85 : 0.9)
+        if viewModel.fileSheetLoading || viewModel.fileSheetError != nil || viewModel.fileSheetBinary {
+            return min(340, maxHeight)
+        }
+
+        let lineCount = max(viewModel.fileSheetContent.components(separatedBy: "\n").count, 1)
+        let estimated = CGFloat(lineCount) * 16 + 190
+        return max(260, min(estimated, maxHeight))
+    }
+
+    private func estimatedFileSheetWidth() -> CGFloat {
+        let maxWidth = min(UIScreen.main.bounds.width * 0.9, 1000)
+        if viewModel.fileSheetLoading || viewModel.fileSheetError != nil || viewModel.fileSheetBinary {
+            return min(560, maxWidth)
+        }
+
+        let longestLine = viewModel.fileSheetContent
+            .components(separatedBy: "\n")
+            .map(\.count)
+            .max() ?? 0
+        let estimated = CGFloat(longestLine) * 7.2 + 120
+        return max(420, min(estimated, maxWidth))
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
