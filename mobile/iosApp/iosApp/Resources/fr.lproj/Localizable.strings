@@ -148,6 +148,9 @@
 "status.loaded" = "Chargé";
 "status.reconnecting" = "Reconnexion...";
 "welcome.subtitle" = "Choisissez comment démarrer votre session.";
+"welcome.resume.subtitle" = "Reprenez là où vous vous êtes arrêté sur votre environnement desktop.";
+"welcome.create.subtitle" = "Créez un nouveau workspace de code propulsé par l’IA.";
+"welcome.join.subtitle" = "Collaborez dans un workspace partagé par votre équipe.";
 "welcome.title" = "Bienvenue dans Vibe80";
 "workspace.connecting" = "Connexion...";
 "workspace.create" = "Créer un nouveau workspace";

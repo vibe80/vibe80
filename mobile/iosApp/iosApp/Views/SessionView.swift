@@ -66,23 +66,35 @@ struct SessionView: View {
                     subtitle: "welcome.subtitle"
                 )
 
-                Button("workspace.create") {
-                    viewModel.selectWorkspaceMode(.new)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
+                VStack(spacing: 12) {
+                    workspaceActionCard(
+                        title: "workspace.resume.desktop",
+                        subtitle: "welcome.resume.subtitle",
+                        icon: "desktopcomputer",
+                        emphasized: true
+                    ) {
+                        viewModel.openQrScan()
+                    }
 
-                Button("workspace.join") {
-                    viewModel.selectWorkspaceMode(.existing)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
+                    workspaceActionCard(
+                        title: "workspace.create",
+                        subtitle: "welcome.create.subtitle",
+                        icon: "sparkles",
+                        emphasized: false
+                    ) {
+                        viewModel.selectWorkspaceMode(.new)
+                    }
 
-                Button("workspace.resume.desktop") {
-                    viewModel.openQrScan()
+                    workspaceActionCard(
+                        title: "workspace.join",
+                        subtitle: "welcome.join.subtitle",
+                        icon: "point.3.connected.trianglepath.dotted",
+                        emphasized: false
+                    ) {
+                        viewModel.selectWorkspaceMode(.existing)
+                    }
                 }
-                .buttonStyle(.bordered)
-                .tint(.vibe80AccentDark)
+                .vibe80CardStyle()
 
                 if appState.logsButtonEnabled {
                     Button {
@@ -96,6 +108,50 @@ struct SessionView: View {
             }
             .padding(24)
         }
+    }
+
+    private func workspaceActionCard(
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey,
+        icon: String,
+        emphasized: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(emphasized ? Color.vibe80Accent.opacity(0.18) : Color.vibe80Background)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: icon)
+                        .foregroundColor(emphasized ? .vibe80Accent : .vibe80InkMuted)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundColor(.vibe80Ink)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundColor(.vibe80InkMuted)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(.vibe80InkMuted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .background(emphasized ? Color(red: 1.0, green: 0.97, blue: 0.93) : Color.vibe80SurfaceElevated)
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.vibe80InkMuted.opacity(0.12), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var workspaceCredentials: some View {
