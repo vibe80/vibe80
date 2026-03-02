@@ -747,14 +747,6 @@ struct SessionView: View {
                                 .autocorrectionDisabled(true)
                                 .textInputAutocapitalization(.never)
                                 .keyboardType(.URL)
-
-                            Button("Paste") {
-                                if let pasted = UIPasteboard.general.string {
-                                    viewModel.repoUrl = pasted
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.vibe80AccentDark)
                         }
                     }
 
