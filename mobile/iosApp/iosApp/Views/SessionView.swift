@@ -714,7 +714,7 @@ struct SessionView: View {
             VStack(spacing: 20) {
                 backButton { viewModel.backToJoinSession() }
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Start a new session")
+                    Text("New session")
                         .font(.system(size: 40, weight: .bold))
                         .foregroundColor(.vibe80Ink)
                     Text("Connect a Git repository to spin up your vibecoding work.")
