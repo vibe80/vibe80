@@ -15,6 +15,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class ApiClient(
     private val httpClient: HttpClient,
@@ -291,11 +293,23 @@ class ApiClient(
     suspend fun updateSession(sessionId: String, request: SessionUpdateRequest): Result<Unit> {
         val url = "$baseUrl/api/v1/sessions/$sessionId"
         AppLogger.apiRequest("PATCH", url)
+        val payload = buildJsonObject {
+            request.auth?.let { auth ->
+                put("auth", buildJsonObject {
+                    put("type", auth.type)
+                    auth.privateKey?.let { put("privateKey", it) }
+                    auth.username?.let { put("username", it) }
+                    auth.password?.let { put("password", it) }
+                })
+            }
+            request.defaultInternetAccess?.let { put("defaultInternetAccess", it) }
+            request.defaultDenyGitCredentialsAccess?.let { put("defaultDenyGitCredentialsAccess", it) }
+        }
         return try {
             val response = executeWithRefresh(url) {
                 httpClient.patch(url) {
                     contentType(ContentType.Application.Json)
-                    setBody(request)
+                    setBody(payload)
                     applyAuth(this)
                 }
             }
