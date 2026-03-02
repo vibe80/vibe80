@@ -488,7 +488,8 @@ class SessionViewModel: ObservableObject {
     // MARK: - Session actions
 
     func createSession(appState: AppState) {
-        guard !repoUrl.isEmpty else {
+        let trimmedRepoUrl = repoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedRepoUrl.isEmpty else {
             sessionError = NSLocalizedString("session.error.repo_url_required", comment: "")
             return
         }
@@ -502,26 +503,32 @@ class SessionViewModel: ObservableObject {
         loadingState = .cloning
         sessionError = nil
 
-        let sshKeyParam: String? = authMethod == .ssh ? sshKey : nil
-        let httpUserParam: String? = authMethod == .http ? httpUser : nil
-        let httpPasswordParam: String? = authMethod == .http ? httpPassword : nil
+        let sshKeyParam: String? = authMethod == .ssh
+            ? sshKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            : nil
+        let httpUserParam: String? = authMethod == .http
+            ? httpUser.trimmingCharacters(in: .whitespacesAndNewlines)
+            : nil
+        let httpPasswordParam: String? = authMethod == .http
+            ? httpPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+            : nil
 
         Task { [weak self] in
             do {
                 guard let self = self else { return }
                 let state = try await repository.createSessionOrThrow(
-                    repoUrl: self.repoUrl,
+                    repoUrl: trimmedRepoUrl,
                     sshKey: sshKeyParam,
                     httpUser: httpUserParam,
                     httpPassword: httpPasswordParam
                 )
                 let defaults = UserDefaults.standard
                 defaults.set(state.sessionId, forKey: "lastSessionId")
-                defaults.set(self.repoUrl, forKey: "lastRepoUrl")
+                defaults.set(trimmedRepoUrl, forKey: "lastRepoUrl")
                 defaults.set(state.activeProvider.name, forKey: "lastProvider")
                 defaults.set("", forKey: "lastBaseUrl")
                 self.savedSessionId = state.sessionId
-                self.savedSessionRepoUrl = self.repoUrl
+                self.savedSessionRepoUrl = trimmedRepoUrl
                 self.hasSavedSession = true
                 repository.clearError()
                 self.isLoading = false
@@ -632,11 +639,12 @@ class SessionViewModel: ObservableObject {
             updateAuth = SessionUpdateAuth(type: "ssh", privateKey: key, username: nil, password: nil)
         case .http:
             let username = httpUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !username.isEmpty, !httpPassword.isEmpty else {
+            let password = httpPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !username.isEmpty, !password.isEmpty else {
                 sessionsError = NSLocalizedString("session.config.error.http_required", comment: "")
                 return
             }
-            updateAuth = SessionUpdateAuth(type: "http", privateKey: nil, username: username, password: httpPassword)
+            updateAuth = SessionUpdateAuth(type: "http", privateKey: nil, username: username, password: password)
         }
 
         let hasInternetChange = internetAccess != originalInternetAccess
