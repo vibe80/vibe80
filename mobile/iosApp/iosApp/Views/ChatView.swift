@@ -178,7 +178,11 @@ struct ChatView: View {
                         )
                     }
                 )
-                .presentationDetents([.medium])
+                .presentationDetents(
+                    UIDevice.current.userInterfaceIdiom == .pad
+                        ? [.large]
+                        : [.medium, .large]
+                )
             }
             .sheet(item: $showWorktreeMenu) { worktreeId in
                 if let worktree = viewModel.worktrees.first(where: { $0.id == worktreeId.value }) {
