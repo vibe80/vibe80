@@ -152,7 +152,7 @@
 "session.delete.confirm.title" = "Supprimer la session ?";
 "session.delete.confirm.message" = "Voulez-vous vraiment supprimer \"%@\" ? Cette action est irréversible.";
 "session.start.loading" = "Chargement...";
-"session.start.new" = "Démarrer une nouvelle session";
+"session.start.new" = "Nouvelle session";
 "settings.title" = "Paramètres";
 "menu.ai_providers" = "Providers IA";
 "session.start.subtitle" = "Continuez à avancer avec vos agents IA";

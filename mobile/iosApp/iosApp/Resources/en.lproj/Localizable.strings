@@ -152,7 +152,7 @@
 "session.delete.confirm.title" = "Delete session?";
 "session.delete.confirm.message" = "Are you sure you want to delete \"%@\"? This action cannot be undone.";
 "session.start.loading" = "Loading...";
-"session.start.new" = "Start a new session";
+"session.start.new" = "New session";
 "settings.title" = "Settings";
 "menu.ai_providers" = "AI Providers";
 "session.start.subtitle" = "Continue building with your AI agents";
