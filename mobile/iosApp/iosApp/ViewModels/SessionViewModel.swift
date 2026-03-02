@@ -42,6 +42,8 @@ class SessionViewModel: ObservableObject {
     @Published var workspaceSessions: [SessionSummary] = []
     @Published var sessionsLoading: Bool = false
     @Published var sessionsError: String?
+    @Published var sessionUpdatingId: String?
+    @Published var sessionDeletingId: String?
     @Published var logs: [LogEntry] = []
 
     private var createSessionCall: SuspendWrapper<SessionState>?
@@ -592,6 +594,101 @@ class SessionViewModel: ObservableObject {
         }
     }
 
+    func updateWorkspaceSessionConfig(
+        sessionId: String,
+        originalInternetAccess: Bool,
+        originalDenyGitCredentialsAccess: Bool,
+        internetAccess: Bool,
+        denyGitCredentialsAccess: Bool,
+        authMode: SessionConfigAuthMode,
+        sshPrivateKey: String,
+        httpUsername: String,
+        httpPassword: String,
+        appState: AppState,
+        onSuccess: @escaping () -> Void
+    ) {
+        guard let repository = appState.sessionRepository else {
+            sessionsError = "Module partagé non initialisé"
+            return
+        }
+
+        var updateAuth: SessionUpdateAuth?
+        switch authMode {
+        case .keep:
+            break
+        case .none:
+            updateAuth = SessionUpdateAuth(type: "none")
+        case .ssh:
+            let key = sshPrivateKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else {
+                sessionsError = NSLocalizedString("session.config.error.ssh_required", comment: "")
+                return
+            }
+            updateAuth = SessionUpdateAuth(type: "ssh", privateKey: key)
+        case .http:
+            let username = httpUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !username.isEmpty, !httpPassword.isEmpty else {
+                sessionsError = NSLocalizedString("session.config.error.http_required", comment: "")
+                return
+            }
+            updateAuth = SessionUpdateAuth(type: "http", username: username, password: httpPassword)
+        }
+
+        let hasInternetChange = internetAccess != originalInternetAccess
+        let hasDenyChange = denyGitCredentialsAccess != originalDenyGitCredentialsAccess
+        let hasAuthChange = updateAuth != nil
+
+        if !hasInternetChange && !hasDenyChange && !hasAuthChange {
+            onSuccess()
+            return
+        }
+
+        sessionUpdatingId = sessionId
+        sessionsError = nil
+
+        Task { [weak self] in
+            do {
+                try await repository.updateSessionOrThrow(
+                    sessionId: sessionId,
+                    request: SessionUpdateRequest(
+                        auth: updateAuth,
+                        defaultInternetAccess: hasInternetChange ? internetAccess : nil,
+                        defaultDenyGitCredentialsAccess: hasDenyChange ? denyGitCredentialsAccess : nil
+                    )
+                )
+                self?.sessionUpdatingId = nil
+                self?.loadWorkspaceSessions(appState: appState)
+                onSuccess()
+            } catch {
+                self?.sessionUpdatingId = nil
+                self?.sessionsError = self?.errorMessage(error)
+            }
+        }
+    }
+
+    func deleteWorkspaceSession(sessionId: String, appState: AppState) {
+        guard let repository = appState.sessionRepository else {
+            sessionsError = "Module partagé non initialisé"
+            return
+        }
+        sessionDeletingId = sessionId
+        sessionsError = nil
+
+        Task { [weak self] in
+            do {
+                try await repository.deleteSessionOrThrow(sessionId: sessionId)
+                self?.sessionDeletingId = nil
+                if self?.savedSessionId == sessionId {
+                    self?.clearSavedSession()
+                }
+                self?.workspaceSessions.removeAll { $0.sessionId == sessionId }
+            } catch {
+                self?.sessionDeletingId = nil
+                self?.sessionsError = self?.errorMessage(error)
+            }
+        }
+    }
+
     func resumeWorkspaceSession(sessionId: String, repoUrl: String?, appState: AppState) {
         guard !isLoading else { return }
         guard let repository = appState.sessionRepository else {
@@ -700,6 +797,13 @@ enum WorkspaceMode {
 enum ProviderConfigMode {
     case create
     case update
+}
+
+enum SessionConfigAuthMode {
+    case keep
+    case none
+    case ssh
+    case http
 }
 
 enum ProviderAuthType {

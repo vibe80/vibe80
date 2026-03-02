@@ -286,6 +286,66 @@ class ApiClient(
     }
 
     /**
+     * Update session auth/settings
+     */
+    suspend fun updateSession(sessionId: String, request: SessionUpdateRequest): Result<Unit> {
+        val url = "$baseUrl/api/v1/sessions/$sessionId"
+        AppLogger.apiRequest("PATCH", url)
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.patch(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(request)
+                    applyAuth(this)
+                }
+            }
+            val responseBody = if (!response.status.isSuccess()) {
+                readBodyTextUtf8(response)
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("PATCH", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                Result.failure(buildApiException(response, url, responseBody))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("PATCH", url, e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Delete session
+     */
+    suspend fun deleteSession(sessionId: String): Result<Unit> {
+        val url = "$baseUrl/api/v1/sessions/$sessionId"
+        AppLogger.apiRequest("DELETE", url)
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.delete(url) {
+                    applyAuth(this)
+                }
+            }
+            val responseBody = if (!response.status.isSuccess()) {
+                readBodyTextUtf8(response)
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("DELETE", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                Result.failure(buildApiException(response, url, responseBody))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("DELETE", url, e)
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Check if session is healthy and ready
      */
     suspend fun checkHealth(sessionId: String): Result<Boolean> {

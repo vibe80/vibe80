@@ -139,6 +139,16 @@
 "session.saved.placeholder" = "Session sauvegardée";
 "session.error.repo_url_required" = "L'URL du repository est requise.";
 "session.error.git_credentials_invalid" = "Impossible d'accéder à ce repository. Vérifiez vos identifiants Git (clé SSH ou token HTTPS).";
+"session.config.button" = "Config";
+"session.config.title" = "Configuration de session";
+"session.config.save" = "Enregistrer";
+"session.config.auth.section" = "Identifiants Git";
+"session.config.auth.mode" = "Authentification";
+"session.config.auth.keep" = "Conserver l'actuel";
+"session.config.auth.none" = "Sans authentification";
+"session.config.permissions.section" = "Permissions";
+"session.config.error.ssh_required" = "La clé SSH privée est requise.";
+"session.config.error.http_required" = "Nom d'utilisateur et mot de passe requis.";
 "session.start.loading" = "Chargement...";
 "session.start.new" = "Démarrer une nouvelle session";
 "settings.title" = "Paramètres";

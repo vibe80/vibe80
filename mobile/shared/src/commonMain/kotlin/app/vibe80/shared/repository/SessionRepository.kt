@@ -900,6 +900,30 @@ class SessionRepository(
     }
 
     @Throws(Throwable::class)
+    suspend fun updateSession(sessionId: String, request: SessionUpdateRequest): Result<Unit> {
+        val result = apiClient.updateSession(sessionId, request)
+        result.onFailure { handleApiFailure(it, "updateSession") }
+        return result
+    }
+
+    @Throws(Throwable::class)
+    suspend fun updateSessionOrThrow(sessionId: String, request: SessionUpdateRequest) {
+        updateSession(sessionId, request).getOrElse { throw it }
+    }
+
+    @Throws(Throwable::class)
+    suspend fun deleteSession(sessionId: String): Result<Unit> {
+        val result = apiClient.deleteSession(sessionId)
+        result.onFailure { handleApiFailure(it, "deleteSession") }
+        return result
+    }
+
+    @Throws(Throwable::class)
+    suspend fun deleteSessionOrThrow(sessionId: String) {
+        deleteSession(sessionId).getOrElse { throw it }
+    }
+
+    @Throws(Throwable::class)
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
         AppLogger.info(LogSource.APP, "SessionRepository.sendMessage called", "text='$text', attachments=${attachments.size}, connectionState=${connectionState.value}")
 

@@ -12,7 +12,15 @@ struct SessionView: View {
     @State private var showProviderSecrets = false
     @State private var showAuthJsonPicker = false
     @State private var showSshKeyPicker = false
+    @State private var showSessionConfigSshKeyPicker = false
     @State private var showLogsSheet = false
+    @State private var sessionConfigTargetId: String?
+    @State private var sessionConfigAuthMode: SessionConfigAuthMode = .keep
+    @State private var sessionConfigSshKey: String = ""
+    @State private var sessionConfigHttpUsername: String = ""
+    @State private var sessionConfigHttpPassword: String = ""
+    @State private var sessionConfigInternetAccess: Bool = true
+    @State private var sessionConfigDenyGitCredentialsAccess: Bool = true
 
     var body: some View {
         NavigationStack {
@@ -58,6 +66,16 @@ struct SessionView: View {
                 viewModel.sshKey = content
             }
         }
+        .fileImporter(
+            isPresented: $showSessionConfigSshKeyPicker,
+            allowedContentTypes: [.item]
+        ) { result in
+            guard case let .success(url) = result else { return }
+            if let data = try? Data(contentsOf: url),
+               let content = String(data: data, encoding: .utf8) {
+                sessionConfigSshKey = content
+            }
+        }
         .sheet(isPresented: $showLogsSheet) {
             if appState.logsButtonEnabled {
                 LogsSheetView(
@@ -65,6 +83,15 @@ struct SessionView: View {
                     onClear: viewModel.clearLogs
                 )
                 .presentationDetents([.large])
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { sessionConfigTargetId != nil },
+            set: { if !$0 { sessionConfigTargetId = nil } }
+        )) {
+            if let target = sessionConfigTarget {
+                sessionConfigSheet(target)
+                    .presentationDetents([.large])
             }
         }
     }
@@ -501,6 +528,24 @@ struct SessionView: View {
 
                 Spacer()
 
+                Button("session.config.button") {
+                    openSessionConfig(session)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
+
+                Button("action.delete") {
+                    viewModel.deleteWorkspaceSession(
+                        sessionId: session.sessionId,
+                        appState: appState
+                    )
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .controlSize(.small)
+                .disabled(viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
+
                 Button(
                     viewModel.resumingSessionId == session.sessionId && viewModel.loadingState == .resuming
                         ? "action.resume.progress"
@@ -515,10 +560,111 @@ struct SessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.vibe80Accent)
                 .controlSize(.small)
-                .disabled(viewModel.isLoading)
+                .disabled(viewModel.isLoading || viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
             }
         }
         .vibe80CardStyle()
+    }
+
+    private var sessionConfigTarget: SessionSummary? {
+        guard let sessionConfigTargetId else { return nil }
+        return viewModel.workspaceSessions.first { $0.sessionId == sessionConfigTargetId }
+    }
+
+    private func boolFromKotlin(_ value: KotlinBoolean?) -> Bool? {
+        value?.boolValue
+    }
+
+    private func boolFromKotlin(_ value: Bool?) -> Bool? {
+        value
+    }
+
+    private func openSessionConfig(_ session: SessionSummary) {
+        sessionConfigTargetId = session.sessionId
+        sessionConfigAuthMode = .keep
+        sessionConfigSshKey = ""
+        sessionConfigHttpUsername = ""
+        sessionConfigHttpPassword = ""
+        sessionConfigInternetAccess = boolFromKotlin(session.defaultInternetAccess) ?? true
+        sessionConfigDenyGitCredentialsAccess =
+            boolFromKotlin(session.defaultDenyGitCredentialsAccess) ?? true
+    }
+
+    @ViewBuilder
+    private func sessionConfigSheet(_ session: SessionSummary) -> some View {
+        NavigationStack {
+            Form {
+                Section("session.config.auth.section") {
+                    Picker("session.config.auth.mode", selection: $sessionConfigAuthMode) {
+                        Text("session.config.auth.keep").tag(SessionConfigAuthMode.keep)
+                        Text("session.config.auth.none").tag(SessionConfigAuthMode.none)
+                        Text("auth.ssh").tag(SessionConfigAuthMode.ssh)
+                        Text("auth.http").tag(SessionConfigAuthMode.http)
+                    }
+                    .pickerStyle(.menu)
+
+                    if sessionConfigAuthMode == .ssh {
+                        Button("auth.ssh.import_key") {
+                            showSessionConfigSshKeyPicker = true
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.vibe80AccentDark)
+                        Vibe80TextEditor(title: "auth.ssh.key", text: $sessionConfigSshKey)
+                    }
+
+                    if sessionConfigAuthMode == .http {
+                        Vibe80TextField(title: "auth.http.username", text: $sessionConfigHttpUsername)
+                        Vibe80SecureField(
+                            title: "auth.http.password",
+                            text: $sessionConfigHttpPassword,
+                            isRevealed: $showHttpPassword
+                        )
+                    }
+                }
+
+                Section("session.config.permissions.section") {
+                    Toggle("worktree.internet_access.label", isOn: $sessionConfigInternetAccess)
+                    Toggle("worktree.deny_git_credentials.label", isOn: $sessionConfigDenyGitCredentialsAccess)
+                        .disabled(!sessionConfigInternetAccess)
+                }
+
+                if let error = viewModel.sessionsError {
+                    Section {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundColor(.orange)
+                    }
+                }
+            }
+            .navigationTitle("session.config.title")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("action.cancel") {
+                        sessionConfigTargetId = nil
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("session.config.save") {
+                        viewModel.updateWorkspaceSessionConfig(
+                            sessionId: session.sessionId,
+                            originalInternetAccess: boolFromKotlin(session.defaultInternetAccess) ?? true,
+                            originalDenyGitCredentialsAccess: boolFromKotlin(session.defaultDenyGitCredentialsAccess) ?? true,
+                            internetAccess: sessionConfigInternetAccess,
+                            denyGitCredentialsAccess: sessionConfigDenyGitCredentialsAccess,
+                            authMode: sessionConfigAuthMode,
+                            sshPrivateKey: sessionConfigSshKey,
+                            httpUsername: sessionConfigHttpUsername,
+                            httpPassword: sessionConfigHttpPassword,
+                            appState: appState
+                        ) {
+                            sessionConfigTargetId = nil
+                        }
+                    }
+                    .disabled(viewModel.sessionUpdatingId == session.sessionId)
+                }
+            }
+        }
     }
 
     private func repoShortName(from repoUrl: String?) -> String? {
