@@ -537,10 +537,10 @@ struct SessionView: View {
             VStack(spacing: 20) {
                 backButton { viewModel.backToJoinSession() }
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Start AI Session")
+                    Text("Start a new session")
                         .font(.system(size: 40, weight: .bold))
                         .foregroundColor(.vibe80Ink)
-                    Text("Connect a Git repository to spin up your workspace.")
+                    Text("Connect a Git repository to spin up your vibecoding work.")
                         .font(.body)
                         .foregroundColor(.vibe80InkMuted)
                 }
@@ -586,7 +586,7 @@ struct SessionView: View {
                             .foregroundColor(.vibe80Ink)
 
                         VStack(spacing: 0) {
-                            authOptionRow("Public repository", method: .none)
+                            authOptionRow("No authentication", method: .none)
                             Divider().padding(.leading, 36)
                             authOptionRow("HTTPS (username + token)", method: .http)
                             Divider().padding(.leading, 36)
