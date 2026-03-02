@@ -89,6 +89,15 @@ class SessionViewModel: ObservableObject {
         #endif
     }
 
+    private func createSessionErrorMessage(_ error: Error) -> String {
+        let raw = errorMessage(error)
+        let lowered = raw.lowercased()
+        if lowered.contains("status: 403") && lowered.contains("/api/v1/sessions") {
+            return NSLocalizedString("session.error.git_credentials_invalid", comment: "")
+        }
+        return debugErrorDetails("createSession", error)
+    }
+
     init() {
         loadSavedWorkspace()
         loadSavedSession()
@@ -512,7 +521,7 @@ class SessionViewModel: ObservableObject {
                 self.loadingState = .none
                 appState.setSession(sessionId: state.sessionId)
             } catch {
-                self?.sessionError = self?.debugErrorDetails("createSession", error)
+                self?.sessionError = self?.createSessionErrorMessage(error)
                 self?.isLoading = false
                 self?.loadingState = .none
             }
