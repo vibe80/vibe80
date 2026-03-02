@@ -91,6 +91,11 @@ class SessionViewModel: ObservableObject {
         #endif
     }
 
+    private func toKotlinBoolean(_ value: Bool?) -> KotlinBoolean? {
+        guard let value else { return nil }
+        return KotlinBoolean(bool: value)
+    }
+
     private func createSessionErrorMessage(_ error: Error) -> String {
         let raw = errorMessage(error)
         let lowered = raw.lowercased()
@@ -617,21 +622,21 @@ class SessionViewModel: ObservableObject {
         case .keep:
             break
         case .none:
-            updateAuth = SessionUpdateAuth(type: "none")
+            updateAuth = SessionUpdateAuth(type: "none", privateKey: nil, username: nil, password: nil)
         case .ssh:
             let key = sshPrivateKey.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty else {
                 sessionsError = NSLocalizedString("session.config.error.ssh_required", comment: "")
                 return
             }
-            updateAuth = SessionUpdateAuth(type: "ssh", privateKey: key)
+            updateAuth = SessionUpdateAuth(type: "ssh", privateKey: key, username: nil, password: nil)
         case .http:
             let username = httpUsername.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !username.isEmpty, !httpPassword.isEmpty else {
                 sessionsError = NSLocalizedString("session.config.error.http_required", comment: "")
                 return
             }
-            updateAuth = SessionUpdateAuth(type: "http", username: username, password: httpPassword)
+            updateAuth = SessionUpdateAuth(type: "http", privateKey: nil, username: username, password: httpPassword)
         }
 
         let hasInternetChange = internetAccess != originalInternetAccess
@@ -652,8 +657,8 @@ class SessionViewModel: ObservableObject {
                     sessionId: sessionId,
                     request: SessionUpdateRequest(
                         auth: updateAuth,
-                        defaultInternetAccess: hasInternetChange ? internetAccess : nil,
-                        defaultDenyGitCredentialsAccess: hasDenyChange ? denyGitCredentialsAccess : nil
+                        defaultInternetAccess: toKotlinBoolean(hasInternetChange ? internetAccess : nil),
+                        defaultDenyGitCredentialsAccess: toKotlinBoolean(hasDenyChange ? denyGitCredentialsAccess : nil)
                     )
                 )
                 self?.sessionUpdatingId = nil
