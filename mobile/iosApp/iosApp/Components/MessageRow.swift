@@ -178,7 +178,7 @@ struct MessageRow: View {
                 }
 
                 // Timestamp
-                if let timestamp = message?.timestamp {
+                if let timestamp = message?.timestamp, timestamp > 0 {
                     Text(formatTimestamp(timestamp))
                         .font(.caption2)
                         .foregroundColor(.secondary)
