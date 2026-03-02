@@ -149,6 +149,8 @@
 "session.config.permissions.section" = "Permissions";
 "session.config.error.ssh_required" = "La clé SSH privée est requise.";
 "session.config.error.http_required" = "Nom d'utilisateur et mot de passe requis.";
+"session.delete.confirm.title" = "Supprimer la session ?";
+"session.delete.confirm.message" = "Voulez-vous vraiment supprimer \"%@\" ? Cette action est irréversible.";
 "session.start.loading" = "Chargement...";
 "session.start.new" = "Démarrer une nouvelle session";
 "settings.title" = "Paramètres";

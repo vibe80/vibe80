@@ -149,6 +149,8 @@
 "session.config.permissions.section" = "Permissions";
 "session.config.error.ssh_required" = "Private SSH key is required.";
 "session.config.error.http_required" = "Username and password are required.";
+"session.delete.confirm.title" = "Delete session?";
+"session.delete.confirm.message" = "Are you sure you want to delete \"%@\"? This action cannot be undone.";
 "session.start.loading" = "Loading...";
 "session.start.new" = "Start a new session";
 "settings.title" = "Settings";

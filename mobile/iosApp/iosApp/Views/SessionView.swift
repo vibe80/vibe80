@@ -21,6 +21,7 @@ struct SessionView: View {
     @State private var sessionConfigHttpPassword: String = ""
     @State private var sessionConfigInternetAccess: Bool = true
     @State private var sessionConfigDenyGitCredentialsAccess: Bool = true
+    @State private var deleteSessionTarget: SessionSummary?
 
     var body: some View {
         NavigationStack {
@@ -94,6 +95,36 @@ struct SessionView: View {
                     .presentationDetents([.large])
             }
         }
+        .alert(
+            "session.delete.confirm.title",
+            isPresented: Binding(
+                get: { deleteSessionTarget != nil },
+                set: { if !$0 { deleteSessionTarget = nil } }
+            ),
+            actions: {
+                Button("action.cancel", role: .cancel) {
+                    deleteSessionTarget = nil
+                }
+                Button("action.delete", role: .destructive) {
+                    guard let target = deleteSessionTarget else { return }
+                    viewModel.deleteWorkspaceSession(
+                        sessionId: target.sessionId,
+                        appState: appState
+                    )
+                    deleteSessionTarget = nil
+                }
+            },
+            message: {
+                if let target = deleteSessionTarget {
+                    Text(
+                        String(
+                            format: NSLocalizedString("session.delete.confirm.message", comment: ""),
+                            repoShortName(from: target.repoUrl) ?? target.sessionId
+                        )
+                    )
+                }
+            }
+        )
     }
 
     private var workspaceModeSelection: some View {
@@ -552,10 +583,7 @@ struct SessionView: View {
                 .disabled(viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
 
                 Button("action.delete") {
-                    viewModel.deleteWorkspaceSession(
-                        sessionId: session.sessionId,
-                        appState: appState
-                    )
+                    deleteSessionTarget = session
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
