@@ -244,11 +244,29 @@ struct SessionView: View {
                         .foregroundColor(.red)
                 }
 
-                Button(viewModel.workspaceBusy ? "providers.config.loading" : "action.continue") {
+                Button {
                     viewModel.submitProviderConfig(appState: appState)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.headline.weight(.semibold))
+                        Text(viewModel.workspaceBusy ? "providers.config.loading" : "action.continue")
+                            .font(.headline.weight(.bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 1.0, green: 0.42, blue: 0.15), Color(red: 1.0, green: 0.31, blue: 0.13)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(22)
+                    .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
+                .buttonStyle(.plain)
                 .disabled(viewModel.workspaceBusy)
 
                 Link(
