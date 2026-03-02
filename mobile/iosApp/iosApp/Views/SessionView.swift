@@ -129,10 +129,10 @@ struct SessionView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.headline)
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.vibe80Ink)
                     Text(subtitle)
-                        .font(.subheadline)
+                        .font(.system(size: 12))
                         .foregroundColor(.vibe80InkMuted)
                 }
 
