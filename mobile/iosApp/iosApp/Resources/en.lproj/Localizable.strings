@@ -27,8 +27,11 @@
 "auth.method.label" = "Auth";
 "auth.none" = "None";
 "auth.ssh" = "SSH";
+"auth.ssh.import_key" = "Import private key";
 "auth.ssh.key" = "Private SSH key";
 "auth.ssh.key.hint" = "SSH Key (optional)";
+"auth.ssh.key_not_selected" = "No private key selected";
+"auth.ssh.key_selected" = "Private key selected";
 "auth.title" = "Authentication";
 "branch.current" = "Current branch";
 "branch.current_with_name" = "Current branch (%s)";

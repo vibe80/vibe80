@@ -11,6 +11,7 @@ struct SessionView: View {
     @State private var showHttpPassword = false
     @State private var showProviderSecrets = false
     @State private var showAuthJsonPicker = false
+    @State private var showSshKeyPicker = false
     @State private var showLogsSheet = false
 
     var body: some View {
@@ -45,6 +46,16 @@ struct SessionView: View {
             if let data = try? Data(contentsOf: url),
                let content = String(data: data, encoding: .utf8) {
                 viewModel.updateProviderAuthValue("codex", authValue: content)
+            }
+        }
+        .fileImporter(
+            isPresented: $showSshKeyPicker,
+            allowedContentTypes: [.item]
+        ) { result in
+            guard case let .success(url) = result else { return }
+            if let data = try? Data(contentsOf: url),
+               let content = String(data: data, encoding: .utf8) {
+                viewModel.sshKey = content
             }
         }
         .sheet(isPresented: $showLogsSheet) {
@@ -600,6 +611,23 @@ struct SessionView: View {
                         )
 
                         if viewModel.authMethod == .ssh {
+                            Button("auth.ssh.import_key") {
+                                showSshKeyPicker = true
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.vibe80AccentDark)
+
+                            HStack(spacing: 8) {
+                                Image(systemName: viewModel.sshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "doc" : "checkmark.circle.fill")
+                                    .foregroundColor(viewModel.sshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .vibe80InkMuted : .green)
+                                Text(viewModel.sshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                     ? "auth.ssh.key_not_selected"
+                                     : "auth.ssh.key_selected")
+                                    .foregroundColor(.vibe80InkMuted)
+                                    .font(.footnote)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
                             Vibe80TextEditor(title: "auth.ssh.key", text: $viewModel.sshKey)
                         }
 
