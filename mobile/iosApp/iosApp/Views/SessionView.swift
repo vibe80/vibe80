@@ -59,7 +59,7 @@ struct SessionView: View {
         }
         .fileImporter(
             isPresented: $showSshKeyPicker,
-            allowedContentTypes: [.item]
+            allowedContentTypes: [.plainText, .text, .utf8PlainText, .data]
         ) { result in
             guard case let .success(url) = result else { return }
             if let data = try? Data(contentsOf: url),
@@ -69,7 +69,7 @@ struct SessionView: View {
         }
         .fileImporter(
             isPresented: $showSessionConfigSshKeyPicker,
-            allowedContentTypes: [.item]
+            allowedContentTypes: [.plainText, .text, .utf8PlainText, .data]
         ) { result in
             guard case let .success(url) = result else { return }
             if let data = try? Data(contentsOf: url),
