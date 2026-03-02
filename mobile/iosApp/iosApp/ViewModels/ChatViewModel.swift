@@ -25,6 +25,7 @@ class ChatViewModel: ObservableObject {
 
     // Provider
     @Published var activeProvider: LLMProvider = .codex
+    @Published var availableProviders: [LLMProvider] = [.codex, .claude]
     @Published var repoName: String = ""
 
     // Diff
@@ -280,6 +281,11 @@ class ChatViewModel: ObservableObject {
         sessionStateWrapper?.subscribe { [weak self] state in
             if let activeProvider = state?.activeProvider {
                 self?.activeProvider = activeProvider
+            }
+            if let providers = state?.providers, !providers.isEmpty {
+                self?.availableProviders = providers
+            } else if let activeProvider = state?.activeProvider {
+                self?.availableProviders = [activeProvider]
             }
             if let ready = state?.appServerReady {
                 self?.appServerReady = ready

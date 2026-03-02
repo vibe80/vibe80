@@ -162,6 +162,7 @@ struct ChatView: View {
             .sheet(isPresented: $showCreateWorktreeSheet) {
                 CreateWorktreeSheetView(
                     currentProvider: viewModel.activeProvider,
+                    availableProviders: viewModel.availableProviders,
                     worktrees: viewModel.sortedWorktrees,
                     isCreating: viewModel.isCreatingWorktree,
                     onCreate: { name, provider, branch, model, reasoningEffort, context, sourceWorktree, internetAccess, denyGitCredentialsAccess in
