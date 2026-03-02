@@ -318,14 +318,6 @@ struct SessionView: View {
                 HStack(alignment: .top) {
                     sessionGateLogo
                     Spacer()
-                    Button(action: {}) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.title3)
-                            .foregroundColor(.vibe80InkMuted)
-                            .padding(10)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("settings.title"))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
