@@ -407,12 +407,20 @@ class SessionViewModel: ObservableObject {
 
     private func buildWorkspaceProviders() throws -> [String: WorkspaceProviderConfig] {
         var result: [String: WorkspaceProviderConfig] = [:]
+        let enabledProviders = workspaceProviders.filter { $0.value.enabled }
+
+        guard !enabledProviders.isEmpty else {
+            throw NSError(domain: "Vibe80", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Select at least one provider."
+            ])
+        }
+
         for (provider, state) in workspaceProviders {
             guard state.enabled else { continue }
             let trimmed = state.authValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
                 throw NSError(domain: "Vibe80", code: 1, userInfo: [
-                    NSLocalizedDescriptionKey: "Clé requise pour \(provider)."
+                    NSLocalizedDescriptionKey: "Authentication value is required for \(provider)."
                 ])
             }
 
