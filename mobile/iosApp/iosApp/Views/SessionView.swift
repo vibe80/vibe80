@@ -629,6 +629,17 @@ struct SessionView: View {
                         }
                         .buttonStyle(.bordered)
                         .tint(.vibe80AccentDark)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: sessionConfigSshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "doc" : "checkmark.circle.fill")
+                                .foregroundColor(sessionConfigSshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .vibe80InkMuted : .green)
+                            Text(sessionConfigSshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                 ? "auth.ssh.key_not_selected"
+                                 : "auth.ssh.key_selected")
+                                .foregroundColor(.vibe80InkMuted)
+                                .font(.footnote)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if sessionConfigAuthMode == .http {
