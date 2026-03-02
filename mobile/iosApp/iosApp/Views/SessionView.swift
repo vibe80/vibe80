@@ -216,24 +216,50 @@ struct SessionView: View {
     private var joinSession: some View {
         ScrollView {
             VStack(spacing: 20) {
-                vibe80Header(title: "session.join.title")
+                HStack(alignment: .top) {
+                    sessionGateLogo
+                    Spacer()
+                    Button(action: {}) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.title3)
+                            .foregroundColor(.vibe80InkMuted)
+                            .padding(10)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("settings.title"))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Button("session.start.new") {
+                Button {
                     viewModel.openStartSession()
+                } label: {
+                    HStack(spacing: 12) {
+                        Text("🚀")
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("session.start.new")
+                                .font(.title3.weight(.bold))
+                            Text("session.start.subtitle")
+                                .font(.subheadline)
+                                .opacity(0.95)
+                        }
+                        Spacer()
+                    }
+                    .foregroundColor(.white)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 1.0, green: 0.42, blue: 0.15), Color(red: 1.0, green: 0.31, blue: 0.13)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(22)
+                    .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
-
-                Button("providers.reconfigure") {
-                    viewModel.openProviderConfigForUpdate()
-                }
-                .buttonStyle(.bordered)
-                .tint(.vibe80AccentDark)
-
-                Button("workspace.leave", role: .destructive) {
-                    viewModel.leaveWorkspace(appState: appState)
-                }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
 
                 // Workspace sessions list (P2.4)
                 VStack(alignment: .leading, spacing: 12) {
@@ -290,6 +316,28 @@ struct SessionView: View {
                     }
                 }
 
+                VStack(spacing: 0) {
+                    sessionMenuRow(
+                        title: "menu.ai_providers",
+                        icon: "powerplug",
+                        tint: .vibe80Ink
+                    ) {
+                        viewModel.openProviderConfigForUpdate()
+                    }
+
+                    Divider()
+                        .padding(.leading, 44)
+
+                    sessionMenuRow(
+                        title: "workspace.leave",
+                        icon: "rectangle.portrait.and.arrow.right",
+                        tint: .red
+                    ) {
+                        viewModel.leaveWorkspace(appState: appState)
+                    }
+                }
+                .vibe80CardStyle()
+
                 if let error = viewModel.sessionError {
                     Text(error)
                         .foregroundColor(.red)
@@ -300,6 +348,35 @@ struct SessionView: View {
         .onAppear {
             viewModel.loadWorkspaceSessions(appState: appState)
         }
+    }
+
+    private func sessionMenuRow(
+        title: LocalizedStringKey,
+        icon: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundColor(tint)
+                    .frame(width: 20)
+
+                Text(title)
+                    .font(.body.weight(.medium))
+                    .foregroundColor(tint)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(.vibe80InkMuted)
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func sessionCard(_ session: SessionSummary) -> some View {

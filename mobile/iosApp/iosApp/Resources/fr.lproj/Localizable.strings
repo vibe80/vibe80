@@ -104,7 +104,7 @@
 "model.refresh" = "Rafraîchir les modèles";
 "provider.auth.api_key" = "API key";
 "provider.auth.api_key_label" = "Clé API";
-"provider.auth.auth_json_b64" = "auth_json_b64";
+"provider.auth.auth_json_b64" = "auth.json file";
 "provider.auth.auth_json_file" = "auth.json file";
 "provider.auth.auth_json_label" = "auth.json";
 "provider.auth.import_auth_json" = "Importer auth.json";
@@ -136,6 +136,9 @@
 "session.saved.placeholder" = "Session sauvegardée";
 "session.start.loading" = "Chargement...";
 "session.start.new" = "Démarrer une nouvelle session";
+"settings.title" = "Paramètres";
+"menu.ai_providers" = "Providers IA";
+"session.start.subtitle" = "Continuez à avancer avec vos agents IA";
 "session.start.title" = "Démarrer une session";
 "session.title" = "Nouvelle session";
 "sessions.loading" = "Chargement des sessions...";
