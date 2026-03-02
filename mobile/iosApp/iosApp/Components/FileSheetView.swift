@@ -49,13 +49,17 @@ struct FileSheetView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView([.horizontal, .vertical]) {
-                        Text(verbatim: content)
-                            .font(.vibe80SpaceMono(.caption1))
-                            .foregroundColor(.vibe80Ink)
-                            .textSelection(.enabled)
-                            .multilineTextAlignment(.leading)
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(verbatim: content)
+                                .font(.vibe80SpaceMono(.caption1))
+                                .foregroundColor(.vibe80Ink)
+                                .textSelection(.enabled)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
