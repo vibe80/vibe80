@@ -11,6 +11,7 @@ struct SessionView: View {
     @State private var showHttpPassword = false
     @State private var showProviderSecrets = false
     @State private var activeFileImportTarget: FileImportTarget?
+    @State private var showFileImporter: Bool = false
     @State private var showLogsSheet = false
     @State private var sessionConfigTargetId: String?
     @State private var sessionConfigAuthMode: SessionConfigAuthMode = .keep
@@ -46,9 +47,10 @@ struct SessionView: View {
             .navigationBarHidden(true)
         }
         .fileImporter(
-            item: $activeFileImportTarget,
+            isPresented: $showFileImporter,
             allowedContentTypes: [.json, .plainText, .text, .utf8PlainText, .data]
         ) { result in
+            defer { activeFileImportTarget = nil }
             guard
                 case let .success(url) = result,
                 let data = try? Data(contentsOf: url),
@@ -623,6 +625,7 @@ struct SessionView: View {
                     if sessionConfigAuthMode == .ssh {
                         Button("auth.ssh.import_key") {
                             activeFileImportTarget = .sshKeySessionConfig
+                            showFileImporter = true
                         }
                         .buttonStyle(.bordered)
                         .tint(.vibe80AccentDark)
@@ -763,6 +766,7 @@ struct SessionView: View {
                         if viewModel.authMethod == .ssh {
                             Button("auth.ssh.import_key") {
                                 activeFileImportTarget = .sshKeyStartSession
+                                showFileImporter = true
                             }
                             .buttonStyle(.bordered)
                             .tint(.vibe80AccentDark)
@@ -887,6 +891,7 @@ struct SessionView: View {
                 if effectiveAuthType == .authJsonB64 && supportsAuthJson {
                     Button("provider.auth.import_auth_json") {
                         activeFileImportTarget = .authJson
+                        showFileImporter = true
                     }
                     .buttonStyle(.bordered)
                     .tint(.vibe80AccentDark)
