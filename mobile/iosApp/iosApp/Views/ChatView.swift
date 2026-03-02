@@ -202,7 +202,7 @@ struct ChatView: View {
                 set: { if !$0 { viewModel.showFileSheet = false } }
             )) {
                 fileSheetView
-                    .presentationDetents([.height(estimatedFileSheetHeight()), .large])
+                    .presentationDetents([.large])
             }
             .popover(isPresented: Binding(
                 get: { viewModel.showFileSheet && isPadDevice },
@@ -213,8 +213,8 @@ struct ChatView: View {
                         minWidth: 420,
                         idealWidth: estimatedFileSheetWidth(),
                         maxWidth: min(UIScreen.main.bounds.width * 0.9, 1000),
-                        minHeight: 260,
-                        idealHeight: estimatedFileSheetHeight(),
+                        minHeight: 420,
+                        idealHeight: max(estimatedFileSheetHeight(), 420),
                         maxHeight: min(UIScreen.main.bounds.height * 0.85, 900)
                     )
             }
