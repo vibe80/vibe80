@@ -394,6 +394,7 @@ class SessionViewModel: ObservableObject {
                 self.workspaceId = workspaceId
                 self.workspaceToken = loginResponse.workspaceToken
                 self.workspaceRefreshToken = loginResponse.refreshToken
+                repository.clearError()
                 self.workspaceBusy = false
                 if navigateOnSuccess {
                     self.entryScreen = .joinSession
@@ -506,6 +507,7 @@ class SessionViewModel: ObservableObject {
                 self.savedSessionId = state.sessionId
                 self.savedSessionRepoUrl = self.repoUrl
                 self.hasSavedSession = true
+                repository.clearError()
                 self.isLoading = false
                 self.loadingState = .none
                 appState.setSession(sessionId: state.sessionId)
@@ -540,6 +542,7 @@ class SessionViewModel: ObservableObject {
                     sessionId: sessionId,
                     repoUrlOverride: (repoOverride?.isEmpty == false) ? repoOverride : nil
                 )
+                repository.clearError()
                 self?.isLoading = false
                 self?.loadingState = .none
                 self?.resumingSessionId = nil
@@ -607,6 +610,7 @@ class SessionViewModel: ObservableObject {
                     sessionId: sessionId,
                     repoUrlOverride: (repoOverride?.isEmpty == false) ? repoOverride : nil
                 )
+                repository.clearError()
                 self?.isLoading = false
                 self?.loadingState = .none
                 self?.resumingSessionId = nil
@@ -654,6 +658,7 @@ class SessionViewModel: ObservableObject {
                 self.entryScreen = .joinSession
                 do {
                     _ = try await repository.reconnectSessionOrThrow(sessionId: response.sessionId)
+                    repository.clearError()
                     self.handoffBusy = false
                     appState.setSession(sessionId: response.sessionId)
                 } catch {

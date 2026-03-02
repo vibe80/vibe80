@@ -406,6 +406,7 @@ class ChatViewModel: ObservableObject {
 
     func connect(sessionId: String) {
         self.sessionId = sessionId
+        appState?.sessionRepository?.clearError()
         // Reset submission tracking for new sessions
         submittedFormMessageIds.removeAll()
         submittedYesNoMessageIds.removeAll()
