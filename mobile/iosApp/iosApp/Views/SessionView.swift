@@ -574,11 +574,6 @@ struct SessionView: View {
                                 .textInputAutocapitalization(.never)
                                 .keyboardType(.URL)
 
-                            if !viewModel.repoUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.green)
-                            }
-
                             Button("Paste") {
                                 if let pasted = UIPasteboard.general.string {
                                     viewModel.repoUrl = pasted
