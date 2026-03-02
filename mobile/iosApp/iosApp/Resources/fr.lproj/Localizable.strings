@@ -156,9 +156,12 @@
 "workspace.create" = "Créer un nouveau workspace";
 "workspace.created.subtitle" = "Conservez ces identifiants pour vos prochaines connexions.";
 "workspace.created.title" = "Workspace créé";
+"workspace.credentials.subtitle.new" = "Enter the credentials to access your existing workspace.";
 "workspace.credentials.title" = "Identifiants workspace";
+"workspace.help.contact" = "Need help ? Contact our support.";
 "workspace.id" = "Workspace ID";
 "workspace.join" = "Rejoindre un workspace existant";
+"workspace.join.action" = "Join workspace";
 "workspace.leave" = "Quitter le workspace";
 "workspace.resume.desktop" = "Reprendre une session desktop";
 "workspace.secret" = "Workspace secret";
