@@ -234,14 +234,11 @@ struct SessionView: View {
                     viewModel.openStartSession()
                 } label: {
                     HStack(spacing: 12) {
-                        Text("🚀")
-                            .font(.title3)
+                        Image(systemName: "play.fill")
+                            .font(.headline.weight(.semibold))
                         VStack(alignment: .leading, spacing: 4) {
                             Text("session.start.new")
                                 .font(.title3.weight(.bold))
-                            Text("session.start.subtitle")
-                                .font(.subheadline)
-                                .opacity(0.95)
                         }
                         Spacer()
                     }
@@ -317,17 +314,6 @@ struct SessionView: View {
                 }
 
                 VStack(spacing: 0) {
-                    sessionMenuRow(
-                        title: "menu.ai_providers",
-                        icon: "powerplug",
-                        tint: .vibe80Ink
-                    ) {
-                        viewModel.openProviderConfigForUpdate()
-                    }
-
-                    Divider()
-                        .padding(.leading, 44)
-
                     sessionMenuRow(
                         title: "workspace.leave",
                         icon: "rectangle.portrait.and.arrow.right",
