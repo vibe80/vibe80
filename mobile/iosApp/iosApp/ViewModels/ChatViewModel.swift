@@ -25,6 +25,7 @@ class ChatViewModel: ObservableObject {
 
     // Provider
     @Published var activeProvider: LLMProvider = .codex
+    @Published var availableProviders: [LLMProvider] = [.codex, .claude]
     @Published var repoName: String = ""
 
     // Diff
@@ -281,6 +282,11 @@ class ChatViewModel: ObservableObject {
             if let activeProvider = state?.activeProvider {
                 self?.activeProvider = activeProvider
             }
+            if let providers = state?.providers, !providers.isEmpty {
+                self?.availableProviders = providers
+            } else if let activeProvider = state?.activeProvider {
+                self?.availableProviders = [activeProvider]
+            }
             if let ready = state?.appServerReady {
                 self?.appServerReady = ready
             }
@@ -406,6 +412,7 @@ class ChatViewModel: ObservableObject {
 
     func connect(sessionId: String) {
         self.sessionId = sessionId
+        appState?.sessionRepository?.clearError()
         // Reset submission tracking for new sessions
         submittedFormMessageIds.removeAll()
         submittedYesNoMessageIds.removeAll()
@@ -479,13 +486,14 @@ class ChatViewModel: ObservableObject {
         if activeActionMode != .llm {
             guard !trimmedText.isEmpty else { return }
             let worktreeId = activeWorktreeId
+            let actionMode = activeActionMode
             actionModeByWorktree[worktreeId] = .llm
-            if activeActionMode == .git && trimmedText == logsUnlockCommand {
+            if actionMode == .git && trimmedText == logsUnlockCommand {
                 logsButtonEnabled = true
                 appState?.logsButtonEnabled = true
                 return
             }
-            let request = activeActionMode == .git ? "git" : "run"
+            let request = actionMode == .git ? "git" : "run"
             Task {
                 do {
                     try await repository.sendActionRequest(

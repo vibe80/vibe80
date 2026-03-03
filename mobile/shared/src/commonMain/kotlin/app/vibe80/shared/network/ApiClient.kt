@@ -15,6 +15,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class ApiClient(
     private val httpClient: HttpClient,
@@ -281,6 +283,78 @@ class ApiClient(
             }
         } catch (e: Exception) {
             AppLogger.apiError("GET", url, e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Update session auth/settings
+     */
+    suspend fun updateSession(sessionId: String, request: SessionUpdateRequest): Result<Unit> {
+        val url = "$baseUrl/api/v1/sessions/$sessionId"
+        AppLogger.apiRequest("PATCH", url)
+        val payload = buildJsonObject {
+            request.auth?.let { auth ->
+                put("auth", buildJsonObject {
+                    put("type", auth.type)
+                    auth.privateKey?.let { put("privateKey", it) }
+                    auth.username?.let { put("username", it) }
+                    auth.password?.let { put("password", it) }
+                })
+            }
+            request.defaultInternetAccess?.let { put("defaultInternetAccess", it) }
+            request.defaultDenyGitCredentialsAccess?.let { put("defaultDenyGitCredentialsAccess", it) }
+        }
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.patch(url) {
+                    contentType(ContentType.Application.Json)
+                    setBody(payload)
+                    applyAuth(this)
+                }
+            }
+            val responseBody = if (!response.status.isSuccess()) {
+                readBodyTextUtf8(response)
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("PATCH", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                Result.failure(buildApiException(response, url, responseBody))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("PATCH", url, e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Delete session
+     */
+    suspend fun deleteSession(sessionId: String): Result<Unit> {
+        val url = "$baseUrl/api/v1/sessions/$sessionId"
+        AppLogger.apiRequest("DELETE", url)
+        return try {
+            val response = executeWithRefresh(url) {
+                httpClient.delete(url) {
+                    applyAuth(this)
+                }
+            }
+            val responseBody = if (!response.status.isSuccess()) {
+                readBodyTextUtf8(response)
+            } else {
+                ""
+            }
+            AppLogger.apiResponse("DELETE", url, response.status.value, responseBody)
+            if (response.status.isSuccess()) {
+                Result.success(Unit)
+            } else {
+                Result.failure(buildApiException(response, url, responseBody))
+            }
+        } catch (e: Exception) {
+            AppLogger.apiError("DELETE", url, e)
             Result.failure(e)
         }
     }

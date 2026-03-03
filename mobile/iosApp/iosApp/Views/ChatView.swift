@@ -162,6 +162,7 @@ struct ChatView: View {
             .sheet(isPresented: $showCreateWorktreeSheet) {
                 CreateWorktreeSheetView(
                     currentProvider: viewModel.activeProvider,
+                    availableProviders: viewModel.availableProviders,
                     worktrees: viewModel.sortedWorktrees,
                     isCreating: viewModel.isCreatingWorktree,
                     onCreate: { name, provider, branch, model, reasoningEffort, context, sourceWorktree, internetAccess, denyGitCredentialsAccess in
@@ -178,7 +179,11 @@ struct ChatView: View {
                         )
                     }
                 )
-                .presentationDetents([.medium])
+                .presentationDetents(
+                    UIDevice.current.userInterfaceIdiom == .pad
+                        ? [.large]
+                        : [.medium, .large]
+                )
             }
             .sheet(item: $showWorktreeMenu) { worktreeId in
                 if let worktree = viewModel.worktrees.first(where: { $0.id == worktreeId.value }) {
@@ -194,15 +199,8 @@ struct ChatView: View {
             }
             // File sheet (P2.2)
             .sheet(isPresented: $viewModel.showFileSheet) {
-                FileSheetView(
-                    path: viewModel.fileSheetPath,
-                    content: viewModel.fileSheetContent,
-                    isLoading: viewModel.fileSheetLoading,
-                    error: viewModel.fileSheetError,
-                    isBinary: viewModel.fileSheetBinary,
-                    isTruncated: viewModel.fileSheetTruncated
-                )
-                .presentationDetents([.large])
+                fileSheetView
+                    .presentationDetents([.large])
             }
             // Error banner overlay (P2.1)
             .overlay(alignment: .bottom) {
@@ -333,6 +331,17 @@ struct ChatView: View {
         #else
         return "https://app.vibe80.io"
         #endif
+    }
+
+    private var fileSheetView: some View {
+        FileSheetView(
+            path: viewModel.fileSheetPath,
+            content: viewModel.fileSheetContent,
+            isLoading: viewModel.fileSheetLoading,
+            error: viewModel.fileSheetError,
+            isBinary: viewModel.fileSheetBinary,
+            isTruncated: viewModel.fileSheetTruncated
+        )
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {

@@ -65,12 +65,30 @@ data class SessionSummary(
     val createdAt: Long? = null,
     @Serializable(with = FlexibleNullableTimestampAsLongSerializer::class)
     val lastActivityAt: Long? = null,
-    val activeProvider: String? = null
+    val activeProvider: String? = null,
+    val defaultInternetAccess: Boolean? = null,
+    val defaultDenyGitCredentialsAccess: Boolean? = null
 )
 
 @Serializable
 data class SessionListResponse(
     val sessions: List<SessionSummary> = emptyList()
+)
+
+@Serializable
+data class SessionUpdateRequest(
+    val auth: SessionUpdateAuth? = null,
+    val defaultInternetAccess: Boolean? = null,
+    val defaultDenyGitCredentialsAccess: Boolean? = null
+)
+
+@Serializable
+data class SessionUpdateAuth(
+    val type: String,
+    @SerialName("privateKey")
+    val privateKey: String? = null,
+    val username: String? = null,
+    val password: String? = null
 )
 
 @Serializable

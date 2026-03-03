@@ -42,6 +42,8 @@ class SessionViewModel: ObservableObject {
     @Published var workspaceSessions: [SessionSummary] = []
     @Published var sessionsLoading: Bool = false
     @Published var sessionsError: String?
+    @Published var sessionUpdatingId: String?
+    @Published var sessionDeletingId: String?
     @Published var logs: [LogEntry] = []
 
     private var createSessionCall: SuspendWrapper<SessionState>?
@@ -87,6 +89,23 @@ class SessionViewModel: ObservableObject {
         #else
         return false
         #endif
+    }
+
+    private func toKotlinBoolean(_ value: Bool?) -> KotlinBoolean? {
+        guard let value else { return nil }
+        return KotlinBoolean(bool: value)
+    }
+
+    private func createSessionErrorMessage(_ error: Error) -> String {
+        let raw = errorMessage(error)
+        let lowered = raw.lowercased()
+        if lowered.contains("status: 403") && lowered.contains("/api/v1/sessions") {
+            return NSLocalizedString("session.error.git_credentials_invalid", comment: "")
+        }
+        if lowered.contains("status: 404") && lowered.contains("/api/v1/sessions") {
+            return NSLocalizedString("session.error.repository_not_found", comment: "")
+        }
+        return debugErrorDetails("createSession", error)
     }
 
     init() {
@@ -394,6 +413,7 @@ class SessionViewModel: ObservableObject {
                 self.workspaceId = workspaceId
                 self.workspaceToken = loginResponse.workspaceToken
                 self.workspaceRefreshToken = loginResponse.refreshToken
+                repository.clearError()
                 self.workspaceBusy = false
                 if navigateOnSuccess {
                     self.entryScreen = .joinSession
@@ -407,12 +427,20 @@ class SessionViewModel: ObservableObject {
 
     private func buildWorkspaceProviders() throws -> [String: WorkspaceProviderConfig] {
         var result: [String: WorkspaceProviderConfig] = [:]
+        let enabledProviders = workspaceProviders.filter { $0.value.enabled }
+
+        guard !enabledProviders.isEmpty else {
+            throw NSError(domain: "Vibe80", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Select at least one provider."
+            ])
+        }
+
         for (provider, state) in workspaceProviders {
             guard state.enabled else { continue }
             let trimmed = state.authValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
                 throw NSError(domain: "Vibe80", code: 1, userInfo: [
-                    NSLocalizedDescriptionKey: "Clé requise pour \(provider)."
+                    NSLocalizedDescriptionKey: "Authentication value is required for \(provider)."
                 ])
             }
 
@@ -463,8 +491,9 @@ class SessionViewModel: ObservableObject {
     // MARK: - Session actions
 
     func createSession(appState: AppState) {
-        guard !repoUrl.isEmpty else {
-            sessionError = "L'URL du repository est requise"
+        let trimmedRepoUrl = repoUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedRepoUrl.isEmpty else {
+            sessionError = NSLocalizedString("session.error.repo_url_required", comment: "")
             return
         }
 
@@ -477,32 +506,39 @@ class SessionViewModel: ObservableObject {
         loadingState = .cloning
         sessionError = nil
 
-        let sshKeyParam: String? = authMethod == .ssh ? sshKey : nil
-        let httpUserParam: String? = authMethod == .http ? httpUser : nil
-        let httpPasswordParam: String? = authMethod == .http ? httpPassword : nil
+        let sshKeyParam: String? = authMethod == .ssh
+            ? sshKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            : nil
+        let httpUserParam: String? = authMethod == .http
+            ? httpUser.trimmingCharacters(in: .whitespacesAndNewlines)
+            : nil
+        let httpPasswordParam: String? = authMethod == .http
+            ? httpPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+            : nil
 
         Task { [weak self] in
             do {
                 guard let self = self else { return }
                 let state = try await repository.createSessionOrThrow(
-                    repoUrl: self.repoUrl,
+                    repoUrl: trimmedRepoUrl,
                     sshKey: sshKeyParam,
                     httpUser: httpUserParam,
                     httpPassword: httpPasswordParam
                 )
                 let defaults = UserDefaults.standard
                 defaults.set(state.sessionId, forKey: "lastSessionId")
-                defaults.set(self.repoUrl, forKey: "lastRepoUrl")
+                defaults.set(trimmedRepoUrl, forKey: "lastRepoUrl")
                 defaults.set(state.activeProvider.name, forKey: "lastProvider")
                 defaults.set("", forKey: "lastBaseUrl")
                 self.savedSessionId = state.sessionId
-                self.savedSessionRepoUrl = self.repoUrl
+                self.savedSessionRepoUrl = trimmedRepoUrl
                 self.hasSavedSession = true
+                repository.clearError()
                 self.isLoading = false
                 self.loadingState = .none
                 appState.setSession(sessionId: state.sessionId)
             } catch {
-                self?.sessionError = self?.debugErrorDetails("createSession", error)
+                self?.sessionError = self?.createSessionErrorMessage(error)
                 self?.isLoading = false
                 self?.loadingState = .none
             }
@@ -532,6 +568,7 @@ class SessionViewModel: ObservableObject {
                     sessionId: sessionId,
                     repoUrlOverride: (repoOverride?.isEmpty == false) ? repoOverride : nil
                 )
+                repository.clearError()
                 self?.isLoading = false
                 self?.loadingState = .none
                 self?.resumingSessionId = nil
@@ -572,6 +609,102 @@ class SessionViewModel: ObservableObject {
         }
     }
 
+    func updateWorkspaceSessionConfig(
+        sessionId: String,
+        originalInternetAccess: Bool,
+        originalDenyGitCredentialsAccess: Bool,
+        internetAccess: Bool,
+        denyGitCredentialsAccess: Bool,
+        authMode: SessionConfigAuthMode,
+        sshPrivateKey: String,
+        httpUsername: String,
+        httpPassword: String,
+        appState: AppState,
+        onSuccess: @escaping () -> Void
+    ) {
+        guard let repository = appState.sessionRepository else {
+            sessionsError = "Module partagé non initialisé"
+            return
+        }
+
+        var updateAuth: SessionUpdateAuth?
+        switch authMode {
+        case .keep:
+            break
+        case .none:
+            updateAuth = SessionUpdateAuth(type: "none", privateKey: nil, username: nil, password: nil)
+        case .ssh:
+            let key = sshPrivateKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else {
+                sessionsError = NSLocalizedString("session.config.error.ssh_required", comment: "")
+                return
+            }
+            updateAuth = SessionUpdateAuth(type: "ssh", privateKey: key, username: nil, password: nil)
+        case .http:
+            let username = httpUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+            let password = httpPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !username.isEmpty, !password.isEmpty else {
+                sessionsError = NSLocalizedString("session.config.error.http_required", comment: "")
+                return
+            }
+            updateAuth = SessionUpdateAuth(type: "http", privateKey: nil, username: username, password: password)
+        }
+
+        let hasInternetChange = internetAccess != originalInternetAccess
+        let hasDenyChange = denyGitCredentialsAccess != originalDenyGitCredentialsAccess
+        let hasAuthChange = updateAuth != nil
+
+        if !hasInternetChange && !hasDenyChange && !hasAuthChange {
+            onSuccess()
+            return
+        }
+
+        sessionUpdatingId = sessionId
+        sessionsError = nil
+
+        Task { [weak self] in
+            do {
+                try await repository.updateSessionOrThrow(
+                    sessionId: sessionId,
+                    request: SessionUpdateRequest(
+                        auth: updateAuth,
+                        defaultInternetAccess: toKotlinBoolean(hasInternetChange ? internetAccess : nil),
+                        defaultDenyGitCredentialsAccess: toKotlinBoolean(hasDenyChange ? denyGitCredentialsAccess : nil)
+                    )
+                )
+                self?.sessionUpdatingId = nil
+                self?.loadWorkspaceSessions(appState: appState)
+                onSuccess()
+            } catch {
+                self?.sessionUpdatingId = nil
+                self?.sessionsError = self?.errorMessage(error)
+            }
+        }
+    }
+
+    func deleteWorkspaceSession(sessionId: String, appState: AppState) {
+        guard let repository = appState.sessionRepository else {
+            sessionsError = "Module partagé non initialisé"
+            return
+        }
+        sessionDeletingId = sessionId
+        sessionsError = nil
+
+        Task { [weak self] in
+            do {
+                try await repository.deleteSessionOrThrow(sessionId: sessionId)
+                self?.sessionDeletingId = nil
+                if self?.savedSessionId == sessionId {
+                    self?.clearSavedSession()
+                }
+                self?.workspaceSessions.removeAll { $0.sessionId == sessionId }
+            } catch {
+                self?.sessionDeletingId = nil
+                self?.sessionsError = self?.errorMessage(error)
+            }
+        }
+    }
+
     func resumeWorkspaceSession(sessionId: String, repoUrl: String?, appState: AppState) {
         guard !isLoading else { return }
         guard let repository = appState.sessionRepository else {
@@ -599,6 +732,7 @@ class SessionViewModel: ObservableObject {
                     sessionId: sessionId,
                     repoUrlOverride: (repoOverride?.isEmpty == false) ? repoOverride : nil
                 )
+                repository.clearError()
                 self?.isLoading = false
                 self?.loadingState = .none
                 self?.resumingSessionId = nil
@@ -646,6 +780,7 @@ class SessionViewModel: ObservableObject {
                 self.entryScreen = .joinSession
                 do {
                     _ = try await repository.reconnectSessionOrThrow(sessionId: response.sessionId)
+                    repository.clearError()
                     self.handoffBusy = false
                     appState.setSession(sessionId: response.sessionId)
                 } catch {
@@ -678,6 +813,13 @@ enum WorkspaceMode {
 enum ProviderConfigMode {
     case create
     case update
+}
+
+enum SessionConfigAuthMode {
+    case keep
+    case none
+    case ssh
+    case http
 }
 
 enum ProviderAuthType {

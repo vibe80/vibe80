@@ -174,6 +174,7 @@ struct WorktreeMenuView: View {
 
 struct CreateWorktreeSheetView: View {
     let currentProvider: LLMProvider
+    let availableProviders: [LLMProvider]
     let worktrees: [Worktree]
     let isCreating: Bool
     let onCreate: (
@@ -198,6 +199,14 @@ struct CreateWorktreeSheetView: View {
     @State private var internetAccess = true
     @State private var denyGitCredentialsAccess = true
     @State private var selectedColor = Worktree.companion.COLORS.first ?? "#4CAF50"
+
+    private var effectiveProviderOptions: [LLMProvider] {
+        availableProviders.isEmpty ? [currentProvider] : availableProviders
+    }
+
+    private var constrainedProvider: LLMProvider {
+        effectiveProviderOptions.first ?? currentProvider
+    }
     
     private var availableSourceWorktrees: [Worktree] {
         if worktrees.isEmpty {
@@ -254,11 +263,13 @@ struct CreateWorktreeSheetView: View {
                     .pickerStyle(.segmented)
                 }
 
-                if selectedContext == "new" {
+                if selectedContext == "new", effectiveProviderOptions.count > 1 {
                     Section("provider.label") {
                         Picker("provider.label", selection: $selectedProvider) {
-                            Text("provider.codex").tag(LLMProvider.codex)
-                            Text("provider.claude").tag(LLMProvider.claude)
+                            ForEach(effectiveProviderOptions, id: \.name) { provider in
+                                Text(provider == .codex ? "provider.codex" : "provider.claude")
+                                    .tag(provider)
+                            }
                         }
                         .pickerStyle(.segmented)
                     }
@@ -304,7 +315,7 @@ struct CreateWorktreeSheetView: View {
                     Button {
                         onCreate(
                             name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : name.trimmingCharacters(in: .whitespacesAndNewlines),
-                            selectedProvider,
+                            (selectedContext == "new" && effectiveProviderOptions.count > 1) ? selectedProvider : constrainedProvider,
                             sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : sourceBranch.trimmingCharacters(in: .whitespacesAndNewlines),
                             nil,
                             nil,
@@ -326,7 +337,9 @@ struct CreateWorktreeSheetView: View {
                 }
             }
             .onAppear {
-                selectedProvider = currentProvider
+                selectedProvider = effectiveProviderOptions.contains(currentProvider)
+                    ? currentProvider
+                    : constrainedProvider
                 if !availableSourceWorktrees.contains(where: { $0.id == selectedSourceWorktree }) {
                     selectedSourceWorktree = availableSourceWorktrees.first(where: { $0.id == "main" })?.id
                         ?? availableSourceWorktrees.first?.id
@@ -465,6 +478,7 @@ extension Color {
 #Preview("Create Worktree") {
     CreateWorktreeSheetView(
         currentProvider: .codex,
+        availableProviders: [.codex, .claude],
         worktrees: [
             Worktree(id: "main", name: "main", branchName: "main", provider: .codex, status: .ready, color: "#4CAF50", parentId: nil, createdAt: 0),
         ],

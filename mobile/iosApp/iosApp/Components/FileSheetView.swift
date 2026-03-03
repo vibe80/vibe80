@@ -48,13 +48,22 @@ struct FileSheetView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ScrollView([.horizontal, .vertical]) {
-                        Text(verbatim: content)
-                            .font(.vibe80SpaceMono(.caption1))
-                            .foregroundColor(.vibe80Ink)
-                            .textSelection(.enabled)
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    GeometryReader { geometry in
+                        ScrollView([.horizontal, .vertical]) {
+                            Text(verbatim: content)
+                                .font(.vibe80SpaceMono(.caption1))
+                                .foregroundColor(.vibe80Ink)
+                                .textSelection(.enabled)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(
+                                    minWidth: geometry.size.width,
+                                    minHeight: geometry.size.height,
+                                    alignment: .topLeading
+                                )
+                                .padding(12)
+                        }
                     }
                 }
             }
@@ -62,13 +71,6 @@ struct FileSheetView: View {
             .navigationTitle(fileName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Text(path)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 12) {
                         if isTruncated {

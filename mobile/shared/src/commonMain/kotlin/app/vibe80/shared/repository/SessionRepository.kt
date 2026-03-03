@@ -195,6 +195,7 @@ class SessionRepository(
                     )
                     return@onSuccess
                 }
+                updateMainAppServerReadyFromStatus(snapshot.status)
                 _messages.value = snapshot.messages
             }
             .onFailure {
@@ -900,6 +901,30 @@ class SessionRepository(
     }
 
     @Throws(Throwable::class)
+    suspend fun updateSession(sessionId: String, request: SessionUpdateRequest): Result<Unit> {
+        val result = apiClient.updateSession(sessionId, request)
+        result.onFailure { handleApiFailure(it, "updateSession") }
+        return result
+    }
+
+    @Throws(Throwable::class)
+    suspend fun updateSessionOrThrow(sessionId: String, request: SessionUpdateRequest) {
+        updateSession(sessionId, request).getOrElse { throw it }
+    }
+
+    @Throws(Throwable::class)
+    suspend fun deleteSession(sessionId: String): Result<Unit> {
+        val result = apiClient.deleteSession(sessionId)
+        result.onFailure { handleApiFailure(it, "deleteSession") }
+        return result
+    }
+
+    @Throws(Throwable::class)
+    suspend fun deleteSessionOrThrow(sessionId: String) {
+        deleteSession(sessionId).getOrElse { throw it }
+    }
+
+    @Throws(Throwable::class)
     suspend fun sendMessage(text: String, attachments: List<Attachment> = emptyList()) {
         AppLogger.info(LogSource.APP, "SessionRepository.sendMessage called", "text='$text', attachments=${attachments.size}, connectionState=${connectionState.value}")
 
@@ -1080,6 +1105,7 @@ class SessionRepository(
                     // Ignore stale response if user switched tab while request was in flight.
                     if (_activeWorktreeId.value != worktreeId) return@onSuccess
                     if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        updateMainAppServerReadyFromStatus(snapshot.status)
                         if (snapshot.messages.isNotEmpty() || _messages.value.isEmpty()) {
                             _messages.value = snapshot.messages
                         } else {
@@ -1115,6 +1141,11 @@ class SessionRepository(
                 }
                 .onFailure { handleApiFailure(it, "getWorktree") }
         }
+    }
+
+    private fun updateMainAppServerReadyFromStatus(status: WorktreeStatus?) {
+        if (status == null) return
+        _sessionState.update { it?.copy(appServerReady = status == WorktreeStatus.READY) }
     }
 
     @Throws(Throwable::class)

@@ -10,8 +10,18 @@ struct SessionView: View {
     @State private var showWorkspaceSecret = false
     @State private var showHttpPassword = false
     @State private var showProviderSecrets = false
-    @State private var showAuthJsonPicker = false
+    @State private var activeFileImportTarget: FileImportTarget?
+    @State private var showFileImporter: Bool = false
     @State private var showLogsSheet = false
+    @State private var sessionConfigTargetId: String?
+    @State private var sessionConfigAuthMode: SessionConfigAuthMode = .keep
+    @State private var sessionConfigSshKey: String = ""
+    @State private var sessionConfigHttpUsername: String = ""
+    @State private var sessionConfigHttpPassword: String = ""
+    @State private var showSessionConfigSshKeyImporter: Bool = false
+    @State private var sessionConfigInternetAccess: Bool = true
+    @State private var sessionConfigDenyGitCredentialsAccess: Bool = true
+    @State private var deleteSessionTarget: SessionSummary?
 
     var body: some View {
         NavigationStack {
@@ -38,13 +48,23 @@ struct SessionView: View {
             .navigationBarHidden(true)
         }
         .fileImporter(
-            isPresented: $showAuthJsonPicker,
-            allowedContentTypes: [.json, .plainText]
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.json, .plainText, .text, .utf8PlainText, .data]
         ) { result in
-            guard case let .success(url) = result else { return }
-            if let data = try? Data(contentsOf: url),
-               let content = String(data: data, encoding: .utf8) {
+            defer { activeFileImportTarget = nil }
+            guard
+                case let .success(url) = result,
+                let data = try? Data(contentsOf: url),
+                let content = String(data: data, encoding: .utf8)
+            else { return }
+
+            switch activeFileImportTarget {
+            case .authJson:
                 viewModel.updateProviderAuthValue("codex", authValue: content)
+            case .sshKeyStartSession:
+                viewModel.sshKey = content
+            case .none:
+                break
             }
         }
         .sheet(isPresented: $showLogsSheet) {
@@ -56,6 +76,45 @@ struct SessionView: View {
                 .presentationDetents([.large])
             }
         }
+        .sheet(isPresented: Binding(
+            get: { sessionConfigTargetId != nil },
+            set: { if !$0 { sessionConfigTargetId = nil } }
+        )) {
+            if let target = sessionConfigTarget {
+                sessionConfigSheet(target)
+                    .presentationDetents([.large])
+            }
+        }
+        .alert(
+            "session.delete.confirm.title",
+            isPresented: Binding(
+                get: { deleteSessionTarget != nil },
+                set: { if !$0 { deleteSessionTarget = nil } }
+            ),
+            actions: {
+                Button("action.cancel", role: .cancel) {
+                    deleteSessionTarget = nil
+                }
+                Button("action.delete", role: .destructive) {
+                    guard let target = deleteSessionTarget else { return }
+                    viewModel.deleteWorkspaceSession(
+                        sessionId: target.sessionId,
+                        appState: appState
+                    )
+                    deleteSessionTarget = nil
+                }
+            },
+            message: {
+                if let target = deleteSessionTarget {
+                    Text(
+                        String(
+                            format: NSLocalizedString("session.delete.confirm.message", comment: ""),
+                            repoShortName(from: target.repoUrl) ?? target.sessionId
+                        )
+                    )
+                }
+            }
+        )
     }
 
     private var workspaceModeSelection: some View {
@@ -66,23 +125,35 @@ struct SessionView: View {
                     subtitle: "welcome.subtitle"
                 )
 
-                Button("workspace.create") {
-                    viewModel.selectWorkspaceMode(.new)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
+                VStack(spacing: 12) {
+                    workspaceActionCard(
+                        title: "workspace.resume.desktop",
+                        subtitle: "welcome.resume.subtitle",
+                        icon: "desktopcomputer",
+                        emphasized: true
+                    ) {
+                        viewModel.openQrScan()
+                    }
 
-                Button("workspace.join") {
-                    viewModel.selectWorkspaceMode(.existing)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
+                    workspaceActionCard(
+                        title: "workspace.create",
+                        subtitle: "welcome.create.subtitle",
+                        icon: "sparkles",
+                        emphasized: false
+                    ) {
+                        viewModel.selectWorkspaceMode(.new)
+                    }
 
-                Button("workspace.resume.desktop") {
-                    viewModel.openQrScan()
+                    workspaceActionCard(
+                        title: "workspace.join",
+                        subtitle: "welcome.join.subtitle",
+                        icon: "point.3.connected.trianglepath.dotted",
+                        emphasized: false
+                    ) {
+                        viewModel.selectWorkspaceMode(.existing)
+                    }
                 }
-                .buttonStyle(.bordered)
-                .tint(.vibe80AccentDark)
+                .vibe80CardStyle()
 
                 if appState.logsButtonEnabled {
                     Button {
@@ -98,11 +169,58 @@ struct SessionView: View {
         }
     }
 
+    private func workspaceActionCard(
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey,
+        icon: String,
+        emphasized: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(emphasized ? Color.vibe80Accent.opacity(0.18) : Color.vibe80Background)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: icon)
+                        .foregroundColor(emphasized ? .vibe80Accent : .vibe80InkMuted)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.vibe80Ink)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(.vibe80InkMuted)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(.vibe80InkMuted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .background(emphasized ? Color(red: 1.0, green: 0.97, blue: 0.93) : Color.vibe80SurfaceElevated)
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.vibe80InkMuted.opacity(0.12), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     private var workspaceCredentials: some View {
         ScrollView {
             VStack(spacing: 20) {
                 backButton { viewModel.openWorkspaceModeSelection() }
-                vibe80Header(title: "workspace.credentials.title")
+                vibe80Header(
+                    title: "workspace.credentials.title",
+                    subtitle: "workspace.credentials.subtitle.new"
+                )
 
                 VStack(spacing: 12) {
                     Vibe80TextField(
@@ -122,12 +240,34 @@ struct SessionView: View {
                         .foregroundColor(.red)
                 }
 
-                Button(viewModel.workspaceBusy ? "workspace.connecting" : "action.continue") {
+                Button {
                     viewModel.submitWorkspaceCredentials(appState: appState)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "lock.fill")
+                            .font(.headline.weight(.semibold))
+                        Text(viewModel.workspaceBusy ? "workspace.connecting" : "workspace.join.action")
+                            .font(.headline.weight(.bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 1.0, green: 0.42, blue: 0.15), Color(red: 1.0, green: 0.31, blue: 0.13)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(22)
+                    .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
+                .buttonStyle(.plain)
                 .disabled(viewModel.workspaceBusy)
+
+                Link("workspace.help.contact", destination: URL(string: "https://vibe80.io/contact")!)
+                    .font(.footnote)
+                    .foregroundColor(.vibe80InkMuted)
             }
             .padding(24)
         }
@@ -163,11 +303,29 @@ struct SessionView: View {
                         .foregroundColor(.red)
                 }
 
-                Button(viewModel.workspaceBusy ? "providers.config.loading" : "action.continue") {
+                Button {
                     viewModel.submitProviderConfig(appState: appState)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.headline.weight(.semibold))
+                        Text(viewModel.workspaceBusy ? "providers.config.loading" : "action.continue")
+                            .font(.headline.weight(.bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 1.0, green: 0.42, blue: 0.15), Color(red: 1.0, green: 0.31, blue: 0.13)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(22)
+                    .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
+                .buttonStyle(.plain)
                 .disabled(viewModel.workspaceBusy)
 
                 Link(
@@ -216,29 +374,45 @@ struct SessionView: View {
     private var joinSession: some View {
         ScrollView {
             VStack(spacing: 20) {
-                vibe80Header(title: "session.join.title")
+                HStack(alignment: .top) {
+                    sessionGateLogo
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Button("session.start.new") {
+                Button {
                     viewModel.openStartSession()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "play.fill")
+                            .font(.headline.weight(.semibold))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("session.start.new")
+                                .font(.title3.weight(.bold))
+                        }
+                        Spacer()
+                    }
+                    .foregroundColor(.white)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 1.0, green: 0.42, blue: 0.15), Color(red: 1.0, green: 0.31, blue: 0.13)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(22)
+                    .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
-
-                Button("providers.reconfigure") {
-                    viewModel.openProviderConfigForUpdate()
-                }
-                .buttonStyle(.bordered)
-                .tint(.vibe80AccentDark)
-
-                Button("workspace.leave", role: .destructive) {
-                    viewModel.leaveWorkspace(appState: appState)
-                }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
 
                 // Workspace sessions list (P2.4)
                 VStack(alignment: .leading, spacing: 12) {
                     Text("sessions.recent")
                         .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     if viewModel.sessionsLoading {
                         HStack {
@@ -281,6 +455,7 @@ struct SessionView: View {
                     } else {
                         Text("session.saved.empty")
                             .foregroundColor(.vibe80InkMuted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if let error = viewModel.sessionsError {
@@ -289,6 +464,17 @@ struct SessionView: View {
                             .foregroundColor(.orange)
                     }
                 }
+
+                VStack(spacing: 0) {
+                    sessionMenuRow(
+                        title: "workspace.leave",
+                        icon: "rectangle.portrait.and.arrow.right",
+                        tint: .red
+                    ) {
+                        viewModel.leaveWorkspace(appState: appState)
+                    }
+                }
+                .vibe80CardStyle()
 
                 if let error = viewModel.sessionError {
                     Text(error)
@@ -300,6 +486,35 @@ struct SessionView: View {
         .onAppear {
             viewModel.loadWorkspaceSessions(appState: appState)
         }
+    }
+
+    private func sessionMenuRow(
+        title: LocalizedStringKey,
+        icon: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundColor(tint)
+                    .frame(width: 20)
+
+                Text(title)
+                    .font(.body.weight(.medium))
+                    .foregroundColor(tint)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(.vibe80InkMuted)
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func sessionCard(_ session: SessionSummary) -> some View {
@@ -350,10 +565,148 @@ struct SessionView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.vibe80Accent)
                 .controlSize(.small)
-                .disabled(viewModel.isLoading)
+                .disabled(viewModel.isLoading || viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
+
+                Menu {
+                    Button("session.config.button") {
+                        openSessionConfig(session)
+                    }
+
+                    Button("action.delete", role: .destructive) {
+                        deleteSessionTarget = session
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                        .foregroundColor(.vibe80InkMuted)
+                }
+                .disabled(viewModel.sessionUpdatingId != nil || viewModel.sessionDeletingId != nil)
             }
         }
         .vibe80CardStyle()
+    }
+
+    private var sessionConfigTarget: SessionSummary? {
+        guard let sessionConfigTargetId else { return nil }
+        return viewModel.workspaceSessions.first { $0.sessionId == sessionConfigTargetId }
+    }
+
+    private func boolFromKotlin(_ value: KotlinBoolean?) -> Bool? {
+        value?.boolValue
+    }
+
+    private func boolFromKotlin(_ value: Bool?) -> Bool? {
+        value
+    }
+
+    private func openSessionConfig(_ session: SessionSummary) {
+        sessionConfigTargetId = session.sessionId
+        sessionConfigAuthMode = .keep
+        sessionConfigSshKey = ""
+        sessionConfigHttpUsername = ""
+        sessionConfigHttpPassword = ""
+        showSessionConfigSshKeyImporter = false
+        sessionConfigInternetAccess = boolFromKotlin(session.defaultInternetAccess) ?? true
+        sessionConfigDenyGitCredentialsAccess =
+            boolFromKotlin(session.defaultDenyGitCredentialsAccess) ?? true
+    }
+
+    @ViewBuilder
+    private func sessionConfigSheet(_ session: SessionSummary) -> some View {
+        NavigationStack {
+            Form {
+                Section("session.config.auth.section") {
+                    Picker("session.config.auth.mode", selection: $sessionConfigAuthMode) {
+                        Text("session.config.auth.keep").tag(SessionConfigAuthMode.keep)
+                        Text("session.config.auth.none").tag(SessionConfigAuthMode.none)
+                        Text("auth.ssh").tag(SessionConfigAuthMode.ssh)
+                        Text("auth.http").tag(SessionConfigAuthMode.http)
+                    }
+                    .pickerStyle(.menu)
+
+                    if sessionConfigAuthMode == .ssh {
+                        Button("auth.ssh.import_key") {
+                            showSessionConfigSshKeyImporter = true
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.vibe80AccentDark)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: sessionConfigSshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "doc" : "checkmark.circle.fill")
+                                .foregroundColor(sessionConfigSshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .vibe80InkMuted : .green)
+                            Text(sessionConfigSshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                 ? "auth.ssh.key_not_selected"
+                                 : "auth.ssh.key_selected")
+                                .foregroundColor(.vibe80InkMuted)
+                                .font(.footnote)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if sessionConfigAuthMode == .http {
+                        Vibe80TextField(title: "auth.http.username", text: $sessionConfigHttpUsername)
+                        Vibe80SecureField(
+                            title: "auth.http.password",
+                            text: $sessionConfigHttpPassword,
+                            isRevealed: $showHttpPassword
+                        )
+                    }
+                }
+
+                Section("session.config.permissions.section") {
+                    Toggle("worktree.internet_access.label", isOn: $sessionConfigInternetAccess)
+                    Toggle("worktree.deny_git_credentials.label", isOn: $sessionConfigDenyGitCredentialsAccess)
+                        .disabled(!sessionConfigInternetAccess)
+                }
+
+                if let error = viewModel.sessionsError {
+                    Section {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundColor(.orange)
+                    }
+                }
+            }
+            .navigationTitle("session.config.title")
+            .navigationBarTitleDisplayMode(.inline)
+            .fileImporter(
+                isPresented: $showSessionConfigSshKeyImporter,
+                allowedContentTypes: [.json, .plainText, .text, .utf8PlainText, .data]
+            ) { result in
+                guard
+                    case let .success(url) = result,
+                    let data = try? Data(contentsOf: url),
+                    let content = String(data: data, encoding: .utf8)
+                else { return }
+                sessionConfigSshKey = content
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("action.cancel") {
+                        sessionConfigTargetId = nil
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("session.config.save") {
+                        viewModel.updateWorkspaceSessionConfig(
+                            sessionId: session.sessionId,
+                            originalInternetAccess: boolFromKotlin(session.defaultInternetAccess) ?? true,
+                            originalDenyGitCredentialsAccess: boolFromKotlin(session.defaultDenyGitCredentialsAccess) ?? true,
+                            internetAccess: sessionConfigInternetAccess,
+                            denyGitCredentialsAccess: sessionConfigDenyGitCredentialsAccess,
+                            authMode: sessionConfigAuthMode,
+                            sshPrivateKey: sessionConfigSshKey,
+                            httpUsername: sessionConfigHttpUsername,
+                            httpPassword: sessionConfigHttpPassword,
+                            appState: appState
+                        ) {
+                            sessionConfigTargetId = nil
+                        }
+                    }
+                    .disabled(viewModel.sessionUpdatingId == session.sessionId)
+                }
+            }
+        }
     }
 
     private func repoShortName(from repoUrl: String?) -> String? {
@@ -382,35 +735,115 @@ struct SessionView: View {
         ScrollView {
             VStack(spacing: 20) {
                 backButton { viewModel.backToJoinSession() }
-                vibe80Header(title: "session.start.title")
-
-                VStack(spacing: 12) {
-                    Vibe80TextField(title: "repo.url.label", text: $viewModel.repoUrl)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("New session")
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundColor(.vibe80Ink)
+                    Text("Connect a Git repository to spin up your vibecoding work.")
+                        .font(.body)
+                        .foregroundColor(.vibe80InkMuted)
                 }
-                .vibe80CardStyle()
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("auth.title")
-                        .font(.headline)
-                    Picker("auth.method.label", selection: $viewModel.authMethod) {
-                        Text("auth.none").tag(AuthMethod.none)
-                        Text("auth.http").tag(AuthMethod.http)
-                        Text("auth.ssh").tag(AuthMethod.ssh)
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "diamond.fill")
+                                .foregroundColor(.vibe80Accent)
+                            Text("Repository")
+                                .font(.title3.weight(.semibold))
+                                .foregroundColor(.vibe80Ink)
+                        }
+
+                        HStack(spacing: 8) {
+                            TextField(
+                                "",
+                                text: $viewModel.repoUrl,
+                                prompt: Text("https://github.com/org/project")
+                                    .foregroundColor(.vibe80InkMuted)
+                            )
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled(true)
+                                .textInputAutocapitalization(.never)
+                                .keyboardType(.URL)
+                        }
                     }
-                    .pickerStyle(.segmented)
 
-                    if viewModel.authMethod == .ssh {
-                        Vibe80TextEditor(title: "auth.ssh.key", text: $viewModel.sshKey)
-                    }
+                    Divider()
 
-                    if viewModel.authMethod == .http {
-                        Vibe80TextField(title: "auth.http.username", text: $viewModel.httpUser)
-                        Vibe80SecureField(
-                            title: "auth.http.password",
-                            text: $viewModel.httpPassword,
-                            isRevealed: $showHttpPassword
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Authentication method")
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(.vibe80Ink)
+
+                        VStack(spacing: 0) {
+                            authOptionRow("No authentication", method: .none)
+                            Divider().padding(.leading, 36)
+                            authOptionRow("HTTPS (username + token)", method: .http)
+                            Divider().padding(.leading, 36)
+                            authOptionRow("SSH key", method: .ssh)
+                        }
+                        .background(Color.vibe80SurfaceElevated)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.vibe80InkMuted.opacity(0.15), lineWidth: 1)
                         )
+
+                        if viewModel.authMethod == .ssh {
+                            Button("auth.ssh.import_key") {
+                                activeFileImportTarget = .sshKeyStartSession
+                                showFileImporter = true
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.vibe80AccentDark)
+
+                            HStack(spacing: 8) {
+                                Image(systemName: viewModel.sshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "doc" : "checkmark.circle.fill")
+                                    .foregroundColor(viewModel.sshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .vibe80InkMuted : .green)
+                                Text(viewModel.sshKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                     ? "auth.ssh.key_not_selected"
+                                     : "auth.ssh.key_selected")
+                                    .foregroundColor(.vibe80InkMuted)
+                                    .font(.footnote)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        if viewModel.authMethod == .http {
+                            Vibe80TextField(title: "auth.http.username", text: $viewModel.httpUser)
+                            Vibe80SecureField(
+                                title: "auth.http.password",
+                                text: $viewModel.httpPassword,
+                                isRevealed: $showHttpPassword
+                            )
+                        }
                     }
+
+                    Button {
+                        viewModel.createSession(appState: appState)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "play.fill")
+                                .font(.headline.weight(.semibold))
+                            Text("Launch session")
+                                .font(.headline.weight(.bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 1.0, green: 0.42, blue: 0.15), Color(red: 1.0, green: 0.31, blue: 0.13)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .cornerRadius(22)
+                        .shadow(color: Color.black.opacity(0.18), radius: 10, y: 5)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.isLoading)
                 }
                 .vibe80CardStyle()
 
@@ -418,16 +851,27 @@ struct SessionView: View {
                     Text(error)
                         .foregroundColor(.red)
                 }
-
-                Button(viewModel.isLoading ? "session.start.loading" : "action.continue") {
-                    viewModel.createSession(appState: appState)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.vibe80Accent)
-                .disabled(viewModel.isLoading)
             }
             .padding(24)
         }
+    }
+
+    private func authOptionRow(_ title: String, method: AuthMethod) -> some View {
+        Button {
+            viewModel.authMethod = method
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: viewModel.authMethod == method ? "record.circle.fill" : "circle")
+                    .foregroundColor(viewModel.authMethod == method ? .vibe80Accent : .vibe80InkMuted)
+                Text(title)
+                    .foregroundColor(.vibe80Ink)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func providerCard(
@@ -471,7 +915,8 @@ struct SessionView: View {
 
                 if effectiveAuthType == .authJsonB64 && supportsAuthJson {
                     Button("provider.auth.import_auth_json") {
-                        showAuthJsonPicker = true
+                        activeFileImportTarget = .authJson
+                        showFileImporter = true
                     }
                     .buttonStyle(.bordered)
                     .tint(.vibe80AccentDark)
@@ -636,6 +1081,13 @@ private struct Vibe80TextEditor: View {
                 .keyboardType(.asciiCapable)
         }
     }
+}
+
+private enum FileImportTarget: String, Identifiable {
+    case authJson
+    case sshKeyStartSession
+
+    var id: String { rawValue }
 }
 
 #Preview {

@@ -26,6 +26,10 @@ struct ComposerView: View {
     @State private var cameraImage: UIImage?
     @FocusState private var isFocused: Bool
 
+    private var isComposerInputEnabled: Bool {
+        canInteract && !isUploading
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Divider()
@@ -104,10 +108,11 @@ struct ComposerView: View {
                         }
                     }
                     .font(.title3)
-                    .foregroundColor(.vibe80Accent)
+                    .foregroundColor(isComposerInputEnabled ? .vibe80Accent : .vibe80InkMuted)
                     .frame(width: 28, height: 28)
+                    .opacity(isComposerInputEnabled ? 1 : 0.45)
                 }
-                .disabled(!canInteract || isUploading)
+                .disabled(!isComposerInputEnabled)
 
                 TextField("composer.message.placeholder", text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
@@ -118,7 +123,7 @@ struct ComposerView: View {
                     .padding(.vertical, 4)
                     .background(Color.vibe80SurfaceElevated)
                     .cornerRadius(16)
-                    .disabled(!canInteract || isUploading)
+                    .disabled(!isComposerInputEnabled)
 
                 Button(action: sendMessage) {
                     Image(systemName: isLoading ? "stop.fill" : "arrow.up.circle.fill")
