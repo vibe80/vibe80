@@ -17,6 +17,17 @@ val hasReleaseSigningEnv =
     !androidKeyAlias.isNullOrBlank() &&
     !androidKeyPassword.isNullOrBlank()
 
+val isAndroidReleaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
+    val lower = taskName.lowercase()
+    lower.contains("release") &&
+        (
+            lower.contains(":androidapp:") ||
+                lower.contains("assemble") ||
+                lower.contains("bundle") ||
+                lower.contains("package")
+            )
+}
+
 android {
     namespace = "app.vibe80.android"
     compileSdk = 35
@@ -51,7 +62,7 @@ android {
             isShrinkResources = true
             if (hasReleaseSigningEnv) {
                 signingConfig = signingConfigs.getByName("release")
-            } else if (gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }) {
+            } else if (isAndroidReleaseBuildRequested) {
                 throw GradleException(
                     "Release signing is not configured. Missing one or more env vars: " +
                         "ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD."
