@@ -1,0 +1,52 @@
+name: iOS Release
+ 
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+ 
+permissions:
+  contents: read
+ 
+jobs:
+  publish_ios:
+    runs-on: macos-14
+ 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+ 
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+ 
+      - name: Make iOS publish script executable
+        run: chmod +x mobile/ci_publish_ios.sh
+ 
+      - name: Build + sign + upload iOS app
+        working-directory: mobile
+        env:
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          IOS_CERT_P12_B64: ${{ secrets.IOS_CERT_P12_B64 }}
+          IOS_CERT_P12_PASSWORD: ${{ secrets.IOS_CERT_P12_PASSWORD }}
+          IOS_PROFILE_B64: ${{ secrets.IOS_PROFILE_B64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_B64: ${{ secrets.ASC_KEY_P8_B64 }}
+          ASC_UPLOAD_KEY_ID: ${{ secrets.ASC_UPLOAD_KEY_ID }}
+          ASC_UPLOAD_ISSUER_ID: ${{ secrets.ASC_UPLOAD_ISSUER_ID }}
+          ASC_UPLOAD_KEY_P8_B64: ${{ secrets.ASC_UPLOAD_KEY_P8_B64 }}
+        run: ./ci_publish_ios.sh
+ 
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe80-ios-${{ github.ref_name }}
+          path: mobile/build/appstore/export/*.ipa
+          if-no-files-found: ignore
