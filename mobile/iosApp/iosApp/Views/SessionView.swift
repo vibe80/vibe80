@@ -756,7 +756,12 @@ struct SessionView: View {
                         }
 
                         HStack(spacing: 8) {
-                            TextField("https://github.com/org/project", text: $viewModel.repoUrl)
+                            TextField(
+                                "",
+                                text: $viewModel.repoUrl,
+                                prompt: Text("https://github.com/org/project")
+                                    .foregroundColor(.vibe80InkMuted)
+                            )
                                 .textFieldStyle(.roundedBorder)
                                 .autocorrectionDisabled(true)
                                 .textInputAutocapitalization(.never)
