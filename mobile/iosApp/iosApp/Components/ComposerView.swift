@@ -121,13 +121,8 @@ struct ComposerView: View {
                     .focused($isFocused)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
-                    .background(isComposerInputEnabled ? Color.vibe80SurfaceElevated : Color.vibe80BackgroundStrong)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(isComposerInputEnabled ? Color.clear : Color.vibe80InkMuted.opacity(0.45), lineWidth: 1)
-                    )
+                    .background(Color.vibe80SurfaceElevated)
                     .cornerRadius(16)
-                    .opacity(isComposerInputEnabled ? 1 : 0.7)
                     .disabled(!isComposerInputEnabled)
 
                 Button(action: sendMessage) {
