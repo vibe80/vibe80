@@ -139,6 +139,7 @@
 "session.saved.placeholder" = "Saved session";
 "session.error.repo_url_required" = "Repository URL is required.";
 "session.error.git_credentials_invalid" = "Unable to access this repository. Please verify your Git credentials (SSH key or HTTPS token).";
+"session.error.repository_not_found" = "Repository not found. Please verify the repository URL and that the repository exists and is accessible.";
 "session.config.button" = "Config";
 "session.config.title" = "Session configuration";
 "session.config.save" = "Save";

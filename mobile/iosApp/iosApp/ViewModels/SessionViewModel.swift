@@ -102,6 +102,9 @@ class SessionViewModel: ObservableObject {
         if lowered.contains("status: 403") && lowered.contains("/api/v1/sessions") {
             return NSLocalizedString("session.error.git_credentials_invalid", comment: "")
         }
+        if lowered.contains("status: 404") && lowered.contains("/api/v1/sessions") {
+            return NSLocalizedString("session.error.repository_not_found", comment: "")
+        }
         return debugErrorDetails("createSession", error)
     }
 

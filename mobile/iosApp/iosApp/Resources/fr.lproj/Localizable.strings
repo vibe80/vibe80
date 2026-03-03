@@ -139,6 +139,7 @@
 "session.saved.placeholder" = "Session sauvegardée";
 "session.error.repo_url_required" = "L'URL du repository est requise.";
 "session.error.git_credentials_invalid" = "Impossible d'accéder à ce repository. Vérifiez vos identifiants Git (clé SSH ou token HTTPS).";
+"session.error.repository_not_found" = "Dépôt introuvable. Vérifiez l’URL du dépôt, et qu’il existe et est accessible.";
 "session.config.button" = "Config";
 "session.config.title" = "Configuration de session";
 "session.config.save" = "Enregistrer";
