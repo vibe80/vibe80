@@ -486,13 +486,14 @@ class ChatViewModel: ObservableObject {
         if activeActionMode != .llm {
             guard !trimmedText.isEmpty else { return }
             let worktreeId = activeWorktreeId
+            let actionMode = activeActionMode
             actionModeByWorktree[worktreeId] = .llm
-            if activeActionMode == .git && trimmedText == logsUnlockCommand {
+            if actionMode == .git && trimmedText == logsUnlockCommand {
                 logsButtonEnabled = true
                 appState?.logsButtonEnabled = true
                 return
             }
-            let request = activeActionMode == .git ? "git" : "run"
+            let request = actionMode == .git ? "git" : "run"
             Task {
                 do {
                     try await repository.sendActionRequest(
