@@ -109,6 +109,13 @@ struct MessageRow: View {
         return !cleanedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var shouldShowTimestamp: Bool {
+        guard message != nil else { return false }
+        if isToolOrCommand { return false }
+        if taskLabel != nil { return false }
+        return true
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             if isUser {
@@ -178,7 +185,7 @@ struct MessageRow: View {
                 }
 
                 // Timestamp
-                if let timestamp = message?.timestamp, timestamp > 0 {
+                if shouldShowTimestamp, let timestamp = message?.timestamp, timestamp > 0 {
                     Text(formatTimestamp(timestamp))
                         .font(.caption2)
                         .foregroundColor(.secondary)
