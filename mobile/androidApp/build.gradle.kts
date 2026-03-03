@@ -49,6 +49,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             if (hasReleaseSigningEnv) {
                 signingConfig = signingConfigs.getByName("release")
             } else if (gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }) {
