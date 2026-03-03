@@ -173,13 +173,19 @@ jobs:
         with:
           name: vibe80-android-release-aab-${{ github.ref_name }}
           path: mobile/androidApp/build/outputs/bundle/release/*.aab
-      - name: Publish APK to GitHub Release
+      - name: Upload native debug symbols artifact (GitHub)
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibe80-android-release-symbols-${{ github.ref_name }}
+          path: mobile/androidApp/build/outputs/native-debug-symbols/release/*.zip
+      - name: Publish Android artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: |
             mobile/androidApp/build/outputs/apk/release/*.apk
             mobile/androidApp/build/outputs/bundle/release/*.aab
+            mobile/androidApp/build/outputs/native-debug-symbols/release/*.zip
           generate_release_notes: true
 
   publish_npm:
