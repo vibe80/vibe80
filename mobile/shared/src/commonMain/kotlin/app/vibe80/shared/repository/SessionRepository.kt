@@ -195,6 +195,7 @@ class SessionRepository(
                     )
                     return@onSuccess
                 }
+                updateMainAppServerReadyFromStatus(snapshot.status)
                 _messages.value = snapshot.messages
             }
             .onFailure {
@@ -1104,6 +1105,7 @@ class SessionRepository(
                     // Ignore stale response if user switched tab while request was in flight.
                     if (_activeWorktreeId.value != worktreeId) return@onSuccess
                     if (worktreeId == Worktree.MAIN_WORKTREE_ID) {
+                        updateMainAppServerReadyFromStatus(snapshot.status)
                         if (snapshot.messages.isNotEmpty() || _messages.value.isEmpty()) {
                             _messages.value = snapshot.messages
                         } else {
@@ -1139,6 +1141,11 @@ class SessionRepository(
                 }
                 .onFailure { handleApiFailure(it, "getWorktree") }
         }
+    }
+
+    private fun updateMainAppServerReadyFromStatus(status: WorktreeStatus?) {
+        if (status == null) return
+        _sessionState.update { it?.copy(appServerReady = status == WorktreeStatus.READY) }
     }
 
     @Throws(Throwable::class)
