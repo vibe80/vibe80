@@ -413,6 +413,7 @@ struct SessionView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("sessions.recent")
                         .font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     if viewModel.sessionsLoading {
                         HStack {
@@ -455,6 +456,7 @@ struct SessionView: View {
                     } else {
                         Text("session.saved.empty")
                             .foregroundColor(.vibe80InkMuted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if let error = viewModel.sessionsError {
