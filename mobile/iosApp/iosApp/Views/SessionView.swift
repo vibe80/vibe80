@@ -18,6 +18,7 @@ struct SessionView: View {
     @State private var sessionConfigSshKey: String = ""
     @State private var sessionConfigHttpUsername: String = ""
     @State private var sessionConfigHttpPassword: String = ""
+    @State private var showSessionConfigSshKeyImporter: Bool = false
     @State private var sessionConfigInternetAccess: Bool = true
     @State private var sessionConfigDenyGitCredentialsAccess: Bool = true
     @State private var deleteSessionTarget: SessionSummary?
@@ -62,8 +63,6 @@ struct SessionView: View {
                 viewModel.updateProviderAuthValue("codex", authValue: content)
             case .sshKeyStartSession:
                 viewModel.sshKey = content
-            case .sshKeySessionConfig:
-                sessionConfigSshKey = content
             case .none:
                 break
             }
@@ -606,6 +605,7 @@ struct SessionView: View {
         sessionConfigSshKey = ""
         sessionConfigHttpUsername = ""
         sessionConfigHttpPassword = ""
+        showSessionConfigSshKeyImporter = false
         sessionConfigInternetAccess = boolFromKotlin(session.defaultInternetAccess) ?? true
         sessionConfigDenyGitCredentialsAccess =
             boolFromKotlin(session.defaultDenyGitCredentialsAccess) ?? true
@@ -626,8 +626,7 @@ struct SessionView: View {
 
                     if sessionConfigAuthMode == .ssh {
                         Button("auth.ssh.import_key") {
-                            activeFileImportTarget = .sshKeySessionConfig
-                            showFileImporter = true
+                            showSessionConfigSshKeyImporter = true
                         }
                         .buttonStyle(.bordered)
                         .tint(.vibe80AccentDark)
@@ -670,6 +669,17 @@ struct SessionView: View {
             }
             .navigationTitle("session.config.title")
             .navigationBarTitleDisplayMode(.inline)
+            .fileImporter(
+                isPresented: $showSessionConfigSshKeyImporter,
+                allowedContentTypes: [.json, .plainText, .text, .utf8PlainText, .data]
+            ) { result in
+                guard
+                    case let .success(url) = result,
+                    let data = try? Data(contentsOf: url),
+                    let content = String(data: data, encoding: .utf8)
+                else { return }
+                sessionConfigSshKey = content
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("action.cancel") {
@@ -1071,7 +1081,6 @@ private struct Vibe80TextEditor: View {
 private enum FileImportTarget: String, Identifiable {
     case authJson
     case sshKeyStartSession
-    case sshKeySessionConfig
 
     var id: String { rawValue }
 }
